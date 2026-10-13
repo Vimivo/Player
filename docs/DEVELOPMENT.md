@@ -23,6 +23,8 @@ sdk.dir=/absolute/path/to/Android/sdk
 
 Room schemas are exported to `androidApp/schemas` and must be committed with schema changes. Storage instrumentation tests use an in-memory Room database. Test MediaStore and SAF behavior on API 26, 32, 33, 34+, and at least one removable-storage device/provider; use generated or legally redistributable media only.
 
+Playback instrumentation must additionally cover a real notification channel, lock screen, Bluetooth AVRCP controls, wired-headset unplug, phone-call focus loss, route changes, task removal, and process recreation on physical devices. `PlaybackServiceTest` validates the MediaController/session queue contract; these physical behaviors cannot be fully represented by host JVM tests.
+
 Configuration cache and parallel execution are enabled. CI should cache Gradle data but never commit `.gradle`, build outputs, signing material, or `local.properties`.
 
 ## Contributions

@@ -32,10 +32,16 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
     private val appContext = context.applicationContext
     private val libVlc = LibVLC(appContext, listOf("--no-stats"))
     private val mediaPlayer = MediaPlayer(libVlc)
-    private val audioFocus = VlcAudioFocusController(appContext) { pauseForFocusLoss() }
+    private val audioFocus = VlcAudioFocusController(
+        context = appContext,
+        onPause = ::pauseForFocusLoss,
+        onResume = ::resumeAfterTransientFocusLoss,
+        onDuck = ::setDucked,
+    )
     private val mutableState = MutableStateFlow(PlaybackState(engine = id))
     private var currentMedia: Media? = null
     private var pendingStartPositionMillis = 0L
+    private var volumeBeforeDuck = MAX_VLC_VOLUME
     private var released = false
     private var videoLayout: VLCVideoLayout? = null
     override val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
@@ -210,8 +216,24 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
         )
     }
 
-    private fun pauseForFocusLoss() {
-        if (!released && mediaPlayer.isPlaying) mediaPlayer.pause()
+    private fun pauseForFocusLoss(): Boolean {
+        val wasPlaying = !released && mediaPlayer.isPlaying
+        if (wasPlaying) mediaPlayer.pause()
+        return wasPlaying
+    }
+
+    private fun resumeAfterTransientFocusLoss() {
+        if (!released && !mediaPlayer.isPlaying && mutableState.value.media != null) mediaPlayer.play()
+    }
+
+    private fun setDucked(ducked: Boolean) {
+        if (released) return
+        if (ducked) {
+            volumeBeforeDuck = mediaPlayer.volume.coerceAtLeast(0)
+            mediaPlayer.setVolume((volumeBeforeDuck * DUCK_FACTOR).toInt())
+        } else {
+            mediaPlayer.setVolume(volumeBeforeDuck)
+        }
     }
 
     private fun command(block: () -> Unit): Result<Unit> = runCatching {
@@ -237,6 +259,7 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
 
     companion object {
         private const val MAX_VLC_VOLUME = 100
+        private const val DUCK_FACTOR = 0.2f
         private const val DISABLED_TRACK = -1
         val CAPABILITIES = EngineCapabilities(
             localAudio = true,
@@ -279,10 +302,23 @@ private fun Array<MediaPlayer.TrackDescription>?.toTrackInfo(type: TrackType, se
         )
     }
 
-private class VlcAudioFocusController(context: Context, private val onLoss: () -> Unit) {
+private class VlcAudioFocusController(
+    context: Context,
+    private val onPause: () -> Boolean,
+    private val onResume: () -> Unit,
+    private val onDuck: (Boolean) -> Unit,
+) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
+    private val policy = AudioFocusPolicy()
     private val listener = AudioManager.OnAudioFocusChangeListener { change ->
-        if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) onLoss()
+        val wasPlaying = if (change in setOf(AudioManager.AUDIOFOCUS_LOSS, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT)) {
+            onPause()
+        } else {
+            false
+        }
+        val action = policy.onChange(change, wasPlaying)
+        action.duck?.let(onDuck)
+        if (action.resume) onResume()
     }
     private val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
         .setAudioAttributes(

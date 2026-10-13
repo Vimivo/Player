@@ -1,5 +1,11 @@
 # Architecture decisions
 
+## ADR-000A: One MediaLibraryService playback authority
+
+**Decision:** Host one `MediaLibrarySession` in `VimivoPlaybackService`. Adapt the existing engine manager to Media3's `Player` contract instead of creating separate Media3 and LibVLC services.
+
+**Reason:** One session prevents simultaneous playback and duplicate system entries while preserving fallback compatibility. Media3 supplies notification, lock-screen, media-button, foreground-service, and browsing behavior. UI code communicates only through a `MediaController`. Persisted queue state restores paused after process death.
+
 ## ADR-000: Room-backed Android media index
 
 **Decision:** Use Room 2.8.5 behind common repository contracts. MediaStore remains authoritative for shared media; SAF is limited to user-selected URIs and trees. Store metadata and stable references, never full media copies.

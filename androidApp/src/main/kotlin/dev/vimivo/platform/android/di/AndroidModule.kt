@@ -15,9 +15,9 @@ import dev.vimivo.platform.android.library.MediaStoreScanner
 import dev.vimivo.platform.android.library.SafMediaScanner
 import dev.vimivo.platform.android.playback.LibVlcPlayerEngineFactory
 import dev.vimivo.platform.android.playback.Media3PlayerEngineFactory
+import dev.vimivo.platform.android.playback.PlaybackController
+import dev.vimivo.platform.android.playback.PlaybackStateStore
 import dev.vimivo.platform.android.settings.AndroidSettingsRepository
-import dev.vimivo.playback.EngineId
-import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,16 +42,9 @@ val androidModule = module {
     single<SettingsRepository> { AndroidSettingsRepository(get()) }
     single { Media3PlayerEngineFactory(get()) }
     single { LibVlcPlayerEngineFactory(get()) }
+    single { PlaybackStateStore(get()) }
+    single { PlaybackController(get()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
-    single {
-        PlaybackEngineManager(
-            factories = mapOf(
-                EngineId.MEDIA3 to get<Media3PlayerEngineFactory>(),
-                EngineId.LIBVLC to get<LibVlcPlayerEngineFactory>(),
-            ),
-            scope = get(),
-        )
-    }
     viewModel { HomeViewModel(get()) }
     viewModel { LibraryViewModel(get()) }
 }

@@ -36,7 +36,9 @@ View models expose immutable `StateFlow` values. Repositories expose streams and
 
 Automatic fallback is intentionally narrow: only unsupported-container, decoder-initialization, and decoding failures can move from Media3 to LibVLC. Missing files, permission failures, HTTP authorization/status failures, and general network failures do not fall back. Each engine can be attempted only once per open operation, preventing fallback loops.
 
-The current activity-hosted engines are a development foundation. A later foreground `MediaLibraryService` will own `PlaybackEngineManager`, MediaSession, notifications, and durable background playback without changing common contracts.
+`VimivoPlaybackService` is the sole `MediaLibraryService` and playback owner. It creates one service-scoped `PlaybackEngineManager` and exposes it through a `SessionPlayerAdapter`, so Media3 system controls work identically when Media3 or LibVLC is active. Activities and Compose code connect with `PlaybackController`; they never construct or retain a native engine.
+
+Media3 owns the foreground notification, lock-screen state, Bluetooth/headset commands, and controller arbitration. The adapter owns the authoritative queue, repeat/shuffle state, engine transitions, completion advancement, and persistence. Restored queues remain paused until an explicit user or system play command.
 
 ## Platform growth
 

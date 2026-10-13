@@ -2,6 +2,11 @@
 
 ## Foundation delivered
 
+- Single foreground `MediaLibraryService` with notification, lock-screen, Bluetooth, headset, and external controller support
+- Service-owned Media3/LibVLC engine lifecycle through one MediaSession-compatible adapter
+- Mutable queue operations, next/previous, repeat-one/all, shuffle, completion advancement, and paused process restoration
+- Audio focus, transient interruption resume, ducking, and noisy-route disconnection handling
+
 - Room-backed local library with indexed paging, search, favorites, history/resume, playlists, exclusions, and scan state
 - MediaStore discovery across available volumes plus optional persisted SAF file/folder imports
 - Permission-aware songs, albums, artists, genres, folders, videos, recently added, and recently watched views

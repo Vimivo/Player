@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.koin.android)
     implementation(libs.koin.compose.viewmodel)
+    implementation(libs.coroutines.guava)
     implementation(libs.media3.common)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)

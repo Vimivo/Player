@@ -33,7 +33,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,7 +49,7 @@ import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.library.LibraryViewModel
 import dev.vimivo.platform.android.library.MediaPermissionPolicy
 import dev.vimivo.platform.android.playback.ui.PlaybackDevelopmentScreen
-import dev.vimivo.playback.PlaybackEngineManager
+import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.ui.theme.VimivoTheme
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
@@ -59,7 +58,7 @@ private enum class DevelopmentDestination { LIBRARY, PLAYER }
 
 @Composable
 fun VimivoAndroidApp(
-    playback: PlaybackEngineManager,
+    playback: PlaybackController,
     thumbnails: AndroidThumbnailRepository,
     permissions: MediaPermissionPolicy,
 ) = VimivoTheme {
@@ -93,13 +92,12 @@ fun VimivoAndroidApp(
 
 @Composable
 private fun LibraryScreen(
-    playback: PlaybackEngineManager,
+    playback: PlaybackController,
     thumbnails: AndroidThumbnailRepository,
     permissionPolicy: MediaPermissionPolicy,
     viewModel: LibraryViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         viewModel.permissionsChanged()
@@ -175,9 +173,7 @@ private fun LibraryScreen(
                     thumbnails = thumbnails,
                     onFavorite = { viewModel.toggleFavorite(item) },
                     onPlay = {
-                        scope.launch {
-                            playback.open(item, item.lastPlaybackPositionMillis).onSuccess { playback.play() }
-                        }
+                        playback.play(item)
                     },
                 )
                 HorizontalDivider()
