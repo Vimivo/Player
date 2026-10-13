@@ -16,7 +16,13 @@ permissions, service (future)   playback contracts
 - `shared`: KMP module containing `core`, `domain`, `settings`, `playback`, `features`, and shared Compose UI. It currently declares only an Android target; adding native/desktop targets does not require moving common code.
 - `androidApp`: the Android entry point and Android-specific adapters under `platform/android`. Media engine dependencies live here so their types cannot leak into common code.
 
-Conceptual `data`, `database`, and feature boundaries remain packages until team size or build performance justifies extra Gradle modules. Playlist persistence will be introduced behind `PlaylistRepository`; SQLite/Room is not selected prematurely.
+Conceptual `data`, `database`, and feature boundaries remain packages until team size or build performance justifies extra Gradle modules. Android persistence uses Room behind shared repository contracts; no Room or Android type crosses into `commonMain`.
+
+## Local library architecture
+
+`AndroidMediaStoreRepository` coordinates permission-aware MediaStore scanning, persisted SAF grants, the Room index, and debounced content observation. `MediaStoreScanner` uses volume version/generation tokens for incremental work; `SafMediaScanner` handles only user-selected documents and trees. Both scan off the main thread, are cancellable, and write bounded batches.
+
+Room is the source for paged UI queries and categories. Its schema keeps stable URI-backed media references, metadata, favorites, history/resume positions, playlists, scan state, exclusions, and SAF grants. See [STORAGE.md](STORAGE.md) for the access and reconciliation policy.
 
 ## State and errors
 

@@ -21,6 +21,8 @@ sdk.dir=/absolute/path/to/Android/sdk
 ./gradlew :androidApp:connectedDebugAndroidTest  # requires a device/emulator
 ```
 
+Room schemas are exported to `androidApp/schemas` and must be committed with schema changes. Storage instrumentation tests use an in-memory Room database. Test MediaStore and SAF behavior on API 26, 32, 33, 34+, and at least one removable-storage device/provider; use generated or legally redistributable media only.
+
 Configuration cache and parallel execution are enabled. CI should cache Gradle data but never commit `.gradle`, build outputs, signing material, or `local.properties`.
 
 ## Contributions

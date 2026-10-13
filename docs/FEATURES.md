@@ -2,6 +2,11 @@
 
 ## Foundation delivered
 
+- Room-backed local library with indexed paging, search, favorites, history/resume, playlists, exclusions, and scan state
+- MediaStore discovery across available volumes plus optional persisted SAF file/folder imports
+- Permission-aware songs, albums, artists, genres, folders, videos, recently added, and recently watched views
+- Incremental observation, manual reconciliation, duplicate-safe upserts, and bounded thumbnail caching
+
 - Shared media, playlist, settings, playback state, error, capability, and engine models
 - Android MediaStore audio/video discovery adapter
 - Android DataStore settings persistence
@@ -14,7 +19,7 @@
 
 ## Planned
 
-- Contextual media permission UX and library indexing/search
+- Polished library permission UX and advanced library filtering
 - Media session, foreground playback service, notification, and persisted queue restoration
 - Now Playing, queues, shuffle/repeat, equalizer integration where supported
 - Playlist persistence and import/export

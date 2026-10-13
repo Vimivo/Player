@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.detekt)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 android {
@@ -47,17 +49,26 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.koin.android)
+    implementation(libs.koin.compose.viewmodel)
     implementation(libs.media3.common)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
     implementation(libs.media3.ui.compose)
     implementation(libs.media3.ui)
     implementation(libs.libvlc)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.documentfile)
+    ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.espresso)
+    androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.coroutines.test)
     detektPlugins(libs.detekt.formatting)
 }
+
+room { schemaDirectory("$projectDir/schemas") }
 
 detekt {
     buildUponDefaultConfig = true

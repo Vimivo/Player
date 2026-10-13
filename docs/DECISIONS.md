@@ -1,5 +1,11 @@
 # Architecture decisions
 
+## ADR-000: Room-backed Android media index
+
+**Decision:** Use Room 2.8.5 behind common repository contracts. MediaStore remains authoritative for shared media; SAF is limited to user-selected URIs and trees. Store metadata and stable references, never full media copies.
+
+**Reason:** Room provides schema validation, indexed paging, transactions, and Flow invalidation while leaving future platform adapters replaceable. Vimivo does not request all-files access; broad audio/video permissions remain optional because system pickers provide a no-permission path.
+
 ## ADR-001: Two Gradle modules initially
 
 **Decision:** Use `androidApp` and `shared`, expressing finer boundaries as packages.
