@@ -39,3 +39,12 @@
 
 Desktop and iOS applications remain outside the current scope.
 
+# Personal organization
+
+- Local mixed audio/video playlists support create, rename, delete, reorder, duplicate, playback, shuffle, queueing, and M3U/M3U8 SAF import/export.
+- Songs, videos, and local media remain favoritable; stream favorites use the existing local settings store.
+- Playback history records last-played time, resume position, completion, and play count without analytics or remote logging.
+- Timestamp bookmarks can be added, renamed, deleted, and opened through the shared playback session.
+- Unified indexed media search covers title, artist, album, folder, and filename; playlist names use an indexed Room query. Duration, MIME type, folder, kind, favorites, and recency are repository-level filters.
+- Embedded file metadata is currently read-only. Editing is withheld where Android cannot guarantee a reliable writable URI transaction and confirmation flow.
+

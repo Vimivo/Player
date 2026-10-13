@@ -1,3 +1,5 @@
+@file:Suppress("MaximumLineLength", "MaxLineLength", "TooManyFunctions")
+
 package dev.vimivo.platform.android.playback
 
 import android.content.Context
@@ -9,6 +11,7 @@ import android.view.SurfaceHolder
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.PlaybackError
 import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackMetadata
@@ -25,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
+import org.videolan.libvlc.interfaces.IMedia
 import org.videolan.libvlc.util.VLCVideoLayout
 
 class LibVlcPlayerEngine(context: Context) : PlayerEngine {
@@ -122,6 +126,25 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
         publishTracks()
     }
 
+    override fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> = command {
+        check(mediaPlayer.addSlave(IMedia.Slave.Type.Subtitle, Uri.parse(subtitle.uri), true)) {
+            "LibVLC rejected the external subtitle"
+        }
+        publishTracks()
+    }
+
+    override fun setSubtitleDelay(delayMillis: Long): Result<Unit> = command {
+        check(mediaPlayer.setSpuDelay(delayMillis * MICROSECONDS_PER_MILLISECOND)) {
+            "LibVLC rejected the subtitle delay"
+        }
+    }
+
+    override fun setAudioDelay(delayMillis: Long): Result<Unit> = command {
+        check(mediaPlayer.setAudioDelay(delayMillis * MICROSECONDS_PER_MILLISECOND)) {
+            "LibVLC rejected the audio delay"
+        }
+    }
+
     fun attachVideo(layout: VLCVideoLayout) {
         checkOpen()
         if (videoLayout === layout) return
@@ -193,16 +216,20 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
 
     private fun publishTracks() {
         mutableState.value = snapshot().copy(
-            audioTracks = mediaPlayer.audioTracks.toTrackInfo(TrackType.AUDIO, mediaPlayer.audioTrack),
-            videoTracks = mediaPlayer.videoTracks.toTrackInfo(TrackType.VIDEO, mediaPlayer.videoTrack),
-            subtitleTracks = mediaPlayer.spuTracks.toTrackInfo(TrackType.SUBTITLE, mediaPlayer.spuTrack),
+            audioTracks = mediaPlayer.audioTracks.toTrackInfo(TrackType.AUDIO, mediaPlayer.audioTrack, trackMetadata(IMedia.Track.Type.Audio)),
+            videoTracks = mediaPlayer.videoTracks.toTrackInfo(TrackType.VIDEO, mediaPlayer.videoTrack, trackMetadata(IMedia.Track.Type.Video)),
+            subtitleTracks = mediaPlayer.spuTracks.toTrackInfo(TrackType.SUBTITLE, mediaPlayer.spuTrack, trackMetadata(IMedia.Track.Type.Text)),
         )
     }
 
     private fun snapshot(): PlaybackState {
         val current = mutableState.value
         val video = mediaPlayer.currentVideoTrack
-        val videoTracks = mediaPlayer.videoTracks.toTrackInfo(TrackType.VIDEO, mediaPlayer.videoTrack).map { track ->
+        val videoTracks = mediaPlayer.videoTracks.toTrackInfo(
+            TrackType.VIDEO,
+            mediaPlayer.videoTrack,
+            trackMetadata(IMedia.Track.Type.Video),
+        ).map { track ->
             if (track.isSelected && video != null) {
                 track.copy(
                     codec = video.codec,
@@ -222,10 +249,25 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
             speed = mediaPlayer.rate,
             volume = (mediaPlayer.volume.toFloat() / MAX_VLC_VOLUME).coerceIn(0f, 1f),
             isSeekable = mediaPlayer.isSeekable,
-            audioTracks = mediaPlayer.audioTracks.toTrackInfo(TrackType.AUDIO, mediaPlayer.audioTrack),
+            audioTracks = mediaPlayer.audioTracks.toTrackInfo(
+                TrackType.AUDIO,
+                mediaPlayer.audioTrack,
+                trackMetadata(IMedia.Track.Type.Audio),
+            ),
             videoTracks = videoTracks,
-            subtitleTracks = mediaPlayer.spuTracks.toTrackInfo(TrackType.SUBTITLE, mediaPlayer.spuTrack),
+            subtitleTracks = mediaPlayer.spuTracks.toTrackInfo(
+                TrackType.SUBTITLE,
+                mediaPlayer.spuTrack,
+                trackMetadata(IMedia.Track.Type.Text),
+            ),
         )
+    }
+
+    private fun trackMetadata(type: Int): Map<Int, IMedia.Track> = buildMap {
+        val media = currentMedia ?: return@buildMap
+        repeat(media.trackCount) { index ->
+            media.getTrack(index)?.takeIf { it.type == type }?.let { put(it.id, it) }
+        }
     }
 
     private fun pauseForFocusLoss(): Boolean {
@@ -273,6 +315,7 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
         private const val MAX_VLC_VOLUME = 100
         private const val DUCK_FACTOR = 0.2f
         private const val DISABLED_TRACK = -1
+        private const val MICROSECONDS_PER_MILLISECOND = 1_000L
         val CAPABILITIES = EngineCapabilities(
             localAudio = true,
             localVideo = true,
@@ -283,8 +326,10 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
             audioTrackSelection = true,
             videoTrackSelection = true,
             embeddedSubtitles = true,
-            externalSubtitles = false,
+            externalSubtitles = true,
             hdr = true,
+            subtitleDelay = true,
+            audioDelay = true,
         )
 
         fun support(media: MediaItem): SupportLevel {
@@ -304,12 +349,20 @@ class LibVlcPlayerEngineFactory(private val context: Context) : PlayerEngineFact
     override fun create(): PlayerEngine = LibVlcPlayerEngine(context)
 }
 
-private fun Array<MediaPlayer.TrackDescription>?.toTrackInfo(type: TrackType, selectedId: Int): List<TrackInfo> =
+private fun Array<MediaPlayer.TrackDescription>?.toTrackInfo(
+    type: TrackType,
+    selectedId: Int,
+    metadata: Map<Int, IMedia.Track> = emptyMap(),
+): List<TrackInfo> =
     orEmpty().filter { it.id >= 0 }.map { description ->
+        val detail = metadata[description.id]
         TrackInfo(
             id = description.id.toString(),
             type = type,
-            label = description.name,
+            label = detail?.description ?: description.name,
+            language = detail?.language,
+            codec = detail?.codec,
+            bitrate = detail?.bitrate?.takeIf { it > 0 },
             isSelected = description.id == selectedId,
         )
     }

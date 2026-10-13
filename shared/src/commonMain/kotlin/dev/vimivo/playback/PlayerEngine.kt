@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 enum class EngineId { MEDIA3, LIBVLC }
 enum class TrackType { AUDIO, VIDEO, SUBTITLE }
+enum class TrackOrigin { EMBEDDED, EXTERNAL }
 enum class SupportLevel { PREFERRED, FALLBACK, UNSUPPORTED }
 
 data class TrackInfo(
@@ -21,6 +22,14 @@ data class TrackInfo(
     val height: Int? = null,
     val frameRate: Float? = null,
     val isSelected: Boolean = false,
+    val origin: TrackOrigin = TrackOrigin.EMBEDDED,
+)
+
+data class ExternalSubtitle(
+    val uri: String,
+    val label: String,
+    val language: String? = null,
+    val mimeType: String,
 )
 
 data class PlaybackMetadata(
@@ -42,6 +51,10 @@ data class EngineCapabilities(
     val embeddedSubtitles: Boolean,
     val externalSubtitles: Boolean,
     val hdr: Boolean,
+    val subtitleDelay: Boolean = false,
+    val audioDelay: Boolean = false,
+    val subtitleAppearance: Boolean = false,
+    val subtitlePosition: Boolean = false,
     val supportedSpeedRange: ClosedFloatingPointRange<Float> = 0.25f..4f,
 )
 
@@ -118,6 +131,12 @@ interface PlayerEngine : AutoCloseable {
     fun selectAudioTrack(trackId: String?): Result<Unit>
     fun selectVideoTrack(trackId: String?): Result<Unit>
     fun selectSubtitleTrack(trackId: String?): Result<Unit>
+    fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> =
+        Result.failure(UnsupportedOperationException("External subtitles are not supported"))
+    fun setSubtitleDelay(delayMillis: Long): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Subtitle delay is not supported"))
+    fun setAudioDelay(delayMillis: Long): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Audio delay is not supported"))
     override fun close()
 }
 

@@ -62,6 +62,22 @@ class PlaybackEngineManagerTest {
         assertEquals(0, vlc.created)
     }
 
+    @Test
+    fun reappliesExternalSubtitleAfterEngineFallback() = runTest {
+        val media3 = FakeFactory(EngineId.MEDIA3)
+        val vlc = FakeFactory(EngineId.LIBVLC)
+        val manager = PlaybackEngineManager(mapOf(media3.id to media3, vlc.id to vlc), backgroundScope)
+        val subtitle = ExternalSubtitle("content://subtitle", "movie.en.srt", "en", "application/x-subrip")
+
+        manager.open(media("sample.mkv"))
+        runCurrent()
+        assertTrue(manager.addExternalSubtitle(subtitle).isSuccess)
+        media3.latest.failRecoverably(position = 1_000)
+        runCurrent()
+
+        assertEquals(listOf(subtitle), vlc.latest.externalSubtitles)
+    }
+
     private fun media(name: String) = MediaItem(MediaId(name), "file:///tmp/$name", name, MediaKind.VIDEO)
 }
 
@@ -99,6 +115,7 @@ private class FakeEngine(override val id: EngineId) : PlayerEngine {
         hdr = true,
     )
     var closed = false
+    val externalSubtitles = mutableListOf<ExternalSubtitle>()
 
     override fun supportFor(media: MediaItem) = SupportLevel.PREFERRED
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> {
@@ -120,6 +137,9 @@ private class FakeEngine(override val id: EngineId) : PlayerEngine {
     override fun selectAudioTrack(trackId: String?) = Result.success(Unit)
     override fun selectVideoTrack(trackId: String?) = Result.success(Unit)
     override fun selectSubtitleTrack(trackId: String?) = Result.success(Unit)
+    override fun addExternalSubtitle(subtitle: ExternalSubtitle) = Result.success(Unit).also {
+        externalSubtitles += subtitle
+    }
     override fun close() { closed = true }
 
     fun failRecoverably(position: Long) {

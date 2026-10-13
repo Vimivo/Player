@@ -21,6 +21,7 @@ data class MediaItem(
     val genre: String? = null,
     val sizeBytes: Long? = null,
     val mimeType: String? = null,
+    val fileName: String? = null,
     val dateAddedEpochSeconds: Long? = null,
     val dateModifiedEpochSeconds: Long? = null,
     val width: Int? = null,
@@ -64,6 +65,9 @@ data class LibraryQuery(
     val recentlyWatchedOnly: Boolean = false,
     val recentlyPlayedOnly: Boolean = false,
     val continueWatchingOnly: Boolean = false,
+    val minimumDurationMillis: Long? = null,
+    val maximumDurationMillis: Long? = null,
+    val mimeType: String? = null,
     val sort: LibrarySort = LibrarySort.TITLE,
     val descending: Boolean = false,
     val offset: Int = 0,
@@ -106,4 +110,20 @@ data class Playlist(
     val name: String,
     val items: List<MediaId>,
     val updatedAtEpochMillis: Long,
+)
+
+data class Bookmark(
+    val id: String,
+    val mediaId: MediaId,
+    val name: String,
+    val positionMillis: Long,
+    val createdAtEpochMillis: Long,
+)
+
+data class PlaybackHistory(
+    val mediaId: MediaId,
+    val positionMillis: Long,
+    val lastPlayedAtEpochMillis: Long,
+    val playCount: Int,
+    val completed: Boolean,
 )

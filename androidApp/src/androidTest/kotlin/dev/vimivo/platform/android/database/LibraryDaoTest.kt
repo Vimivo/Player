@@ -68,6 +68,7 @@ class LibraryDaoTest {
         volumeName = "external",
         mediaStoreId = id.hashCode().toLong(),
         title = title,
+        fileName = "$title.mp3",
         artist = "Artist",
         album = album,
         albumArtist = null,

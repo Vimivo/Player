@@ -24,6 +24,8 @@ Conceptual `data`, `database`, and feature boundaries remain packages until team
 
 Room is the source for paged UI queries and categories. Its schema keeps stable URI-backed media references, metadata, favorites, history/resume positions, playlists, scan state, exclusions, and SAF grants. See [STORAGE.md](STORAGE.md) for the access and reconciliation policy.
 
+Personal organization is local-only. `PlaylistRepository` owns ordered mixed audio/video playlists, while `OrganizationRepository` exposes bookmarks and playback history without Android types. Room uses indexed prefix search across media metadata and playlist names. Playlist items intentionally keep opaque IDs when media is temporarily unavailable; resolving a queue skips unavailable rows without deleting the user's playlist. M3U/M3U8 import and export use the Storage Access Framework and only resolve references already present in the authorized library.
+
 ## State and errors
 
 View models expose immutable `StateFlow` values. Repositories expose streams and return `Result` for recoverable operations. `PlayerEngine` exposes a state stream, typed playback failures, engine capabilities, track selection, controls, and deterministic cleanup.

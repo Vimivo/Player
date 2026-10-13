@@ -71,6 +71,9 @@ import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shuffle
@@ -89,6 +92,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -119,6 +123,7 @@ import dev.vimivo.core.model.LibrarySort
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.model.Playlist
+import dev.vimivo.core.model.Bookmark
 import dev.vimivo.features.home.HomeViewModel
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.library.LibraryUiState
@@ -280,8 +285,14 @@ private fun AppShell(
         player = player,
         controller = playback.controller.collectAsState().value,
         viewModel = playbackViewModel,
-        gestureSensitivity = settingsViewModel.state.collectAsState().value.videoGestureSensitivity,
+        settings = settingsViewModel.state.collectAsState().value,
         onGestureSensitivity = settingsViewModel::setVideoGestureSensitivity,
+        onPreferredSubtitleLanguage = settingsViewModel::setPreferredSubtitleLanguage,
+        onPreferredAudioLanguage = settingsViewModel::setPreferredAudioLanguage,
+        onSubtitlesEnabled = settingsViewModel::setSubtitlesEnabled,
+        onSubtitleDelay = settingsViewModel::setSubtitleDelay,
+        onAudioDelay = settingsViewModel::setAudioDelay,
+        onSubtitleAppearance = settingsViewModel::setSubtitleAppearance,
         onPlayerState = onVideoPlayerState,
         onEnterPictureInPicture = enterPictureInPicture,
         onDismiss = { videoPlayerVisible = false },
@@ -444,11 +455,11 @@ private fun MusicScreen(
             OutlinedButton({ sortVisible = true }) { Icon(Icons.AutoMirrored.Outlined.List, null); Text(" Sort") }
         }
         when {
-            selectedPlaylist?.id == "__list__" -> PlaylistList(playlists) { playlist ->
+            selectedPlaylist?.id == "__list__" -> PlaylistList(playlists, playlistViewModel) { playlist ->
                 selectedPlaylist = playlist
                 playlistViewModel.load(playlist)
             }
-            selectedPlaylist != null -> PlaylistDetail(selectedPlaylist!!, playlistItems, thumbnails, playback) {
+            selectedPlaylist != null -> PlaylistDetail(selectedPlaylist!!, playlistItems, thumbnails, playback, playlistViewModel, { selectedPlaylist = Playlist("__list__", "Playlists", emptyList(), 0) }) {
                 selectedAction = it
             }
             else -> {
@@ -461,6 +472,7 @@ private fun MusicScreen(
                     onPlay = { viewModel.resolveCurrentItems { playback.playQueue(it) } },
                     onShuffle = { viewModel.resolveCurrentItems { playback.playQueue(it, shuffle = true) } },
                     onQueue = { viewModel.resolveCurrentItems(playback::addToQueue) },
+                    onFavorite = if (state.query.album != null) ({ viewModel.setFavorite(state.items, state.items.any { !it.isFavorite }) }) else null,
                 )
                 CategoryOrMediaList(state, viewModel, thumbnails, playback) { selectedAction = it }
             }
@@ -614,6 +626,7 @@ private fun MusicCollectionHeader(
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
     onQueue: () -> Unit,
+    onFavorite: (() -> Unit)? = null,
 ) {
     val representative = items.firstOrNull()
     Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -625,6 +638,7 @@ private fun MusicCollectionHeader(
             Button(onPlay) { Text("Play all") }
             OutlinedButton(onShuffle) { Icon(Icons.Outlined.Shuffle, null); Text(" Shuffle") }
             IconButton(onQueue) { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, "Add collection to queue") }
+            onFavorite?.let { action -> IconButton(action) { Icon(Icons.Outlined.Favorite, "Favorite album") } }
         }
     }
 }
@@ -645,7 +659,14 @@ private fun collectionSubtitle(state: LibraryUiState): String {
 }
 
 @Composable
-private fun PlaylistList(playlists: List<Playlist>, onSelect: (Playlist) -> Unit) {
+private fun PlaylistList(playlists: List<Playlist>, viewModel: PlaylistViewModel, onSelect: (Playlist) -> Unit) {
+    var creating by remember { mutableStateOf(false) }
+    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::import) }
+    Column {
+        Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button({ creating = true }) { Text("Create playlist") }
+            OutlinedButton({ importer.launch(arrayOf("audio/x-mpegurl", "application/vnd.apple.mpegurl", "text/plain")) }) { Text("Import M3U") }
+        }
     if (playlists.isEmpty()) {
         EmptyState(Icons.AutoMirrored.Outlined.QueueMusic, "No playlists", "Create playlists from your library to see them here.")
     } else {
@@ -660,6 +681,8 @@ private fun PlaylistList(playlists: List<Playlist>, onSelect: (Playlist) -> Unit
             }
         }
     }
+    }
+    if (creating) PlaylistNameDialog("Create playlist", "New playlist", { viewModel.create(it); creating = false }) { creating = false }
 }
 
 @Composable
@@ -668,8 +691,15 @@ private fun PlaylistDetail(
     media: List<MediaItem>,
     thumbnails: AndroidThumbnailRepository,
     playback: PlaybackController,
+    viewModel: PlaylistViewModel,
+    onDeleted: () -> Unit,
     onMore: (MediaItem) -> Unit,
 ) {
+    var renaming by remember { mutableStateOf(false) }
+    var duplicating by remember { mutableStateOf(false) }
+    val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
+        uri?.let { viewModel.export(it, playlist) }
+    }
     Column(Modifier.fillMaxSize()) {
         MusicCollectionHeader(
             playlist.name,
@@ -680,9 +710,41 @@ private fun PlaylistDetail(
             { playback.playQueue(media, shuffle = true) },
             { playback.addToQueue(media) },
         )
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton({ renaming = true }) { Text("Rename") }
+            OutlinedButton({ duplicating = true }) { Text("Duplicate") }
+            OutlinedButton({ exporter.launch("${playlist.name}.m3u8") }) { Text("Export") }
+            OutlinedButton({ viewModel.delete(playlist); onDeleted() }) { Text("Delete") }
+        }
         LazyColumn {
             items(media, key = { it.id.value }) { item ->
-                SongRow(item, thumbnails, { playback.playQueue(media, media.indexOf(item)) }, onMore = { onMore(item) })
+                val index = media.indexOf(item)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BoxWithConstraints(Modifier.weight(1f)) {
+                        SongRow(item, thumbnails, { playback.playQueue(media, index) }, onMore = { onMore(item) })
+                    }
+                    IconButton({ if (index > 0) viewModel.move(playlist, index, index - 1) }, enabled = index > 0) { Icon(Icons.Outlined.ArrowUpward, "Move up") }
+                    IconButton({ viewModel.remove(playlist, index) }) { Icon(Icons.Outlined.Delete, "Remove from playlist") }
+                }
+            }
+        }
+    }
+    if (renaming) PlaylistNameDialog("Rename playlist", playlist.name, { viewModel.rename(playlist, it); renaming = false }) { renaming = false }
+    if (duplicating) PlaylistNameDialog("Duplicate playlist", "${playlist.name} copy", { viewModel.duplicate(playlist, it); duplicating = false }) { duplicating = false }
+}
+
+@Composable
+private fun PlaylistNameDialog(title: String, initial: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember(initial) { mutableStateOf(initial) }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(24.dp)) {
+            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(title, style = MaterialTheme.typography.headlineSmall)
+                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onDismiss) { Text("Cancel") }
+                    Button({ onConfirm(name) }, enabled = name.isNotBlank()) { Text("Save") }
+                }
             }
         }
     }
@@ -712,12 +774,23 @@ private fun MediaActionsSheet(
     playback: PlaybackController,
     library: LibraryViewModel,
     onDismiss: () -> Unit,
+    playlistsViewModel: PlaylistViewModel = koinViewModel(),
 ) {
     val context = LocalContext.current
+    val playlists by playlistsViewModel.playlists.collectAsState()
     BottomSheet(onDismiss) {
         Text(item.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(20.dp))
         SettingsRow(Icons.Outlined.SkipNext, "Play next", onClick = { playback.playNext(listOf(item)); onDismiss() })
         SettingsRow(Icons.AutoMirrored.Outlined.PlaylistAdd, "Add to queue", onClick = { playback.addToQueue(listOf(item)); onDismiss() })
+        if (playlists.isNotEmpty()) {
+            Text("Add to playlist", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            playlists.forEach { playlist ->
+                SettingsRow(Icons.AutoMirrored.Outlined.QueueMusic, playlist.name, detail = "${playlist.items.size} items", onClick = {
+                    playlistsViewModel.add(playlist, listOf(item))
+                    onDismiss()
+                })
+            }
+        }
         SettingsRow(Icons.Outlined.Favorite, if (item.isFavorite) "Remove favorite" else "Add favorite", onClick = { library.toggleFavorite(item); onDismiss() })
         if (item.uri.startsWith("content://") || item.uri.startsWith("http://") || item.uri.startsWith("https://")) {
             SettingsRow(Icons.Outlined.Share, "Share media reference", onClick = {
@@ -743,12 +816,22 @@ private fun MediaActionsSheet(
             supportingContent = {
                 Text(
                     listOfNotNull(
+                        item.fileName?.let { "File: $it" },
                         item.artist ?: "Unknown artist",
                         item.album ?: "Unknown album",
                         item.mimeType,
                         item.durationMillis?.let(::formatDuration),
                         item.sizeBytes?.let(::formatBytes),
-                    ).joinToString(" · "),
+                        item.width?.let { width -> item.height?.let { height -> "${width}×$height" } },
+                        item.frameRate?.let { "$it fps" },
+                        item.bitrate?.let { "${it / 1_000} kbps" },
+                        item.folderPath?.let { "Folder: $it" },
+                        item.trackNumber?.let { "Track $it" },
+                        item.discNumber?.let { "Disc $it" },
+                        item.dateAddedEpochSeconds?.let { "Added: $it" },
+                        item.dateModifiedEpochSeconds?.let { "Modified: $it" },
+                    ).joinToString(" · ") +
+                        "\nMetadata is read-only for this source. Vimivo never modifies the file without reliable write access and explicit confirmation.",
                 )
             },
         )
@@ -845,14 +928,36 @@ private fun GlobalSearch(
     playback: PlaybackController,
     onClose: () -> Unit,
     viewModel: LibraryViewModel = koinViewModel(),
+    playlistViewModel: PlaylistViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val playlistResults by playlistViewModel.searchResults.collectAsState()
+    LaunchedEffect(state.query.text) { playlistViewModel.search(state.query.text) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         SearchBar(state.query.text, viewModel::search, onClose)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { AssistChip({ viewModel.filterSearch(kind = null) }, { Text("All") }) }
+            item { AssistChip({ viewModel.filterSearch(kind = MediaKind.AUDIO) }, { Text("Audio") }) }
+            item { AssistChip({ viewModel.filterSearch(kind = MediaKind.VIDEO) }, { Text("Video") }) }
+            item { AssistChip({ viewModel.filterSearch(favoritesOnly = !state.query.favoritesOnly) }, { Text("Favorites") }) }
+            item { AssistChip({ viewModel.filterSearch(recentlyAdded = true) }, { Text("Recently added") }) }
+            item { AssistChip({ viewModel.filterSearch(minimumDurationMillis = 30 * 60_000L) }, { Text("30+ min") }) }
+        }
         if (state.query.text.isNotBlank()) {
             LazyColumn(Modifier.fillMaxWidth().height(320.dp)) {
+                items(playlistResults, key = { "playlist:${it.id}" }) { playlist ->
+                    ListItem(
+                        leadingContent = { Icon(Icons.AutoMirrored.Outlined.QueueMusic, null) },
+                        headlineContent = { Text(playlist.name) },
+                        supportingContent = { Text("Playlist · ${playlist.items.size} items") },
+                        modifier = Modifier.clickable {
+                            playlistViewModel.load(playlist)
+                            onClose()
+                        },
+                    )
+                }
                 items(state.items.take(20), key = { it.id.value }) { SongRow(it, thumbnails, { playback.play(it); onClose() }) }
-                if (!state.isLoading && state.items.isEmpty()) item { EmptyState(title = "No results", detail = "Try a different title, artist, album, or video name.") }
+                if (!state.isLoading && state.items.isEmpty() && playlistResults.isEmpty()) item { EmptyState(title = "No results", detail = "Try a different title, artist, album, folder, filename, or playlist.") }
             }
         }
     }
@@ -916,7 +1021,9 @@ private fun NowPlayingSheet(
         }
         }
     }
-    else BottomSheet({ settingsVisible = false }) {
+    else {
+        var editingBookmark by remember { mutableStateOf<Bookmark?>(null) }
+        BottomSheet({ settingsVisible = false }) {
         Text("Playback settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp))
         Text("Speed", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp))
         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -926,6 +1033,36 @@ private fun NowPlayingSheet(
         }
         SettingsRow(Icons.Outlined.Shuffle, "Shuffle", checked = player.shuffleEnabled, onClick = viewModel::toggleShuffle)
         SettingsRow(Icons.Outlined.Repeat, "Repeat", detail = when (player.repeatMode) { Player.REPEAT_MODE_ONE -> "One"; Player.REPEAT_MODE_ALL -> "All"; else -> "Off" }, onClick = viewModel::cycleRepeat)
+        SettingsRow(Icons.Outlined.BookmarkAdd, "Save bookmark", detail = formatDuration(player.positionMillis), onClick = {
+            viewModel.addBookmark("Bookmark at ${formatDuration(player.positionMillis)}")
+        })
+        if (player.bookmarks.isNotEmpty()) {
+            Text("Bookmarks", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(20.dp))
+            player.bookmarks.forEach { bookmark ->
+                ListItem(
+                    modifier = Modifier.clickable { viewModel.seekToBookmark(bookmark); settingsVisible = false },
+                    headlineContent = { Text(bookmark.name) },
+                    supportingContent = { Text(formatDuration(bookmark.positionMillis)) },
+                    trailingContent = {
+                        Row {
+                            IconButton({ editingBookmark = bookmark }) {
+                                Icon(Icons.Outlined.Edit, "Rename bookmark")
+                            }
+                            IconButton({ viewModel.deleteBookmark(bookmark) }) {
+                                Icon(Icons.Outlined.Delete, "Delete bookmark")
+                            }
+                        }
+                    },
+                )
+            }
+        }
+        }
+        editingBookmark?.let { bookmark ->
+            PlaylistNameDialog("Rename bookmark", bookmark.name, {
+                viewModel.renameBookmark(bookmark, it)
+                editingBookmark = null
+            }) { editingBookmark = null }
+        }
     }
 }
 

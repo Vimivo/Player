@@ -206,7 +206,7 @@ class AndroidMediaStoreRepository(
 private fun MediaEntity.toModel() = MediaItem(
     id = MediaId(id), uri = uri, title = title, kind = MediaKind.valueOf(kind), durationMillis = durationMillis,
     artist = artist, album = album, artworkUri = artworkUri, albumArtist = albumArtist, genre = genre,
-    sizeBytes = sizeBytes, mimeType = mimeType, dateAddedEpochSeconds = dateAddedEpochSeconds,
+    sizeBytes = sizeBytes, mimeType = mimeType, fileName = fileName, dateAddedEpochSeconds = dateAddedEpochSeconds,
     dateModifiedEpochSeconds = dateModifiedEpochSeconds, width = width, height = height, frameRate = frameRate,
     bitrate = bitrate, trackNumber = trackNumber, discNumber = discNumber, folderName = folderName,
     releaseYear = releaseYear,

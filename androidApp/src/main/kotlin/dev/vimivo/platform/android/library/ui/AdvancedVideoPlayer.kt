@@ -20,7 +20,12 @@ import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.media.AudioManager
+import android.content.Intent
+import android.graphics.Typeface
+import android.util.TypedValue
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -76,6 +81,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -85,12 +91,16 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.media3.common.Player
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.platform.android.playback.PlaybackUiState
 import dev.vimivo.platform.android.playback.PlaybackViewModel
 import dev.vimivo.platform.android.ui.components.BottomSheet
 import dev.vimivo.platform.android.ui.components.SettingsRow
+import dev.vimivo.settings.AppSettings
+import dev.vimivo.settings.SubtitleAppearance
+import dev.vimivo.settings.SubtitleEdgeStyle
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -104,8 +114,14 @@ fun AdvancedVideoPlayer(
     player: PlaybackUiState,
     controller: Player?,
     viewModel: PlaybackViewModel,
-    gestureSensitivity: Float,
+    settings: AppSettings,
     onGestureSensitivity: (Float) -> Unit,
+    onPreferredSubtitleLanguage: (String) -> Unit,
+    onPreferredAudioLanguage: (String) -> Unit,
+    onSubtitlesEnabled: (Boolean) -> Unit,
+    onSubtitleDelay: (Long) -> Unit,
+    onAudioDelay: (Long) -> Unit,
+    onSubtitleAppearance: (SubtitleAppearance) -> Unit,
     onPlayerState: (Boolean, Boolean) -> Unit,
     onEnterPictureInPicture: () -> Unit,
     onDismiss: () -> Unit,
@@ -114,6 +130,15 @@ fun AdvancedVideoPlayer(
     val activity = context.findActivity()
     val inPictureInPicture = activity?.isInPictureInPictureMode == true
     val audioManager = remember { context.getSystemService(AudioManager::class.java) }
+    val subtitlePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            onSubtitlesEnabled(true)
+            viewModel.loadExternalSubtitle(it)
+        }
+    }
     val orientation = LocalConfiguration.current.orientation
     var controlsVisible by remember { mutableStateOf(true) }
     var locked by remember { mutableStateOf(false) }
@@ -123,7 +148,61 @@ fun AdvancedVideoPlayer(
     var zoom by remember { mutableFloatStateOf(1f) }
     var seekPreview by remember { mutableLongStateOf(player.positionMillis) }
     var dragging by remember { mutableStateOf(false) }
+    var autoAudioAppliedFor by remember { mutableStateOf<String?>(null) }
+    var autoSubtitleAppliedFor by remember { mutableStateOf<String?>(null) }
+    var autoExternalAppliedFor by remember { mutableStateOf<String?>(null) }
     val media = player.current?.toDomain()
+
+    LaunchedEffect(media?.id?.value, player.audioTracks, settings.preferredAudioLanguage) {
+        val mediaId = media?.id?.value ?: return@LaunchedEffect
+        if (autoAudioAppliedFor != mediaId && settings.preferredAudioLanguage.isNotBlank()) {
+            player.audioTracks.firstOrNull {
+                it.language.equals(settings.preferredAudioLanguage, ignoreCase = true)
+            }?.let {
+                viewModel.selectAudioTrack(it.id)
+                autoAudioAppliedFor = mediaId
+            }
+        }
+    }
+    LaunchedEffect(media?.id?.value, player.subtitleTracks, settings.preferredSubtitleLanguage) {
+        val mediaId = media?.id?.value ?: return@LaunchedEffect
+        if (settings.subtitlesEnabled && autoSubtitleAppliedFor != mediaId && settings.preferredSubtitleLanguage.isNotBlank()) {
+            player.subtitleTracks.firstOrNull {
+                it.language.equals(settings.preferredSubtitleLanguage, ignoreCase = true)
+            }?.let {
+                viewModel.selectSubtitleTrack(it.id)
+                autoSubtitleAppliedFor = mediaId
+            }
+        }
+    }
+    LaunchedEffect(media?.id?.value, player.subtitleTracks, settings.subtitlesEnabled) {
+        if (!settings.subtitlesEnabled && player.subtitleTracks.any { it.isSelected }) {
+            viewModel.selectSubtitleTrack(null)
+        }
+    }
+    LaunchedEffect(media?.id?.value, player.externalSubtitleCandidates, settings.subtitlesEnabled) {
+        val mediaId = media?.id?.value ?: return@LaunchedEffect
+        if (settings.subtitlesEnabled && autoExternalAppliedFor != mediaId) {
+            val match = player.externalSubtitleCandidates.firstOrNull {
+                settings.preferredSubtitleLanguage.isNotBlank() &&
+                    it.language.equals(settings.preferredSubtitleLanguage, ignoreCase = true)
+            } ?: player.externalSubtitleCandidates.firstOrNull { it.language == null }
+            match?.let {
+                viewModel.loadExternalSubtitle(it)
+                autoExternalAppliedFor = mediaId
+            }
+        }
+    }
+    LaunchedEffect(media?.id?.value, player.engine, settings.subtitleDelayMillis) {
+        if (player.capabilities?.subtitleDelay == true) {
+            viewModel.setSubtitleDelay(settings.subtitleDelayMillis)
+        }
+    }
+    LaunchedEffect(media?.id?.value, player.engine, settings.audioDelayMillis) {
+        if (player.capabilities?.audioDelay == true) {
+            viewModel.setAudioDelay(settings.audioDelayMillis)
+        }
+    }
 
     SideEffect { onPlayerState(true, player.isPlaying) }
     DisposableEffect(activity) {
@@ -153,7 +232,7 @@ fun AdvancedVideoPlayer(
         Box(
             Modifier.fillMaxSize()
                 .padding(horizontal = 20.dp)
-                .pointerInput(locked, gestureSensitivity, player.durationMillis) {
+                .pointerInput(locked, settings.videoGestureSensitivity, player.durationMillis) {
                     if (!locked) detectDragGestures(
                         onDragStart = { dragging = true; seekPreview = player.positionMillis },
                         onDragEnd = { if (dragging) viewModel.seekTo(seekPreview); dragging = false },
@@ -162,10 +241,10 @@ fun AdvancedVideoPlayer(
                         change.consume()
                         val horizontal = abs(drag.x) > abs(drag.y)
                         if (horizontal && player.durationMillis > 0) {
-                            val delta = (drag.x / size.width * player.durationMillis * gestureSensitivity).toLong()
+                            val delta = (drag.x / size.width * player.durationMillis * settings.videoGestureSensitivity).toLong()
                             seekPreview = (seekPreview + delta).coerceIn(0, player.durationMillis)
                         } else if (!horizontal) {
-                            val delta = -drag.y / size.height * gestureSensitivity
+                            val delta = -drag.y / size.height * settings.videoGestureSensitivity
                             if (change.position.x < size.width / 2) activity?.adjustBrightness(delta)
                             else audioManager.adjustVolumeFraction(delta)
                         }
@@ -216,6 +295,7 @@ fun AdvancedVideoPlayer(
                 update = {
                     it.player = controller
                     it.resizeMode = aspect.resizeMode
+                    it.subtitleView?.applySubtitleAppearance(settings.subtitleAppearance)
                 },
                 modifier = videoModifier.graphicsLayer(scaleX = zoom, scaleY = zoom),
             )
@@ -262,9 +342,20 @@ fun AdvancedVideoPlayer(
         player,
         media,
         aspect,
-        gestureSensitivity,
+        settings,
         onAspect = { aspect = it; zoom = 1f },
         onSensitivity = onGestureSensitivity,
+        onPreferredSubtitleLanguage = onPreferredSubtitleLanguage,
+        onPreferredAudioLanguage = onPreferredAudioLanguage,
+        onSubtitlesEnabled = onSubtitlesEnabled,
+        onSubtitleDelay = onSubtitleDelay,
+        onAudioDelay = onAudioDelay,
+        onSubtitleAppearance = onSubtitleAppearance,
+        onOpenSubtitle = {
+            subtitlePicker.launch(
+                arrayOf("application/x-subrip", "text/vtt", "text/x-ssa", "text/plain", "application/octet-stream"),
+            )
+        },
         viewModel = viewModel,
         onDismiss = { menuVisible = false },
     )
@@ -326,9 +417,16 @@ private fun VideoSettingsSheet(
     player: PlaybackUiState,
     media: MediaItem?,
     aspect: VideoAspect,
-    sensitivity: Float,
+    settings: AppSettings,
     onAspect: (VideoAspect) -> Unit,
     onSensitivity: (Float) -> Unit,
+    onPreferredSubtitleLanguage: (String) -> Unit,
+    onPreferredAudioLanguage: (String) -> Unit,
+    onSubtitlesEnabled: (Boolean) -> Unit,
+    onSubtitleDelay: (Long) -> Unit,
+    onAudioDelay: (Long) -> Unit,
+    onSubtitleAppearance: (SubtitleAppearance) -> Unit,
+    onOpenSubtitle: () -> Unit,
     viewModel: PlaybackViewModel,
     onDismiss: () -> Unit,
 ) {
@@ -342,10 +440,62 @@ private fun VideoSettingsSheet(
         }
         MenuHeading(Icons.AutoMirrored.Outlined.VolumeUp, "Audio tracks")
         if (player.audioTracks.isEmpty()) Text("No selectable audio tracks reported", Modifier.padding(horizontal = 20.dp))
-        player.audioTracks.forEach { track -> SettingsRow(Icons.AutoMirrored.Outlined.VolumeUp, track.label, track.language, track.isSelected) { viewModel.selectAudioTrack(track.id) } }
+        player.audioTracks.forEach { track ->
+            SettingsRow(Icons.AutoMirrored.Outlined.VolumeUp, track.label, track.language ?: "Language not reported", track.isSelected) {
+                viewModel.selectAudioTrack(track.id)
+                track.language?.let(onPreferredAudioLanguage)
+            }
+        }
+        if (player.capabilities?.audioDelay == true) {
+            DelayControl("Audio synchronization", settings.audioDelayMillis) { value ->
+                onAudioDelay(value)
+                viewModel.setAudioDelay(value)
+            }
+        } else Text("Audio delay is unavailable with this engine", Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         MenuHeading(Icons.Outlined.Subtitles, "Subtitles")
-        SettingsRow(Icons.Outlined.Subtitles, "Off", checked = player.subtitleTracks.none { it.isSelected }) { viewModel.selectSubtitleTrack(null) }
-        player.subtitleTracks.forEach { track -> SettingsRow(Icons.Outlined.Subtitles, track.label, track.language, track.isSelected) { viewModel.selectSubtitleTrack(track.id) } }
+        SettingsRow(Icons.Outlined.Subtitles, "Off", checked = !settings.subtitlesEnabled) {
+            onSubtitlesEnabled(false)
+            viewModel.selectSubtitleTrack(null)
+        }
+        player.subtitleTracks.forEach { track ->
+            SettingsRow(Icons.Outlined.Subtitles, track.label, track.language ?: "Language not reported", track.isSelected) {
+                viewModel.selectSubtitleTrack(track.id)
+                onSubtitlesEnabled(true)
+                track.language?.let(onPreferredSubtitleLanguage)
+            }
+        }
+        if (player.capabilities?.externalSubtitles == true) {
+            SettingsRow(Icons.Outlined.Subtitles, "Open subtitle file", "SRT, ASS, SSA, or WebVTT", onClick = onOpenSubtitle)
+            player.externalSubtitleCandidates.forEach { subtitle ->
+                SettingsRow(
+                    Icons.Outlined.Subtitles,
+                    subtitle.label,
+                    subtitle.language?.let { "Detected · $it" } ?: "Detected in an authorized folder",
+                    onClick = {
+                        onSubtitlesEnabled(true)
+                        viewModel.loadExternalSubtitle(subtitle)
+                    },
+                )
+            }
+        } else Text("External subtitles are unavailable with this engine", Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (player.capabilities?.subtitleDelay == true) {
+            DelayControl("Subtitle synchronization", settings.subtitleDelayMillis) { value ->
+                onSubtitleDelay(value)
+                viewModel.setSubtitleDelay(value)
+            }
+        } else Text("Subtitle delay is unavailable with this engine", Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        player.trackErrorMessage?.let { error ->
+            Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(20.dp))
+        }
+        if (player.capabilities?.subtitleAppearance == true) {
+            SubtitleAppearanceControls(settings.subtitleAppearance, onSubtitleAppearance)
+        } else {
+            Text(
+                "Subtitle appearance is controlled by the active native renderer. ASS/SSA styling support varies by engine.",
+                Modifier.padding(20.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         MenuHeading(Icons.Outlined.AspectRatio, "Aspect ratio")
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             VideoAspect.entries.forEach { value ->
@@ -353,7 +503,7 @@ private fun VideoSettingsSheet(
             }
         }
         MenuHeading(Icons.Outlined.FitScreen, "Gesture sensitivity")
-        Slider(sensitivity, onSensitivity, valueRange = 0.5f..2f, modifier = Modifier.padding(horizontal = 20.dp))
+        Slider(settings.videoGestureSensitivity, onSensitivity, valueRange = 0.5f..2f, modifier = Modifier.padding(horizontal = 20.dp))
         MenuHeading(Icons.Outlined.Info, "Decoder and video information")
         InfoLine("Engine", player.engine?.name)
         InfoLine("Decoder", player.engine?.let { if (player.capabilities?.hardwareDecoding == true) "$it · hardware when available" else it.name })
@@ -374,6 +524,54 @@ private fun MenuHeading(icon: androidx.compose.ui.graphics.vector.ImageVector, t
         Icon(icon, null)
         Spacer(Modifier.width(10.dp))
         Text(title, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+@Composable
+private fun DelayControl(label: String, value: Long, onChange: (Long) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Text("$label: ${if (value > 0) "+" else ""}$value ms", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AssistChip({ onChange((value - 500).coerceAtLeast(-10_000)) }, { Text("−0.5 s") })
+            AssistChip({ onChange(0) }, { Text("Reset") })
+            AssistChip({ onChange((value + 500).coerceAtMost(10_000)) }, { Text("+0.5 s") })
+        }
+    }
+}
+
+@Composable
+private fun SubtitleAppearanceControls(
+    appearance: SubtitleAppearance,
+    onChange: (SubtitleAppearance) -> Unit,
+) {
+    MenuHeading(Icons.Outlined.Subtitles, "Subtitle appearance")
+    Text("Size · ${appearance.textSizeSp.toInt()} sp", Modifier.padding(horizontal = 20.dp))
+    Slider(
+        appearance.textSizeSp,
+        { onChange(appearance.copy(textSizeSp = it)) },
+        valueRange = 12f..40f,
+        modifier = Modifier.padding(horizontal = 20.dp),
+    )
+    Text("Position", Modifier.padding(horizontal = 20.dp))
+    Slider(
+        appearance.positionFraction,
+        { onChange(appearance.copy(positionFraction = it)) },
+        valueRange = 0.02f..0.35f,
+        modifier = Modifier.padding(horizontal = 20.dp),
+    )
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AssistChip({ onChange(appearance.copy(textColorArgb = 0xFFFFFFFF)) }, { Text("White") })
+        AssistChip({ onChange(appearance.copy(textColorArgb = 0xFFFFFF00)) }, { Text("Yellow") })
+        AssistChip({ onChange(appearance.copy(backgroundColorArgb = 0x00000000)) }, { Text("No background") })
+        AssistChip({ onChange(appearance.copy(backgroundColorArgb = 0x99000000)) }, { Text("Dark background") })
+    }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SubtitleEdgeStyle.entries.forEach { style ->
+            AssistChip(
+                { onChange(appearance.copy(edgeStyle = style)) },
+                { Text(if (appearance.edgeStyle == style) "✓ ${style.label}" else style.label) },
+            )
+        }
     }
 }
 
@@ -409,6 +607,33 @@ private fun AudioManager.adjustVolumeFraction(delta: Float) {
     val maximum = getStreamMaxVolume(AudioManager.STREAM_MUSIC)
     val current = getStreamVolume(AudioManager.STREAM_MUSIC)
     setStreamVolume(AudioManager.STREAM_MUSIC, (current + delta * maximum).toInt().coerceIn(0, maximum), 0)
+}
+
+private fun androidx.media3.ui.SubtitleView.applySubtitleAppearance(appearance: SubtitleAppearance) {
+    setFixedTextSize(TypedValue.COMPLEX_UNIT_SP, appearance.textSizeSp)
+    setBottomPaddingFraction(appearance.positionFraction)
+    setApplyEmbeddedStyles(true)
+    setApplyEmbeddedFontSizes(true)
+    setStyle(
+        CaptionStyleCompat(
+            appearance.textColorArgb.toInt(),
+            appearance.backgroundColorArgb.toInt(),
+            Color.Transparent.toArgb(),
+            when (appearance.edgeStyle) {
+                SubtitleEdgeStyle.NONE -> CaptionStyleCompat.EDGE_TYPE_NONE
+                SubtitleEdgeStyle.OUTLINE -> CaptionStyleCompat.EDGE_TYPE_OUTLINE
+                SubtitleEdgeStyle.DROP_SHADOW -> CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW
+            },
+            appearance.edgeColorArgb.toInt(),
+            Typeface.DEFAULT,
+        ),
+    )
+}
+
+private val SubtitleEdgeStyle.label: String get() = when (this) {
+    SubtitleEdgeStyle.NONE -> "No outline"
+    SubtitleEdgeStyle.OUTLINE -> "Outline"
+    SubtitleEdgeStyle.DROP_SHADOW -> "Shadow"
 }
 
 private fun formatVideoTime(milliseconds: Long): String {

@@ -102,6 +102,7 @@ class SafMediaScanner(
             volumeName = volumeName,
             mediaStoreId = null,
             title = metadata.title ?: name?.substringBeforeLast('.') ?: "Untitled",
+            fileName = name,
             artist = metadata.artist,
             album = metadata.album,
             albumArtist = metadata.albumArtist,

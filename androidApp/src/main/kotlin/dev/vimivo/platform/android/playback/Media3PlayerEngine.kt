@@ -15,6 +15,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.PlaybackError
 import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackMetadata
@@ -24,6 +25,7 @@ import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.PlayerEngineFactory
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.TrackInfo
+import dev.vimivo.playback.TrackOrigin
 import dev.vimivo.playback.TrackType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -105,6 +107,28 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
     override fun selectAudioTrack(trackId: String?): Result<Unit> = selectTrack(C.TRACK_TYPE_AUDIO, trackId)
     override fun selectVideoTrack(trackId: String?): Result<Unit> = selectTrack(C.TRACK_TYPE_VIDEO, trackId)
     override fun selectSubtitleTrack(trackId: String?): Result<Unit> = selectTrack(C.TRACK_TYPE_TEXT, trackId)
+
+    override fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> = command {
+        val current = player.currentMediaItem ?: error("Open a video before loading subtitles")
+        val configuration = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitle.uri))
+            .setMimeType(subtitle.mimeType)
+            .setLanguage(subtitle.language)
+            .setLabel(subtitle.label)
+            .setId("external:${subtitle.uri}")
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            .build()
+        val existing = current.localConfiguration?.subtitleConfigurations.orEmpty()
+            .filterNot { it.uri == configuration.uri }
+        val replacement = current.buildUpon().setSubtitleConfigurations(existing + configuration).build()
+        val position = player.currentPosition.coerceAtLeast(0)
+        val shouldPlay = player.playWhenReady
+        player.setMediaItem(replacement, position)
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .build()
+        player.prepare()
+        player.playWhenReady = shouldPlay
+    }
 
     private fun selectTrack(type: Int, trackId: String?): Result<Unit> = command {
         val builder = player.trackSelectionParameters.buildUpon().clearOverridesOfType(type)
@@ -232,8 +256,10 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             audioTrackSelection = true,
             videoTrackSelection = true,
             embeddedSubtitles = true,
-            externalSubtitles = false,
+            externalSubtitles = true,
             hdr = true,
+            subtitleAppearance = true,
+            subtitlePosition = true,
         )
 
         fun support(media: VimivoMediaItem): SupportLevel {
@@ -275,6 +301,11 @@ private fun Tracks.toTrackInfo(): List<TrackInfo> = buildList {
                     height = format.height.takeIf { it != Format.NO_VALUE },
                     frameRate = format.frameRate.takeIf { it != Format.NO_VALUE.toFloat() },
                     isSelected = group.isTrackSelected(trackIndex),
+                    origin = if (format.id?.startsWith("external:") == true) {
+                        TrackOrigin.EXTERNAL
+                    } else {
+                        TrackOrigin.EMBEDDED
+                    },
                 ),
             )
         }

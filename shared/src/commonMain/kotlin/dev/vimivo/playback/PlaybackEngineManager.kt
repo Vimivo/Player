@@ -21,6 +21,7 @@ class PlaybackEngineManager(
     private var fallbackJob: Job? = null
     private var attemptedEngines = mutableSetOf<EngineId>()
     private var desiredPlayback = false
+    private val externalSubtitles = mutableListOf<ExternalSubtitle>()
 
     val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
     val activeEngine: StateFlow<PlayerEngine?> = mutableActiveEngine.asStateFlow()
@@ -28,6 +29,7 @@ class PlaybackEngineManager(
     suspend fun open(queue: QueueContext, startPositionMillis: Long = 0): Result<Unit> = mutex.withLock {
         desiredPlayback = false
         attemptedEngines.clear()
+        externalSubtitles.clear()
         openBestEngine(queue, startPositionMillis)
     }
 
@@ -57,6 +59,17 @@ class PlaybackEngineManager(
     fun selectAudioTrack(id: String?): Result<Unit> = activeOrFailure().flatMap { it.selectAudioTrack(id) }
     fun selectVideoTrack(id: String?): Result<Unit> = activeOrFailure().flatMap { it.selectVideoTrack(id) }
     fun selectSubtitleTrack(id: String?): Result<Unit> = activeOrFailure().flatMap { it.selectSubtitleTrack(id) }
+    fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> =
+        activeOrFailure().flatMap { engine ->
+            engine.addExternalSubtitle(subtitle).onSuccess {
+                externalSubtitles.removeAll { it.uri == subtitle.uri }
+                externalSubtitles += subtitle
+            }
+        }
+    fun setSubtitleDelay(delayMillis: Long): Result<Unit> =
+        activeOrFailure().flatMap { it.setSubtitleDelay(delayMillis) }
+    fun setAudioDelay(delayMillis: Long): Result<Unit> =
+        activeOrFailure().flatMap { it.setAudioDelay(delayMillis) }
 
     private suspend fun openBestEngine(queue: QueueContext, positionMillis: Long): Result<Unit> {
         val candidates = candidatesFor(queue.current)
@@ -101,7 +114,9 @@ class PlaybackEngineManager(
             positionMillis = positionMillis,
         )
         observe(engine, queue)
-        return engine.open(queue.current, positionMillis)
+        return engine.open(queue.current, positionMillis).onSuccess {
+            externalSubtitles.forEach { engine.addExternalSubtitle(it) }
+        }
     }
 
     private fun observe(engine: PlayerEngine, queue: QueueContext) {

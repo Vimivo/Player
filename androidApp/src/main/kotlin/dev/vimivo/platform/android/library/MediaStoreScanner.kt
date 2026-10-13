@@ -162,6 +162,7 @@ class MediaStoreScanner(
             volumeName = volume,
             mediaStoreId = mediaStoreId,
             title = title,
+            fileName = displayName,
             artist = string(MediaStore.Audio.AudioColumns.ARTIST).cleanMetadata(),
             album = string(MediaStore.Audio.AudioColumns.ALBUM).cleanMetadata(),
             albumArtist = string(MediaStore.Audio.AudioColumns.ALBUM_ARTIST).cleanMetadata(),

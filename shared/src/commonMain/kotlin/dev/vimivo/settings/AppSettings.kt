@@ -4,6 +4,16 @@ import kotlinx.coroutines.flow.Flow
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 enum class PreferredEngine { AUTOMATIC, MEDIA3, LIBVLC }
+enum class SubtitleEdgeStyle { NONE, OUTLINE, DROP_SHADOW }
+
+data class SubtitleAppearance(
+    val textSizeSp: Float = 20f,
+    val positionFraction: Float = 0.08f,
+    val textColorArgb: Long = 0xFFFFFFFF,
+    val backgroundColorArgb: Long = 0x66000000,
+    val edgeStyle: SubtitleEdgeStyle = SubtitleEdgeStyle.OUTLINE,
+    val edgeColorArgb: Long = 0xFF000000,
+)
 enum class HomeSection {
     CONTINUE_WATCHING,
     RECENTLY_PLAYED,
@@ -20,6 +30,12 @@ data class AppSettings(
     val resumePlayback: Boolean = true,
     val dynamicColor: Boolean = true,
     val videoGestureSensitivity: Float = 1f,
+    val preferredSubtitleLanguage: String = "",
+    val preferredAudioLanguage: String = "",
+    val subtitlesEnabled: Boolean = false,
+    val subtitleDelayMillis: Long = 0,
+    val audioDelayMillis: Long = 0,
+    val subtitleAppearance: SubtitleAppearance = SubtitleAppearance(),
     val homeSections: List<HomeSection> = HomeSection.entries,
 )
 

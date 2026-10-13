@@ -20,6 +20,10 @@ Only legal, self-created, Creative Commons, or generated media may be added to t
 | PiP and orientation | Generated landscape MP4 | Playback continues with synchronized notification/session state | Same | Physical API 26 and API 31+ run pending |
 | Hardware decoding | Generated H.264 and HEVC variants | Uses platform decoder when available; reports errors honestly | LibVLC fallback only for verified decoder failures | Device-specific run pending |
 | Interrupted video | Generated MP4 | Position persists; final ten seconds restart from zero | Same | Resume policy unit-tested; audio-focus device run pending |
+| External SRT/WebVTT | Generated MP4 plus UTF-8 sidecar | SAF load, persisted grant, selection, and readable cues | Native slave load | File matching/format tests added; device rendering pending |
+| Styled ASS/SSA | Generated MKV and sidecar with positioning/styles | Supported cue styling only; full fidelity is not claimed | Native renderer should retain supported complex styles | Visual device comparison pending |
+| Subtitle/audio delay | Generated A/V sync fixture | Controls correctly reported unavailable | ±10 second adjustment in 500 ms steps | LibVLC device verification pending |
+| Revoked subtitle permission | Previously selected SAF subtitle | Actionable load error; video remains playable | Same | Provider/device test pending |
 
 ## Generated fixture example
 

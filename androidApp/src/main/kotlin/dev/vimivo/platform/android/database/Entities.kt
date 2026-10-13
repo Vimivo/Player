@@ -9,11 +9,14 @@ import androidx.room.Index
     indices = [
         Index(value = ["uri"], unique = true),
         Index(value = ["kind", "title"]),
+        Index(value = ["fileName"]),
         Index(value = ["album"]),
         Index(value = ["artist"]),
         Index(value = ["genre"]),
         Index(value = ["folderPath"]),
         Index(value = ["dateAddedEpochSeconds"]),
+        Index(value = ["durationMillis"]),
+        Index(value = ["mimeType"]),
         Index(value = ["lastPlayedAtEpochMillis"]),
         Index(value = ["source", "volumeName", "isAvailable"]),
     ],
@@ -26,6 +29,7 @@ data class MediaEntity(
     val volumeName: String?,
     val mediaStoreId: Long?,
     val title: String,
+    val fileName: String?,
     val artist: String?,
     val album: String?,
     val albumArtist: String?,
@@ -61,7 +65,7 @@ data class PlaybackHistoryEntity(
     val completed: Boolean,
 )
 
-@Entity(tableName = "playlists")
+@Entity(tableName = "playlists", indices = [Index("name")])
 data class PlaylistEntity(
     @androidx.room.PrimaryKey val id: String,
     val name: String,
@@ -82,6 +86,26 @@ data class PlaylistEntity(
     indices = [Index("playlistId"), Index("mediaId")],
 )
 data class PlaylistItemEntity(val playlistId: String, val mediaId: String, val position: Int)
+
+@Entity(
+    tableName = "bookmarks",
+    foreignKeys = [
+        ForeignKey(
+            entity = MediaEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["mediaId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("mediaId"), Index("createdAtEpochMillis")],
+)
+data class BookmarkEntity(
+    @androidx.room.PrimaryKey val id: String,
+    val mediaId: String,
+    val name: String,
+    val positionMillis: Long,
+    val createdAtEpochMillis: Long,
+)
 
 @Entity(tableName = "scan_state", primaryKeys = ["source", "volumeName", "kind"])
 data class ScanStateEntity(

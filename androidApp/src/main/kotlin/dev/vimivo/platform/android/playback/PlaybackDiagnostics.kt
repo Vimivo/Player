@@ -1,5 +1,6 @@
 package dev.vimivo.platform.android.playback
 
+import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.playback.PlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,18 @@ class PlaybackDiagnostics {
 
     fun selectSubtitleTrack(id: String?): Result<Unit> = manager
         ?.selectSubtitleTrack(id)
+        ?: Result.failure(IllegalStateException("Playback service is unavailable"))
+
+    fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> = manager
+        ?.addExternalSubtitle(subtitle)
+        ?: Result.failure(IllegalStateException("Playback service is unavailable"))
+
+    fun setSubtitleDelay(delayMillis: Long): Result<Unit> = manager
+        ?.setSubtitleDelay(delayMillis)
+        ?: Result.failure(IllegalStateException("Playback service is unavailable"))
+
+    fun setAudioDelay(delayMillis: Long): Result<Unit> = manager
+        ?.setAudioDelay(delayMillis)
         ?: Result.failure(IllegalStateException("Playback service is unavailable"))
 
     fun detach() {

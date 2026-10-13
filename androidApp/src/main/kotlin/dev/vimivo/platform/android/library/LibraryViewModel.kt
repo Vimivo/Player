@@ -201,6 +201,34 @@ class LibraryViewModel(private val repository: MediaRepository) : ViewModel() {
         load(reset = true)
     }
 
+    fun filterSearch(
+        kind: MediaKind? = state.value.query.kind,
+        favoritesOnly: Boolean = state.value.query.favoritesOnly,
+        recentlyAdded: Boolean = false,
+        minimumDurationMillis: Long? = state.value.query.minimumDurationMillis,
+        maximumDurationMillis: Long? = state.value.query.maximumDurationMillis,
+        mimeType: String? = state.value.query.mimeType,
+        folderPath: String? = state.value.query.folderPath,
+    ) {
+        mutableState.update {
+            it.copy(
+                query = it.query.copy(
+                    kind = kind,
+                    favoritesOnly = favoritesOnly,
+                    minimumDurationMillis = minimumDurationMillis,
+                    maximumDurationMillis = maximumDurationMillis,
+                    mimeType = mimeType,
+                    folderPath = folderPath,
+                    sort = if (recentlyAdded) LibrarySort.DATE_ADDED else it.query.sort,
+                    descending = if (recentlyAdded) true else it.query.descending,
+                    offset = 0,
+                ),
+                categories = null,
+            )
+        }
+        load(reset = true)
+    }
+
     fun loadMore() {
         if (!state.value.hasMore || state.value.isLoading) return
         load(reset = false)
@@ -218,6 +246,11 @@ class LibraryViewModel(private val repository: MediaRepository) : ViewModel() {
 
     fun toggleFavorite(item: MediaItem) = viewModelScope.launch {
         repository.setFavorite(item.id, !item.isFavorite).onFailure(::showError)
+        load(reset = true)
+    }
+
+    fun setFavorite(items: List<MediaItem>, favorite: Boolean) = viewModelScope.launch {
+        items.forEach { repository.setFavorite(it.id, favorite).getOrThrow() }
         load(reset = true)
     }
 

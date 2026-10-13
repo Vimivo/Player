@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dev.vimivo.settings.AppSettings
 import dev.vimivo.settings.HomeSection
 import dev.vimivo.settings.SettingsRepository
+import dev.vimivo.settings.SubtitleAppearance
 import dev.vimivo.settings.ThemeMode
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,14 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun setVideoGestureSensitivity(value: Float) = update {
         it.copy(videoGestureSensitivity = value.coerceIn(0.5f, 2f))
     }
+    fun setPreferredSubtitleLanguage(language: String) = update { it.copy(preferredSubtitleLanguage = language) }
+    fun setPreferredAudioLanguage(language: String) = update { it.copy(preferredAudioLanguage = language) }
+    fun setSubtitlesEnabled(enabled: Boolean) = update { it.copy(subtitlesEnabled = enabled) }
+    fun setSubtitleDelay(delayMillis: Long) = update {
+        it.copy(subtitleDelayMillis = delayMillis.coerceIn(-10_000, 10_000))
+    }
+    fun setAudioDelay(delayMillis: Long) = update { it.copy(audioDelayMillis = delayMillis.coerceIn(-10_000, 10_000)) }
+    fun setSubtitleAppearance(appearance: SubtitleAppearance) = update { it.copy(subtitleAppearance = appearance) }
     fun setSectionVisible(section: HomeSection, visible: Boolean) = update { settings ->
         val sections = settings.homeSections.toMutableList().apply {
             if (visible && section !in this) add(section) else if (!visible) remove(section)

@@ -16,7 +16,9 @@ This document describes the implementation, not a promise that every codec/conta
 | Position/duration/buffering | Implemented | Position/duration implemented; byte/time buffered position is not exposed by LibVLC and is reported conservatively |
 | Audio/video/subtitle tracks | Implemented | Implemented; detailed metadata depends on LibVLC discovery |
 | Embedded subtitles | Implemented when container/extractor supports them | Implemented |
-| External subtitles | Not yet exposed by `PlayerEngine` | Not yet exposed by `PlayerEngine` |
+| External SRT, ASS/SSA, WebVTT | MediaItem subtitle configurations; rendering is cue-based and complex ASS behavior is not guaranteed | Native LibVLC subtitle slave; complex ASS styling is preserved when supported by the bundled renderer |
+| Subtitle appearance/position | PlayerView renderer supports size, color, background, outline/shadow, and bottom padding | Not exposed because LibVLC 3.7.7 has no equivalent stable Android API |
+| Subtitle/audio delay | Not exposed by the Media3 player API | Native millisecond UI mapped to LibVLC microsecond delay APIs |
 | HDR | Extraction and decoder selection supported; display/device-dependent | Decoder/output/device-dependent; must be device tested |
 | Frame rate and video size | Reported when Media3 `Format` supplies them | Reported for the selected parsed video track |
 | Aspect ratio | `PlayerView` currently uses its default fit behavior | `VLCVideoLayout` default behavior; user controls not yet exposed |
@@ -40,6 +42,12 @@ Media3 automatically uses the Android platform decoder selected for the stream p
 | H.264, H.265/HEVC, VP9, AV1, MPEG-2, MPEG-4 | Decoder availability, profile, level, bit depth, and resolution are device-specific for Media3. LibVLC software fallback is attempted only after a verified decoder/decode failure. |
 
 Unknown HTTP(S) paths are offered to Media3 because servers commonly omit file extensions and the extractor can sniff content. Authentication, access-control, and DRM failures never trigger LibVLC fallback. Vimivo does not bypass DRM.
+
+## Subtitle and track policy
+
+Embedded audio and subtitle tracks are normalized into the common `TrackInfo` model. External subtitle URIs are selected with the Storage Access Framework, validated as readable SRT, ASS/SSA, or WebVTT text, and retained only through Android's persisted read grant. Automatic matching searches only folders the user has explicitly granted and recognizes `movie.srt` and language-suffixed names such as `movie.en.srt`.
+
+Media3 cues are forwarded through the session adapter to `PlayerView`. Supported embedded spans are retained, but Media3 is not documented as a complete libass renderer, so full ASS/SSA fidelity is not claimed. LibVLC draws its subtitles natively on the video surface. Appearance controls are consequently enabled only for Media3, while audio/subtitle delay controls are enabled only for LibVLC.
 
 ## Audio investigation
 

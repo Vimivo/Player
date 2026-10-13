@@ -28,9 +28,9 @@ class LibraryQueryBuilderTest {
         assertTrue(sql.sql.contains("LIKE ? ESCAPE"))
         assertFalse(sql.sql.contains(query.text))
         assertEquals("AUDIO", bindings[1])
-        assertEquals("%100\\%\\_mix%", bindings[2])
-        assertEquals(100L, bindings[5])
-        assertEquals(200L, bindings[6])
+        assertEquals("100\\%\\_mix%", bindings[2])
+        assertEquals(100L, bindings[7])
+        assertEquals(200L, bindings[8])
     }
 
     @Test
@@ -73,6 +73,27 @@ class LibraryQueryBuilderTest {
         val bindings = RecordingProgram().also(sql::bindTo).values
         assertTrue(sql.sql.contains("albumArtist = ?"))
         assertEquals("Various Artists", bindings[2])
+    }
+
+    @Test
+    fun organizationFiltersAndSearchColumnsAreParameterized() {
+        val query = LibraryQuery(
+            text = "Movies",
+            folderPath = "Videos/Movies",
+            minimumDurationMillis = 60_000,
+            maximumDurationMillis = 7_200_000,
+            mimeType = "video/mp4",
+        )
+        val sql = LibraryQueryBuilder.count(query)
+        val bindings = RecordingProgram().also(sql::bindTo).values
+
+        assertTrue(sql.sql.contains("fileName LIKE"))
+        assertTrue(sql.sql.contains("folderPath LIKE"))
+        assertTrue(sql.sql.contains("durationMillis >= ?"))
+        assertTrue(sql.sql.contains("durationMillis <= ?"))
+        assertTrue(sql.sql.contains("mimeType = ?"))
+        assertFalse(sql.sql.contains("Videos/Movies"))
+        assertEquals("Videos/Movies", bindings[1])
     }
 }
 

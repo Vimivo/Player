@@ -4,17 +4,21 @@ package dev.vimivo.platform.android.di
 
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.domain.repository.PlaylistRepository
+import dev.vimivo.domain.repository.OrganizationRepository
 import dev.vimivo.features.home.HomeViewModel
 import dev.vimivo.platform.android.database.VimivoDatabase
 import dev.vimivo.platform.android.library.AndroidPlaylistRepository
+import dev.vimivo.platform.android.library.AndroidOrganizationRepository
 import dev.vimivo.platform.android.library.AndroidMediaStoreRepository
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.library.LibraryViewModel
 import dev.vimivo.platform.android.library.MediaPermissionPolicy
 import dev.vimivo.platform.android.library.MediaStoreScanner
 import dev.vimivo.platform.android.library.PlaylistViewModel
+import dev.vimivo.platform.android.library.PlaylistDocuments
 import dev.vimivo.platform.android.library.SafMediaScanner
 import dev.vimivo.platform.android.playback.LibVlcPlayerEngineFactory
+import dev.vimivo.platform.android.playback.AndroidSubtitleRepository
 import dev.vimivo.platform.android.playback.Media3PlayerEngineFactory
 import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.platform.android.playback.PlaybackDiagnostics
@@ -38,23 +42,27 @@ val androidModule = module {
     }
     single { get<VimivoDatabase>().libraryDao() }
     single { get<VimivoDatabase>().playlistDao() }
+    single { get<VimivoDatabase>().organizationDao() }
     single { MediaPermissionPolicy(get()) }
     single { MediaStoreScanner(get(), get()) }
     single { SafMediaScanner(get(), get()) }
     single { AndroidThumbnailRepository(get()) }
     single<MediaRepository> { AndroidMediaStoreRepository(get(), get(), get(), get(), get(), get()) }
     single<PlaylistRepository> { AndroidPlaylistRepository(get(), get()) }
+    single<OrganizationRepository> { AndroidOrganizationRepository(get()) }
+    single { PlaylistDocuments(get(), get(), get()) }
     single<SettingsRepository> { AndroidSettingsRepository(get()) }
     single { Media3PlayerEngineFactory(get()) }
     single { LibVlcPlayerEngineFactory(get()) }
+    single { AndroidSubtitleRepository(get(), get()) }
     single { PlaybackStateStore(get()) }
     single { PlaybackController(get()) }
     single { PlaybackDiagnostics() }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     viewModel { HomeViewModel(get()) }
     viewModel { LibraryViewModel(get()) }
-    viewModel { PlaybackViewModel(get(), get(), get()) }
+    viewModel { PlaybackViewModel(get(), get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get()) }
     viewModel { NetworkViewModel(get(), get()) }
-    viewModel { PlaylistViewModel(get(), get()) }
+    viewModel { PlaylistViewModel(get(), get(), get()) }
 }

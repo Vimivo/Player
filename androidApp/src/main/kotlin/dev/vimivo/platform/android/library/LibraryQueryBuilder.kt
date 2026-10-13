@@ -68,6 +68,9 @@ internal object LibraryQueryBuilder {
         query.albumArtist?.let { where += "albumArtist = ?"; args += it }
         query.genre?.let { where += "genre = ?"; args += it }
         query.folderPath?.let { where += "folderPath = ?"; args += it }
+        query.minimumDurationMillis?.let { where += "durationMillis >= ?"; args += it }
+        query.maximumDurationMillis?.let { where += "durationMillis <= ?"; args += it }
+        query.mimeType?.let { where += "mimeType = ?"; args += it }
         if (query.favoritesOnly) where += "isFavorite = 1"
         if (query.recentlyWatchedOnly) {
             where += "kind = ?"
@@ -81,9 +84,10 @@ internal object LibraryQueryBuilder {
             where += "lastPlaybackPositionMillis > 0"
         }
         if (query.text.isNotBlank()) {
-            where += "(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')"
-            val term = "%${query.text.escapeLike()}%"
-            repeat(3) { args += term }
+            where += "(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\' " +
+                "OR folderPath LIKE ? ESCAPE '\\' OR fileName LIKE ? ESCAPE '\\')"
+            val term = "${query.text.trim().escapeLike()}%"
+            repeat(5) { args += term }
         }
     }
 }

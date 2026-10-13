@@ -12,6 +12,8 @@ import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.model.MediaPermissionState
 import dev.vimivo.core.model.Playlist
+import dev.vimivo.core.model.Bookmark
+import dev.vimivo.core.model.PlaybackHistory
 import kotlinx.coroutines.flow.Flow
 
 interface MediaRepository {
@@ -36,4 +38,19 @@ interface PlaylistRepository {
     fun observePlaylists(): Flow<List<Playlist>>
     suspend fun save(playlist: Playlist): Result<Unit>
     suspend fun delete(id: String): Result<Unit>
+    suspend fun create(name: String, items: List<MediaId> = emptyList()): Result<Playlist>
+    suspend fun rename(id: String, name: String): Result<Unit>
+    suspend fun add(id: String, mediaIds: List<MediaId>): Result<Unit>
+    suspend fun remove(id: String, position: Int): Result<Unit>
+    suspend fun move(id: String, from: Int, to: Int): Result<Unit>
+    suspend fun duplicate(id: String, name: String): Result<Playlist>
+    suspend fun findByName(query: String, limit: Int = 20): Result<List<Playlist>>
+}
+
+interface OrganizationRepository {
+    fun observeBookmarks(mediaId: MediaId? = null): Flow<List<Bookmark>>
+    fun observeHistory(limit: Int = 100): Flow<List<PlaybackHistory>>
+    suspend fun saveBookmark(bookmark: Bookmark): Result<Unit>
+    suspend fun renameBookmark(id: String, name: String): Result<Unit>
+    suspend fun deleteBookmark(id: String): Result<Unit>
 }

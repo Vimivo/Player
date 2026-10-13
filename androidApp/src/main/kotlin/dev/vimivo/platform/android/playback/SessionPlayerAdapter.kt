@@ -19,6 +19,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.VideoSize
+import androidx.media3.common.text.CueGroup
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.vimivo.core.model.MediaId
@@ -128,6 +129,9 @@ class SessionPlayerAdapter(
             .setPlaybackParameters(PlaybackParameters(playback.speed))
             .setVolume(playback.volume)
             .setVideoSize(VideoSize(playback.videoTracks.firstOrNull()?.width ?: 0, playback.videoTracks.firstOrNull()?.height ?: 0))
+            .setCurrentCues(
+                (manager.activeEngine.value as? Media3PlayerEngine)?.player?.currentCues ?: CueGroup.EMPTY_TIME_ZERO,
+            )
             .setPlayerError((playback.status as? PlaybackStatus.Error)?.error?.toPlaybackException())
             .build()
     }

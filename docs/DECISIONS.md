@@ -77,3 +77,15 @@
 **Decision:** The full-screen video UI renders the existing service session player and uses a process-local diagnostics bridge only for engine-specific track/capability state. Media3 and LibVLC both attach through the session adapter; Compose never constructs an engine.
 
 **Reason:** This preserves one playback lifecycle across fullscreen, PiP, backgrounding, configuration changes, and fallback while still allowing track selection and accurate decoder information.
+
+## ADR-012: Capability-gated subtitle controls
+
+**Decision:** Keep tracks, external subtitle references, and delay commands in shared playback contracts, but render and expose adjustments only when the active engine reports support. SAF tree grants are the sole source for sibling-file auto-detection.
+
+**Reason:** Media3 and LibVLC have materially different subtitle renderers and timing APIs. Capability gating avoids ineffective controls and false claims, while SAF-only discovery respects scoped storage.
+
+## ADR-013: Local-only organization and schema version 3
+
+**Decision:** Add bookmarks, searchable filenames, playlist-name indexes, and duration/MIME indexes through an additive Room auto-migration from version 2 to 3. Keep playlists, favorites, history, positions, counts, and bookmarks solely on device. Preserve playlist references when media becomes unavailable, and cascade bookmarks only when a media record is explicitly removed.
+
+**Reason:** Removable storage and revoked SAF grants are often temporary, so deleting organization data during reconciliation would be destructive. Indexed prefix queries remain responsive without introducing a second search database. Embedded metadata remains read-only because MediaStore and generic SAF URIs do not provide a universally reliable tag-writing transaction; Vimivo will not modify a user file without a provider-specific capability and explicit confirmation.

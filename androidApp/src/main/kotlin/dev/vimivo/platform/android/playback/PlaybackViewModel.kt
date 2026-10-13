@@ -6,15 +6,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.domain.repository.MediaRepository
+import dev.vimivo.domain.repository.OrganizationRepository
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.TrackInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 data class PlaybackUiState(
     val connected: Boolean = false,
@@ -34,16 +39,24 @@ data class PlaybackUiState(
     val audioTracks: List<TrackInfo> = emptyList(),
     val videoTracks: List<TrackInfo> = emptyList(),
     val subtitleTracks: List<TrackInfo> = emptyList(),
+    val externalSubtitleCandidates: List<ExternalSubtitle> = emptyList(),
+    val trackErrorMessage: String? = null,
+    val bookmarks: List<Bookmark> = emptyList(),
 )
 
 class PlaybackViewModel(
     private val connection: PlaybackController,
     private val mediaRepository: MediaRepository,
     private val diagnostics: PlaybackDiagnostics,
+    private val subtitles: AndroidSubtitleRepository,
+    private val organization: OrganizationRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(PlaybackUiState())
     private var player: Player? = null
     private var loadedFavoriteId: String? = null
+    private var detectedSubtitleMediaId: String? = null
+    private var bookmarkMediaId: String? = null
+    private var bookmarkJob: Job? = null
     val state: StateFlow<PlaybackUiState> = mutableState.asStateFlow()
 
     private val listener = object : Player.Listener {
@@ -95,12 +108,61 @@ class PlaybackViewModel(
     fun setVolume(volume: Float) { player?.volume = volume.coerceIn(0f, 1f) }
     fun selectAudioTrack(id: String?) { diagnostics.selectAudioTrack(id) }
     fun selectSubtitleTrack(id: String?) { diagnostics.selectSubtitleTrack(id) }
+    fun setSubtitleDelay(delayMillis: Long) = reportTrackResult(diagnostics.setSubtitleDelay(delayMillis))
+    fun setAudioDelay(delayMillis: Long) = reportTrackResult(diagnostics.setAudioDelay(delayMillis))
+    fun loadExternalSubtitle(uri: android.net.Uri) {
+        viewModelScope.launch {
+            subtitles.inspect(uri).fold(
+                onSuccess = { subtitle ->
+                    reportTrackResult(diagnostics.addExternalSubtitle(subtitle))
+                    mutableState.value = state.value.copy(
+                        externalSubtitleCandidates = (state.value.externalSubtitleCandidates + subtitle)
+                            .distinctBy(ExternalSubtitle::uri),
+                    )
+                },
+                onFailure = { error ->
+                    mutableState.value = state.value.copy(
+                        trackErrorMessage = error.message ?: "Subtitle loading failed",
+                    )
+                },
+            )
+        }
+    }
+    fun loadExternalSubtitle(subtitle: ExternalSubtitle) = reportTrackResult(diagnostics.addExternalSubtitle(subtitle))
+    fun clearTrackError() { mutableState.value = state.value.copy(trackErrorMessage = null) }
     fun toggleFavorite() {
         val id = state.value.current?.mediaId ?: return
         val favorite = !state.value.isFavorite
         mutableState.value = state.value.copy(isFavorite = favorite)
         viewModelScope.launch { mediaRepository.setFavorite(MediaId(id), favorite) }
     }
+
+    fun addBookmark(name: String = "Bookmark") {
+        val id = state.value.current?.mediaId ?: return
+        viewModelScope.launch {
+            organization.saveBookmark(
+                Bookmark(
+                    id = UUID.randomUUID().toString(),
+                    mediaId = MediaId(id),
+                    name = name,
+                    positionMillis = state.value.positionMillis,
+                    createdAtEpochMillis = System.currentTimeMillis(),
+                ),
+            ).onFailure { error -> mutableState.value = state.value.copy(errorMessage = error.message) }
+        }
+    }
+
+    fun renameBookmark(bookmark: Bookmark, name: String) = viewModelScope.launch {
+        organization.renameBookmark(bookmark.id, name)
+            .onFailure { error -> mutableState.value = state.value.copy(errorMessage = error.message) }
+    }
+
+    fun deleteBookmark(bookmark: Bookmark) = viewModelScope.launch {
+        organization.deleteBookmark(bookmark.id)
+            .onFailure { error -> mutableState.value = state.value.copy(errorMessage = error.message) }
+    }
+
+    fun seekToBookmark(bookmark: Bookmark) = seekTo(bookmark.positionMillis)
 
     private fun publish(player: Player) {
         val previous = mutableState.value
@@ -124,8 +186,25 @@ class PlaybackViewModel(
             audioTracks = previous.audioTracks,
             videoTracks = previous.videoTracks,
             subtitleTracks = previous.subtitleTracks,
+            externalSubtitleCandidates = previous.externalSubtitleCandidates,
+            trackErrorMessage = previous.trackErrorMessage,
         )
         val id = player.currentMediaItem?.mediaId
+        if (id != bookmarkMediaId) {
+            bookmarkMediaId = id
+            bookmarkJob?.cancel()
+            if (id == null) {
+                mutableState.value = state.value.copy(bookmarks = emptyList())
+            } else {
+                bookmarkJob = viewModelScope.launch {
+                    organization.observeBookmarks(MediaId(id)).collect { bookmarks ->
+                        if (state.value.current?.mediaId == id) {
+                            mutableState.value = state.value.copy(bookmarks = bookmarks)
+                        }
+                    }
+                }
+            }
+        }
         if (id != null && id != loadedFavoriteId) {
             loadedFavoriteId = id
             viewModelScope.launch {
@@ -136,6 +215,28 @@ class PlaybackViewModel(
                 }
             }
         }
+        if (id != null && id != detectedSubtitleMediaId) {
+            detectedSubtitleMediaId = id
+            val uri = player.currentMediaItem?.localConfiguration?.uri?.toString() ?: return
+            val title = player.currentMediaItem?.mediaMetadata?.title?.toString() ?: id
+            viewModelScope.launch {
+                val candidates = subtitles.matching(
+                    dev.vimivo.core.model.MediaItem(
+                        id = MediaId(id),
+                        uri = uri,
+                        title = title,
+                        kind = dev.vimivo.core.model.MediaKind.VIDEO,
+                    ),
+                )
+                if (state.value.current?.mediaId == id) {
+                    mutableState.value = state.value.copy(externalSubtitleCandidates = candidates)
+                }
+            }
+        }
+    }
+
+    private fun reportTrackResult(result: Result<Unit>) {
+        mutableState.value = state.value.copy(trackErrorMessage = result.exceptionOrNull()?.message)
     }
 
     override fun onCleared() {

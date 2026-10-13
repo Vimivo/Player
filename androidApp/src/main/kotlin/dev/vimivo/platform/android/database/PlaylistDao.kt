@@ -22,6 +22,14 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists ORDER BY name COLLATE NOCASE")
     fun observe(): Flow<List<PlaylistWithItems>>
 
+    @Transaction
+    @Query("SELECT * FROM playlists WHERE id = :id")
+    suspend fun get(id: String): PlaylistWithItems?
+
+    @Transaction
+    @Query("SELECT * FROM playlists WHERE name LIKE :prefix || '%' COLLATE NOCASE ORDER BY name COLLATE NOCASE LIMIT :limit")
+    suspend fun findByName(prefix: String, limit: Int): List<PlaylistWithItems>
+
     @Upsert
     suspend fun upsertPlaylist(playlist: PlaylistEntity)
 
