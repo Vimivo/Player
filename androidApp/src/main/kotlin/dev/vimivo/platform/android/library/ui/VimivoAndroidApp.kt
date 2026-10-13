@@ -1049,7 +1049,7 @@ private fun SettingsScreen(
         item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.developer), stringResource(R.string.developer_value), onClick = {}) }
         item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.licenses), onClick = { noticesVisible = true }) }
         item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.third_party_notices), onClick = { noticesVisible = true }) }
-        item { SettingsRow(Icons.Outlined.Link, stringResource(R.string.privacy_policy), onClick = { context.openUrl("https://github.com/Vimivo/Player/blob/main/PRIVACY.md") }) }
+        item { SettingsRow(Icons.Outlined.Link, stringResource(R.string.privacy_policy), onClick = { context.openUrl("https://github.com/Vimivo/Player/blob/main/docs/PRIVACY.md") }) }
         item { SettingsRow(Icons.Outlined.Link, stringResource(R.string.project_website), "github.com/Vimivo/Player", onClick = { context.openUrl("https://github.com/Vimivo/Player") }) }
         operations.message?.let { message -> item { Text(message, Modifier.padding(20.dp), color = MaterialTheme.colorScheme.primary) } }
     }

@@ -15,8 +15,8 @@ android {
         applicationId = providers.gradleProperty("vimivo.applicationId").orElse("dev.vimivo.app").get()
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.gradleProperty("vimivo.versionCode").orElse("1").get().toInt()
+        versionName = providers.gradleProperty("vimivo.versionName").orElse("1.0.0").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
@@ -29,12 +29,37 @@ android {
     }
     packaging.resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
 
+    val releaseStoreFile = providers.gradleProperty("vimivo.signing.storeFile").orNull
+    val releaseStorePassword = providers.gradleProperty("vimivo.signing.storePassword").orNull
+    val releaseKeyAlias = providers.gradleProperty("vimivo.signing.keyAlias").orNull
+    val releaseKeyPassword = providers.gradleProperty("vimivo.signing.keyPassword").orNull
+    val hasReleaseSigning = listOf(
+        releaseStoreFile,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword,
+    ).all { !it.isNullOrBlank() }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseStoreFile))
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
+    }
+
     buildTypes {
         debug { applicationIdSuffix = ".debug" }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
         }
     }
 }

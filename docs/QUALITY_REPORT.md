@@ -53,5 +53,8 @@ See `MEDIA_TEST_MATRIX.md`, `NETWORK_STREAMING.md`, and `PLAYBACK_CAPABILITIES.m
 
 ## Release blockers
 
-- No source-level startup crash or build blocker is known after the automated gates.
+- Automated validation completed on 2026-10-13: debug and release unit tests passed, Android instrumentation sources compiled, Detekt passed, debug/release Android lint passed, debug APK assembly passed, and the minified/resource-shrunk release AAB built successfully. No Android device was connected, so instrumentation tests were compiled but not executed.
+- The generated release AAB is intentionally unsigned because no protected signing credentials were supplied; it is not uploadable as-is.
+- The default application ID and Vimivo working brand require final owner approval before the first Play application is created.
+- LibVLC LGPL corresponding-source, relinking, and full-notice delivery must be completed and legally reviewed.
 - Release should remain blocked until smoke testing is completed on at least API 26 and API 36, including background playback, notification controls, local scanning, restore from a real SAF provider, HLS/DASH, and a 16 KiB arm64 environment.
