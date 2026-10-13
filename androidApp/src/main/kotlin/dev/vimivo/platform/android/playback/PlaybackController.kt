@@ -66,6 +66,11 @@ class PlaybackController(context: Context) : AutoCloseable {
         }
     }
 
+    fun retry() = withController {
+        prepare()
+        play()
+    }
+
     private fun withController(block: MediaController.() -> Unit) {
         mutableController.value?.let { controller ->
             controller.block()

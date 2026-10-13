@@ -221,7 +221,9 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> PlaybackErrorCode.ACCESS_DENIED
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> PlaybackErrorCode.NETWORK
-            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+            PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED,
+            PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> PlaybackErrorCode.DECODER_INITIALIZATION
             PlaybackException.ERROR_CODE_DECODING_FAILED -> PlaybackErrorCode.DECODING_FAILED
             else -> PlaybackErrorCode.UNKNOWN
@@ -250,6 +252,9 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             localAudio = true,
             localVideo = true,
             httpStreaming = true,
+            hlsStreaming = true,
+            dashStreaming = true,
+            liveStreaming = true,
             hardwareDecoding = true,
             softwareDecoding = false,
             playbackSpeed = true,

@@ -36,6 +36,8 @@ View models expose immutable `StateFlow` values. Repositories expose streams and
 
 `PlaybackEngineManager` owns exactly one engine, queue context, desired play state, and the set of engines attempted for the current open operation. Selection order is Media3 then LibVLC. A switch always closes the previous engine before constructing the next one and carries the queue and last known position forward.
 
+Authorized network media uses this same service-owned path. Media3 includes its HLS and DASH source modules and remains preferred; LibVLC is available only through the existing bounded compatibility fallback. `NetworkViewModel` observes the MediaController for buffering, live, seekability, and errors, and may retry transport failures at most three times. It never owns a player or sends a submitted URL anywhere except the selected origin server.
+
 Automatic fallback is intentionally narrow: only unsupported-container, decoder-initialization, and decoding failures can move from Media3 to LibVLC. Missing files, permission failures, HTTP authorization/status failures, and general network failures do not fall back. Each engine can be attempted only once per open operation, preventing fallback loops.
 
 `VimivoPlaybackService` is the sole `MediaLibraryService` and playback owner. It creates one service-scoped `PlaybackEngineManager` and exposes it through a `SessionPlayerAdapter`, so Media3 system controls work identically when Media3 or LibVLC is active. Activities and Compose code connect with `PlaybackController`; they never construct or retain a native engine.

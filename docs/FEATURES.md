@@ -28,11 +28,13 @@
 - Video library filters for all videos, folders, recent, favorites, and in-progress playback
 - Immersive video player with buffered seeking, queue navigation, screen/orientation lock, PiP, speed, track selection, aspect modes, and honest media diagnostics
 - Configurable edge-safe gestures for double-tap seeking, swipe seeking, brightness/volume, pinch zoom, and control visibility
+- Authorized direct HTTP/HTTPS, HLS, MPEG-DASH, internet-radio, and compatible remote-file playback through the service-owned engine path
+- Network stream clipboard entry, ordered local history, favorites, clear/remove actions, loading/live/seekability state, manual retry, and bounded reconnect
 
 ## Planned
 
 - Equalizer and platform audio-effects evaluation
-- Authorized HTTP/HLS/DASH/SMB/WebDAV sources with credential-safe storage
+- Authorized SMB/WebDAV sources with credential-safe storage
 - Casting evaluation, Android Auto, and TV evaluation
 
 Desktop and iOS applications remain outside the current scope.

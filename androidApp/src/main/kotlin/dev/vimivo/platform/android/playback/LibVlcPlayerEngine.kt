@@ -190,8 +190,16 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
             MediaPlayer.Event.EncounteredError -> updateStatus(
                 PlaybackStatus.Error(
                     PlaybackError(
-                        code = PlaybackErrorCode.DECODING_FAILED,
-                        message = "LibVLC could not decode or read this media",
+                        code = if (mutableState.value.media?.kind == dev.vimivo.core.model.MediaKind.STREAM) {
+                            PlaybackErrorCode.NETWORK
+                        } else {
+                            PlaybackErrorCode.DECODING_FAILED
+                        },
+                        message = if (mutableState.value.media?.kind == dev.vimivo.core.model.MediaKind.STREAM) {
+                            "LibVLC could not connect to or read this stream"
+                        } else {
+                            "LibVLC could not decode or read this media"
+                        },
                         engine = id,
                     ),
                 ),
@@ -320,6 +328,9 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
             localAudio = true,
             localVideo = true,
             httpStreaming = true,
+            hlsStreaming = true,
+            dashStreaming = true,
+            liveStreaming = true,
             hardwareDecoding = true,
             softwareDecoding = true,
             playbackSpeed = true,

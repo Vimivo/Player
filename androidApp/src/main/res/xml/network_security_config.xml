@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Vimivo contacts only a URL the user explicitly submits. Because those URLs can
+  point to arbitrary LAN hosts, Android cannot express a finite domain allowlist.
+  Cleartext is therefore enabled at the app boundary, while URL validation and
+  playback initiation remain explicit and no URL is sent to an intermediary.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

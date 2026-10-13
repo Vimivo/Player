@@ -89,3 +89,9 @@
 **Decision:** Add bookmarks, searchable filenames, playlist-name indexes, and duration/MIME indexes through an additive Room auto-migration from version 2 to 3. Keep playlists, favorites, history, positions, counts, and bookmarks solely on device. Preserve playlist references when media becomes unavailable, and cascade bookmarks only when a media record is explicitly removed.
 
 **Reason:** Removable storage and revoked SAF grants are often temporary, so deleting organization data during reconciliation would be destructive. Indexed prefix queries remain responsive without introducing a second search database. Embedded metadata remains read-only because MediaStore and generic SAF URIs do not provide a universally reliable tag-writing transaction; Vimivo will not modify a user file without a provider-specific capability and explicit confirmation.
+
+## ADR-014: Explicit-origin network streaming
+
+**Decision:** Add Media3 HLS and DASH modules and keep network playback inside the single MediaLibraryService. HTTPS is preferred. Cleartext is enabled at the application network-policy boundary solely because user-authorized URLs may name arbitrary internet-radio or LAN hosts that cannot be represented by a static domain allowlist. Network requests begin only after an explicit play/retry/history action, URLs never go to an intermediary, embedded URL credentials are rejected, and automatic reconnect is limited to three transport-failure attempts.
+
+**Reason:** A second network player would break the authoritative session, while a fixed cleartext domain list would make legitimate local-network sources impossible. Bounded retry avoids loops and deliberately excludes HTTP status, expired-link, access, and manifest errors.

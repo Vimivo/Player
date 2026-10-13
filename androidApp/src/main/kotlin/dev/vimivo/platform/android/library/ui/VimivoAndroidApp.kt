@@ -19,6 +19,7 @@
 package dev.vimivo.platform.android.library.ui
 
 import android.content.Intent
+import android.content.ClipboardManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -74,6 +75,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shuffle
@@ -131,6 +133,7 @@ import dev.vimivo.platform.android.library.LibraryViewModel
 import dev.vimivo.platform.android.library.MediaPermissionPolicy
 import dev.vimivo.platform.android.library.PlaylistViewModel
 import dev.vimivo.platform.android.network.NetworkViewModel
+import dev.vimivo.platform.android.network.StreamPlaybackStatus
 import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.platform.android.playback.PlaybackUiState
 import dev.vimivo.platform.android.playback.PlaybackViewModel
@@ -853,31 +856,89 @@ private fun formatBytes(bytes: Long): String = when {
 @Composable
 private fun NetworkScreen(viewModel: NetworkViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Text("Open URL", style = MaterialTheme.typography.headlineMedium)
+            Text("Open network stream", style = MaterialTheme.typography.headlineMedium)
             SearchBar(state.url, viewModel::setUrl)
-            Button({ viewModel.open() }, enabled = state.url.isNotBlank(), modifier = Modifier.padding(top = 8.dp)) { Text("Play stream") }
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button({ viewModel.open() }, enabled = state.url.isNotBlank()) { Text("Play stream") }
+                OutlinedButton({
+                    val clipboard = context.getSystemService(ClipboardManager::class.java)
+                    clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()?.let(viewModel::setUrl)
+                }) { Text("Paste") }
+            }
             state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+        if (state.currentUrl != null) {
+            item {
+                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(state.currentUrl!!, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            buildString {
+                                append(state.status.name.lowercase().replaceFirstChar(Char::uppercase))
+                                if (state.isLive) append(" · Live")
+                                else append(if (state.isSeekable) " · Seekable" else " · Not seekable")
+                                if (state.retryAttempt > 0) append(" · Reconnect ${state.retryAttempt}/3")
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (state.status in setOf(StreamPlaybackStatus.CONNECTING, StreamPlaybackStatus.BUFFERING)) {
+                            LoadingIndicator(if (state.status == StreamPlaybackStatus.BUFFERING) "Buffering stream" else "Connecting")
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(viewModel::togglePlayback) {
+                                Text(if (state.status == StreamPlaybackStatus.PLAYING) "Pause" else "Resume")
+                            }
+                            if (state.status == StreamPlaybackStatus.ERROR) {
+                                Button(viewModel::retry) { Icon(Icons.Outlined.Refresh, null); Text(" Retry") }
+                            }
+                        }
+                    }
+                }
+            }
         }
         if (state.favorites.isNotEmpty()) {
             item { SectionTitle("Favorite streams") }
-            items(state.favorites.toList()) { url -> StreamRow(url, true, viewModel::open) { viewModel.toggleFavorite(url) } }
+            items(state.favorites.toList(), key = { "favorite:$it" }) { url ->
+                StreamRow(url, true, viewModel::open, { viewModel.toggleFavorite(url) })
+            }
         }
         if (state.recent.isNotEmpty()) {
-            item { SectionTitle("Recent streams") }
-            items(state.recent) { url -> StreamRow(url, url in state.favorites, viewModel::open) { viewModel.toggleFavorite(url) } }
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    BoxWithConstraints(Modifier.weight(1f)) { SectionTitle("Recent streams") }
+                    OutlinedButton(viewModel::clearHistory) { Text("Clear history") }
+                }
+            }
+            items(state.recent, key = { "recent:$it" }) { url ->
+                StreamRow(url, url in state.favorites, viewModel::open, { viewModel.toggleFavorite(url) }) {
+                    viewModel.removeRecent(url)
+                }
+            }
         } else item { EmptyState(Icons.Outlined.Link, "No recent streams", "Authorized HTTP and HTTPS streams you open will appear here.") }
     }
 }
 
 @Composable
-private fun StreamRow(url: String, favorite: Boolean, play: (String) -> Unit, toggleFavorite: () -> Unit) {
+private fun StreamRow(
+    url: String,
+    favorite: Boolean,
+    play: (String) -> Unit,
+    toggleFavorite: () -> Unit,
+    remove: (() -> Unit)? = null,
+) {
     ListItem(
         modifier = Modifier.clickable { play(url) },
         headlineContent = { Text(url, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingContent = { Icon(Icons.Outlined.Link, null) },
-        trailingContent = { IconButton(toggleFavorite) { Icon(Icons.Outlined.Favorite, if (favorite) "Remove favorite" else "Favorite", tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) } },
+        trailingContent = {
+            Row {
+                IconButton(toggleFavorite) { Icon(Icons.Outlined.Favorite, if (favorite) "Remove favorite" else "Favorite", tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
+                remove?.let { action -> IconButton(action) { Icon(Icons.Outlined.Delete, "Remove from history") } }
+            }
+        },
     )
 }
 
