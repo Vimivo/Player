@@ -26,7 +26,9 @@ import dev.vimivo.platform.android.playback.PlaybackStateStore
 import dev.vimivo.platform.android.playback.PlaybackViewModel
 import dev.vimivo.platform.android.settings.SettingsViewModel
 import dev.vimivo.platform.android.network.NetworkViewModel
+import dev.vimivo.platform.android.network.NetworkHistoryStore
 import dev.vimivo.platform.android.settings.AndroidSettingsRepository
+import dev.vimivo.platform.android.settings.LocalBackupManager
 import dev.vimivo.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,24 +47,26 @@ val androidModule = module {
     single { get<VimivoDatabase>().organizationDao() }
     single { MediaPermissionPolicy(get()) }
     single { MediaStoreScanner(get(), get()) }
-    single { SafMediaScanner(get(), get()) }
+    single { SafMediaScanner(get(), get(), get()) }
     single { AndroidThumbnailRepository(get()) }
     single<MediaRepository> { AndroidMediaStoreRepository(get(), get(), get(), get(), get(), get()) }
     single<PlaylistRepository> { AndroidPlaylistRepository(get(), get()) }
     single<OrganizationRepository> { AndroidOrganizationRepository(get()) }
     single { PlaylistDocuments(get(), get(), get()) }
     single<SettingsRepository> { AndroidSettingsRepository(get()) }
+    single { NetworkHistoryStore(get()) }
+    single { LocalBackupManager(get(), get(), get(), get(), get(), get(), get()) }
     single { Media3PlayerEngineFactory(get()) }
-    single { LibVlcPlayerEngineFactory(get()) }
+    single { LibVlcPlayerEngineFactory(get(), get()) }
     single { AndroidSubtitleRepository(get(), get()) }
     single { PlaybackStateStore(get()) }
-    single { PlaybackController(get()) }
+    single { PlaybackController(get(), get()) }
     single { PlaybackDiagnostics() }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     viewModel { HomeViewModel(get()) }
-    viewModel { LibraryViewModel(get()) }
+    viewModel { LibraryViewModel(get(), get()) }
     viewModel { PlaybackViewModel(get(), get(), get(), get(), get()) }
-    viewModel { SettingsViewModel(get()) }
-    viewModel { NetworkViewModel(get(), get()) }
+    viewModel { SettingsViewModel(get(), get(), get(), get(), get()) }
+    viewModel { NetworkViewModel(get(), get(), get(), get()) }
     viewModel { PlaylistViewModel(get(), get(), get()) }
 }

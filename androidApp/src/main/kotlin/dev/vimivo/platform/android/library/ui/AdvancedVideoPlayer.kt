@@ -1,3 +1,4 @@
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 @file:Suppress(
     "ArgumentListWrapping",
     "CyclomaticComplexMethod",
@@ -100,6 +101,7 @@ import dev.vimivo.platform.android.ui.components.BottomSheet
 import dev.vimivo.platform.android.ui.components.SettingsRow
 import dev.vimivo.settings.AppSettings
 import dev.vimivo.settings.SubtitleAppearance
+import dev.vimivo.settings.VideoRotationBehavior
 import dev.vimivo.settings.SubtitleEdgeStyle
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -144,7 +146,9 @@ fun AdvancedVideoPlayer(
     var locked by remember { mutableStateOf(false) }
     var orientationLocked by remember { mutableStateOf(false) }
     var menuVisible by remember { mutableStateOf(false) }
-    var aspect by remember { mutableStateOf(VideoAspect.FIT) }
+    var aspect by remember(settings.videoAspectPreference) {
+        mutableStateOf(runCatching { VideoAspect.valueOf(settings.videoAspectPreference.name) }.getOrDefault(VideoAspect.FIT))
+    }
     var zoom by remember { mutableFloatStateOf(1f) }
     var seekPreview by remember { mutableLongStateOf(player.positionMillis) }
     var dragging by remember { mutableStateOf(false) }
@@ -152,6 +156,10 @@ fun AdvancedVideoPlayer(
     var autoSubtitleAppliedFor by remember { mutableStateOf<String?>(null) }
     var autoExternalAppliedFor by remember { mutableStateOf<String?>(null) }
     val media = player.current?.toDomain()
+
+    LaunchedEffect(media?.id?.value) {
+        if (media != null) viewModel.setSpeed(settings.defaultVideoSpeed)
+    }
 
     LaunchedEffect(media?.id?.value, player.audioTracks, settings.preferredAudioLanguage) {
         val mediaId = media?.id?.value ?: return@LaunchedEffect
@@ -208,6 +216,11 @@ fun AdvancedVideoPlayer(
     DisposableEffect(activity) {
         val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         val originalBrightness = activity?.window?.attributes?.screenBrightness
+        activity?.requestedOrientation = when (settings.videoRotationBehavior) {
+            VideoRotationBehavior.FOLLOW_SYSTEM -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            VideoRotationBehavior.SENSOR -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
+            VideoRotationBehavior.LOCK_CURRENT -> ActivityInfo.SCREEN_ORIENTATION_LOCKED
+        }
         activity?.let { WindowCompat.getInsetsController(it.window, it.window.decorView).hide(WindowInsetsCompat.Type.systemBars()) }
         onDispose {
             onPlayerState(false, false)
@@ -254,7 +267,8 @@ fun AdvancedVideoPlayer(
                     if (!locked) detectTapGestures(
                         onTap = { controlsVisible = !controlsVisible },
                         onDoubleTap = { offset ->
-                            val seek = if (offset.x < size.width / 2) -10_000 else 10_000
+                            val interval = settings.doubleTapSeekSeconds * 1_000L
+                            val seek = if (offset.x < size.width / 2) -interval else interval
                             viewModel.seekTo((player.positionMillis + seek).coerceIn(0, player.durationMillis))
                             controlsVisible = true
                         },
@@ -331,7 +345,11 @@ fun AdvancedVideoPlayer(
                     activity?.requestedOrientation = if (orientationLocked) {
                         if (orientation == Configuration.ORIENTATION_LANDSCAPE) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                         else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                    } else ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                    } else when (settings.videoRotationBehavior) {
+                        VideoRotationBehavior.FOLLOW_SYSTEM -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        VideoRotationBehavior.SENSOR -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                        VideoRotationBehavior.LOCK_CURRENT -> ActivityInfo.SCREEN_ORIENTATION_LOCKED
+                    }
                 },
                 onPip = onEnterPictureInPicture,
                 onMenu = { menuVisible = true },

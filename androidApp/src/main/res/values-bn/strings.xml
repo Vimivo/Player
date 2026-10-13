@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Vimivo</string>
+    <string name="settings_appearance">চেহারা</string>
+    <string name="settings_music">মিউজিক প্লেব্যাক</string>
+    <string name="settings_video">ভিডিও প্লেব্যাক</string>
+    <string name="settings_audio">অডিও</string>
+    <string name="settings_subtitles">সাবটাইটেল</string>
+    <string name="settings_library">মিডিয়া লাইব্রেরি</string>
+    <string name="settings_network">নেটওয়ার্ক</string>
+    <string name="settings_privacy">গোপনীয়তা</string>
+    <string name="settings_backup">ব্যাকআপ ও পুনরুদ্ধার</string>
+    <string name="settings_about">অ্যাপ সম্পর্কে</string>
+    <string name="theme">থিম</string>
+    <string name="accent_color">অ্যাকসেন্ট রং</string>
+    <string name="dynamic_color">ডায়নামিক রং</string>
+    <string name="artwork_accents">আর্টওয়ার্ক-ভিত্তিক রং</string>
+    <string name="reduce_animations">অ্যানিমেশন কমান</string>
+    <string name="high_contrast">উচ্চ কনট্রাস্ট</string>
+    <string name="larger_targets">বড় টাচ লক্ষ্য</string>
+    <string name="shuffle_behavior">শাফল আচরণ</string>
+    <string name="repeat_behavior">রিপিট আচরণ</string>
+    <string name="resume_behavior">পুনরায় চালুর আচরণ</string>
+    <string name="default_sort">ডিফল্ট লাইব্রেরি সাজানো</string>
+    <string name="queue_restoration">কিউ পুনরুদ্ধার</string>
+    <string name="default_speed">ডিফল্ট প্লেব্যাক গতি</string>
+    <string name="double_tap_seek">ডাবল-ট্যাপ সিক সময়</string>
+    <string name="gesture_sensitivity">জেসচার সংবেদনশীলতা</string>
+    <string name="auto_rotation">স্বয়ংক্রিয় ঘূর্ণন</string>
+    <string name="aspect_ratio">আসপেক্ট রেশিও</string>
+    <string name="decoder">ডিকোডার পছন্দ</string>
+    <string name="preferred_audio_language">পছন্দের অডিও ভাষা</string>
+    <string name="audio_delay">অডিও বিলম্ব</string>
+    <string name="preferred_subtitle_language">পছন্দের সাবটাইটেল ভাষা</string>
+    <string name="subtitles_enabled">ডিফল্টভাবে সাবটাইটেল চালু</string>
+    <string name="subtitle_size">সাবটাইটেলের আকার</string>
+    <string name="subtitle_position">সাবটাইটেলের অবস্থান</string>
+    <string name="subtitle_style">সাবটাইটেল প্রান্তের ধরন</string>
+    <string name="rescan_library">মিডিয়া লাইব্রেরি পুনরায় স্ক্যান</string>
+    <string name="folder_exclusions">বাদ দেওয়া ফোল্ডার</string>
+    <string name="hidden_media">লুকানো মিডিয়া</string>
+    <string name="clear_thumbnails">থাম্বনেইল ক্যাশ পরিষ্কার</string>
+    <string name="clean_missing">অনুপস্থিত ফাইল পরিষ্কার</string>
+    <string name="auto_reconnect">বিচ্ছিন্ন স্ট্রিম পুনঃসংযোগ</string>
+    <string name="clear_history">প্লেব্যাক ইতিহাস পরিষ্কার</string>
+    <string name="clear_streams">সাম্প্রতিক স্ট্রিম পরিষ্কার</string>
+    <string name="clear_artwork">ক্যাশ করা আর্টওয়ার্ক পরিষ্কার</string>
+    <string name="reset_settings">সেটিংস রিসেট</string>
+    <string name="clear_app_data">স্থানীয় অ্যাপ ডেটা পরিষ্কার</string>
+    <string name="export_backup">স্থানীয় ব্যাকআপ রপ্তানি</string>
+    <string name="restore_backup">স্থানীয় ব্যাকআপ পুনরুদ্ধার</string>
+    <string name="backup_detail">সেটিংস ও সংগঠন ডেটা অন্তর্ভুক্ত হয়, মিডিয়া ফাইল নয়।</string>
+    <string name="app_version">অ্যাপ সংস্করণ</string>
+    <string name="developer">ডেভেলপার</string>
+    <string name="developer_value">Vimivo ওপেন-সোর্স অবদানকারীরা</string>
+    <string name="licenses">ওপেন-সোর্স লাইসেন্স</string>
+    <string name="third_party_notices">তৃতীয়-পক্ষ নোটিশ</string>
+    <string name="privacy_policy">গোপনীয়তা নীতি</string>
+    <string name="project_website">প্রকল্পের ওয়েবসাইট</string>
+    <string name="privacy_summary">কোনো অ্যাকাউন্ট, বিজ্ঞাপন, অ্যানালিটিক্স বা ক্লাউড সিঙ্ক নেই। ব্যক্তিগত মিডিয়া ডেটা এই ডিভাইসেই থাকে।</string>
+    <string name="confirm">নিশ্চিত করুন</string>
+    <string name="cancel">বাতিল</string>
+    <string name="type_confirm">চালিয়ে যেতে CONFIRM লিখুন</string>
+    <string name="add_exclusion">বাদ দেওয়ার ফোল্ডার যোগ করুন</string>
+    <string name="folder_path">ফোল্ডারের পথ</string>
+    <string name="remove">সরান</string>
+    <string name="system_default">সিস্টেম ডিফল্ট</string>
+    <string name="value_system">সিস্টেম</string><string name="value_light">হালকা</string><string name="value_dark">গাঢ়</string><string name="value_amoled">AMOLED কালো</string>
+    <string name="value_violet">বেগুনি</string><string name="value_blue">নীল</string><string name="value_green">সবুজ</string><string name="value_orange">কমলা</string><string name="value_pink">গোলাপি</string>
+    <string name="value_off">বন্ধ</string><string name="value_on">চালু</string><string name="value_remember">শেষ অবস্থা মনে রাখুন</string><string name="value_all">সব</string><string name="value_one">একটি</string>
+    <string name="value_never">কখনো নয়</string><string name="value_always">সবসময়</string><string name="value_automatic">স্বয়ংক্রিয়</string><string name="value_hardware">হার্ডওয়্যার</string><string name="value_software">সফটওয়্যার</string>
+    <string name="value_follow_system">সিস্টেম অনুসরণ</string><string name="value_sensor">সেন্সর ব্যবহার</string><string name="value_lock_current">বর্তমান অভিমুখ লক</string>
+    <string name="value_fit">ফিট</string><string name="value_fill">পূরণ</string><string name="value_original">মূল</string><string name="value_crop">ক্রপ</string><string name="value_ratio_16_9">১৬:৯</string><string name="value_ratio_4_3">৪:৩</string>
+    <string name="value_hide">লুকান</string><string name="value_show">দেখান</string><string name="value_outline">বহিরেখা</string><string name="value_drop_shadow">ছায়া</string><string name="value_none">কিছু নয়</string>
+    <string name="value_title">শিরোনাম</string><string name="value_artist">শিল্পী</string><string name="value_album">অ্যালবাম</string><string name="value_duration">সময়কাল</string><string name="value_date_added">যোগের তারিখ</string><string name="value_date_modified">পরিবর্তনের তারিখ</string><string name="value_file_size">ফাইলের আকার</string><string name="value_track_number">ট্র্যাক নম্বর</string><string name="value_last_played">সর্বশেষ চালানো</string>
+    <string name="irreversible_warning">এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</string>
+    <string name="notices_text">AndroidX ও Media3: Apache License 2.0\nLibVLC: LGPL 2.1 বা পরবর্তী\nCoil, Koin, Kotlin এবং kotlinx.coroutines অনুমোদনমূলক ওপেন-সোর্স লাইসেন্স ব্যবহার করে। উৎসের লিংক ও পূর্ণ নোটিশের জন্য docs/THIRD_PARTY_NOTICES.md দেখুন।</string>
+    <string name="ok">ঠিক আছে</string>
+</resources>

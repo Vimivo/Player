@@ -24,4 +24,10 @@ interface OrganizationDao {
 
     @Query("SELECT * FROM playback_history ORDER BY lastPlayedAtEpochMillis DESC LIMIT :limit")
     fun observeHistory(limit: Int): Flow<List<PlaybackHistoryEntity>>
+
+    @Query("SELECT * FROM bookmarks ORDER BY createdAtEpochMillis")
+    suspend fun allBookmarks(): List<BookmarkEntity>
+
+    @Query("SELECT * FROM playback_history ORDER BY lastPlayedAtEpochMillis")
+    suspend fun allHistory(): List<PlaybackHistoryEntity>
 }

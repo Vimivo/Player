@@ -20,6 +20,7 @@ package dev.vimivo.platform.android.library.ui
 
 import android.content.Intent
 import android.content.ClipboardManager
+import android.app.ActivityManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -30,6 +31,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -81,6 +83,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -96,6 +99,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -111,6 +115,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -126,6 +131,7 @@ import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.model.Playlist
 import dev.vimivo.core.model.Bookmark
+import dev.vimivo.app.R
 import dev.vimivo.features.home.HomeViewModel
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.library.LibraryUiState
@@ -176,12 +182,13 @@ fun VimivoAndroidApp(
 ) {
     val settings by settingsViewModel.state.collectAsState()
     val player by playbackViewModel.state.collectAsState()
-    VimivoAndroidTheme(settings.themeMode, settings.dynamicColor) {
+    VimivoAndroidTheme(settings) {
         AppShell(
             playback,
             thumbnails,
             permissions,
             settings.homeSections,
+            settings.artworkBasedAccents,
             player,
             playbackViewModel,
             settingsViewModel,
@@ -198,6 +205,7 @@ private fun AppShell(
     thumbnails: AndroidThumbnailRepository,
     permissions: MediaPermissionPolicy,
     homeSections: List<HomeSection>,
+    artworkBasedAccents: Boolean,
     player: PlaybackUiState,
     playbackViewModel: PlaybackViewModel,
     settingsViewModel: SettingsViewModel,
@@ -280,7 +288,14 @@ private fun AppShell(
             }
         }
     }
-    if (nowPlayingVisible) NowPlayingSheet(player, thumbnails, playback, playbackViewModel, { nowPlayingVisible = false }) {
+    if (nowPlayingVisible) NowPlayingSheet(
+        player,
+        thumbnails,
+        playback,
+        playbackViewModel,
+        artworkBasedAccents,
+        { nowPlayingVisible = false },
+    ) {
         queueVisible = true
     }
     if (queueVisible) QueueSheet(player, playbackViewModel) { queueVisible = false }
@@ -723,7 +738,7 @@ private fun PlaylistDetail(
             items(media, key = { it.id.value }) { item ->
                 val index = media.indexOf(item)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    BoxWithConstraints(Modifier.weight(1f)) {
+                    Box(Modifier.weight(1f)) {
                         SongRow(item, thumbnails, { playback.playQueue(media, index) }, onMore = { onMore(item) })
                     }
                     IconButton({ if (index > 0) viewModel.move(playlist, index, index - 1) }, enabled = index > 0) { Icon(Icons.Outlined.ArrowUpward, "Move up") }
@@ -908,7 +923,7 @@ private fun NetworkScreen(viewModel: NetworkViewModel = koinViewModel()) {
         if (state.recent.isNotEmpty()) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    BoxWithConstraints(Modifier.weight(1f)) { SectionTitle("Recent streams") }
+                    Box(Modifier.weight(1f)) { SectionTitle("Recent streams") }
                     OutlinedButton(viewModel::clearHistory) { Text("Clear history") }
                 }
             }
@@ -943,44 +958,223 @@ private fun StreamRow(
 }
 
 @Composable
-private fun SettingsScreen(viewModel: SettingsViewModel) {
+private fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    networkViewModel: NetworkViewModel = koinViewModel(),
+) {
     val settings by viewModel.state.collectAsState()
+    val operations by viewModel.operations.collectAsState()
+    val context = LocalContext.current
     var appearance by remember { mutableStateOf(false) }
-    LazyColumn(Modifier.fillMaxSize()) {
-        item { SectionTitle("Appearance") }
-        item { SettingsRow(Icons.Outlined.Palette, "Theme", settings.themeMode.name.lowercase().replaceFirstChar(Char::uppercase), onClick = { appearance = true }) }
-        item { SettingsRow(Icons.Outlined.DarkMode, "Dynamic color", "Use colors from your Android wallpaper", settings.dynamicColor) { viewModel.setDynamicColor(!settings.dynamicColor) } }
-        item { SectionTitle("Playback") }
-        item { SettingsRow(Icons.Outlined.Repeat, "Resume playback", "Remember the last position", settings.resumePlayback) { viewModel.setResume(!settings.resumePlayback) } }
-        item { SectionTitle("Home sections") }
-        HomeSection.entries.forEach { section ->
-            item {
-                val visible = section in settings.homeSections
-                ListItem(
-                    headlineContent = { Text(section.label()) },
-                    leadingContent = { androidx.compose.material3.Checkbox(visible, { viewModel.setSectionVisible(section, it) }) },
-                    trailingContent = {
-                        Row {
-                            IconButton({ viewModel.moveSection(section, -1) }, enabled = visible) { Icon(Icons.Outlined.ArrowUpward, "Move up") }
-                            IconButton({ viewModel.moveSection(section, 1) }, enabled = visible) { Icon(Icons.Outlined.ArrowDownward, "Move down") }
-                        }
-                    },
-                )
-            }
+    var confirmAction by remember { mutableStateOf<String?>(null) }
+    var confirmationText by remember { mutableStateOf("") }
+    var exclusionDialog by remember { mutableStateOf(false) }
+    var exclusionPath by remember { mutableStateOf("") }
+    var noticesVisible by remember { mutableStateOf(false) }
+    val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) {
+        it?.let(viewModel::exportBackup)
+    }
+    val restoreBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
+        it?.let(viewModel::restoreBackup)
+    }
+    val version = remember {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
+    }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+        item { SectionTitle(stringResource(R.string.settings_appearance)) }
+        item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.theme), settingLabel(settings.themeMode), onClick = { appearance = true }) }
+        item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.accent_color), settingLabel(settings.accentColor), onClick = { viewModel.setAccentColor(settings.accentColor.next()) }) }
+        item { SettingsRow(Icons.Outlined.DarkMode, stringResource(R.string.dynamic_color), checked = settings.dynamicColor) { viewModel.setDynamicColor(!settings.dynamicColor) } }
+        item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.artwork_accents), checked = settings.artworkBasedAccents) { viewModel.setArtworkAccents(!settings.artworkBasedAccents) } }
+        item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.reduce_animations), checked = settings.reduceAnimations) { viewModel.setReduceAnimations(!settings.reduceAnimations) } }
+        item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.high_contrast), checked = settings.highContrast) { viewModel.setHighContrast(!settings.highContrast) } }
+        item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.larger_targets), checked = settings.largerTouchTargets) { viewModel.setLargerTouchTargets(!settings.largerTouchTargets) } }
+
+        item { SectionTitle(stringResource(R.string.settings_music)) }
+        item { SettingsRow(Icons.Outlined.Shuffle, stringResource(R.string.shuffle_behavior), settingLabel(settings.shuffleBehavior), onClick = { viewModel.setShuffleBehavior(settings.shuffleBehavior.next()) }) }
+        item { SettingsRow(Icons.Outlined.Repeat, stringResource(R.string.repeat_behavior), settingLabel(settings.repeatBehavior), onClick = { viewModel.setRepeatBehavior(settings.repeatBehavior.next()) }) }
+        item { SettingsRow(Icons.Outlined.Refresh, stringResource(R.string.resume_behavior), settingLabel(settings.musicResumeBehavior), onClick = { viewModel.setMusicResume(settings.musicResumeBehavior.next()) }) }
+        item { SettingsRow(Icons.AutoMirrored.Outlined.List, stringResource(R.string.default_sort), settingLabel(settings.defaultLibrarySort), onClick = { viewModel.setDefaultSort(settings.defaultLibrarySort.next()) }) }
+        item { SettingsRow(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(R.string.queue_restoration), checked = settings.restoreQueue) { viewModel.setQueueRestoration(!settings.restoreQueue) } }
+
+        item { SectionTitle(stringResource(R.string.settings_video)) }
+        item { SettingsRow(Icons.Outlined.VideoLibrary, stringResource(R.string.default_speed), "${settings.defaultVideoSpeed}×", onClick = { viewModel.setDefaultVideoSpeed(nextSpeed(settings.defaultVideoSpeed)) }) }
+        item { SettingsRow(Icons.Outlined.SkipNext, stringResource(R.string.double_tap_seek), "${settings.doubleTapSeekSeconds} s", onClick = { viewModel.setDoubleTapSeekSeconds(nextSeek(settings.doubleTapSeekSeconds)) }) }
+        item { SettingsRow(Icons.Outlined.Refresh, stringResource(R.string.auto_rotation), settingLabel(settings.videoRotationBehavior), onClick = { viewModel.setVideoRotation(settings.videoRotationBehavior.next()) }) }
+        item { SettingsRow(Icons.Outlined.Refresh, stringResource(R.string.resume_behavior), settingLabel(settings.videoResumeBehavior), onClick = { viewModel.setVideoResume(settings.videoResumeBehavior.next()) }) }
+        item { SettingsRow(Icons.Outlined.VideoLibrary, stringResource(R.string.aspect_ratio), settingLabel(settings.videoAspectPreference), onClick = { viewModel.setVideoAspect(settings.videoAspectPreference.next()) }) }
+        item { SettingsRow(Icons.Outlined.Settings, stringResource(R.string.decoder), settingLabel(settings.decoderPreference), onClick = { viewModel.setDecoder(settings.decoderPreference.next()) }) }
+        item {
+            Text(stringResource(R.string.gesture_sensitivity), Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            Slider(settings.videoGestureSensitivity, viewModel::setVideoGestureSensitivity, valueRange = 0.5f..2f, modifier = Modifier.padding(horizontal = 20.dp))
         }
-        item { SectionTitle("Privacy") }
-        item { Text("Vimivo has no account, advertising, or analytics. Library metadata stays on this device.", Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+
+        item { SectionTitle(stringResource(R.string.settings_audio)) }
+        item { EditableLanguageRow(stringResource(R.string.preferred_audio_language), settings.preferredAudioLanguage, viewModel::setPreferredAudioLanguage) }
+        item { SettingsRow(Icons.Outlined.MusicNote, stringResource(R.string.audio_delay), "${settings.audioDelayMillis} ms", onClick = { viewModel.setAudioDelay(nextDelay(settings.audioDelayMillis)) }) }
+
+        item { SectionTitle(stringResource(R.string.settings_subtitles)) }
+        item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.subtitles_enabled), checked = settings.subtitlesEnabled) { viewModel.setSubtitlesEnabled(!settings.subtitlesEnabled) } }
+        item { EditableLanguageRow(stringResource(R.string.preferred_subtitle_language), settings.preferredSubtitleLanguage, viewModel::setPreferredSubtitleLanguage) }
+        item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.subtitle_size), "${settings.subtitleAppearance.textSizeSp.toInt()} sp", onClick = { viewModel.setSubtitleAppearance(settings.subtitleAppearance.copy(textSizeSp = nextSubtitleSize(settings.subtitleAppearance.textSizeSp))) }) }
+        item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.subtitle_position), "${(settings.subtitleAppearance.positionFraction * 100).toInt()}%", onClick = { viewModel.setSubtitleAppearance(settings.subtitleAppearance.copy(positionFraction = nextSubtitlePosition(settings.subtitleAppearance.positionFraction))) }) }
+        item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.subtitle_style), settingLabel(settings.subtitleAppearance.edgeStyle), onClick = { viewModel.setSubtitleAppearance(settings.subtitleAppearance.copy(edgeStyle = settings.subtitleAppearance.edgeStyle.next())) }) }
+
+        item { SectionTitle(stringResource(R.string.settings_library)) }
+        item { SettingsRow(Icons.Outlined.Refresh, stringResource(R.string.rescan_library), onClick = viewModel::rescan) }
+        item { SettingsRow(Icons.Outlined.Folder, stringResource(R.string.folder_exclusions), "${operations.exclusions.size}", onClick = { exclusionDialog = true }) }
+        operations.exclusions.forEach { path -> item { SettingsRow(Icons.Outlined.Folder, path, stringResource(R.string.remove), onClick = { viewModel.includeFolder(path) }) } }
+        item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.hidden_media), settingLabel(settings.hiddenMediaBehavior), onClick = { viewModel.setHiddenMedia(settings.hiddenMediaBehavior.next()) }) }
+        item { SettingsRow(Icons.Outlined.Delete, stringResource(R.string.clear_thumbnails), onClick = viewModel::clearArtworkCache) }
+        item { SettingsRow(Icons.Outlined.Delete, stringResource(R.string.clean_missing), onClick = { confirmAction = "missing" }) }
+
+        item { SectionTitle(stringResource(R.string.settings_network)) }
+        item { SettingsRow(Icons.Outlined.Refresh, stringResource(R.string.auto_reconnect), checked = settings.autoReconnectStreams) { viewModel.setAutoReconnect(!settings.autoReconnectStreams) } }
+
+        item { SectionTitle(stringResource(R.string.settings_privacy)) }
+        item { Text(stringResource(R.string.privacy_summary), Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { SettingsRow(Icons.Outlined.Delete, stringResource(R.string.clear_history), onClick = { confirmAction = "history" }) }
+        item { SettingsRow(Icons.Outlined.Delete, stringResource(R.string.clear_streams), onClick = { confirmAction = "streams" }) }
+        item { SettingsRow(Icons.Outlined.Delete, stringResource(R.string.clear_artwork), onClick = viewModel::clearArtworkCache) }
+        item { SettingsRow(Icons.Outlined.Refresh, stringResource(R.string.reset_settings), onClick = { confirmAction = "reset" }) }
+        item { SettingsRow(Icons.Outlined.Delete, stringResource(R.string.clear_app_data), onClick = { confirmAction = "data" }) }
+
+        item { SectionTitle(stringResource(R.string.settings_backup)) }
+        item { Text(stringResource(R.string.backup_detail), Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { SettingsRow(Icons.Outlined.Share, stringResource(R.string.export_backup), onClick = { exportBackup.launch("vimivo-backup.json") }) }
+        item { SettingsRow(Icons.Outlined.Refresh, stringResource(R.string.restore_backup), onClick = { restoreBackup.launch(arrayOf("application/json", "text/plain")) }) }
+
+        item { SectionTitle(stringResource(R.string.settings_about)) }
+        item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.app_version), version, onClick = {}) }
+        item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.developer), stringResource(R.string.developer_value), onClick = {}) }
+        item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.licenses), onClick = { noticesVisible = true }) }
+        item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.third_party_notices), onClick = { noticesVisible = true }) }
+        item { SettingsRow(Icons.Outlined.Link, stringResource(R.string.privacy_policy), onClick = { context.openUrl("https://github.com/Vimivo/Player/blob/main/PRIVACY.md") }) }
+        item { SettingsRow(Icons.Outlined.Link, stringResource(R.string.project_website), "github.com/Vimivo/Player", onClick = { context.openUrl("https://github.com/Vimivo/Player") }) }
+        operations.message?.let { message -> item { Text(message, Modifier.padding(20.dp), color = MaterialTheme.colorScheme.primary) } }
     }
     if (appearance) BottomSheet({ appearance = false }) {
         Text("Choose theme", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp))
         ThemeMode.entries.forEach { mode ->
             SettingsRow(
                 when (mode) { ThemeMode.LIGHT -> Icons.Outlined.LightMode; ThemeMode.DARK, ThemeMode.AMOLED -> Icons.Outlined.DarkMode; else -> Icons.Outlined.Palette },
-                mode.name.lowercase().replaceFirstChar(Char::uppercase),
+                settingLabel(mode),
                 checked = settings.themeMode == mode,
             ) { viewModel.setTheme(mode); appearance = false }
         }
     }
+    if (exclusionDialog) PlaylistNameDialog(stringResource(R.string.add_exclusion), exclusionPath, {
+        exclusionPath = it
+        viewModel.excludeFolder(it)
+        exclusionDialog = false
+    }) { exclusionDialog = false }
+    confirmAction?.let { action ->
+        AlertDialog(
+            onDismissRequest = { confirmAction = null; confirmationText = "" },
+            title = { Text(stringResource(R.string.confirm)) },
+            text = {
+                Column {
+                    Text(if (action == "data") stringResource(R.string.type_confirm) else stringResource(R.string.irreversible_warning))
+                    if (action == "data") OutlinedTextField(confirmationText, { confirmationText = it })
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        when (action) {
+                            "history" -> viewModel.clearPlaybackHistory()
+                            "streams" -> networkViewModel.clearHistory()
+                            "reset" -> viewModel.reset()
+                            "missing" -> viewModel.cleanMissing()
+                            "data" -> context.getSystemService(ActivityManager::class.java).clearApplicationUserData()
+                        }
+                        confirmAction = null
+                        confirmationText = ""
+                    },
+                    enabled = action != "data" || confirmationText == "CONFIRM",
+                ) { Text(stringResource(R.string.confirm)) }
+            },
+            dismissButton = { OutlinedButton({ confirmAction = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    if (noticesVisible) AlertDialog(
+        onDismissRequest = { noticesVisible = false },
+        title = { Text(stringResource(R.string.third_party_notices)) },
+        text = { Text(stringResource(R.string.notices_text)) },
+        confirmButton = { Button({ noticesVisible = false }) { Text(stringResource(R.string.ok)) } },
+    )
+}
+
+@Composable
+private fun EditableLanguageRow(title: String, value: String, onChange: (String) -> Unit) {
+    var editing by remember { mutableStateOf(false) }
+    SettingsRow(Icons.Outlined.Info, title, value.ifBlank { stringResource(R.string.system_default) }, onClick = { editing = true })
+    if (editing) PlaylistNameDialog(title, value, { onChange(it.trim()); editing = false }) { editing = false }
+}
+
+private inline fun <reified T : Enum<T>> T.next(): T {
+    val values = enumValues<T>()
+    return values[(ordinal + 1) % values.size]
+}
+
+@Composable
+private fun settingLabel(value: Enum<*>): String = stringResource(
+    when (value.name) {
+        "SYSTEM" -> R.string.value_system
+        "LIGHT" -> R.string.value_light
+        "DARK" -> R.string.value_dark
+        "AMOLED" -> R.string.value_amoled
+        "VIOLET" -> R.string.value_violet
+        "BLUE" -> R.string.value_blue
+        "GREEN" -> R.string.value_green
+        "ORANGE" -> R.string.value_orange
+        "PINK" -> R.string.value_pink
+        "OFF" -> R.string.value_off
+        "ON" -> R.string.value_on
+        "REMEMBER" -> R.string.value_remember
+        "ALL" -> R.string.value_all
+        "ONE" -> R.string.value_one
+        "NEVER" -> R.string.value_never
+        "ALWAYS" -> R.string.value_always
+        "AUTOMATIC" -> R.string.value_automatic
+        "HARDWARE" -> R.string.value_hardware
+        "SOFTWARE" -> R.string.value_software
+        "FOLLOW_SYSTEM" -> R.string.value_follow_system
+        "SENSOR" -> R.string.value_sensor
+        "LOCK_CURRENT" -> R.string.value_lock_current
+        "FIT" -> R.string.value_fit
+        "FILL" -> R.string.value_fill
+        "ORIGINAL" -> R.string.value_original
+        "RATIO_16_9" -> R.string.value_ratio_16_9
+        "RATIO_4_3" -> R.string.value_ratio_4_3
+        "CROP" -> R.string.value_crop
+        "HIDE" -> R.string.value_hide
+        "SHOW" -> R.string.value_show
+        "OUTLINE" -> R.string.value_outline
+        "DROP_SHADOW" -> R.string.value_drop_shadow
+        "NONE" -> R.string.value_none
+        "TITLE" -> R.string.value_title
+        "ARTIST" -> R.string.value_artist
+        "ALBUM" -> R.string.value_album
+        "DURATION" -> R.string.value_duration
+        "DATE_ADDED" -> R.string.value_date_added
+        "DATE_MODIFIED" -> R.string.value_date_modified
+        "FILE_SIZE" -> R.string.value_file_size
+        "TRACK_NUMBER" -> R.string.value_track_number
+        "LAST_PLAYED" -> R.string.value_last_played
+        else -> R.string.value_automatic
+    },
+)
+private fun nextSpeed(value: Float): Float = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f).let { values ->
+    val current = values.indexOf(value).coerceAtLeast(1)
+    values[(current + 1) % values.size]
+}
+private fun nextSeek(value: Int) = listOf(5, 10, 15, 30, 60).let { it[(it.indexOf(value).coerceAtLeast(0) + 1) % it.size] }
+private fun nextDelay(value: Long) = if (value >= 2_000) -2_000 else value + 500
+private fun nextSubtitleSize(value: Float) = if (value >= 32f) 14f else value + 2f
+private fun nextSubtitlePosition(value: Float) = if (value >= 0.24f) 0.04f else value + 0.04f
+private fun android.content.Context.openUrl(url: String) {
+    runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
 }
 
 @Composable
@@ -1049,14 +1243,15 @@ private fun NowPlayingSheet(
     thumbnails: AndroidThumbnailRepository,
     playback: PlaybackController,
     viewModel: PlaybackViewModel,
+    artworkAccents: Boolean,
     onDismiss: () -> Unit,
     openQueue: () -> Unit,
 ) {
     var settingsVisible by remember { mutableStateOf(false) }
     val controller by playback.controller.collectAsState()
     val currentDomain = player.current?.toDomain()
-    val artworkAccent by produceState<Int?>(null, currentDomain?.uri, currentDomain?.artworkUri) {
-        value = currentDomain?.let { thumbnails.dominantColor(it.uri, it.artworkUri) }
+    val artworkAccent by produceState<Int?>(null, currentDomain?.uri, currentDomain?.artworkUri, artworkAccents) {
+        value = if (artworkAccents) currentDomain?.let { thumbnails.dominantColor(it.uri, it.artworkUri) } else null
     }
     if (!settingsVisible) Dialog(
         onDismissRequest = onDismiss,

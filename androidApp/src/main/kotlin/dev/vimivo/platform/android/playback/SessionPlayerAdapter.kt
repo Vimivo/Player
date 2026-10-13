@@ -1,3 +1,4 @@
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 @file:Suppress(
     "ArgumentListWrapping",
     "MaximumLineLength",
@@ -30,6 +31,8 @@ import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.QueueContext
+import dev.vimivo.settings.RepeatBehavior
+import dev.vimivo.settings.ShuffleBehavior
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -71,6 +74,18 @@ class SessionPlayerAdapter(
         repeatMode = restored.repeatMode
         shuffle = restored.shuffleEnabled
         restorePosition = restored.positionMillis
+        invalidateState()
+    }
+
+    fun applyDefaults(shuffleBehavior: ShuffleBehavior, repeatBehavior: RepeatBehavior) {
+        if (shuffleBehavior != ShuffleBehavior.REMEMBER) shuffle = shuffleBehavior == ShuffleBehavior.ON
+        if (repeatBehavior != RepeatBehavior.REMEMBER) {
+            repeatMode = when (repeatBehavior) {
+                RepeatBehavior.ONE -> Player.REPEAT_MODE_ONE
+                RepeatBehavior.ALL -> Player.REPEAT_MODE_ALL
+                else -> Player.REPEAT_MODE_OFF
+            }
+        }
         invalidateState()
     }
 

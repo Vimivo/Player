@@ -47,19 +47,53 @@ class AndroidThumbnailRepository(private val context: Context) {
         }
     }
 
+    fun clear() = cache.evictAll()
+
     private fun loadBitmap(value: String): Bitmap? = runCatching {
         val uri = Uri.parse(value)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             context.contentResolver.loadThumbnail(uri, Size(THUMBNAIL_SIZE, THUMBNAIL_SIZE), CancellationSignal())
         } else {
-            context.contentResolver.openInputStream(uri)?.use(BitmapFactory::decodeStream)
-                ?: MediaMetadataRetriever().use { retriever ->
-                    retriever.setDataSource(context, uri)
-                    retriever.embeddedPicture?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
-                        ?: retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            decodeUri(uri)
+                ?: MediaMetadataRetriever().let { retriever ->
+                    try {
+                        retriever.setDataSource(context, uri)
+                        retriever.embeddedPicture?.let(::decodeBytes)
+                            ?: retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)?.bounded()
+                    } finally {
+                        retriever.release()
+                    }
                 }
         }
     }.getOrNull()
+
+    private fun decodeUri(uri: Uri): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight) }
+        return context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+    }
+
+    private fun decodeBytes(bytes: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight) }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+    }
+
+    private fun Bitmap.bounded(): Bitmap {
+        if (width <= THUMBNAIL_SIZE && height <= THUMBNAIL_SIZE) return this
+        val scale = minOf(THUMBNAIL_SIZE.toFloat() / width, THUMBNAIL_SIZE.toFloat() / height)
+        return Bitmap.createScaledBitmap(this, (width * scale).toInt(), (height * scale).toInt(), true).also {
+            if (it !== this) recycle()
+        }
+    }
+
+    private fun sampleSize(width: Int, height: Int): Int {
+        var sample = 1
+        while (width / sample > THUMBNAIL_SIZE * 2 || height / sample > THUMBNAIL_SIZE * 2) sample *= 2
+        return sample
+    }
 
     companion object {
         private const val MAX_CACHE_KIB = 16 * 1024

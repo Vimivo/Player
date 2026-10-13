@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Vimivo</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_music">Music playback</string>
+    <string name="settings_video">Video playback</string>
+    <string name="settings_audio">Audio</string>
+    <string name="settings_subtitles">Subtitles</string>
+    <string name="settings_library">Media library</string>
+    <string name="settings_network">Network</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_backup">Backup &amp; restore</string>
+    <string name="settings_about">About</string>
+    <string name="theme">Theme</string>
+    <string name="accent_color">Accent color</string>
+    <string name="dynamic_color">Dynamic color</string>
+    <string name="artwork_accents">Artwork-based accents</string>
+    <string name="reduce_animations">Reduce animations</string>
+    <string name="high_contrast">High contrast</string>
+    <string name="larger_targets">Larger touch targets</string>
+    <string name="shuffle_behavior">Shuffle behavior</string>
+    <string name="repeat_behavior">Repeat behavior</string>
+    <string name="resume_behavior">Resume behavior</string>
+    <string name="default_sort">Default library sorting</string>
+    <string name="queue_restoration">Queue restoration</string>
+    <string name="default_speed">Default playback speed</string>
+    <string name="double_tap_seek">Double-tap seek interval</string>
+    <string name="gesture_sensitivity">Gesture sensitivity</string>
+    <string name="auto_rotation">Auto-rotation</string>
+    <string name="aspect_ratio">Aspect ratio</string>
+    <string name="decoder">Decoder preference</string>
+    <string name="preferred_audio_language">Preferred audio language</string>
+    <string name="audio_delay">Audio delay</string>
+    <string name="preferred_subtitle_language">Preferred subtitle language</string>
+    <string name="subtitles_enabled">Enable subtitles by default</string>
+    <string name="subtitle_size">Subtitle size</string>
+    <string name="subtitle_position">Subtitle position</string>
+    <string name="subtitle_style">Subtitle edge style</string>
+    <string name="rescan_library">Rescan media library</string>
+    <string name="folder_exclusions">Folder exclusions</string>
+    <string name="hidden_media">Hidden media</string>
+    <string name="clear_thumbnails">Clear thumbnail cache</string>
+    <string name="clean_missing">Clean missing files</string>
+    <string name="auto_reconnect">Reconnect interrupted streams</string>
+    <string name="clear_history">Clear playback history</string>
+    <string name="clear_streams">Clear recent streams</string>
+    <string name="clear_artwork">Clear cached artwork</string>
+    <string name="reset_settings">Reset settings</string>
+    <string name="clear_app_data">Clear local application data</string>
+    <string name="export_backup">Export local backup</string>
+    <string name="restore_backup">Restore local backup</string>
+    <string name="backup_detail">Includes settings and organization data, never media files.</string>
+    <string name="app_version">App version</string>
+    <string name="developer">Developer</string>
+    <string name="developer_value">Vimivo open-source contributors</string>
+    <string name="licenses">Open-source licenses</string>
+    <string name="third_party_notices">Third-party notices</string>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="project_website">Project website</string>
+    <string name="privacy_summary">No account, ads, analytics, or cloud synchronization. Personal media data stays on this device.</string>
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="type_confirm">Type CONFIRM to continue</string>
+    <string name="add_exclusion">Add exclusion</string>
+    <string name="folder_path">Folder path</string>
+    <string name="remove">Remove</string>
+    <string name="system_default">System default</string>
+    <string name="value_system">System</string><string name="value_light">Light</string><string name="value_dark">Dark</string><string name="value_amoled">AMOLED black</string>
+    <string name="value_violet">Violet</string><string name="value_blue">Blue</string><string name="value_green">Green</string><string name="value_orange">Orange</string><string name="value_pink">Pink</string>
+    <string name="value_off">Off</string><string name="value_on">On</string><string name="value_remember">Remember last state</string><string name="value_all">All</string><string name="value_one">One</string>
+    <string name="value_never">Never</string><string name="value_always">Always</string><string name="value_automatic">Automatic</string><string name="value_hardware">Hardware</string><string name="value_software">Software</string>
+    <string name="value_follow_system">Follow system</string><string name="value_sensor">Use sensor</string><string name="value_lock_current">Lock current orientation</string>
+    <string name="value_fit">Fit</string><string name="value_fill">Fill</string><string name="value_original">Original</string><string name="value_crop">Crop</string><string name="value_ratio_16_9">16:9</string><string name="value_ratio_4_3">4:3</string>
+    <string name="value_hide">Hide</string><string name="value_show">Show</string><string name="value_outline">Outline</string><string name="value_drop_shadow">Drop shadow</string><string name="value_none">None</string>
+    <string name="value_title">Title</string><string name="value_artist">Artist</string><string name="value_album">Album</string><string name="value_duration">Duration</string><string name="value_date_added">Date added</string><string name="value_date_modified">Date modified</string><string name="value_file_size">File size</string><string name="value_track_number">Track number</string><string name="value_last_played">Last played</string>
+    <string name="irreversible_warning">This action cannot be undone.</string>
+    <string name="notices_text">AndroidX and Media3: Apache License 2.0\nLibVLC: LGPL 2.1 or later\nCoil, Koin, Kotlin and kotlinx.coroutines use permissive open-source licenses. See docs/THIRD_PARTY_NOTICES.md for source links and complete notices.</string>
+    <string name="ok">OK</string>
+</resources>

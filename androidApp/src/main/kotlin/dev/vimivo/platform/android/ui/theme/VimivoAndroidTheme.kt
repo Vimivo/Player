@@ -1,4 +1,4 @@
-@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength")
+@file:Suppress("ArgumentListWrapping", "CyclomaticComplexMethod", "ImportOrdering", "MaximumLineLength", "MaxLineLength")
 
 package dev.vimivo.platform.android.ui.theme
 
@@ -20,8 +20,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import dev.vimivo.settings.ThemeMode
+import dev.vimivo.settings.AppSettings
+import dev.vimivo.settings.AccentColor
 
 val LocalReducedMotion = staticCompositionLocalOf { false }
+val LocalLargeTouchTargets = staticCompositionLocalOf { false }
 
 private val Accent = Color(0xFF6C5CE7)
 private val LightScheme = lightColorScheme(
@@ -61,25 +64,47 @@ private val VimivoTypography = Typography(
 
 @Composable
 fun VimivoAndroidTheme(
-    mode: ThemeMode,
-    dynamicColor: Boolean,
+    settings: AppSettings,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val dark = when (mode) {
+    val dark = when (settings.themeMode) {
         ThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
         ThemeMode.DARK, ThemeMode.AMOLED -> true
         ThemeMode.LIGHT -> false
     }
     val scheme = when {
-        mode == ThemeMode.AMOLED -> AmoledScheme
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        settings.themeMode == ThemeMode.AMOLED -> AmoledScheme
+        settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         dark -> DarkScheme
         else -> LightScheme
     }
-    CompositionLocalProvider(LocalReducedMotion provides !ValueAnimator.areAnimatorsEnabled()) {
-        MaterialTheme(colorScheme = scheme, typography = VimivoTypography, content = content)
+    val accent = when (settings.accentColor) {
+        AccentColor.VIOLET -> Color(0xFF6C5CE7)
+        AccentColor.BLUE -> Color(0xFF1769E0)
+        AccentColor.GREEN -> Color(0xFF087F5B)
+        AccentColor.ORANGE -> Color(0xFFC45100)
+        AccentColor.PINK -> Color(0xFFB52B67)
+    }
+    val personalized = if (!settings.dynamicColor && settings.themeMode != ThemeMode.AMOLED) {
+        scheme.copy(primary = accent)
+    } else {
+        scheme
+    }
+    val contrasted = if (settings.highContrast) {
+        personalized.copy(
+            onBackground = if (dark) Color.White else Color.Black,
+            onSurface = if (dark) Color.White else Color.Black,
+        )
+    } else {
+        personalized
+    }
+    CompositionLocalProvider(
+        LocalReducedMotion provides (settings.reduceAnimations || !ValueAnimator.areAnimatorsEnabled()),
+        LocalLargeTouchTargets provides settings.largerTouchTargets,
+    ) {
+        MaterialTheme(colorScheme = contrasted, typography = VimivoTypography, content = content)
     }
 }

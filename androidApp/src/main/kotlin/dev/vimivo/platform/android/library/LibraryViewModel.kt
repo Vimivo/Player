@@ -14,6 +14,7 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.model.MediaPermissionAccess
 import dev.vimivo.core.model.MediaPermissionState
 import dev.vimivo.domain.repository.MediaRepository
+import dev.vimivo.settings.SettingsRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,12 +38,25 @@ data class LibraryUiState(
     val errorMessage: String? = null,
 )
 
-class LibraryViewModel(private val repository: MediaRepository) : ViewModel() {
+class LibraryViewModel(
+    private val repository: MediaRepository,
+    settingsRepository: SettingsRepository,
+) : ViewModel() {
     private val mutableState = MutableStateFlow(LibraryUiState())
     private var loadJob: Job? = null
+    private var defaultSort = LibrarySort.TITLE
     val state: StateFlow<LibraryUiState> = mutableState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            settingsRepository.settings.collect { settings ->
+                defaultSort = settings.defaultLibrarySort
+                if (state.value.query.sort != defaultSort && state.value.query.text.isBlank()) {
+                    mutableState.update { it.copy(query = it.query.copy(sort = defaultSort, offset = 0)) }
+                    load(reset = true)
+                }
+            }
+        }
         viewModelScope.launch { repository.status.collect { status -> mutableState.update { it.copy(status = status) } } }
         viewModelScope.launch { repository.changes.collect { load(reset = true) } }
         viewModelScope.launch {
@@ -54,7 +68,7 @@ class LibraryViewModel(private val repository: MediaRepository) : ViewModel() {
 
     fun selectKind(kind: MediaKind) {
         mutableState.update {
-            it.copy(query = LibraryQuery(kind = kind), categories = null, categoryField = null)
+            it.copy(query = LibraryQuery(kind = kind, sort = defaultSort), categories = null, categoryField = null)
         }
         load(reset = true)
     }

@@ -1,3 +1,4 @@
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 @file:Suppress("ImportOrdering", "UnstableApiUsage")
 
 package dev.vimivo.platform.android.playback
@@ -31,8 +32,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.koin.android.ext.android.inject
+import dev.vimivo.settings.SettingsRepository
 
 class VimivoPlaybackService : MediaLibraryService() {
     private val media3Factory: Media3PlayerEngineFactory by inject()
@@ -40,6 +42,7 @@ class VimivoPlaybackService : MediaLibraryService() {
     private val mediaRepository: MediaRepository by inject()
     private val stateStore: PlaybackStateStore by inject()
     private val diagnostics: PlaybackDiagnostics by inject()
+    private val settingsRepository: SettingsRepository by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var sessionPlayer: SessionPlayerAdapter
     private lateinit var mediaSession: MediaLibrarySession
@@ -60,7 +63,11 @@ class VimivoPlaybackService : MediaLibraryService() {
         sessionPlayer = SessionPlayerAdapter(engineManager, serviceScope, stateStore)
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, LibraryCallback()).build()
         registerNoisyReceiver()
-        serviceScope.launch { sessionPlayer.restoreWithoutPlaying() }
+        serviceScope.launch {
+            val settings = settingsRepository.settings.first()
+            if (settings.restoreQueue) sessionPlayer.restoreWithoutPlaying()
+            sessionPlayer.applyDefaults(settings.shuffleBehavior, settings.repeatBehavior)
+        }
         serviceScope.launch {
             var lastSavedAt = 0L
             engineManager.state.collect { state ->
@@ -88,7 +95,6 @@ class VimivoPlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         unregisterReceiver(noisyReceiver)
-        runBlocking(Dispatchers.IO) { sessionPlayer.persist() }
         mediaSession.release()
         sessionPlayer.release()
         diagnostics.detach()

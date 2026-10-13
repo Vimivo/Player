@@ -1,4 +1,4 @@
-@file:Suppress("MaximumLineLength", "MaxLineLength", "TooManyFunctions")
+@file:Suppress("ImportOrdering", "MaximumLineLength", "MaxLineLength", "TooManyFunctions")
 
 package dev.vimivo.platform.android.playback
 
@@ -25,13 +25,19 @@ import dev.vimivo.playback.TrackType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import dev.vimivo.settings.DecoderPreference
+import dev.vimivo.settings.SettingsRepository
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.interfaces.IMedia
 import org.videolan.libvlc.util.VLCVideoLayout
 
-class LibVlcPlayerEngine(context: Context) : PlayerEngine {
+class LibVlcPlayerEngine(
+    context: Context,
+    private val settingsRepository: SettingsRepository,
+) : PlayerEngine {
     override val id = EngineId.LIBVLC
     override val capabilities = CAPABILITIES
     private val appContext = context.applicationContext
@@ -68,8 +74,9 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
             positionMillis = startPositionMillis,
             metadata = PlaybackMetadata(media.title, media.artist, media.album, media.artworkUri),
         )
+        val decoder = settingsRepository.settings.first().decoderPreference
         val vlcMedia = Media(libVlc, Uri.parse(media.uri)).apply {
-            setHWDecoderEnabled(true, true)
+            setHWDecoderEnabled(decoder != DecoderPreference.SOFTWARE, decoder == DecoderPreference.HARDWARE)
             setDefaultMediaPlayerOptions()
         }
         currentMedia = vlcMedia
@@ -354,10 +361,13 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
     }
 }
 
-class LibVlcPlayerEngineFactory(private val context: Context) : PlayerEngineFactory {
+class LibVlcPlayerEngineFactory(
+    private val context: Context,
+    private val settingsRepository: SettingsRepository,
+) : PlayerEngineFactory {
     override val id = EngineId.LIBVLC
     override fun supportFor(media: MediaItem) = LibVlcPlayerEngine.support(media)
-    override fun create(): PlayerEngine = LibVlcPlayerEngine(context)
+    override fun create(): PlayerEngine = LibVlcPlayerEngine(context, settingsRepository)
 }
 
 private fun Array<MediaPlayer.TrackDescription>?.toTrackInfo(

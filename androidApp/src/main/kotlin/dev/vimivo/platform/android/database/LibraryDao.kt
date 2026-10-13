@@ -63,6 +63,24 @@ interface LibraryDao {
     @Query("SELECT * FROM media WHERE uri IN (:uris) AND isAvailable = 1")
     suspend fun mediaByUris(uris: List<String>): List<MediaEntity>
 
+    @Query("SELECT * FROM media")
+    suspend fun allMedia(): List<MediaEntity>
+
+    @Query("UPDATE media SET isFavorite = 0")
+    suspend fun clearFavorites()
+
+    @Query("UPDATE media SET lastPlaybackPositionMillis = 0, lastPlayedAtEpochMillis = NULL")
+    suspend fun clearPlaybackState()
+
+    @Query("DELETE FROM playback_history")
+    suspend fun clearHistory()
+
+    @Transaction
+    suspend fun clearPlaybackHistory() {
+        clearHistory()
+        clearPlaybackState()
+    }
+
     @Query("UPDATE media SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: String, favorite: Boolean)
 

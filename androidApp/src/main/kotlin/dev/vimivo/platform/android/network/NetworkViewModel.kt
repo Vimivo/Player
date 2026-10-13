@@ -19,6 +19,7 @@ import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.platform.android.playback.PlaybackController
+import dev.vimivo.settings.SettingsRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,33 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 
 private val Context.networkDataStore by preferencesDataStore("vimivo_network")
+
+data class NetworkHistory(val recent: List<String>, val favorites: Set<String>)
+
+class NetworkHistoryStore(private val context: Context) {
+    suspend fun load(): NetworkHistory {
+        val preferences = context.networkDataStore.data.first()
+        return NetworkHistory(
+            recent = preferences[RECENT_ORDERED]?.decodeUrlList()
+                ?: preferences[LEGACY_RECENT].orEmpty().sorted(),
+            favorites = preferences[FAVORITES].orEmpty(),
+        )
+    }
+
+    suspend fun save(value: NetworkHistory) {
+        context.networkDataStore.edit {
+            it[RECENT_ORDERED] = value.recent.encodeUrlList()
+            it[FAVORITES] = value.favorites
+            it.remove(LEGACY_RECENT)
+        }
+    }
+
+    private companion object {
+        val RECENT_ORDERED = stringPreferencesKey("recent_streams_ordered")
+        val LEGACY_RECENT = stringSetPreferencesKey("recent_streams")
+        val FAVORITES = stringSetPreferencesKey("favorite_streams")
+    }
+}
 
 enum class StreamPlaybackStatus { IDLE, CONNECTING, BUFFERING, PLAYING, PAUSED, ERROR }
 
@@ -48,6 +76,8 @@ data class NetworkUiState(
 class NetworkViewModel(
     context: Context,
     private val playback: PlaybackController,
+    settingsRepository: SettingsRepository,
+    private val historyStore: NetworkHistoryStore,
 ) : ViewModel() {
     private val appContext = context.applicationContext
     private val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
@@ -55,13 +85,14 @@ class NetworkViewModel(
     private var observedPlayer: Player? = null
     private var reconnectJob: Job? = null
     private var reconnectPending = false
+    private var autoReconnect = true
     val state: StateFlow<NetworkUiState> = mutableState.asStateFlow()
 
     private val playerListener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) = publish(player)
         override fun onPlayerError(error: PlaybackException) {
             mutableState.update { it.copy(status = StreamPlaybackStatus.ERROR, errorMessage = error.userMessage()) }
-            if (error.isReconnectable()) scheduleReconnect()
+            if (autoReconnect && error.isReconnectable()) scheduleReconnect()
         }
     }
 
@@ -79,6 +110,7 @@ class NetworkViewModel(
 
     init {
         viewModelScope.launch { load() }
+        viewModelScope.launch { settingsRepository.settings.collect { autoReconnect = it.autoReconnectStreams } }
         viewModelScope.launch {
             playback.controller.collect { player ->
                 observedPlayer?.removeListener(playerListener)
@@ -191,18 +223,12 @@ class NetworkViewModel(
     }
 
     private suspend fun load() {
-        val preferences = appContext.networkDataStore.data.first()
-        val recent = preferences[RECENT_ORDERED]?.decodeUrlList()
-            ?: preferences[LEGACY_RECENT].orEmpty().sorted()
-        mutableState.update { it.copy(recent = recent, favorites = preferences[FAVORITES].orEmpty()) }
+        val history = historyStore.load()
+        mutableState.update { it.copy(recent = history.recent, favorites = history.favorites) }
     }
 
     private suspend fun persist(recent: List<String>, favorites: Set<String>) {
-        appContext.networkDataStore.edit {
-            it[RECENT_ORDERED] = recent.encodeUrlList()
-            it[FAVORITES] = favorites
-            it.remove(LEGACY_RECENT)
-        }
+        historyStore.save(NetworkHistory(recent, favorites))
     }
 
     override fun onCleared() {
@@ -215,9 +241,6 @@ class NetworkViewModel(
         const val MAX_RECENT = 50
         const val MAX_RECONNECT_ATTEMPTS = 3
         const val RECONNECT_BASE_DELAY_MILLIS = 1_500L
-        val RECENT_ORDERED = stringPreferencesKey("recent_streams_ordered")
-        val LEGACY_RECENT = stringSetPreferencesKey("recent_streams")
-        val FAVORITES = stringSetPreferencesKey("favorite_streams")
     }
 }
 

@@ -95,3 +95,9 @@
 **Decision:** Add Media3 HLS and DASH modules and keep network playback inside the single MediaLibraryService. HTTPS is preferred. Cleartext is enabled at the application network-policy boundary solely because user-authorized URLs may name arbitrary internet-radio or LAN hosts that cannot be represented by a static domain allowlist. Network requests begin only after an explicit play/retry/history action, URLs never go to an intermediary, embedded URL credentials are rejected, and automatic reconnect is limited to three transport-failure attempts.
 
 **Reason:** A second network player would break the authoritative session, while a fixed cleartext domain list would make legitimate local-network sources impossible. Bounded retry avoids loops and deliberately excludes HTTP status, expired-link, access, and manifest errors.
+
+## ADR-015: Explicit local backup instead of platform backup
+
+**Decision:** Disable Android automatic application backup and provide a versioned JSON export/import selected through SAF. Backups contain settings and stable URI references for playlists, favorites, stream favorites, bookmarks, and history, but never media bytes, credentials, cached artwork, or persisted URI grants.
+
+**Reason:** Automatic platform backup can move private library history to a cloud account without an in-app action. Explicit local files match Vimivo's privacy model, remain inspectable and portable, and allow missing references to be reported rather than silently corrupting relationships.

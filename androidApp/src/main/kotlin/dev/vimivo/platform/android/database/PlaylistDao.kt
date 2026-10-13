@@ -23,6 +23,10 @@ interface PlaylistDao {
     fun observe(): Flow<List<PlaylistWithItems>>
 
     @Transaction
+    @Query("SELECT * FROM playlists ORDER BY name COLLATE NOCASE")
+    suspend fun all(): List<PlaylistWithItems>
+
+    @Transaction
     @Query("SELECT * FROM playlists WHERE id = :id")
     suspend fun get(id: String): PlaylistWithItems?
 

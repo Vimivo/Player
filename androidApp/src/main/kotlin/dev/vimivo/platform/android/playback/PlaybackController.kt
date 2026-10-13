@@ -10,11 +10,25 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import dev.vimivo.core.model.MediaItem as VimivoMediaItem
+import dev.vimivo.core.model.MediaKind
+import dev.vimivo.settings.AppSettings
+import dev.vimivo.settings.ResumeBehavior
+import dev.vimivo.settings.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class PlaybackController(context: Context) : AutoCloseable {
+class PlaybackController(
+    context: Context,
+    settingsRepository: SettingsRepository,
+) : AutoCloseable {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var settings = AppSettings()
     private val mutableController = MutableStateFlow<MediaController?>(null)
     private val future = MediaController.Builder(
         context,
@@ -24,15 +38,16 @@ class PlaybackController(context: Context) : AutoCloseable {
     val controller: StateFlow<MediaController?> = mutableController.asStateFlow()
 
     init {
+        scope.launch { settingsRepository.settings.collect { settings = it } }
         future.addListener(
             { runCatching { future.get() }.onSuccess { mutableController.value = it } },
             MoreExecutors.directExecutor(),
         )
     }
 
-    fun play(item: VimivoMediaItem, positionMillis: Long = item.safeResumePosition()) {
+    fun play(item: VimivoMediaItem, positionMillis: Long? = null) {
         withController {
-            setMediaItem(item.toMedia3(), positionMillis)
+            setMediaItem(item.toMedia3(), positionMillis ?: item.preferredResumePosition())
             prepare()
             play()
         }
@@ -42,12 +57,13 @@ class PlaybackController(context: Context) : AutoCloseable {
         items: List<VimivoMediaItem>,
         index: Int = 0,
         shuffle: Boolean = false,
-        positionMillis: Long = items.getOrNull(index)?.safeResumePosition() ?: 0,
+        positionMillis: Long? = null,
     ) {
         if (items.isEmpty()) return
         withController {
             shuffleModeEnabled = shuffle
-            setMediaItems(items.map(VimivoMediaItem::toMedia3), index.coerceIn(items.indices), positionMillis)
+            val start = positionMillis ?: items.getOrNull(index)?.preferredResumePosition() ?: 0
+            setMediaItems(items.map(VimivoMediaItem::toMedia3), index.coerceIn(items.indices), start)
             prepare()
             play()
         }
@@ -86,6 +102,12 @@ class PlaybackController(context: Context) : AutoCloseable {
         mutableController.value?.release()
         mutableController.value = null
         future.cancel(true)
+        scope.cancel()
+    }
+
+    private fun VimivoMediaItem.preferredResumePosition(): Long {
+        val behavior = if (kind == MediaKind.VIDEO) settings.videoResumeBehavior else settings.musicResumeBehavior
+        return if (behavior == ResumeBehavior.ALWAYS) safeResumePosition() else 0
     }
 }
 

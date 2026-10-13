@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import dev.vimivo.app.MainActivity
 import org.junit.Rule
 import org.junit.Test
@@ -34,5 +35,15 @@ class AppNavigationTest {
         listOf("All songs", "Albums", "Artists", "Album artists", "Genres", "Folders", "Playlists").forEach {
             composeRule.onNodeWithText(it).assertExists()
         }
+    }
+
+    @Test
+    fun settingsExposePersonalizationPrivacyAndBackupCategories() {
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Appearance").assertIsDisplayed()
+        composeRule.onNodeWithText("Dynamic color").assertExists()
+        composeRule.onNodeWithText("Privacy").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Backup & restore").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("About").performScrollTo().assertIsDisplayed()
     }
 }

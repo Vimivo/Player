@@ -1,4 +1,12 @@
-@file:Suppress("MaximumLineLength", "MaxLineLength", "PropertyWrapping", "StringTemplate")
+@file:Suppress(
+    "ArgumentListWrapping",
+    "CyclomaticComplexMethod",
+    "ImportOrdering",
+    "MaximumLineLength",
+    "MaxLineLength",
+    "PropertyWrapping",
+    "StringTemplate",
+)
 
 package dev.vimivo.platform.android.library
 
@@ -13,10 +21,14 @@ import dev.vimivo.platform.android.database.MediaEntity
 import dev.vimivo.platform.android.database.SafGrantEntity
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
+import dev.vimivo.settings.HiddenMediaBehavior
+import dev.vimivo.settings.SettingsRepository
 
 class SafMediaScanner(
     private val context: Context,
     private val dao: LibraryDao,
+    private val settingsRepository: SettingsRepository,
     private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
     suspend fun importFile(uri: Uri): MediaEntity {
@@ -33,6 +45,7 @@ class SafMediaScanner(
         require(root.isDirectory) { "The selected document is not a folder" }
         val scanToken = nowMillis()
         val exclusions = dao.exclusions()
+        val showHidden = settingsRepository.settings.first().hiddenMediaBehavior == HiddenMediaBehavior.SHOW
         val pending = ArrayDeque<Pair<DocumentFile, String>>()
         pending += root to (root.name ?: "Selected folder")
         val batch = ArrayList<MediaEntity>(BATCH_SIZE)
@@ -43,6 +56,7 @@ class SafMediaScanner(
             if (exclusions.any(path::startsWith)) continue
             folder.listFiles().forEach { child ->
                 currentCoroutineContext().ensureActive()
+                if (!showHidden && child.name?.startsWith('.') == true) return@forEach
                 when {
                     child.isDirectory -> pending += child to "$path/${child.name ?: "Folder"}"
                     child.isFile && child.isSupportedMedia() -> batch += child.toMediaEntity(
@@ -127,23 +141,27 @@ class SafMediaScanner(
     }
 
     private fun extractMetadata(uri: Uri): ExtractedMetadata = runCatching {
-        MediaMetadataRetriever().use { retriever ->
-            retriever.setDataSource(context, uri)
-            ExtractedMetadata(
-                title = retriever.text(MediaMetadataRetriever.METADATA_KEY_TITLE),
-                artist = retriever.text(MediaMetadataRetriever.METADATA_KEY_ARTIST),
-                album = retriever.text(MediaMetadataRetriever.METADATA_KEY_ALBUM),
-                albumArtist = retriever.text(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST),
-                genre = retriever.text(MediaMetadataRetriever.METADATA_KEY_GENRE),
-                durationMillis = retriever.long(MediaMetadataRetriever.METADATA_KEY_DURATION),
-                width = retriever.int(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH),
-                height = retriever.int(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT),
-                frameRate = retriever.float(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE),
-                bitrate = retriever.int(MediaMetadataRetriever.METADATA_KEY_BITRATE),
-                trackNumber = retriever.int(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER),
-                discNumber = retriever.int(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER),
-                releaseYear = retriever.int(MediaMetadataRetriever.METADATA_KEY_YEAR),
-            )
+        MediaMetadataRetriever().let { retriever ->
+            try {
+                retriever.setDataSource(context, uri)
+                ExtractedMetadata(
+                    title = retriever.text(MediaMetadataRetriever.METADATA_KEY_TITLE),
+                    artist = retriever.text(MediaMetadataRetriever.METADATA_KEY_ARTIST),
+                    album = retriever.text(MediaMetadataRetriever.METADATA_KEY_ALBUM),
+                    albumArtist = retriever.text(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST),
+                    genre = retriever.text(MediaMetadataRetriever.METADATA_KEY_GENRE),
+                    durationMillis = retriever.long(MediaMetadataRetriever.METADATA_KEY_DURATION),
+                    width = retriever.int(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH),
+                    height = retriever.int(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT),
+                    frameRate = retriever.float(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE),
+                    bitrate = retriever.int(MediaMetadataRetriever.METADATA_KEY_BITRATE),
+                    trackNumber = retriever.int(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER),
+                    discNumber = retriever.int(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER),
+                    releaseYear = retriever.int(MediaMetadataRetriever.METADATA_KEY_YEAR),
+                )
+            } finally {
+                retriever.release()
+            }
         }
     }.getOrDefault(ExtractedMetadata())
 

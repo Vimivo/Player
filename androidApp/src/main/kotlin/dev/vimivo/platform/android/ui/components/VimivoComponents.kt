@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -72,6 +73,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.vimivo.platform.android.ui.theme.LocalLargeTouchTargets
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
@@ -284,7 +286,9 @@ fun BottomSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
 @Composable
 fun SettingsRow(icon: ImageVector, title: String, detail: String? = null, checked: Boolean? = null, onClick: () -> Unit) {
     ListItem(
-        modifier = Modifier.clickable(role = if (checked != null) Role.Switch else Role.Button, onClick = onClick),
+        modifier = Modifier
+            .heightIn(min = if (LocalLargeTouchTargets.current) 64.dp else 48.dp)
+            .clickable(role = if (checked != null) Role.Switch else Role.Button, onClick = onClick),
         leadingContent = { Icon(icon, null) },
         headlineContent = { Text(title) },
         supportingContent = detail?.let { { Text(it) } },

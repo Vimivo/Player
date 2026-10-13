@@ -24,16 +24,12 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.coroutines.core)
             implementation(libs.serialization.core)
-            implementation(libs.koin.core)
-            implementation(libs.koin.compose)
-            implementation(libs.koin.compose.viewmodel)
             implementation(libs.navigation.compose)
             implementation(compose.runtime)
             implementation(compose.foundation)
             api(compose.material3)
             api(compose.materialIconsExtended)
             implementation(compose.components.resources)
-            implementation(libs.coil.compose)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

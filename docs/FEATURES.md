@@ -30,6 +30,9 @@
 - Configurable edge-safe gestures for double-tap seeking, swipe seeking, brightness/volume, pinch zoom, and control visibility
 - Authorized direct HTTP/HTTPS, HLS, MPEG-DASH, internet-radio, and compatible remote-file playback through the service-owned engine path
 - Network stream clipboard entry, ordered local history, favorites, clear/remove actions, loading/live/seekability state, manual retry, and bounded reconnect
+- Persistent categorized settings for appearance, music/video/audio, subtitles, library, network, privacy, accessibility, backup, and about information
+- Versioned SAF backup and restore for settings, playlists, local/stream favorites, bookmarks, and playback history without media-file duplication
+- English and Bengali resources for the settings experience, system font scaling, optional high contrast, reduced motion, and larger settings touch targets
 
 ## Planned
 

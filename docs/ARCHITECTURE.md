@@ -26,6 +26,8 @@ Room is the source for paged UI queries and categories. Its schema keeps stable 
 
 Personal organization is local-only. `PlaylistRepository` owns ordered mixed audio/video playlists, while `OrganizationRepository` exposes bookmarks and playback history without Android types. Room uses indexed prefix search across media metadata and playlist names. Playlist items intentionally keep opaque IDs when media is temporarily unavailable; resolving a queue skips unavailable rows without deleting the user's playlist. M3U/M3U8 import and export use the Storage Access Framework and only resolve references already present in the authorized library.
 
+Settings remain a portable `AppSettings` model behind `SettingsRepository`; Android persists them with Preferences DataStore. UI consumes the immutable settings flow, while platform adapters read only the preferences they implement. User-controlled JSON backup is handled by `LocalBackupManager` through SAF and uses stable media URIs to reconnect Room organization records without copying media or storage grants.
+
 ## State and errors
 
 View models expose immutable `StateFlow` values. Repositories expose streams and return `Result` for recoverable operations. `PlayerEngine` exposes a state stream, typed playback failures, engine capabilities, track selection, controls, and deterministic cleanup.
