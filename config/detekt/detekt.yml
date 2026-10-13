@@ -1,0 +1,15 @@
+build:
+  maxIssues: 0
+complexity:
+  LongMethod:
+    threshold: 80
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - Composable
+style:
+  MagicNumber:
+    active: false
+  MaxLineLength:
+    maxLineLength: 120
+
