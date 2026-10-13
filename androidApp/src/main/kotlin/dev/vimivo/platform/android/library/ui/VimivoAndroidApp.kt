@@ -161,6 +161,8 @@ fun VimivoAndroidApp(
     playback: PlaybackController,
     thumbnails: AndroidThumbnailRepository,
     permissions: MediaPermissionPolicy,
+    onVideoPlayerState: (Boolean, Boolean) -> Unit = { _, _ -> },
+    enterPictureInPicture: () -> Unit = {},
     settingsViewModel: SettingsViewModel = koinViewModel(),
     playbackViewModel: PlaybackViewModel = koinViewModel(),
 ) {
@@ -175,6 +177,8 @@ fun VimivoAndroidApp(
             player,
             playbackViewModel,
             settingsViewModel,
+            onVideoPlayerState,
+            enterPictureInPicture,
         )
     }
 }
@@ -189,11 +193,14 @@ private fun AppShell(
     player: PlaybackUiState,
     playbackViewModel: PlaybackViewModel,
     settingsViewModel: SettingsViewModel,
+    onVideoPlayerState: (Boolean, Boolean) -> Unit,
+    enterPictureInPicture: () -> Unit,
 ) {
     var destination by remember { mutableStateOf(AppDestination.HOME) }
     var searchVisible by remember { mutableStateOf(false) }
     var nowPlayingVisible by remember { mutableStateOf(false) }
     var queueVisible by remember { mutableStateOf(false) }
+    var videoPlayerVisible by remember { mutableStateOf(false) }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val useRail = maxWidth >= 720.dp
@@ -222,7 +229,10 @@ private fun AppShell(
                                 thumbnails = thumbnails,
                                 isPlaying = player.isPlaying,
                                 progress = if (player.durationMillis > 0) player.positionMillis.toFloat() / player.durationMillis else 0f,
-                                onOpen = { nowPlayingVisible = true },
+                                onOpen = {
+                                    if (current.toDomain().kind == MediaKind.VIDEO) videoPlayerVisible = true
+                                    else nowPlayingVisible = true
+                                },
                                 onToggle = playbackViewModel::togglePlayback,
                             )
                         }
@@ -243,7 +253,12 @@ private fun AppShell(
                                 openNetwork = { destination = AppDestination.NETWORK },
                             )
                             AppDestination.MUSIC -> MusicScreen(thumbnails, playback, permissions)
-                            AppDestination.VIDEOS -> VideoScreen(thumbnails, playback, permissions)
+                            AppDestination.VIDEOS -> VideoScreen(
+                                thumbnails,
+                                playback,
+                                permissions,
+                                openPlayer = { videoPlayerVisible = true },
+                            )
                             AppDestination.NETWORK -> NetworkScreen()
                             AppDestination.SETTINGS -> SettingsScreen(settingsViewModel)
                         }
@@ -261,6 +276,16 @@ private fun AppShell(
         queueVisible = true
     }
     if (queueVisible) QueueSheet(player, playbackViewModel) { queueVisible = false }
+    if (videoPlayerVisible) AdvancedVideoPlayer(
+        player = player,
+        controller = playback.controller.collectAsState().value,
+        viewModel = playbackViewModel,
+        gestureSensitivity = settingsViewModel.state.collectAsState().value.videoGestureSensitivity,
+        onGestureSensitivity = settingsViewModel::setVideoGestureSensitivity,
+        onPlayerState = onVideoPlayerState,
+        onEnterPictureInPicture = enterPictureInPicture,
+        onDismiss = { videoPlayerVisible = false },
+    )
 }
 
 @Composable
@@ -450,18 +475,22 @@ private fun VideoScreen(
     thumbnails: AndroidThumbnailRepository,
     playback: PlaybackController,
     permissions: MediaPermissionPolicy,
+    openPlayer: () -> Unit,
     viewModel: LibraryViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
     LaunchedEffect(Unit) { viewModel.selectKind(MediaKind.VIDEO) }
     LibraryChrome(state, viewModel, permissions, MediaKind.VIDEO) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip({ viewModel.selectKind(MediaKind.VIDEO) }, { Text("All videos") })
-            AssistChip({ viewModel.showCategories(LibraryCategoryField.FOLDER) }, { Text("Folders") }, leadingIcon = { Icon(Icons.Outlined.Folder, null) })
-            AssistChip(viewModel::recentlyAdded, { Text("Recently added") })
-            AssistChip(viewModel::recentlyWatched, { Text("Recently watched") })
+        LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { AssistChip({ viewModel.selectKind(MediaKind.VIDEO) }, { Text("All videos") }) }
+            item { AssistChip({ viewModel.showCategories(LibraryCategoryField.FOLDER) }, { Text("Folders") }, leadingIcon = { Icon(Icons.Outlined.Folder, null) }) }
+            item { AssistChip(viewModel::recentlyWatched, { Text("Recently watched") }) }
+            item { AssistChip(viewModel::recentlyAdded, { Text("Recently added") }) }
+            item { AssistChip(viewModel::favoriteVideos, { Text("Favorites") }) }
+            item { AssistChip(viewModel::continueWatching, { Text("Continue watching") }) }
         }
-        if (state.categories != null) CategoryOrMediaList(state, viewModel, thumbnails, playback) else VideoGrid(state, thumbnails, playback, viewModel)
+        if (state.categories != null) CategoryOrMediaList(state, viewModel, thumbnails, playback)
+        else VideoGrid(state, thumbnails, playback, viewModel, openPlayer)
     }
 }
 
@@ -548,12 +577,30 @@ private fun CategoryOrMediaList(
 }
 
 @Composable
-private fun VideoGrid(state: LibraryUiState, thumbnails: AndroidThumbnailRepository, playback: PlaybackController, viewModel: LibraryViewModel) {
+private fun VideoGrid(
+    state: LibraryUiState,
+    thumbnails: AndroidThumbnailRepository,
+    playback: PlaybackController,
+    viewModel: LibraryViewModel,
+    openPlayer: () -> Unit,
+) {
     when {
         state.isLoading && state.items.isEmpty() -> LoadingIndicator("Loading videos")
         state.items.isEmpty() -> EmptyState(Icons.Outlined.VideoLibrary, "No videos found", "Add a folder, open a video, or grant library access.", "Rescan", viewModel::rescan)
         else -> LazyVerticalGrid(GridCells.Adaptive(240.dp), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(state.items, key = { it.id.value }) { item -> VideoCard(item, thumbnails) { playback.play(item) } }
+            items(state.items, key = { it.id.value }) { item ->
+                VideoCard(
+                    item,
+                    thumbnails,
+                    onClick = {
+                        viewModel.resolveCurrentItems { videos ->
+                            playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
+                            openPlayer()
+                        }
+                    },
+                    onFavorite = { viewModel.toggleFavorite(item) },
+                )
+            }
         }
     }
 }
@@ -903,7 +950,7 @@ private fun QueueSheet(player: PlaybackUiState, viewModel: PlaybackViewModel, on
     }
 }
 
-private fun androidx.media3.common.MediaItem.toDomain() = MediaItem(
+internal fun androidx.media3.common.MediaItem.toDomain() = MediaItem(
     id = dev.vimivo.core.model.MediaId(mediaId),
     uri = localConfiguration?.uri?.toString().orEmpty(),
     title = mediaMetadata.title?.toString() ?: mediaId,

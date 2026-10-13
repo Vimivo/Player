@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackState
@@ -48,10 +49,13 @@ class SessionPlayerAdapter(
     private var released = false
     private var restorePosition = 0L
     private var persistJob: Job? = null
+    private var videoOutput: Any? = null
+    private var attachedVideoEngine: EngineId? = null
 
     init {
         scope.launch {
             manager.state.collectLatest { state ->
+                attachVideoOutputIfNeeded(state.engine)
                 if (state.status == PlaybackStatus.Completed) advanceAfterCompletion()
                 persistDebounced(state)
                 invalidateState()
@@ -204,15 +208,30 @@ class SessionPlayerAdapter(
     }
 
     override fun handleSetVideoOutput(videoOutput: Any): ListenableFuture<*> = done().also {
-        val engine = manager.activeEngine.value
-        if (engine is Media3PlayerEngine) when (videoOutput) {
-            is Surface -> engine.player.setVideoSurface(videoOutput)
-            is SurfaceHolder -> engine.player.setVideoSurfaceHolder(videoOutput)
-        }
+        this.videoOutput = videoOutput
+        attachedVideoEngine = null
+        attachVideoOutputIfNeeded(manager.state.value.engine)
     }
 
     override fun handleClearVideoOutput(videoOutput: Any?): ListenableFuture<*> = done().also {
         (manager.activeEngine.value as? Media3PlayerEngine)?.player?.clearVideoSurface()
+        (manager.activeEngine.value as? LibVlcPlayerEngine)?.clearVideoSurface()
+        this.videoOutput = null
+        attachedVideoEngine = null
+    }
+
+    private fun attachVideoOutputIfNeeded(engineId: EngineId?) {
+        val output = videoOutput ?: return
+        if (engineId == null || attachedVideoEngine == engineId) return
+        when (val engine = manager.activeEngine.value) {
+            is Media3PlayerEngine -> when (output) {
+                is Surface -> engine.player.setVideoSurface(output)
+                is SurfaceHolder -> engine.player.setVideoSurfaceHolder(output)
+            }
+            is LibVlcPlayerEngine -> if (output is SurfaceHolder) engine.setVideoSurfaceHolder(output)
+            else -> return
+        }
+        attachedVideoEngine = engineId
     }
 
     override fun handleRelease(): ListenableFuture<*> = done().also {

@@ -63,6 +63,7 @@ data class LibraryQuery(
     val favoritesOnly: Boolean = false,
     val recentlyWatchedOnly: Boolean = false,
     val recentlyPlayedOnly: Boolean = false,
+    val continueWatchingOnly: Boolean = false,
     val sort: LibrarySort = LibrarySort.TITLE,
     val descending: Boolean = false,
     val offset: Int = 0,

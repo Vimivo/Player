@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.net.Uri
+import android.view.SurfaceHolder
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
@@ -132,6 +133,17 @@ class LibVlcPlayerEngine(context: Context) : PlayerEngine {
     fun detachVideo() {
         if (mediaPlayer.vlcVout.areViewsAttached()) mediaPlayer.detachViews()
         videoLayout = null
+    }
+
+    fun setVideoSurfaceHolder(holder: SurfaceHolder) {
+        val output = mediaPlayer.vlcVout
+        if (output.areViewsAttached()) output.detachViews()
+        output.setVideoSurface(holder.surface, holder)
+        output.attachViews()
+    }
+
+    fun clearVideoSurface() {
+        if (mediaPlayer.vlcVout.areViewsAttached()) mediaPlayer.vlcVout.detachViews()
     }
 
     private fun onEvent(event: MediaPlayer.Event) {

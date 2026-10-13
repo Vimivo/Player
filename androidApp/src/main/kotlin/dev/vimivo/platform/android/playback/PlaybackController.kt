@@ -30,7 +30,7 @@ class PlaybackController(context: Context) : AutoCloseable {
         )
     }
 
-    fun play(item: VimivoMediaItem, positionMillis: Long = item.lastPlaybackPositionMillis) {
+    fun play(item: VimivoMediaItem, positionMillis: Long = item.safeResumePosition()) {
         withController {
             setMediaItem(item.toMedia3(), positionMillis)
             prepare()
@@ -38,11 +38,16 @@ class PlaybackController(context: Context) : AutoCloseable {
         }
     }
 
-    fun playQueue(items: List<VimivoMediaItem>, index: Int = 0, shuffle: Boolean = false) {
+    fun playQueue(
+        items: List<VimivoMediaItem>,
+        index: Int = 0,
+        shuffle: Boolean = false,
+        positionMillis: Long = items.getOrNull(index)?.safeResumePosition() ?: 0,
+    ) {
         if (items.isEmpty()) return
         withController {
             shuffleModeEnabled = shuffle
-            setMediaItems(items.map(VimivoMediaItem::toMedia3), index.coerceIn(items.indices), 0)
+            setMediaItems(items.map(VimivoMediaItem::toMedia3), index.coerceIn(items.indices), positionMillis)
             prepare()
             play()
         }
@@ -77,6 +82,11 @@ class PlaybackController(context: Context) : AutoCloseable {
         mutableController.value = null
         future.cancel(true)
     }
+}
+
+internal fun VimivoMediaItem.safeResumePosition(): Long {
+    val duration = durationMillis ?: return lastPlaybackPositionMillis
+    return lastPlaybackPositionMillis.takeUnless { it >= duration - 10_000 } ?: 0
 }
 
 fun VimivoMediaItem.toMedia3(): MediaItem = MediaItem.Builder()

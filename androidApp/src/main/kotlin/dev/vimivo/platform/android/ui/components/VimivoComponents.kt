@@ -145,7 +145,12 @@ fun AlbumCard(media: MediaItem, thumbnails: AndroidThumbnailRepository, onClick:
     MediaCard(media, thumbnails, onClick)
 
 @Composable
-fun VideoCard(media: MediaItem, thumbnails: AndroidThumbnailRepository, onClick: () -> Unit) {
+fun VideoCard(
+    media: MediaItem,
+    thumbnails: AndroidThumbnailRepository,
+    onClick: () -> Unit,
+    onFavorite: (() -> Unit)? = null,
+) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -154,7 +159,14 @@ fun VideoCard(media: MediaItem, thumbnails: AndroidThumbnailRepository, onClick:
     ) {
         MediaArtwork(media, thumbnails, Modifier.fillMaxWidth().aspectRatio(16f / 9f))
         Column(Modifier.padding(14.dp)) {
-            Text(media.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(media.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                onFavorite?.let { action ->
+                    IconButton(action) {
+                        Icon(if (media.isFavorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, "Favorite ${media.title}")
+                    }
+                }
+            }
             Text(media.folderName.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

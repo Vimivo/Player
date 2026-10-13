@@ -75,6 +75,11 @@ internal object LibraryQueryBuilder {
             where += "lastPlayedAtEpochMillis IS NOT NULL"
         }
         if (query.recentlyPlayedOnly) where += "lastPlayedAtEpochMillis IS NOT NULL"
+        if (query.continueWatchingOnly) {
+            where += "kind = ?"
+            args += MediaKind.VIDEO.name
+            where += "lastPlaybackPositionMillis > 0"
+        }
         if (query.text.isNotBlank()) {
             where += "(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')"
             val term = "%${query.text.escapeLike()}%"

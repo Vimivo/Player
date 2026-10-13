@@ -15,6 +15,11 @@ Only legal, self-created, Creative Commons, or generated media may be added to t
 | Engine switching | Media3 decoder-failure fixture | Prior engine released, queue/position retained | Switch once to LibVLC | Unit-tested |
 | HTTP/HTTPS | Local authorized test server | Media3 streams and buffers | Decoder failures only; not HTTP/auth failures | Manual/instrumentation pending |
 | 16 KB page size | Same MP4 on official 16 KB system image | Both engines load native libraries and play | N/A | APK alignment verified; runtime pending |
+| Multiple audio/subtitle tracks | Generated MKV | Menu lists only reported tracks and selection remains service-owned | LibVLC supports equivalent selection | Instrumentation/device run pending |
+| Seek gestures | Generated two-minute MP4 | Double tap and horizontal drag clamp to valid duration | Same session commands | Resume policy and query logic unit-tested; touch run pending |
+| PiP and orientation | Generated landscape MP4 | Playback continues with synchronized notification/session state | Same | Physical API 26 and API 31+ run pending |
+| Hardware decoding | Generated H.264 and HEVC variants | Uses platform decoder when available; reports errors honestly | LibVLC fallback only for verified decoder failures | Device-specific run pending |
+| Interrupted video | Generated MP4 | Position persists; final ten seconds restart from zero | Same | Resume policy unit-tested; audio-focus device run pending |
 
 ## Generated fixture example
 

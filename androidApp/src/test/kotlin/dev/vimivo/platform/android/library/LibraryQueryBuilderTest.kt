@@ -43,6 +43,15 @@ class LibraryQueryBuilderTest {
     }
 
     @Test
+    fun continueWatchingRequiresANonZeroResumePosition() {
+        val sql = LibraryQueryBuilder.count(LibraryQuery(continueWatchingOnly = true))
+        val bindings = RecordingProgram().also(sql::bindTo).values
+
+        assertTrue(sql.sql.contains("lastPlaybackPositionMillis > 0"))
+        assertEquals(mapOf(1 to "VIDEO"), bindings)
+    }
+
+    @Test
     fun everyMusicSortUsesAWhitelistedIndexedColumn() {
         val expected = mapOf(
             LibrarySort.TITLE to "title COLLATE NOCASE",

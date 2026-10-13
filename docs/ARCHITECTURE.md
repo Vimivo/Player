@@ -46,6 +46,12 @@ Music screens query `MediaRepository` through `LibraryViewModel`; category selec
 
 `PlaybackController` is the only UI command path into the service session. The persistent mini player, full-screen Now Playing screen, collection actions, and queue editor all observe one `PlaybackViewModel` backed by that controller. UI code never constructs an engine or independently owns playback state. Artwork thumbnail reads are bounded, cached, and dispatched off the main thread.
 
+## Video presentation architecture
+
+`AdvancedVideoPlayer` renders the service session's `MediaController` surface and sends every transport command through `PlaybackViewModel`. A process-local `PlaybackDiagnostics` bridge exposes the active engine's immutable track and capability state and delegates track selection back to the service-owned manager; it does not own or create an engine. `SessionPlayerAdapter` attaches the same Android surface contract to Media3 and LibVLC and detaches it during teardown.
+
+The activity owns Android-only window concerns: Picture-in-Picture entry, immersive system bars, and orientation policy. Gesture interpretation remains presentation state, while sensitivity is persisted through the shared settings contract. Per-item resume continues to use Room playback history and resets positions within the final ten seconds.
+
 ## Platform growth
 
 Desktop and iOS targets can provide their own persistence, library scanners, and engines while retaining the shared contracts. No Android type is allowed in `commonMain`; URI values are opaque strings at the boundary.

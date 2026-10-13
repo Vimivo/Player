@@ -25,6 +25,9 @@
 - Sortable music results, collection-level play/shuffle/queue actions, and persistent service-backed mini player
 - Full-screen Now Playing with seek, queue editing/reordering, repeat, shuffle, speed, favorites, safe sharing, and media information
 - Album, artist, folder, and playlist details backed by real indexed media; no sample media is injected
+- Video library filters for all videos, folders, recent, favorites, and in-progress playback
+- Immersive video player with buffered seeking, queue navigation, screen/orientation lock, PiP, speed, track selection, aspect modes, and honest media diagnostics
+- Configurable edge-safe gestures for double-tap seeking, swipe seeking, brightness/volume, pinch zoom, and control visibility
 
 ## Planned
 

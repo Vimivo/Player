@@ -8,6 +8,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.domain.repository.MediaRepository
+import dev.vimivo.playback.EngineCapabilities
+import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.TrackInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,11 +29,17 @@ data class PlaybackUiState(
     val shuffleEnabled: Boolean = false,
     val errorMessage: String? = null,
     val isFavorite: Boolean = false,
+    val engine: EngineId? = null,
+    val capabilities: EngineCapabilities? = null,
+    val audioTracks: List<TrackInfo> = emptyList(),
+    val videoTracks: List<TrackInfo> = emptyList(),
+    val subtitleTracks: List<TrackInfo> = emptyList(),
 )
 
 class PlaybackViewModel(
     private val connection: PlaybackController,
     private val mediaRepository: MediaRepository,
+    private val diagnostics: PlaybackDiagnostics,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(PlaybackUiState())
     private var player: Player? = null
@@ -48,6 +57,19 @@ class PlaybackViewModel(
                 player = connected
                 connected?.addListener(listener)
                 if (connected == null) mutableState.value = PlaybackUiState() else publish(connected)
+            }
+        }
+        viewModelScope.launch {
+            diagnostics.state.collect { engineState ->
+                mutableState.value = mutableState.value.copy(
+                    engine = engineState.engine,
+                    capabilities = engineState.engine?.let { engine ->
+                        if (engineState.media == null) null else diagnosticsCapabilities(engine)
+                    },
+                    audioTracks = engineState.audioTracks,
+                    videoTracks = engineState.videoTracks,
+                    subtitleTracks = engineState.subtitleTracks,
+                )
             }
         }
     }
@@ -70,6 +92,9 @@ class PlaybackViewModel(
         }
     }
     fun setSpeed(speed: Float) { player?.setPlaybackSpeed(speed) }
+    fun setVolume(volume: Float) { player?.volume = volume.coerceIn(0f, 1f) }
+    fun selectAudioTrack(id: String?) { diagnostics.selectAudioTrack(id) }
+    fun selectSubtitleTrack(id: String?) { diagnostics.selectSubtitleTrack(id) }
     fun toggleFavorite() {
         val id = state.value.current?.mediaId ?: return
         val favorite = !state.value.isFavorite
@@ -94,6 +119,11 @@ class PlaybackViewModel(
             isFavorite = previous.isFavorite
                 .takeIf { previous.current?.mediaId == player.currentMediaItem?.mediaId }
                 ?: false,
+            engine = previous.engine,
+            capabilities = previous.capabilities,
+            audioTracks = previous.audioTracks,
+            videoTracks = previous.videoTracks,
+            subtitleTracks = previous.subtitleTracks,
         )
         val id = player.currentMediaItem?.mediaId
         if (id != null && id != loadedFavoriteId) {
@@ -110,5 +140,10 @@ class PlaybackViewModel(
 
     override fun onCleared() {
         player?.removeListener(listener)
+    }
+
+    private fun diagnosticsCapabilities(engine: EngineId): EngineCapabilities = when (engine) {
+        EngineId.MEDIA3 -> Media3PlayerEngine.CAPABILITIES
+        EngineId.LIBVLC -> LibVlcPlayerEngine.CAPABILITIES
     }
 }

@@ -17,6 +17,7 @@ import dev.vimivo.platform.android.library.SafMediaScanner
 import dev.vimivo.platform.android.playback.LibVlcPlayerEngineFactory
 import dev.vimivo.platform.android.playback.Media3PlayerEngineFactory
 import dev.vimivo.platform.android.playback.PlaybackController
+import dev.vimivo.platform.android.playback.PlaybackDiagnostics
 import dev.vimivo.platform.android.playback.PlaybackStateStore
 import dev.vimivo.platform.android.playback.PlaybackViewModel
 import dev.vimivo.platform.android.settings.SettingsViewModel
@@ -48,10 +49,11 @@ val androidModule = module {
     single { LibVlcPlayerEngineFactory(get()) }
     single { PlaybackStateStore(get()) }
     single { PlaybackController(get()) }
+    single { PlaybackDiagnostics() }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     viewModel { HomeViewModel(get()) }
     viewModel { LibraryViewModel(get()) }
-    viewModel { PlaybackViewModel(get(), get()) }
+    viewModel { PlaybackViewModel(get(), get(), get()) }
     viewModel { SettingsViewModel(get()) }
     viewModel { NetworkViewModel(get(), get()) }
     viewModel { PlaylistViewModel(get(), get()) }

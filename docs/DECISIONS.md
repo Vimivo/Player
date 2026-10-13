@@ -71,3 +71,9 @@
 **Decision:** Add nullable `releaseYear` to indexed media with a Room auto-migration from schema 1 to 2.
 
 **Reason:** Album details can expose available local release metadata without inventing values. The nullable additive column preserves existing libraries safely, and the exported schema is committed for migration verification.
+
+## ADR-011: Video surfaces remain session-owned
+
+**Decision:** The full-screen video UI renders the existing service session player and uses a process-local diagnostics bridge only for engine-specific track/capability state. Media3 and LibVLC both attach through the session adapter; Compose never constructs an engine.
+
+**Reason:** This preserves one playback lifecycle across fullscreen, PiP, backgrounding, configuration changes, and fallback while still allowing track selection and accurate decoder information.

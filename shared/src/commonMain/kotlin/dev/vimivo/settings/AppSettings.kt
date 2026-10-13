@@ -19,6 +19,7 @@ data class AppSettings(
     val preferredEngine: PreferredEngine = PreferredEngine.AUTOMATIC,
     val resumePlayback: Boolean = true,
     val dynamicColor: Boolean = true,
+    val videoGestureSensitivity: Float = 1f,
     val homeSections: List<HomeSection> = HomeSection.entries,
 )
 

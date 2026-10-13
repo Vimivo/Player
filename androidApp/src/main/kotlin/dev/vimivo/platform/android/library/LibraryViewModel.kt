@@ -111,6 +111,33 @@ class LibraryViewModel(private val repository: MediaRepository) : ViewModel() {
         load(reset = true)
     }
 
+    fun continueWatching() {
+        mutableState.update {
+            it.copy(
+                query = LibraryQuery(
+                    kind = MediaKind.VIDEO,
+                    continueWatchingOnly = true,
+                    sort = LibrarySort.LAST_PLAYED,
+                    descending = true,
+                ),
+                categories = null,
+                categoryField = null,
+            )
+        }
+        load(reset = true)
+    }
+
+    fun favoriteVideos() {
+        mutableState.update {
+            it.copy(
+                query = LibraryQuery(kind = MediaKind.VIDEO, favoritesOnly = true),
+                categories = null,
+                categoryField = null,
+            )
+        }
+        load(reset = true)
+    }
+
     fun recentlyAddedMusic() {
         mutableState.update {
             it.copy(

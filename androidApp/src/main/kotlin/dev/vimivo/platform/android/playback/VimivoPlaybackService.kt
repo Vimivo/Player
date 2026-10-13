@@ -39,6 +39,7 @@ class VimivoPlaybackService : MediaLibraryService() {
     private val libVlcFactory: LibVlcPlayerEngineFactory by inject()
     private val mediaRepository: MediaRepository by inject()
     private val stateStore: PlaybackStateStore by inject()
+    private val diagnostics: PlaybackDiagnostics by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var sessionPlayer: SessionPlayerAdapter
     private lateinit var mediaSession: MediaLibrarySession
@@ -55,6 +56,7 @@ class VimivoPlaybackService : MediaLibraryService() {
             factories = mapOf(EngineId.MEDIA3 to media3Factory, EngineId.LIBVLC to libVlcFactory),
             scope = serviceScope,
         )
+        diagnostics.attach(engineManager)
         sessionPlayer = SessionPlayerAdapter(engineManager, serviceScope, stateStore)
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, LibraryCallback()).build()
         registerNoisyReceiver()
@@ -62,6 +64,7 @@ class VimivoPlaybackService : MediaLibraryService() {
         serviceScope.launch {
             var lastSavedAt = 0L
             engineManager.state.collect { state ->
+                diagnostics.publish(state)
                 val media = state.media ?: return@collect
                 val completed = state.status == PlaybackStatus.Completed
                 if (!completed && state.status != PlaybackStatus.Playing && state.status != PlaybackStatus.Paused) {
@@ -88,6 +91,7 @@ class VimivoPlaybackService : MediaLibraryService() {
         runBlocking(Dispatchers.IO) { sessionPlayer.persist() }
         mediaSession.release()
         sessionPlayer.release()
+        diagnostics.detach()
         serviceScope.cancel()
         super.onDestroy()
     }

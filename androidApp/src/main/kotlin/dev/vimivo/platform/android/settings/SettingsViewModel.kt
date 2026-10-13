@@ -21,6 +21,9 @@ class SettingsViewModel(private val repository: SettingsRepository) : ViewModel(
     fun setTheme(mode: ThemeMode) = update { it.copy(themeMode = mode) }
     fun setDynamicColor(enabled: Boolean) = update { it.copy(dynamicColor = enabled) }
     fun setResume(enabled: Boolean) = update { it.copy(resumePlayback = enabled) }
+    fun setVideoGestureSensitivity(value: Float) = update {
+        it.copy(videoGestureSensitivity = value.coerceIn(0.5f, 2f))
+    }
     fun setSectionVisible(section: HomeSection, visible: Boolean) = update { settings ->
         val sections = settings.homeSections.toMutableList().apply {
             if (visible && section !in this) add(section) else if (!visible) remove(section)

@@ -3,6 +3,7 @@ package dev.vimivo.platform.android.settings
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.vimivo.settings.AppSettings
@@ -26,6 +27,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
                 ?: PreferredEngine.AUTOMATIC,
             resumePlayback = preferences[Keys.resume] ?: true,
             dynamicColor = preferences[Keys.dynamicColor] ?: true,
+            videoGestureSensitivity = preferences[Keys.videoGestureSensitivity] ?: 1f,
             homeSections = preferences[Keys.homeSections]
                 ?.split(',')
                 ?.mapNotNull { runCatching { HomeSection.valueOf(it) }.getOrNull() }
@@ -41,6 +43,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             preferences[Keys.engine] = updated.preferredEngine.name
             preferences[Keys.resume] = updated.resumePlayback
             preferences[Keys.dynamicColor] = updated.dynamicColor
+            preferences[Keys.videoGestureSensitivity] = updated.videoGestureSensitivity
             preferences[Keys.homeSections] = updated.homeSections.joinToString(",", transform = HomeSection::name)
         }
     }
@@ -50,6 +53,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
         val engine = stringPreferencesKey("engine")
         val resume = booleanPreferencesKey("resume_playback")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
+        val videoGestureSensitivity = floatPreferencesKey("video_gesture_sensitivity")
         val homeSections = stringPreferencesKey("home_sections")
     }
 }
