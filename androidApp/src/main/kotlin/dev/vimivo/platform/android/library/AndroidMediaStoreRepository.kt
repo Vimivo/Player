@@ -152,7 +152,7 @@ class AndroidMediaStoreRepository(
                 if (!available) dao.markUnavailable(media.id)
             }
             scan(full = true).getOrThrow()
-            dao.deleteUnavailable().also { mutableChanges.emit(nowMillis()) }
+            dao.deleteUnavailableWithHistory().also { mutableChanges.emit(nowMillis()) }
         }
     }
 

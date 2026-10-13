@@ -32,10 +32,8 @@
 ## Planned
 
 - Equalizer and platform audio-effects evaluation
-- Playlist persistence and import/export
-- Embedded/external subtitles, synchronization, style, audio/subtitle track selection
 - Authorized HTTP/HLS/DASH/SMB/WebDAV sources with credential-safe storage
-- Picture-in-picture, casting evaluation, Android Auto, and TV evaluation
+- Casting evaluation, Android Auto, and TV evaluation
 
 Desktop and iOS applications remain outside the current scope.
 

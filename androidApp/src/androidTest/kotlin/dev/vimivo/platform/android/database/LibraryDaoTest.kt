@@ -53,11 +53,25 @@ class LibraryDaoTest {
     @Test
     fun missingRowsAreHiddenUntilExplicitCleanup() = runTest {
         dao.upsertMedia(listOf(media("old", "Removed", scanToken = 1), media("new", "Present", scanToken = 2)))
+        dao.upsertHistory(PlaybackHistoryEntity("old", 500, 1, 1, false))
 
         assertEquals(1, dao.markUnseenUnavailable("MEDIA_STORE", "external", "AUDIO", 2))
         assertFalse(dao.page(LibraryQueryBuilder.page(LibraryQuery())).any { it.id == "old" })
         assertTrue(dao.mediaBySource("MEDIA_STORE").any { it.id == "new" })
-        assertEquals(1, dao.deleteUnavailable())
+        assertEquals(1, dao.deleteUnavailableWithHistory())
+        assertEquals(null, dao.history("old"))
+    }
+
+    @Test
+    fun favoritesPersistAndFilenameSearchUsesTheIndexedColumn() = runTest {
+        dao.upsertMedia(listOf(media("one", "Unrelated title").copy(fileName = "recording.flac")))
+        dao.setFavorite("one", true)
+
+        val favorite = dao.page(LibraryQueryBuilder.page(LibraryQuery(favoritesOnly = true))).single()
+        val byFilename = dao.page(LibraryQueryBuilder.page(LibraryQuery(text = "recording")))
+
+        assertTrue(favorite.isFavorite)
+        assertEquals("one", byFilename.single().id)
     }
 
     private fun media(id: String, title: String, album: String? = null, scanToken: Long = 1) = MediaEntity(

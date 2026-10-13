@@ -932,6 +932,7 @@ private fun GlobalSearch(
 ) {
     val state by viewModel.state.collectAsState()
     val playlistResults by playlistViewModel.searchResults.collectAsState()
+    var folderFilter by remember { mutableStateOf(state.query.folderPath.orEmpty()) }
     LaunchedEffect(state.query.text) { playlistViewModel.search(state.query.text) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         SearchBar(state.query.text, viewModel::search, onClose)
@@ -942,6 +943,24 @@ private fun GlobalSearch(
             item { AssistChip({ viewModel.filterSearch(favoritesOnly = !state.query.favoritesOnly) }, { Text("Favorites") }) }
             item { AssistChip({ viewModel.filterSearch(recentlyAdded = true) }, { Text("Recently added") }) }
             item { AssistChip({ viewModel.filterSearch(minimumDurationMillis = 30 * 60_000L) }, { Text("30+ min") }) }
+            item { AssistChip({ viewModel.filterSearch(mimeType = "audio/mpeg") }, { Text("MP3") }) }
+            item { AssistChip({ viewModel.filterSearch(mimeType = "video/mp4") }, { Text("MP4") }) }
+            item {
+                AssistChip(
+                    { folderFilter = ""; viewModel.filterSearch(minimumDurationMillis = null, maximumDurationMillis = null, mimeType = null, folderPath = null) },
+                    { Text("Clear filters") },
+                )
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = folderFilter,
+                onValueChange = { folderFilter = it },
+                label = { Text("Folder path") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedButton({ viewModel.filterSearch(folderPath = folderFilter.trim().ifEmpty { null }) }) { Text("Apply") }
         }
         if (state.query.text.isNotBlank()) {
             LazyColumn(Modifier.fillMaxWidth().height(320.dp)) {

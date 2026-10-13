@@ -48,7 +48,12 @@ class PlaylistViewModel(
     }
     fun remove(playlist: Playlist, position: Int) = launchMutation { repository.remove(playlist.id, position) }
     fun move(playlist: Playlist, from: Int, to: Int) = launchMutation { repository.move(playlist.id, from, to) }
-    fun duplicate(playlist: Playlist, name: String) = launchMutation { repository.duplicate(playlist.id, name).map { Unit } }
+    fun duplicate(
+        playlist: Playlist,
+        name: String,
+    ) = launchMutation {
+        repository.duplicate(playlist.id, name).map { Unit }
+    }
     fun import(uri: android.net.Uri) = launchMutation { documents.import(uri).map { Unit } }
     fun export(uri: android.net.Uri, playlist: Playlist) = launchMutation { documents.export(uri, playlist) }
 

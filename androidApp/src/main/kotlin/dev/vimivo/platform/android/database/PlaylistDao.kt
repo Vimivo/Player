@@ -27,7 +27,10 @@ interface PlaylistDao {
     suspend fun get(id: String): PlaylistWithItems?
 
     @Transaction
-    @Query("SELECT * FROM playlists WHERE name LIKE :prefix || '%' COLLATE NOCASE ORDER BY name COLLATE NOCASE LIMIT :limit")
+    @Query(
+        "SELECT * FROM playlists WHERE name LIKE :prefix || '%' COLLATE NOCASE " +
+            "ORDER BY name COLLATE NOCASE LIMIT :limit",
+    )
     suspend fun findByName(prefix: String, limit: Int): List<PlaylistWithItems>
 
     @Upsert

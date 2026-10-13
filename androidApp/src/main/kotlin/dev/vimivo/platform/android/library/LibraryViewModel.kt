@@ -201,6 +201,7 @@ class LibraryViewModel(private val repository: MediaRepository) : ViewModel() {
         load(reset = true)
     }
 
+    @Suppress("LongParameterList")
     fun filterSearch(
         kind: MediaKind? = state.value.query.kind,
         favoritesOnly: Boolean = state.value.query.favoritesOnly,

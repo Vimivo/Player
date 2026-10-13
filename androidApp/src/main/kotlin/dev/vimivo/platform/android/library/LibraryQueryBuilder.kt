@@ -1,4 +1,4 @@
-@file:Suppress("Wrapping")
+@file:Suppress("CyclomaticComplexMethod", "Wrapping")
 
 package dev.vimivo.platform.android.library
 

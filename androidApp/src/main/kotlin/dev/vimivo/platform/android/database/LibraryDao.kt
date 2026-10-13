@@ -5,6 +5,7 @@ package dev.vimivo.platform.android.database
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.RawQuery
+import androidx.room.Transaction
 import androidx.room.Upsert
 import androidx.sqlite.db.SupportSQLiteQuery
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +44,15 @@ interface LibraryDao {
 
     @Query("DELETE FROM media WHERE isAvailable = 0")
     suspend fun deleteUnavailable(): Int
+
+    @Query("DELETE FROM playback_history WHERE mediaId IN (SELECT id FROM media WHERE isAvailable = 0)")
+    suspend fun deleteHistoryForUnavailable(): Int
+
+    @Transaction
+    suspend fun deleteUnavailableWithHistory(): Int {
+        deleteHistoryForUnavailable()
+        return deleteUnavailable()
+    }
 
     @Query("SELECT * FROM media WHERE source = :source AND isAvailable = 1")
     suspend fun mediaBySource(source: String): List<MediaEntity>

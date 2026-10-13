@@ -44,5 +44,8 @@ class PlaylistDocuments(
 internal fun parseM3u(lines: List<String>): List<String> = lines.asSequence()
     .map(String::trim)
     .filter { it.isNotEmpty() && !it.startsWith('#') }
-    .filter { it.startsWith("content://") || it.startsWith("file://") || it.startsWith("http://") || it.startsWith("https://") }
+    .filter {
+        it.startsWith("content://") || it.startsWith("file://") ||
+            it.startsWith("http://") || it.startsWith("https://")
+    }
     .toList()
