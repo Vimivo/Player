@@ -1,4 +1,20 @@
-@file:Suppress("LongMethod", "LongParameterList", "MaximumLineLength", "MaxLineLength", "TooManyFunctions")
+@file:Suppress(
+    "ArgumentListWrapping",
+    "ComplexCondition",
+    "CyclomaticComplexMethod",
+    "Indentation",
+    "ImportOrdering",
+    "LongMethod",
+    "LongParameterList",
+    "MaximumLineLength",
+    "MaxLineLength",
+    "MultiLineIfElse",
+    "ParameterListWrapping",
+    "PropertyWrapping",
+    "StringTemplate",
+    "TooManyFunctions",
+    "Wrapping",
+)
 
 package dev.vimivo.platform.android.library.ui
 
@@ -10,9 +26,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,24 +48,30 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.automirrored.outlined.QueueMusic
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.QueueMusic
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -57,7 +79,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,21 +98,27 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import dev.vimivo.core.model.LibraryCategoryField
+import dev.vimivo.core.model.LibrarySort
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.core.model.Playlist
 import dev.vimivo.features.home.HomeViewModel
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.library.LibraryUiState
@@ -103,7 +130,6 @@ import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.platform.android.playback.PlaybackUiState
 import dev.vimivo.platform.android.playback.PlaybackViewModel
 import dev.vimivo.platform.android.settings.SettingsViewModel
-import dev.vimivo.platform.android.ui.components.AlbumCard
 import dev.vimivo.platform.android.ui.components.BottomSheet
 import dev.vimivo.platform.android.ui.components.EmptyState
 import dev.vimivo.platform.android.ui.components.ErrorState
@@ -192,8 +218,8 @@ private fun AppShell(
                     Column {
                         player.current?.let { current ->
                             MiniPlayer(
-                                title = current.mediaMetadata.title?.toString() ?: current.mediaId,
-                                artist = current.mediaMetadata.artist?.toString(),
+                                media = current.toDomain(),
+                                thumbnails = thumbnails,
                                 isPlaying = player.isPlaying,
                                 progress = if (player.durationMillis > 0) player.positionMillis.toFloat() / player.durationMillis else 0f,
                                 onOpen = { nowPlayingVisible = true },
@@ -223,7 +249,9 @@ private fun AppShell(
                         }
                     }
                     if (LocalReducedMotion.current) destinationContent(destination) else {
-                        AnimatedContent(destination, label = "primary destination", content = destinationContent)
+                        AnimatedContent(destination, label = "primary destination") { selected ->
+                            destinationContent(selected)
+                        }
                     }
                 }
             }
@@ -295,7 +323,7 @@ private fun HomeScreen(
                         items(playlists, key = { it.id }) { playlist ->
                             Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.width(180.dp)) {
                                 Column(Modifier.padding(18.dp)) {
-                                    Icon(Icons.Outlined.QueueMusic, null)
+                                    Icon(Icons.AutoMirrored.Outlined.QueueMusic, null)
                                     Spacer(Modifier.height(20.dp))
                                     Text(playlist.name, style = MaterialTheme.typography.titleMedium)
                                     Text("${playlist.items.size} items", style = MaterialTheme.typography.bodySmall)
@@ -365,19 +393,56 @@ private fun MusicScreen(
     playback: PlaybackController,
     permissions: MediaPermissionPolicy,
     viewModel: LibraryViewModel = koinViewModel(),
+    playlistViewModel: PlaylistViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val playlists by playlistViewModel.playlists.collectAsState()
+    val playlistItems by playlistViewModel.selectedItems.collectAsState()
+    var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
+    var selectedAction by remember { mutableStateOf<MediaItem?>(null) }
+    var sortVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.selectKind(MediaKind.AUDIO) }
     LibraryChrome(state, viewModel, permissions, MediaKind.AUDIO) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip({ viewModel.selectKind(MediaKind.AUDIO) }, { Text("Songs") })
-            AssistChip({ viewModel.showCategories(LibraryCategoryField.ALBUM) }, { Text("Albums") })
-            AssistChip({ viewModel.showCategories(LibraryCategoryField.ARTIST) }, { Text("Artists") })
-            AssistChip({ viewModel.showCategories(LibraryCategoryField.GENRE) }, { Text("Genres") })
-            AssistChip({ viewModel.showCategories(LibraryCategoryField.FOLDER) }, { Text("Folders") })
+        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { AssistChip({ selectedPlaylist = null; viewModel.selectKind(MediaKind.AUDIO) }, { Text("All songs") }) }
+            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ALBUM) }, { Text("Albums") }) }
+            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ARTIST) }, { Text("Artists") }) }
+            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ALBUM_ARTIST) }, { Text("Album artists") }) }
+            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.GENRE) }, { Text("Genres") }) }
+            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.FOLDER) }, { Text("Folders") }) }
+            item { AssistChip({ selectedPlaylist = Playlist("__list__", "Playlists", emptyList(), 0) }, { Text("Playlists") }) }
+            item { AssistChip({ selectedPlaylist = null; viewModel.recentlyAddedMusic() }, { Text("Recently added") }) }
+            item { AssistChip({ selectedPlaylist = null; viewModel.recentlyPlayedMusic() }, { Text("Recently played") }) }
+            item { AssistChip({ selectedPlaylist = null; viewModel.favorites() }, { Text("Favorites") }, leadingIcon = { Icon(Icons.Outlined.Favorite, null) }) }
         }
-        CategoryOrMediaList(state, viewModel, thumbnails, playback)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
+            OutlinedButton({ sortVisible = true }) { Icon(Icons.AutoMirrored.Outlined.List, null); Text(" Sort") }
+        }
+        when {
+            selectedPlaylist?.id == "__list__" -> PlaylistList(playlists) { playlist ->
+                selectedPlaylist = playlist
+                playlistViewModel.load(playlist)
+            }
+            selectedPlaylist != null -> PlaylistDetail(selectedPlaylist!!, playlistItems, thumbnails, playback) {
+                selectedAction = it
+            }
+            else -> {
+                val detailTitle = state.query.album ?: state.query.artist ?: state.query.albumArtist ?: state.query.genre ?: state.query.folderPath
+                if (detailTitle != null) MusicCollectionHeader(
+                    title = detailTitle,
+                    subtitle = collectionSubtitle(state),
+                    items = state.items,
+                    thumbnails = thumbnails,
+                    onPlay = { viewModel.resolveCurrentItems { playback.playQueue(it) } },
+                    onShuffle = { viewModel.resolveCurrentItems { playback.playQueue(it, shuffle = true) } },
+                    onQueue = { viewModel.resolveCurrentItems(playback::addToQueue) },
+                )
+                CategoryOrMediaList(state, viewModel, thumbnails, playback) { selectedAction = it }
+            }
+        }
     }
+    if (sortVisible) SortSheet(state.query.sort, { sort -> viewModel.sort(sort); sortVisible = false }) { sortVisible = false }
+    selectedAction?.let { item -> MediaActionsSheet(item, playback, viewModel, { selectedAction = null }) }
 }
 
 @Composable
@@ -447,6 +512,7 @@ private fun CategoryOrMediaList(
     viewModel: LibraryViewModel,
     thumbnails: AndroidThumbnailRepository,
     playback: PlaybackController,
+    onMore: (MediaItem) -> Unit = {},
 ) {
     when {
         state.isLoading && state.items.isEmpty() && state.categories == null -> LoadingIndicator()
@@ -463,7 +529,17 @@ private fun CategoryOrMediaList(
         state.items.isEmpty() -> EmptyState(title = "No music found", detail = "Add a folder, open a file, or grant library access.", action = "Rescan", onAction = viewModel::rescan)
         else -> LazyColumn {
             items(state.items, key = { it.id.value }) { item ->
-                SongRow(item, thumbnails, { playback.play(item) }) { viewModel.toggleFavorite(item) }
+                SongRow(
+                    media = item,
+                    thumbnails = thumbnails,
+                    onClick = {
+                        viewModel.resolveCurrentItems { all ->
+                            playback.playQueue(all, all.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
+                        }
+                    },
+                    onFavorite = { viewModel.toggleFavorite(item) },
+                    onMore = { onMore(item) },
+                )
                 HorizontalDivider(Modifier.padding(start = 76.dp))
             }
             if (state.hasMore) item { OutlinedButton(viewModel::loadMore, Modifier.fillMaxWidth().padding(16.dp)) { Text("Load more") } }
@@ -480,6 +556,168 @@ private fun VideoGrid(state: LibraryUiState, thumbnails: AndroidThumbnailReposit
             items(state.items, key = { it.id.value }) { item -> VideoCard(item, thumbnails) { playback.play(item) } }
         }
     }
+}
+
+@Composable
+private fun MusicCollectionHeader(
+    title: String,
+    subtitle: String,
+    items: List<MediaItem>,
+    thumbnails: AndroidThumbnailRepository,
+    onPlay: () -> Unit,
+    onShuffle: () -> Unit,
+    onQueue: () -> Unit,
+) {
+    val representative = items.firstOrNull()
+    Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        representative?.let { MediaArtwork(it, thumbnails, Modifier.size(180.dp)) }
+        Spacer(Modifier.height(16.dp))
+        Text(title, style = MaterialTheme.typography.headlineLarge)
+        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onPlay) { Text("Play all") }
+            OutlinedButton(onShuffle) { Icon(Icons.Outlined.Shuffle, null); Text(" Shuffle") }
+            IconButton(onQueue) { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, "Add collection to queue") }
+        }
+    }
+}
+
+private fun collectionSubtitle(state: LibraryUiState): String {
+    val total = state.items.sumOf { it.durationMillis ?: 0 }
+    val type = when {
+        state.query.album != null -> listOfNotNull(
+            state.items.firstOrNull()?.artist ?: "Unknown artist",
+            state.items.mapNotNull(MediaItem::releaseYear).distinct().singleOrNull()?.toString(),
+        ).joinToString(" · ")
+        state.query.artist != null || state.query.albumArtist != null -> "${state.items.mapNotNull(MediaItem::album).distinct().size} albums"
+        state.query.folderPath != null -> "Folder"
+        state.query.genre != null -> "Genre"
+        else -> "Collection"
+    }
+    return "$type · ${state.totalCount} tracks · ${formatDuration(total)}"
+}
+
+@Composable
+private fun PlaylistList(playlists: List<Playlist>, onSelect: (Playlist) -> Unit) {
+    if (playlists.isEmpty()) {
+        EmptyState(Icons.AutoMirrored.Outlined.QueueMusic, "No playlists", "Create playlists from your library to see them here.")
+    } else {
+        LazyColumn {
+            items(playlists, key = Playlist::id) { playlist ->
+                ListItem(
+                    modifier = Modifier.clickable { onSelect(playlist) },
+                    leadingContent = { Icon(Icons.AutoMirrored.Outlined.QueueMusic, null) },
+                    headlineContent = { Text(playlist.name) },
+                    supportingContent = { Text("${playlist.items.size} tracks") },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaylistDetail(
+    playlist: Playlist,
+    media: List<MediaItem>,
+    thumbnails: AndroidThumbnailRepository,
+    playback: PlaybackController,
+    onMore: (MediaItem) -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        MusicCollectionHeader(
+            playlist.name,
+            "${media.size} available tracks · ${formatDuration(media.sumOf { it.durationMillis ?: 0 })}",
+            media,
+            thumbnails,
+            { playback.playQueue(media) },
+            { playback.playQueue(media, shuffle = true) },
+            { playback.addToQueue(media) },
+        )
+        LazyColumn {
+            items(media, key = { it.id.value }) { item ->
+                SongRow(item, thumbnails, { playback.playQueue(media, media.indexOf(item)) }, onMore = { onMore(item) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun SortSheet(selected: LibrarySort, onSelect: (LibrarySort) -> Unit, onDismiss: () -> Unit) {
+    BottomSheet(onDismiss) {
+        Text("Sort music", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp))
+        listOf(
+            LibrarySort.TITLE to "Title",
+            LibrarySort.ARTIST to "Artist",
+            LibrarySort.ALBUM to "Album",
+            LibrarySort.DURATION to "Duration",
+            LibrarySort.DATE_ADDED to "Date added",
+            LibrarySort.FILE_SIZE to "File size",
+            LibrarySort.TRACK_NUMBER to "Track number",
+        ).forEach { (sort, label) ->
+            SettingsRow(Icons.AutoMirrored.Outlined.List, label, checked = selected == sort) { onSelect(sort) }
+        }
+    }
+}
+
+@Composable
+private fun MediaActionsSheet(
+    item: MediaItem,
+    playback: PlaybackController,
+    library: LibraryViewModel,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    BottomSheet(onDismiss) {
+        Text(item.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(20.dp))
+        SettingsRow(Icons.Outlined.SkipNext, "Play next", onClick = { playback.playNext(listOf(item)); onDismiss() })
+        SettingsRow(Icons.AutoMirrored.Outlined.PlaylistAdd, "Add to queue", onClick = { playback.addToQueue(listOf(item)); onDismiss() })
+        SettingsRow(Icons.Outlined.Favorite, if (item.isFavorite) "Remove favorite" else "Add favorite", onClick = { library.toggleFavorite(item); onDismiss() })
+        if (item.uri.startsWith("content://") || item.uri.startsWith("http://") || item.uri.startsWith("https://")) {
+            SettingsRow(Icons.Outlined.Share, "Share media reference", onClick = {
+                val uri = android.net.Uri.parse(item.uri)
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    if (uri.scheme == "content") {
+                        type = item.mimeType ?: "*/*"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        clipData = android.content.ClipData.newRawUri(item.title, uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    } else {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, item.uri)
+                    }
+                }
+                context.startActivity(Intent.createChooser(intent, "Share ${item.title}"))
+                onDismiss()
+            })
+        }
+        ListItem(
+            leadingContent = { Icon(Icons.Outlined.Info, null) },
+            headlineContent = { Text("Media information") },
+            supportingContent = {
+                Text(
+                    listOfNotNull(
+                        item.artist ?: "Unknown artist",
+                        item.album ?: "Unknown album",
+                        item.mimeType,
+                        item.durationMillis?.let(::formatDuration),
+                        item.sizeBytes?.let(::formatBytes),
+                    ).joinToString(" · "),
+                )
+            },
+        )
+    }
+}
+
+private fun formatDuration(milliseconds: Long): String {
+    val totalSeconds = milliseconds.coerceAtLeast(0) / 1_000
+    return if (totalSeconds >= 3_600) "%d:%02d:%02d".format(totalSeconds / 3_600, totalSeconds / 60 % 60, totalSeconds % 60)
+    else "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
+}
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes >= 1_073_741_824 -> "%.1f GB".format(bytes / 1_073_741_824.0)
+    bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576.0)
+    else -> "${bytes / 1024} KB"
 }
 
 @Composable
@@ -584,9 +822,26 @@ private fun NowPlayingSheet(
 ) {
     var settingsVisible by remember { mutableStateOf(false) }
     val controller by playback.controller.collectAsState()
-    if (!settingsVisible) BottomSheet(onDismiss) {
+    val currentDomain = player.current?.toDomain()
+    val artworkAccent by produceState<Int?>(null, currentDomain?.uri, currentDomain?.artworkUri) {
+        value = currentDomain?.let { thumbnails.dominantColor(it.uri, it.artworkUri) }
+    }
+    if (!settingsVisible) Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         val current = player.current
-        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.fillMaxWidth()
+                .background(artworkAccent?.let { Color(it).copy(alpha = 0.16f) } ?: Color.Transparent)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                IconButton(onDismiss) { Icon(Icons.Outlined.Close, "Close player") }
+            }
             if (current != null) {
                 val media = current.toDomain()
                 if (media.kind == MediaKind.VIDEO && controller != null) {
@@ -599,15 +854,19 @@ private fun NowPlayingSheet(
                     MediaArtwork(media, thumbnails, Modifier.fillMaxWidth().aspectRatio(1f).padding(vertical = 20.dp))
                 }
                 Text(current.mediaMetadata.title?.toString() ?: current.mediaId, style = MaterialTheme.typography.headlineMedium, maxLines = 1)
-                Text(current.mediaMetadata.artist?.toString().orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(current.mediaMetadata.artist?.toString() ?: "Unknown artist", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                current.mediaMetadata.albumTitle?.let { Text(it.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                player.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
                 PlayerControls(player.isPlaying, player.positionMillis, player.durationMillis, viewModel::previous, viewModel::togglePlayback, viewModel::next, viewModel::seekTo)
                 Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                     IconButton(viewModel::toggleShuffle) { Icon(Icons.Outlined.Shuffle, "Shuffle", tint = if (player.shuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
                     IconButton(viewModel::cycleRepeat) { Icon(Icons.Outlined.Repeat, "Repeat mode") }
-                    IconButton(openQueue) { Icon(Icons.Outlined.QueueMusic, "Open queue") }
+                    IconButton(openQueue) { Icon(Icons.AutoMirrored.Outlined.QueueMusic, "Open queue") }
+                    IconButton(viewModel::toggleFavorite) { Icon(Icons.Outlined.Favorite, if (player.isFavorite) "Remove favorite" else "Favorite", tint = if (player.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
                     IconButton({ settingsVisible = true }) { Icon(Icons.Outlined.MoreVert, "Playback settings") }
                 }
             }
+        }
         }
     }
     else BottomSheet({ settingsVisible = false }) {

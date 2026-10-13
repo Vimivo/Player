@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
 import android.os.Build
+import android.os.SystemClock
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.LibraryResult
@@ -23,6 +24,7 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -57,6 +59,21 @@ class VimivoPlaybackService : MediaLibraryService() {
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, LibraryCallback()).build()
         registerNoisyReceiver()
         serviceScope.launch { sessionPlayer.restoreWithoutPlaying() }
+        serviceScope.launch {
+            var lastSavedAt = 0L
+            engineManager.state.collect { state ->
+                val media = state.media ?: return@collect
+                val completed = state.status == PlaybackStatus.Completed
+                if (!completed && state.status != PlaybackStatus.Playing && state.status != PlaybackStatus.Paused) {
+                    return@collect
+                }
+                val now = SystemClock.elapsedRealtime()
+                if (completed || now - lastSavedAt >= HISTORY_SAVE_INTERVAL_MILLIS) {
+                    mediaRepository.recordPlayback(media.id, state.positionMillis, completed)
+                    lastSavedAt = now
+                }
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession = mediaSession
@@ -136,6 +153,7 @@ class VimivoPlaybackService : MediaLibraryService() {
         const val ROOT_ID = "root"
         const val AUDIO_ID = "audio"
         const val VIDEO_ID = "video"
+        const val HISTORY_SAVE_INTERVAL_MILLIS = 5_000L
 
         fun folder(id: String, title: String) = MediaItem.Builder()
             .setMediaId(id)

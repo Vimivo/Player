@@ -1,3 +1,5 @@
+@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength")
+
 package dev.vimivo.platform.android.ui.theme
 
 import android.animation.ValueAnimator

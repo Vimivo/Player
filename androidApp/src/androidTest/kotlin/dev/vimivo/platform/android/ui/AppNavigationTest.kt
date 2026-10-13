@@ -1,7 +1,7 @@
 package dev.vimivo.platform.android.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -26,5 +26,13 @@ class AppNavigationTest {
         composeRule.onNodeWithContentDescription("Global search").performClick()
         composeRule.onNodeWithText("Search songs, albums, artists, videos").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Close search").performClick()
+    }
+
+    @Test
+    fun musicLibraryExposesCoreCategories() {
+        composeRule.onNodeWithContentDescription("Music").performClick()
+        listOf("All songs", "Albums", "Artists", "Album artists", "Genres", "Folders", "Playlists").forEach {
+            composeRule.onNodeWithText(it).assertExists()
+        }
     }
 }

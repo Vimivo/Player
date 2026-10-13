@@ -6,8 +6,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.vimivo.settings.AppSettings
-import dev.vimivo.settings.PreferredEngine
 import dev.vimivo.settings.HomeSection
+import dev.vimivo.settings.PreferredEngine
 import dev.vimivo.settings.SettingsRepository
 import dev.vimivo.settings.ThemeMode
 import kotlinx.coroutines.flow.Flow

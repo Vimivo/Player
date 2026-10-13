@@ -18,6 +18,24 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PlaybackServiceTest {
     @Test
+    fun persistedQueueRestoresPausedWithMetadataAndModes() = kotlinx.coroutines.test.runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = PlaybackStateStore(context)
+        val items = listOf(
+            MediaItem.Builder().setMediaId("saved-one").setUri("content://test/one").build(),
+            MediaItem.Builder().setMediaId("saved-two").setUri("content://test/two").build(),
+        )
+        store.save(items, 1, 42_000, Player.REPEAT_MODE_ONE, true)
+
+        val restored = checkNotNull(store.restore())
+        assertEquals(listOf("saved-one", "saved-two"), restored.items.map(MediaItem::mediaId))
+        assertEquals(1, restored.currentIndex)
+        assertEquals(42_000, restored.positionMillis)
+        assertEquals(Player.REPEAT_MODE_ONE, restored.repeatMode)
+        assertTrue(restored.shuffleEnabled)
+    }
+
+    @Test
     fun controllerOwnsQueueModesAndRestoresWithoutAutoplay() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val future = MediaController.Builder(

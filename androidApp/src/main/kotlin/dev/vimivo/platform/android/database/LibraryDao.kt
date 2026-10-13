@@ -47,6 +47,9 @@ interface LibraryDao {
     @Query("SELECT * FROM media WHERE source = :source AND isAvailable = 1")
     suspend fun mediaBySource(source: String): List<MediaEntity>
 
+    @Query("SELECT * FROM media WHERE id IN (:ids) AND isAvailable = 1")
+    suspend fun mediaByIds(ids: List<String>): List<MediaEntity>
+
     @Query("UPDATE media SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: String, favorite: Boolean)
 

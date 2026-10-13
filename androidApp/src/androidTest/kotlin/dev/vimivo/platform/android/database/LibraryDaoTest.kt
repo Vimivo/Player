@@ -83,6 +83,7 @@ class LibraryDaoTest {
         bitrate = null,
         trackNumber = null,
         discNumber = null,
+        releaseYear = null,
         artworkUri = null,
         folderName = "Music",
         folderPath = "Music",

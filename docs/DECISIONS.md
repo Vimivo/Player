@@ -59,3 +59,15 @@
 **Decision:** Package `arm64-v8a`, `armeabi-v7a`, and `x86_64`; exclude obsolete x86. Keep LibVLC 3.7.7 while it is the latest stable 3.x artifact.
 
 **Reason:** The selected AAR officially publishes all four ABIs. ARM64 and x86_64 cover modern devices and emulator testing; ARMv7 remains supported by the application minimum. Inspection found 16 KB-aligned (`2**14`) ARM64 ELF load segments, and the generated APK passes `zipalign -P 16`. Runtime testing on a 16 KB emulator/device remains required.
+
+## ADR-009: One music state path through the playback service
+
+**Decision:** All music surfaces use the service-backed `PlaybackController` and `PlaybackViewModel`; collection screens resolve queue items through `MediaRepository` and never create an engine or player.
+
+**Reason:** A single command and observation path keeps the mini player, Now Playing, notification, queue, and external media controls synchronized across recreation and backgrounding.
+
+## ADR-010: Media schema version 2 records release year
+
+**Decision:** Add nullable `releaseYear` to indexed media with a Room auto-migration from schema 1 to 2.
+
+**Reason:** Album details can expose available local release metadata without inventing values. The nullable additive column preserves existing libraries safely, and the exported schema is committed for migration verification.

@@ -16,8 +16,13 @@ internal object LibraryQueryBuilder {
         appendFilters(query, where, args)
         val sort = when (query.sort) {
             LibrarySort.TITLE -> "title COLLATE NOCASE"
+            LibrarySort.ARTIST -> "artist COLLATE NOCASE"
+            LibrarySort.ALBUM -> "album COLLATE NOCASE"
+            LibrarySort.DURATION -> "durationMillis"
             LibrarySort.DATE_ADDED -> "dateAddedEpochSeconds"
             LibrarySort.DATE_MODIFIED -> "dateModifiedEpochSeconds"
+            LibrarySort.FILE_SIZE -> "sizeBytes"
+            LibrarySort.TRACK_NUMBER -> "trackNumber"
             LibrarySort.LAST_PLAYED -> "lastPlayedAtEpochMillis"
         }
         val direction = if (query.descending) "DESC" else "ASC"
@@ -44,6 +49,7 @@ internal object LibraryQueryBuilder {
         val column = when (field) {
             LibraryCategoryField.ALBUM -> "album"
             LibraryCategoryField.ARTIST -> "artist"
+            LibraryCategoryField.ALBUM_ARTIST -> "albumArtist"
             LibraryCategoryField.GENRE -> "genre"
             LibraryCategoryField.FOLDER -> "folderPath"
         }
@@ -59,6 +65,7 @@ internal object LibraryQueryBuilder {
         query.kind?.let { where += "kind = ?"; args += it.name }
         query.album?.let { where += "album = ?"; args += it }
         query.artist?.let { where += "artist = ?"; args += it }
+        query.albumArtist?.let { where += "albumArtist = ?"; args += it }
         query.genre?.let { where += "genre = ?"; args += it }
         query.folderPath?.let { where += "folderPath = ?"; args += it }
         if (query.favoritesOnly) where += "isFavorite = 1"
@@ -67,6 +74,7 @@ internal object LibraryQueryBuilder {
             args += MediaKind.VIDEO.name
             where += "lastPlayedAtEpochMillis IS NOT NULL"
         }
+        if (query.recentlyPlayedOnly) where += "lastPlayedAtEpochMillis IS NOT NULL"
         if (query.text.isNotBlank()) {
             where += "(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')"
             val term = "%${query.text.escapeLike()}%"

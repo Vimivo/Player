@@ -41,6 +41,7 @@ data class MediaEntity(
     val bitrate: Int?,
     val trackNumber: Int?,
     val discNumber: Int?,
+    val releaseYear: Int?,
     val artworkUri: String?,
     val folderName: String?,
     val folderPath: String?,

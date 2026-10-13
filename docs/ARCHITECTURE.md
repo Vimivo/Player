@@ -40,6 +40,12 @@ Automatic fallback is intentionally narrow: only unsupported-container, decoder-
 
 Media3 owns the foreground notification, lock-screen state, Bluetooth/headset commands, and controller arbitration. The adapter owns the authoritative queue, repeat/shuffle state, engine transitions, completion advancement, and persistence. Restored queues remain paused until an explicit user or system play command.
 
+## Music presentation architecture
+
+Music screens query `MediaRepository` through `LibraryViewModel`; category selection and sorting are expressed as shared `LibraryQuery` values and translated to indexed Room queries. Album, artist, album-artist, genre, folder, recent, and favorite screens therefore reuse the same paged data path without loading an entire large library on the main thread.
+
+`PlaybackController` is the only UI command path into the service session. The persistent mini player, full-screen Now Playing screen, collection actions, and queue editor all observe one `PlaybackViewModel` backed by that controller. UI code never constructs an engine or independently owns playback state. Artwork thumbnail reads are bounded, cached, and dispatched off the main thread.
+
 ## Platform growth
 
 Desktop and iOS targets can provide their own persistence, library scanners, and engines while retaining the shared contracts. No Android type is allowed in `commonMain`; URI values are opaque strings at the boundary.

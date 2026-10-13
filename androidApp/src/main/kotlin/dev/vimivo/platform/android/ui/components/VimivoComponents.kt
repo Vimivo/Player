@@ -1,4 +1,14 @@
-@file:Suppress("LongParameterList", "MaximumLineLength", "MaxLineLength")
+@file:Suppress(
+    "ArgumentListWrapping",
+    "ImportOrdering",
+    "LongParameterList",
+    "MaximumLineLength",
+    "MaxLineLength",
+    "MultiLineIfElse",
+    "ParameterListWrapping",
+    "TooManyFunctions",
+    "Wrapping",
+)
 
 package dev.vimivo.platform.android.ui.components
 
@@ -20,18 +30,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Album
-import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Forward10
-import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.MusicNote
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Replay10
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -56,7 +65,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -116,15 +124,19 @@ fun SongRow(
     thumbnails: AndroidThumbnailRepository,
     onClick: () -> Unit,
     onFavorite: (() -> Unit)? = null,
+    onMore: (() -> Unit)? = null,
 ) {
     ListItem(
         modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
         leadingContent = { MediaArtwork(media, thumbnails, Modifier.size(54.dp)) },
         headlineContent = { Text(media.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(listOfNotNull(media.artist, media.album).joinToString(" · "), maxLines = 1) },
-        trailingContent = onFavorite?.let { action ->
-            { IconButton(action) { Icon(if (media.isFavorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, "Favorite") } }
-        },
+        trailingContent = if (onFavorite != null || onMore != null) ({
+            Row {
+                onFavorite?.let { action -> IconButton(action) { Icon(if (media.isFavorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, "Favorite") } }
+                onMore?.let { action -> IconButton(action) { Icon(Icons.Outlined.MoreVert, "More actions for ${media.title}") } }
+            }
+        }) else null,
     )
 }
 
@@ -165,6 +177,10 @@ fun PlayerControls(
             valueRange = 0f..duration.coerceAtLeast(1).toFloat(),
             enabled = duration > 0,
         )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(formatTime(position), style = MaterialTheme.typography.labelSmall)
+            Text(formatTime(duration), style = MaterialTheme.typography.labelSmall)
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onPrevious) { Icon(Icons.Outlined.Replay10, "Previous") }
             IconButton(onClick = onToggle, Modifier.size(64.dp)) {
@@ -178,7 +194,7 @@ fun PlayerControls(
 }
 
 @Composable
-fun MiniPlayer(title: String, artist: String?, isPlaying: Boolean, progress: Float, onOpen: () -> Unit, onToggle: () -> Unit) {
+fun MiniPlayer(media: MediaItem, thumbnails: AndroidThumbnailRepository, isPlaying: Boolean, progress: Float, onOpen: () -> Unit, onToggle: () -> Unit) {
     val reducedMotion = LocalReducedMotion.current
     val animatedProgress by animateFloatAsState(
         progress.coerceIn(0f, 1f),
@@ -191,9 +207,11 @@ fun MiniPlayer(title: String, artist: String?, isPlaying: Boolean, progress: Flo
     ) {
         Column {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                MediaArtwork(media, thumbnails, Modifier.size(44.dp))
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                    artist?.let { Text(it, maxLines = 1, style = MaterialTheme.typography.bodySmall) }
+                    Text(media.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                    Text(media.artist ?: "Unknown artist", maxLines = 1, style = MaterialTheme.typography.bodySmall)
                 }
                 IconButton(onClick = onToggle) { Icon(if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (isPlaying) "Pause" else "Play") }
             }
@@ -202,6 +220,11 @@ fun MiniPlayer(title: String, artist: String?, isPlaying: Boolean, progress: Flo
             }
         }
     }
+}
+
+private fun formatTime(milliseconds: Long): String {
+    val seconds = milliseconds.coerceAtLeast(0) / 1_000
+    return "%d:%02d".format(seconds / 60, seconds % 60)
 }
 
 @Composable
@@ -253,7 +276,7 @@ fun SettingsRow(icon: ImageVector, title: String, detail: String? = null, checke
         leadingContent = { Icon(icon, null) },
         headlineContent = { Text(title) },
         supportingContent = detail?.let { { Text(it) } },
-        trailingContent = if (checked != null) ({ Switch(checked, onCheckedChange = null) }) else ({ Icon(Icons.Outlined.KeyboardArrowRight, null) }),
+        trailingContent = if (checked != null) ({ Switch(checked, onCheckedChange = null) }) else ({ Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null) }),
     )
     HorizontalDivider(Modifier.padding(start = 56.dp))
 }

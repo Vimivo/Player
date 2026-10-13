@@ -41,6 +41,30 @@ class LibraryQueryBuilderTest {
         assertTrue(sql.sql.contains("lastPlayedAtEpochMillis IS NOT NULL"))
         assertEquals(mapOf(1 to "VIDEO"), bindings)
     }
+
+    @Test
+    fun everyMusicSortUsesAWhitelistedIndexedColumn() {
+        val expected = mapOf(
+            LibrarySort.TITLE to "title COLLATE NOCASE",
+            LibrarySort.ARTIST to "artist COLLATE NOCASE",
+            LibrarySort.ALBUM to "album COLLATE NOCASE",
+            LibrarySort.DURATION to "durationMillis",
+            LibrarySort.DATE_ADDED to "dateAddedEpochSeconds",
+            LibrarySort.FILE_SIZE to "sizeBytes",
+            LibrarySort.TRACK_NUMBER to "trackNumber",
+        )
+        expected.forEach { (sort, column) ->
+            assertTrue(LibraryQueryBuilder.page(LibraryQuery(sort = sort)).sql.contains("ORDER BY $column"))
+        }
+    }
+
+    @Test
+    fun albumArtistFilterIsParameterized() {
+        val sql = LibraryQueryBuilder.count(LibraryQuery(kind = MediaKind.AUDIO, albumArtist = "Various Artists"))
+        val bindings = RecordingProgram().also(sql::bindTo).values
+        assertTrue(sql.sql.contains("albumArtist = ?"))
+        assertEquals("Various Artists", bindings[2])
+    }
 }
 
 private class RecordingProgram : SupportSQLiteProgram {

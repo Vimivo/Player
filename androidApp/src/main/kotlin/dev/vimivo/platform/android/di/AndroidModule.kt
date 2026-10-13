@@ -51,8 +51,8 @@ val androidModule = module {
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     viewModel { HomeViewModel(get()) }
     viewModel { LibraryViewModel(get()) }
-    viewModel { PlaybackViewModel(get()) }
+    viewModel { PlaybackViewModel(get(), get()) }
     viewModel { SettingsViewModel(get()) }
     viewModel { NetworkViewModel(get(), get()) }
-    viewModel { PlaylistViewModel(get()) }
+    viewModel { PlaylistViewModel(get(), get()) }
 }

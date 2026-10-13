@@ -1,3 +1,5 @@
+@file:Suppress("MultiLineIfElse")
+
 package dev.vimivo.platform.android.library
 
 import android.content.Context

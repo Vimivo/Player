@@ -29,6 +29,7 @@ data class MediaItem(
     val bitrate: Int? = null,
     val trackNumber: Int? = null,
     val discNumber: Int? = null,
+    val releaseYear: Int? = null,
     val folderName: String? = null,
     val folderPath: String? = null,
     val source: MediaSource = MediaSource.NETWORK,
@@ -39,17 +40,29 @@ data class MediaItem(
     val lastPlayedAtEpochMillis: Long? = null,
 )
 
-enum class LibrarySort { TITLE, DATE_ADDED, DATE_MODIFIED, LAST_PLAYED }
+enum class LibrarySort {
+    TITLE,
+    ARTIST,
+    ALBUM,
+    DURATION,
+    DATE_ADDED,
+    DATE_MODIFIED,
+    FILE_SIZE,
+    TRACK_NUMBER,
+    LAST_PLAYED,
+}
 
 data class LibraryQuery(
     val text: String = "",
     val kind: MediaKind? = null,
     val album: String? = null,
     val artist: String? = null,
+    val albumArtist: String? = null,
     val genre: String? = null,
     val folderPath: String? = null,
     val favoritesOnly: Boolean = false,
     val recentlyWatchedOnly: Boolean = false,
+    val recentlyPlayedOnly: Boolean = false,
     val sort: LibrarySort = LibrarySort.TITLE,
     val descending: Boolean = false,
     val offset: Int = 0,
@@ -70,7 +83,7 @@ data class LibraryPage(
 }
 
 data class LibraryCategory(val name: String, val itemCount: Int, val artworkUri: String? = null)
-enum class LibraryCategoryField { ALBUM, ARTIST, GENRE, FOLDER }
+enum class LibraryCategoryField { ALBUM, ARTIST, ALBUM_ARTIST, GENRE, FOLDER }
 
 enum class MediaPermissionAccess { FULL, PARTIAL, DENIED, NOT_REQUIRED }
 

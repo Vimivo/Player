@@ -34,9 +34,11 @@ class HomeViewModel(private val repository: MediaRepository) : ViewModel() {
                         }.sortedByDescending(MediaItem::lastPlayedAtEpochMillis).take(12),
                         recentlyPlayed = media.filter { item -> item.lastPlayedAtEpochMillis != null }
                             .sortedByDescending(MediaItem::lastPlayedAtEpochMillis).take(12),
-                        recentlyAddedMusic = media.filter { item -> item.kind == dev.vimivo.core.model.MediaKind.AUDIO }
+                        recentlyAddedMusic = media
+                            .filter { item -> item.kind == dev.vimivo.core.model.MediaKind.AUDIO }
                             .sortedByDescending(MediaItem::dateAddedEpochSeconds).take(12),
-                        recentlyAddedVideos = media.filter { item -> item.kind == dev.vimivo.core.model.MediaKind.VIDEO }
+                        recentlyAddedVideos = media
+                            .filter { item -> item.kind == dev.vimivo.core.model.MediaKind.VIDEO }
                             .sortedByDescending(MediaItem::dateAddedEpochSeconds).take(12),
                         favorites = media.filter(MediaItem::isFavorite).take(12),
                     )

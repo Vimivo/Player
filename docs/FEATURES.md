@@ -21,12 +21,14 @@
 - LibVLC fallback engine with hardware/software decoding, track selection, video output, and explicit audio focus
 - Queue-aware engine manager with deterministic cleanup and bounded fallback
 - Development playback console for Storage Access Framework documents and authorized HTTP(S) URLs
+- Complete local music browsing for songs, albums, artists, album artists, genres, folders, playlists, recent media, and favorites
+- Sortable music results, collection-level play/shuffle/queue actions, and persistent service-backed mini player
+- Full-screen Now Playing with seek, queue editing/reordering, repeat, shuffle, speed, favorites, safe sharing, and media information
+- Album, artist, folder, and playlist details backed by real indexed media; no sample media is injected
 
 ## Planned
 
-- Polished library permission UX and advanced library filtering
-- Media session, foreground playback service, notification, and persisted queue restoration
-- Now Playing, queues, shuffle/repeat, equalizer integration where supported
+- Equalizer and platform audio-effects evaluation
 - Playlist persistence and import/export
 - Embedded/external subtitles, synchronization, style, audio/subtitle track selection
 - Authorized HTTP/HLS/DASH/SMB/WebDAV sources with credential-safe storage

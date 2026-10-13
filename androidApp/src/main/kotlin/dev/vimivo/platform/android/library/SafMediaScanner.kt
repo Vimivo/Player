@@ -117,6 +117,7 @@ class SafMediaScanner(
             bitrate = metadata.bitrate,
             trackNumber = metadata.trackNumber,
             discNumber = metadata.discNumber,
+            releaseYear = metadata.releaseYear,
             artworkUri = null,
             folderName = parentPath?.substringAfterLast('/'),
             folderPath = parentPath,
@@ -140,6 +141,7 @@ class SafMediaScanner(
                 bitrate = retriever.int(MediaMetadataRetriever.METADATA_KEY_BITRATE),
                 trackNumber = retriever.int(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER),
                 discNumber = retriever.int(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER),
+                releaseYear = retriever.int(MediaMetadataRetriever.METADATA_KEY_YEAR),
             )
         }
     }.getOrDefault(ExtractedMetadata())
@@ -184,6 +186,7 @@ private data class ExtractedMetadata(
     val bitrate: Int? = null,
     val trackNumber: Int? = null,
     val discNumber: Int? = null,
+    val releaseYear: Int? = null,
 )
 
 private fun MediaMetadataRetriever.text(key: Int) = extractMetadata(key)?.takeUnless(String::isBlank)

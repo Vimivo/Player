@@ -1,5 +1,6 @@
 package dev.vimivo.platform.android.database
 
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
@@ -13,7 +14,8 @@ import androidx.room.RoomDatabase
         FolderExclusionEntity::class,
         SafGrantEntity::class,
     ],
-    version = 1,
+    version = 2,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
     exportSchema = true,
 )
 abstract class VimivoDatabase : RoomDatabase() {

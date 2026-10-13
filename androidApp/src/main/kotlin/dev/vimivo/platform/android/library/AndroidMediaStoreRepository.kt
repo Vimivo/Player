@@ -117,6 +117,14 @@ class AndroidMediaStoreRepository(
 
     override suspend fun permissionState(): MediaPermissionState = permissions.current()
 
+    override suspend fun media(ids: List<MediaId>): Result<List<MediaItem>> = runCatching {
+        if (ids.isEmpty()) return@runCatching emptyList()
+        withContext(Dispatchers.IO) {
+            val byId = dao.mediaByIds(ids.map(MediaId::value)).associateBy(MediaEntity::id)
+            ids.mapNotNull { byId[it.value]?.toModel() }
+        }
+    }
+
     override suspend fun importFile(uri: String): Result<MediaItem> = runCatching {
         withContext(Dispatchers.IO) {
             safScanner.importFile(Uri.parse(uri)).toModel().also { mutableChanges.emit(nowMillis()) }
@@ -201,6 +209,7 @@ private fun MediaEntity.toModel() = MediaItem(
     sizeBytes = sizeBytes, mimeType = mimeType, dateAddedEpochSeconds = dateAddedEpochSeconds,
     dateModifiedEpochSeconds = dateModifiedEpochSeconds, width = width, height = height, frameRate = frameRate,
     bitrate = bitrate, trackNumber = trackNumber, discNumber = discNumber, folderName = folderName,
+    releaseYear = releaseYear,
     folderPath = folderPath, source = MediaSource.valueOf(source), volumeName = volumeName, isFavorite = isFavorite,
     isAvailable = isAvailable, lastPlaybackPositionMillis = lastPlaybackPositionMillis,
     lastPlayedAtEpochMillis = lastPlayedAtEpochMillis,

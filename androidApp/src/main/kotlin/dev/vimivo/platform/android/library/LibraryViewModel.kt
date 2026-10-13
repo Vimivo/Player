@@ -74,6 +74,7 @@ class LibraryViewModel(private val repository: MediaRepository) : ViewModel() {
             when (current.categoryField) {
                 LibraryCategoryField.ALBUM -> base.copy(album = category.name)
                 LibraryCategoryField.ARTIST -> base.copy(artist = category.name)
+                LibraryCategoryField.ALBUM_ARTIST -> base.copy(albumArtist = category.name)
                 LibraryCategoryField.GENRE -> base.copy(genre = category.name)
                 LibraryCategoryField.FOLDER -> base.copy(folderPath = category.name)
                 null -> base
@@ -108,6 +109,64 @@ class LibraryViewModel(private val repository: MediaRepository) : ViewModel() {
             )
         }
         load(reset = true)
+    }
+
+    fun recentlyAddedMusic() {
+        mutableState.update {
+            it.copy(
+                query = LibraryQuery(kind = MediaKind.AUDIO, sort = LibrarySort.DATE_ADDED, descending = true),
+                categories = null,
+                categoryField = null,
+            )
+        }
+        load(reset = true)
+    }
+
+    fun recentlyPlayedMusic() {
+        mutableState.update {
+            it.copy(
+                query = LibraryQuery(
+                    kind = MediaKind.AUDIO,
+                    recentlyPlayedOnly = true,
+                    sort = LibrarySort.LAST_PLAYED,
+                    descending = true,
+                ),
+                categories = null,
+                categoryField = null,
+            )
+        }
+        load(reset = true)
+    }
+
+    fun favorites() {
+        mutableState.update {
+            it.copy(
+                query = LibraryQuery(kind = MediaKind.AUDIO, favoritesOnly = true),
+                categories = null,
+                categoryField = null,
+            )
+        }
+        load(reset = true)
+    }
+
+    fun sort(sort: LibrarySort, descending: Boolean = false) {
+        mutableState.update { it.copy(query = it.query.copy(sort = sort, descending = descending, offset = 0)) }
+        load(reset = true)
+    }
+
+    fun resolveCurrentItems(onResult: (List<MediaItem>) -> Unit) = viewModelScope.launch {
+        val base = state.value.query.copy(offset = 0, limit = 500)
+        val result = mutableListOf<MediaItem>()
+        var offset = 0
+        do {
+            val page = repository.page(base.copy(offset = offset)).getOrElse {
+                showError(it)
+                return@launch
+            }
+            result += page.items
+            offset += page.items.size
+        } while (page.hasMore && page.items.isNotEmpty())
+        onResult(result)
     }
 
     fun search(text: String) {

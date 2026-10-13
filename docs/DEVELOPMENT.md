@@ -25,6 +25,8 @@ Room schemas are exported to `androidApp/schemas` and must be committed with sch
 
 Playback instrumentation must additionally cover a real notification channel, lock screen, Bluetooth AVRCP controls, wired-headset unplug, phone-call focus loss, route changes, task removal, and process recreation on physical devices. `PlaybackServiceTest` validates the MediaController/session queue contract; these physical behaviors cannot be fully represented by host JVM tests.
 
+Music UI instrumentation covers primary navigation and the exposed music categories. Repository/query unit tests cover every supported sort column and category binding. The service instrumentation suite covers queue restoration, repeat, shuffle, and saved position; run it on an API 26+ emulator or device because host tests cannot instantiate the Android media session.
+
 Configuration cache and parallel execution are enabled. CI should cache Gradle data but never commit `.gradle`, build outputs, signing material, or `local.properties`.
 
 ## Contributions

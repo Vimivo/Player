@@ -21,6 +21,7 @@ interface MediaRepository {
     suspend fun refresh(): Result<Unit>
     suspend fun page(query: LibraryQuery): Result<LibraryPage>
     suspend fun categories(kind: MediaKind, field: LibraryCategoryField): Result<List<LibraryCategory>>
+    suspend fun media(ids: List<MediaId>): Result<List<MediaItem>>
     suspend fun permissionState(): MediaPermissionState
     suspend fun importFile(uri: String): Result<MediaItem>
     suspend fun importFolder(uri: String): Result<Int>

@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import dev.vimivo.core.model.MediaId
+import dev.vimivo.domain.repository.MediaRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,11 +25,16 @@ data class PlaybackUiState(
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val shuffleEnabled: Boolean = false,
     val errorMessage: String? = null,
+    val isFavorite: Boolean = false,
 )
 
-class PlaybackViewModel(private val connection: PlaybackController) : ViewModel() {
+class PlaybackViewModel(
+    private val connection: PlaybackController,
+    private val mediaRepository: MediaRepository,
+) : ViewModel() {
     private val mutableState = MutableStateFlow(PlaybackUiState())
     private var player: Player? = null
+    private var loadedFavoriteId: String? = null
     val state: StateFlow<PlaybackUiState> = mutableState.asStateFlow()
 
     private val listener = object : Player.Listener {
@@ -63,8 +70,15 @@ class PlaybackViewModel(private val connection: PlaybackController) : ViewModel(
         }
     }
     fun setSpeed(speed: Float) { player?.setPlaybackSpeed(speed) }
+    fun toggleFavorite() {
+        val id = state.value.current?.mediaId ?: return
+        val favorite = !state.value.isFavorite
+        mutableState.value = state.value.copy(isFavorite = favorite)
+        viewModelScope.launch { mediaRepository.setFavorite(MediaId(id), favorite) }
+    }
 
     private fun publish(player: Player) {
+        val previous = mutableState.value
         mutableState.value = PlaybackUiState(
             connected = true,
             current = player.currentMediaItem,
@@ -77,7 +91,21 @@ class PlaybackViewModel(private val connection: PlaybackController) : ViewModel(
             repeatMode = player.repeatMode,
             shuffleEnabled = player.shuffleModeEnabled,
             errorMessage = player.playerError?.message,
+            isFavorite = previous.isFavorite
+                .takeIf { previous.current?.mediaId == player.currentMediaItem?.mediaId }
+                ?: false,
         )
+        val id = player.currentMediaItem?.mediaId
+        if (id != null && id != loadedFavoriteId) {
+            loadedFavoriteId = id
+            viewModelScope.launch {
+                mediaRepository.media(listOf(MediaId(id))).getOrNull()?.firstOrNull()?.let { media ->
+                    if (state.value.current?.mediaId == id) {
+                        mutableState.value = state.value.copy(isFavorite = media.isFavorite)
+                    }
+                }
+            }
+        }
     }
 
     override fun onCleared() {

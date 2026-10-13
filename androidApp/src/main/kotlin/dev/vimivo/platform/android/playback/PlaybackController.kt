@@ -38,6 +38,29 @@ class PlaybackController(context: Context) : AutoCloseable {
         }
     }
 
+    fun playQueue(items: List<VimivoMediaItem>, index: Int = 0, shuffle: Boolean = false) {
+        if (items.isEmpty()) return
+        withController {
+            shuffleModeEnabled = shuffle
+            setMediaItems(items.map(VimivoMediaItem::toMedia3), index.coerceIn(items.indices), 0)
+            prepare()
+            play()
+        }
+    }
+
+    fun addToQueue(items: List<VimivoMediaItem>) {
+        if (items.isEmpty()) return
+        withController { addMediaItems(items.map(VimivoMediaItem::toMedia3)) }
+    }
+
+    fun playNext(items: List<VimivoMediaItem>) {
+        if (items.isEmpty()) return
+        withController {
+            val index = (currentMediaItemIndex + 1).coerceAtLeast(0)
+            addMediaItems(index, items.map(VimivoMediaItem::toMedia3))
+        }
+    }
+
     private fun withController(block: MediaController.() -> Unit) {
         mutableController.value?.let { controller ->
             controller.block()

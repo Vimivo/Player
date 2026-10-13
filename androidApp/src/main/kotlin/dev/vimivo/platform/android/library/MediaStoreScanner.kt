@@ -133,6 +133,7 @@ class MediaStoreScanner(
             add(MediaStore.Audio.AudioColumns.ALBUM_ID)
             add(MediaStore.Audio.AudioColumns.ALBUM_ARTIST)
             add(MediaStore.Audio.AudioColumns.CD_TRACK_NUMBER)
+            add(MediaStore.Audio.AudioColumns.YEAR)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 add(MediaStore.Audio.AudioColumns.GENRE)
                 add(MediaStore.Audio.AudioColumns.DISC_NUMBER)
@@ -176,6 +177,7 @@ class MediaStoreScanner(
             bitrate = int(MediaStore.MediaColumns.BITRATE)?.takeIf { it > 0 },
             trackNumber = string(MediaStore.Audio.AudioColumns.CD_TRACK_NUMBER).parseLeadingInt(),
             discNumber = int(MediaStore.Audio.AudioColumns.DISC_NUMBER)?.takeIf { it > 0 },
+            releaseYear = int(MediaStore.Audio.AudioColumns.YEAR)?.takeIf { it > 0 },
             artworkUri = albumId?.let { "content://media/external/audio/albumart/$it" },
             folderName = relativePath?.substringAfterLast('/'),
             folderPath = relativePath,
