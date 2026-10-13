@@ -10,6 +10,8 @@ import android.net.Uri
 import android.view.SurfaceHolder
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.playback.EngineCapabilities
+import dev.vimivo.playback.AudioEnhancementCapabilities
+import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.PlaybackError
@@ -40,6 +42,9 @@ class LibVlcPlayerEngine(
 ) : PlayerEngine {
     override val id = EngineId.LIBVLC
     override val capabilities = CAPABILITIES
+    override val audioEnhancementState = kotlinx.coroutines.flow.MutableStateFlow(
+        AudioEnhancementState(capabilities.audioEnhancements),
+    )
     private val appContext = context.applicationContext
     private val libVlc = LibVLC(appContext, listOf("--no-stats"))
     private val mediaPlayer = MediaPlayer(libVlc)
@@ -348,6 +353,10 @@ class LibVlcPlayerEngine(
             hdr = true,
             subtitleDelay = true,
             audioDelay = true,
+            audioEnhancements = AudioEnhancementCapabilities(
+                pitchPreservation = true,
+                limitation = "LibVLC does not expose a stable Android audio session for Vimivo's system equalizer. Effects are disabled when this engine is active.",
+            ),
         )
 
         fun support(media: MediaItem): SupportLevel {

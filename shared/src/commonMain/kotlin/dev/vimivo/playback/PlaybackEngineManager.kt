@@ -22,6 +22,7 @@ class PlaybackEngineManager(
     private var attemptedEngines = mutableSetOf<EngineId>()
     private var desiredPlayback = false
     private val externalSubtitles = mutableListOf<ExternalSubtitle>()
+    private var audioEnhancements = AudioEnhancementSettings()
 
     val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
     val activeEngine: StateFlow<PlayerEngine?> = mutableActiveEngine.asStateFlow()
@@ -70,6 +71,10 @@ class PlaybackEngineManager(
         activeOrFailure().flatMap { it.setSubtitleDelay(delayMillis) }
     fun setAudioDelay(delayMillis: Long): Result<Unit> =
         activeOrFailure().flatMap { it.setAudioDelay(delayMillis) }
+    fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> {
+        audioEnhancements = settings
+        return activeOrFailure().flatMap { it.applyAudioEnhancements(settings) }
+    }
 
     private suspend fun openBestEngine(queue: QueueContext, positionMillis: Long): Result<Unit> {
         val candidates = candidatesFor(queue.current)
@@ -115,6 +120,9 @@ class PlaybackEngineManager(
         )
         observe(engine, queue)
         return engine.open(queue.current, positionMillis).onSuccess {
+            if (engine.capabilities.audioEnhancements.graphicEqualizer) {
+                engine.applyAudioEnhancements(audioEnhancements)
+            }
             externalSubtitles.forEach { engine.addExternalSubtitle(it) }
         }
     }

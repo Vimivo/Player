@@ -22,6 +22,8 @@ import dev.vimivo.platform.android.playback.AndroidSubtitleRepository
 import dev.vimivo.platform.android.playback.Media3PlayerEngineFactory
 import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.platform.android.playback.PlaybackDiagnostics
+import dev.vimivo.platform.android.playback.SleepTimerController
+import dev.vimivo.platform.android.playback.LyricsRepository
 import dev.vimivo.platform.android.playback.PlaybackStateStore
 import dev.vimivo.platform.android.playback.PlaybackViewModel
 import dev.vimivo.platform.android.settings.SettingsViewModel
@@ -62,11 +64,13 @@ val androidModule = module {
     single { PlaybackStateStore(get()) }
     single { PlaybackController(get(), get()) }
     single { PlaybackDiagnostics() }
+    single { SleepTimerController(get()) }
+    single { LyricsRepository(get()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     viewModel { HomeViewModel(get()) }
     viewModel { LibraryViewModel(get(), get()) }
-    viewModel { PlaybackViewModel(get(), get(), get(), get(), get()) }
-    viewModel { SettingsViewModel(get(), get(), get(), get(), get()) }
+    viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { NetworkViewModel(get(), get(), get(), get()) }
     viewModel { PlaylistViewModel(get(), get(), get()) }
 }

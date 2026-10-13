@@ -1,4 +1,7 @@
-@file:Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList", "TooManyFunctions")
+@file:Suppress(
+    "ArgumentListWrapping", "CyclomaticComplexMethod", "ImportOrdering", "LongMethod", "LongParameterList",
+    "MaximumLineLength", "MaxLineLength", "TooManyFunctions", "Wrapping",
+)
 
 package dev.vimivo.platform.android.settings
 
@@ -16,6 +19,8 @@ import dev.vimivo.platform.android.database.VimivoDatabase
 import dev.vimivo.platform.android.network.NetworkHistory
 import dev.vimivo.platform.android.network.NetworkHistoryStore
 import dev.vimivo.settings.AppSettings
+import dev.vimivo.playback.AudioEnhancementSettings
+import dev.vimivo.playback.EqualizerBand
 import dev.vimivo.settings.HomeSection
 import dev.vimivo.settings.SettingsRepository
 import dev.vimivo.settings.SubtitleAppearance
@@ -240,6 +245,15 @@ private fun AppSettings.toJson() = JSONObject()
     .put("subtitlesEnabled", subtitlesEnabled)
     .put("subtitleDelayMillis", subtitleDelayMillis)
     .put("audioDelayMillis", audioDelayMillis)
+    .put("audioEqEnabled", audioEnhancements.enabled)
+    .put("audioEqPreset", audioEnhancements.preset.name)
+    .put("audioEqBands", JSONArray().apply {
+        audioEnhancements.bands.forEach { put(JSONObject().put("frequencyHz", it.centerFrequencyHz).put("gainDb", it.gainDb)) }
+    })
+    .put("audioBassStrength", audioEnhancements.bassStrength)
+    .put("audioTrebleGainDb", audioEnhancements.trebleGainDb)
+    .put("audioPreampDb", audioEnhancements.preampDb)
+    .put("audioVisualizerEnabled", audioVisualizerEnabled)
     .put("subtitleTextSize", subtitleAppearance.textSizeSp)
     .put("subtitlePosition", subtitleAppearance.positionFraction)
     .put("subtitleTextColor", subtitleAppearance.textColorArgb)
@@ -282,6 +296,18 @@ private fun JSONObject.toSettings(): AppSettings {
         subtitlesEnabled = optBoolean("subtitlesEnabled", defaults.subtitlesEnabled),
         subtitleDelayMillis = optLong("subtitleDelayMillis", defaults.subtitleDelayMillis),
         audioDelayMillis = optLong("audioDelayMillis", defaults.audioDelayMillis),
+        audioEnhancements = AudioEnhancementSettings(
+            enabled = optBoolean("audioEqEnabled", defaults.audioEnhancements.enabled),
+            preset = enum("audioEqPreset", defaults.audioEnhancements.preset),
+            bands = optJSONArray("audioEqBands").orEmpty().objects().mapNotNull { band ->
+                val frequency = band.optInt("frequencyHz").takeIf { it > 0 } ?: return@mapNotNull null
+                EqualizerBand(frequency, band.optDouble("gainDb", 0.0).toFloat())
+            },
+            bassStrength = optDouble("audioBassStrength", 0.0).toFloat(),
+            trebleGainDb = optDouble("audioTrebleGainDb", 0.0).toFloat(),
+            preampDb = optDouble("audioPreampDb", 0.0).toFloat(),
+        ),
+        audioVisualizerEnabled = optBoolean("audioVisualizerEnabled", defaults.audioVisualizerEnabled),
         subtitleAppearance = SubtitleAppearance(
             textSizeSp = optDouble("subtitleTextSize", defaults.subtitleAppearance.textSizeSp.toDouble()).toFloat(),
             positionFraction = optDouble(
@@ -310,5 +336,6 @@ private inline fun <reified T : Enum<T>> JSONObject.enum(
 
 private fun JSONArray?.orEmpty() = this ?: JSONArray()
 private fun JSONArray.strings() = List(length()) { getString(it) }
+private fun JSONArray.objects() = List(length()) { getJSONObject(it) }
 private inline fun JSONArray.forEachString(block: (String) -> Unit) = repeat(length()) { block(getString(it)) }
 private inline fun JSONArray.forEachObject(block: (JSONObject) -> Unit) = repeat(length()) { block(getJSONObject(it)) }

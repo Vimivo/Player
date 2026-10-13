@@ -11,6 +11,9 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.vimivo.settings.AppSettings
+import dev.vimivo.playback.AudioEnhancementSettings
+import dev.vimivo.playback.EqualizerBand
+import dev.vimivo.playback.EqualizerPreset
 import dev.vimivo.settings.AccentColor
 import dev.vimivo.settings.DecoderPreference
 import dev.vimivo.settings.HiddenMediaBehavior
@@ -64,6 +67,15 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             subtitlesEnabled = preferences[Keys.subtitlesEnabled] ?: false,
             subtitleDelayMillis = preferences[Keys.subtitleDelayMillis] ?: 0,
             audioDelayMillis = preferences[Keys.audioDelayMillis] ?: 0,
+            audioEnhancements = AudioEnhancementSettings(
+                enabled = preferences[Keys.eqEnabled] ?: false,
+                preset = preferences.enum(Keys.eqPreset, EqualizerPreset.FLAT),
+                bands = preferences[Keys.eqBands].toBands(),
+                bassStrength = preferences[Keys.bassStrength] ?: 0f,
+                trebleGainDb = preferences[Keys.trebleGain] ?: 0f,
+                preampDb = preferences[Keys.preamp] ?: 0f,
+            ),
+            audioVisualizerEnabled = preferences[Keys.audioVisualizer] ?: true,
             subtitleAppearance = SubtitleAppearance(
                 textSizeSp = preferences[Keys.subtitleTextSize] ?: 20f,
                 positionFraction = preferences[Keys.subtitlePosition] ?: 0.08f,
@@ -113,6 +125,15 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             preferences[Keys.subtitlesEnabled] = updated.subtitlesEnabled
             preferences[Keys.subtitleDelayMillis] = updated.subtitleDelayMillis
             preferences[Keys.audioDelayMillis] = updated.audioDelayMillis
+            preferences[Keys.eqEnabled] = updated.audioEnhancements.enabled
+            preferences[Keys.eqPreset] = updated.audioEnhancements.preset.name
+            preferences[Keys.eqBands] = updated.audioEnhancements.bands.joinToString(";") {
+                "${it.centerFrequencyHz}:${it.gainDb}"
+            }
+            preferences[Keys.bassStrength] = updated.audioEnhancements.bassStrength
+            preferences[Keys.trebleGain] = updated.audioEnhancements.trebleGainDb
+            preferences[Keys.preamp] = updated.audioEnhancements.preampDb
+            preferences[Keys.audioVisualizer] = updated.audioVisualizerEnabled
             preferences[Keys.subtitleTextSize] = updated.subtitleAppearance.textSizeSp
             preferences[Keys.subtitlePosition] = updated.subtitleAppearance.positionFraction
             preferences[Keys.subtitleTextColor] = updated.subtitleAppearance.textColorArgb
@@ -152,6 +173,13 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
         val subtitlesEnabled = booleanPreferencesKey("subtitles_enabled")
         val subtitleDelayMillis = longPreferencesKey("subtitle_delay_millis")
         val audioDelayMillis = longPreferencesKey("audio_delay_millis")
+        val eqEnabled = booleanPreferencesKey("audio_eq_enabled")
+        val eqPreset = stringPreferencesKey("audio_eq_preset")
+        val eqBands = stringPreferencesKey("audio_eq_bands")
+        val bassStrength = floatPreferencesKey("audio_bass_strength")
+        val trebleGain = floatPreferencesKey("audio_treble_gain")
+        val preamp = floatPreferencesKey("audio_preamp")
+        val audioVisualizer = booleanPreferencesKey("audio_visualizer")
         val subtitleTextSize = floatPreferencesKey("subtitle_text_size_sp")
         val subtitlePosition = floatPreferencesKey("subtitle_position_fraction")
         val subtitleTextColor = longPreferencesKey("subtitle_text_color_argb")
@@ -162,6 +190,11 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
         val hiddenMediaBehavior = stringPreferencesKey("hidden_media_behavior")
         val autoReconnectStreams = booleanPreferencesKey("auto_reconnect_streams")
     }
+}
+
+private fun String?.toBands(): List<EqualizerBand> = orEmpty().split(';').mapNotNull { encoded ->
+    val (frequency, gain) = encoded.split(':').takeIf { it.size == 2 } ?: return@mapNotNull null
+    EqualizerBand(frequency.toIntOrNull() ?: return@mapNotNull null, gain.toFloatOrNull() ?: return@mapNotNull null)
 }
 
 private inline fun <reified T : Enum<T>> androidx.datastore.preferences.core.Preferences.enum(

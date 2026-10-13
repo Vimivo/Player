@@ -114,6 +114,9 @@ private class FakeEngine(override val id: EngineId) : PlayerEngine {
         externalSubtitles = false,
         hdr = true,
     )
+    override val audioEnhancementState = MutableStateFlow(
+        AudioEnhancementState(capabilities.audioEnhancements),
+    ).asStateFlow()
     var closed = false
     val externalSubtitles = mutableListOf<ExternalSubtitle>()
 

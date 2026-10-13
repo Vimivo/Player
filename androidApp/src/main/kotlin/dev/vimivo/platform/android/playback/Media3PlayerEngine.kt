@@ -1,9 +1,12 @@
+@file:Suppress("ImportOrdering")
+
 package dev.vimivo.platform.android.playback
 
 import android.content.Context
 import android.net.Uri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -14,6 +17,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
 import dev.vimivo.playback.EngineCapabilities
+import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.PlaybackError
@@ -47,6 +51,8 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
     private val mutableState = MutableStateFlow(PlaybackState(engine = id))
     private var positionJob: Job? = null
     private var released = false
+    private val audioEnhancements = AndroidAudioEnhancementController(context.applicationContext)
+    override val audioEnhancementState = audioEnhancements.state
 
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) = publishState()
@@ -55,6 +61,8 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         override fun onTracksChanged(tracks: Tracks) = publishState()
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) = publishState()
         override fun onVideoSizeChanged(videoSize: VideoSize) = publishState()
+        override fun onAudioSessionIdChanged(audioSessionId: Int) = audioEnhancements.attach(audioSessionId)
+        override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) = audioEnhancements.refreshRoute()
 
         override fun onPlayerError(error: PlaybackException) {
             val mapped = mapError(error)
@@ -103,6 +111,9 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         require(volume in 0f..1f) { "Volume must be between 0 and 1" }
         player.volume = volume
     }
+
+    override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> =
+        audioEnhancements.apply(settings)
 
     override fun selectAudioTrack(trackId: String?): Result<Unit> = selectTrack(C.TRACK_TYPE_AUDIO, trackId)
     override fun selectVideoTrack(trackId: String?): Result<Unit> = selectTrack(C.TRACK_TYPE_VIDEO, trackId)
@@ -210,6 +221,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         positionJob?.cancel()
         player.removeListener(listener)
         player.release()
+        audioEnhancements.close()
         scope.cancel()
         mutableState.value = PlaybackState(engine = id)
     }
@@ -265,6 +277,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             hdr = true,
             subtitleAppearance = true,
             subtitlePosition = true,
+            audioEnhancements = AndroidAudioEnhancementController.CAPABILITIES,
         )
 
         fun support(media: VimivoMediaItem): SupportLevel {

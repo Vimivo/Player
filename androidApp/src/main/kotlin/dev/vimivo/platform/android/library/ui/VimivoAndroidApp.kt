@@ -189,6 +189,7 @@ fun VimivoAndroidApp(
             permissions,
             settings.homeSections,
             settings.artworkBasedAccents,
+            settings.audioVisualizerEnabled,
             player,
             playbackViewModel,
             settingsViewModel,
@@ -206,6 +207,7 @@ private fun AppShell(
     permissions: MediaPermissionPolicy,
     homeSections: List<HomeSection>,
     artworkBasedAccents: Boolean,
+    audioVisualizerEnabled: Boolean,
     player: PlaybackUiState,
     playbackViewModel: PlaybackViewModel,
     settingsViewModel: SettingsViewModel,
@@ -294,6 +296,7 @@ private fun AppShell(
         playback,
         playbackViewModel,
         artworkBasedAccents,
+        audioVisualizerEnabled,
         { nowPlayingVisible = false },
     ) {
         queueVisible = true
@@ -964,6 +967,7 @@ private fun SettingsScreen(
 ) {
     val settings by viewModel.state.collectAsState()
     val operations by viewModel.operations.collectAsState()
+    val audio by viewModel.audio.collectAsState()
     val context = LocalContext.current
     var appearance by remember { mutableStateOf(false) }
     var confirmAction by remember { mutableStateOf<String?>(null) }
@@ -1012,6 +1016,61 @@ private fun SettingsScreen(
         item { SectionTitle(stringResource(R.string.settings_audio)) }
         item { EditableLanguageRow(stringResource(R.string.preferred_audio_language), settings.preferredAudioLanguage, viewModel::setPreferredAudioLanguage) }
         item { SettingsRow(Icons.Outlined.MusicNote, stringResource(R.string.audio_delay), "${settings.audioDelayMillis} ms", onClick = { viewModel.setAudioDelay(nextDelay(settings.audioDelayMillis)) }) }
+        if (audio.capabilities.graphicEqualizer) {
+            item {
+                SettingsRow(
+                    Icons.Outlined.MusicNote,
+                    stringResource(R.string.equalizer),
+                    audio.route.name.lowercase().replace('_', ' '),
+                    checked = settings.audioEnhancements.enabled,
+                ) { viewModel.setAudioEnhancements(settings.audioEnhancements.copy(enabled = !settings.audioEnhancements.enabled)) }
+            }
+            item {
+                SettingsRow(
+                    Icons.Outlined.MusicNote,
+                    stringResource(R.string.equalizer_preset),
+                    settings.audioEnhancements.preset.name.lowercase().replace('_', ' '),
+                    onClick = {
+                        viewModel.setAudioEnhancements(
+                            settings.audioEnhancements.copy(preset = settings.audioEnhancements.preset.next()),
+                        )
+                    },
+                )
+            }
+            if (audio.capabilities.bassEnhancement) item {
+                AudioSlider(stringResource(R.string.bass_enhancement), settings.audioEnhancements.bassStrength, 0f..1f) {
+                    viewModel.setAudioEnhancements(settings.audioEnhancements.copy(bassStrength = it))
+                }
+            }
+            if (audio.capabilities.trebleAdjustment) item {
+                AudioSlider(stringResource(R.string.treble), settings.audioEnhancements.trebleGainDb, -6f..6f) {
+                    viewModel.setAudioEnhancements(settings.audioEnhancements.copy(trebleGainDb = it))
+                }
+            }
+            if (audio.capabilities.attenuatingPreamp) item {
+                AudioSlider(stringResource(R.string.preamp), settings.audioEnhancements.preampDb, -12f..0f) {
+                    viewModel.setAudioEnhancements(settings.audioEnhancements.copy(preampDb = it))
+                }
+            }
+            if (settings.audioEnhancements.preset == dev.vimivo.playback.EqualizerPreset.CUSTOM) {
+                audio.availableBandsHz.forEach { frequency ->
+                    item {
+                        val current = settings.audioEnhancements.bands.minByOrNull {
+                            kotlin.math.abs(it.centerFrequencyHz - frequency)
+                        }?.gainDb ?: 0f
+                        AudioSlider("${frequency} Hz", current, audio.minimumBandGainDb..audio.maximumBandGainDb) { gain ->
+                            val bands = settings.audioEnhancements.bands.filterNot { it.centerFrequencyHz == frequency } +
+                                dev.vimivo.playback.EqualizerBand(frequency, gain)
+                            viewModel.setAudioEnhancements(settings.audioEnhancements.copy(bands = bands))
+                        }
+                    }
+                }
+            }
+            audio.message?.let { message -> item { Text(message, Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+        } else {
+            item { Text(audio.capabilities.limitation, Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        item { SettingsRow(Icons.Outlined.MusicNote, stringResource(R.string.audio_visualizer), checked = settings.audioVisualizerEnabled) { viewModel.setAudioVisualizer(!settings.audioVisualizerEnabled) } }
 
         item { SectionTitle(stringResource(R.string.settings_subtitles)) }
         item { SettingsRow(Icons.Outlined.Info, stringResource(R.string.subtitles_enabled), checked = settings.subtitlesEnabled) { viewModel.setSubtitlesEnabled(!settings.subtitlesEnabled) } }
@@ -1173,6 +1232,33 @@ private fun nextSeek(value: Int) = listOf(5, 10, 15, 30, 60).let { it[(it.indexO
 private fun nextDelay(value: Long) = if (value >= 2_000) -2_000 else value + 500
 private fun nextSubtitleSize(value: Float) = if (value >= 32f) 14f else value + 2f
 private fun nextSubtitlePosition(value: Float) = if (value >= 0.24f) 0.04f else value + 0.04f
+
+@Composable
+private fun AudioSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, onValueChange: (Float) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
+        Text("$label · ${"%.1f".format(value)}")
+        Slider(value, onValueChange, valueRange = range)
+    }
+}
+
+/** Low-rate playback activity indicator; it intentionally avoids microphone/Visualizer permissions. */
+@Composable
+private fun PlaybackActivityVisualizer(positionMillis: Long, playing: Boolean) {
+    Row(
+        Modifier.height(36.dp).padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(18) { index ->
+            val phase = if (playing) positionMillis / 250.0 + index * 0.83 else index * 0.2
+            val height = if (playing) 6 + (kotlin.math.abs(kotlin.math.sin(phase)) * 22).toInt() else 6
+            Box(
+                Modifier.width(3.dp).height(height.dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)),
+            )
+        }
+    }
+}
 private fun android.content.Context.openUrl(url: String) {
     runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
 }
@@ -1244,10 +1330,15 @@ private fun NowPlayingSheet(
     playback: PlaybackController,
     viewModel: PlaybackViewModel,
     artworkAccents: Boolean,
+    visualizerEnabled: Boolean,
     onDismiss: () -> Unit,
     openQueue: () -> Unit,
 ) {
     var settingsVisible by remember { mutableStateOf(false) }
+    val sleepTimer by viewModel.sleepTimerState.collectAsState()
+    val lyricsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::loadLyrics)
+    }
     val controller by playback.controller.collectAsState()
     val currentDomain = player.current?.toDomain()
     val artworkAccent by produceState<Int?>(null, currentDomain?.uri, currentDomain?.artworkUri, artworkAccents) {
@@ -1283,6 +1374,23 @@ private fun NowPlayingSheet(
                 Text(current.mediaMetadata.title?.toString() ?: current.mediaId, style = MaterialTheme.typography.headlineMedium, maxLines = 1)
                 Text(current.mediaMetadata.artist?.toString() ?: "Unknown artist", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 current.mediaMetadata.albumTitle?.let { Text(it.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (visualizerEnabled && media.kind == MediaKind.AUDIO) {
+                    PlaybackActivityVisualizer(player.positionMillis, player.isPlaying)
+                }
+                player.lyrics?.let { lyrics ->
+                    val center = player.currentLyricIndex.coerceAtLeast(0)
+                    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        lyrics.lines.subList((center - 2).coerceAtLeast(0), (center + 3).coerceAtMost(lyrics.lines.size)).forEachIndexed { offset, line ->
+                            val actual = (center - 2).coerceAtLeast(0) + offset
+                            Text(
+                                line.text,
+                                color = if (actual == player.currentLyricIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = if (actual == player.currentLyricIndex) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.clickable(enabled = line.timeMillis != null) { line.timeMillis?.let(viewModel::seekTo) }.padding(4.dp),
+                            )
+                        }
+                    }
+                }
                 player.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
                 PlayerControls(player.isPlaying, player.positionMillis, player.durationMillis, viewModel::previous, viewModel::togglePlayback, viewModel::next, viewModel::seekTo)
                 Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -1311,6 +1419,17 @@ private fun NowPlayingSheet(
         SettingsRow(Icons.Outlined.BookmarkAdd, "Save bookmark", detail = formatDuration(player.positionMillis), onClick = {
             viewModel.addBookmark("Bookmark at ${formatDuration(player.positionMillis)}")
         })
+        SettingsRow(Icons.Outlined.MusicNote, "Load LRC lyrics", detail = "Local synchronized or plain lyrics", onClick = {
+            lyricsPicker.launch(arrayOf("text/plain", "application/octet-stream"))
+        })
+        Text("Sleep timer", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(20.dp))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            listOf(15, 30, 60).forEach { minutes -> AssistChip({ viewModel.startSleepTimer(minutes, 10) }, { Text("$minutes min") }) }
+        }
+        SettingsRow(Icons.Outlined.MusicNote, "Stop after current track", onClick = { viewModel.stopAfterCurrent(10) })
+        if (sleepTimer.deadlineEpochMillis != null || sleepTimer.stopAfterCurrent) {
+            SettingsRow(Icons.Outlined.Close, "Cancel sleep timer", detail = sleepTimer.remainingMillis?.let(::formatDuration) ?: "After current track", onClick = viewModel::cancelSleepTimer)
+        }
         if (player.bookmarks.isNotEmpty()) {
             Text("Bookmarks", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(20.dp))
             player.bookmarks.forEach { bookmark ->

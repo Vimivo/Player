@@ -59,6 +59,9 @@ data class EngineCapabilities(
     val subtitleAppearance: Boolean = false,
     val subtitlePosition: Boolean = false,
     val supportedSpeedRange: ClosedFloatingPointRange<Float> = 0.25f..4f,
+    val audioEnhancements: AudioEnhancementCapabilities = AudioEnhancementCapabilities(
+        limitation = "Audio enhancements are unavailable with this engine",
+    ),
 )
 
 sealed interface PlaybackStatus {
@@ -121,6 +124,7 @@ interface PlayerEngine : AutoCloseable {
     val id: EngineId
     val state: StateFlow<PlaybackState>
     val capabilities: EngineCapabilities
+    val audioEnhancementState: StateFlow<AudioEnhancementState>
 
     fun supportFor(media: MediaItem): SupportLevel
     suspend fun open(media: MediaItem, startPositionMillis: Long = 0): Result<Unit>
@@ -140,6 +144,8 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Subtitle delay is not supported"))
     fun setAudioDelay(delayMillis: Long): Result<Unit> =
         Result.failure(UnsupportedOperationException("Audio delay is not supported"))
+    fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> =
+        Result.failure(UnsupportedOperationException(capabilities.audioEnhancements.limitation))
     override fun close()
 }
 

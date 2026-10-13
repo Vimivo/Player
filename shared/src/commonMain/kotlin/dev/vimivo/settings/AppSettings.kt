@@ -1,6 +1,7 @@
 package dev.vimivo.settings
 
 import dev.vimivo.core.model.LibrarySort
+import dev.vimivo.playback.AudioEnhancementSettings
 import kotlinx.coroutines.flow.Flow
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
@@ -60,6 +61,8 @@ data class AppSettings(
     val subtitlesEnabled: Boolean = false,
     val subtitleDelayMillis: Long = 0,
     val audioDelayMillis: Long = 0,
+    val audioEnhancements: AudioEnhancementSettings = AudioEnhancementSettings(),
+    val audioVisualizerEnabled: Boolean = true,
     val subtitleAppearance: SubtitleAppearance = SubtitleAppearance(),
     val hiddenMediaBehavior: HiddenMediaBehavior = HiddenMediaBehavior.HIDE,
     val autoReconnectStreams: Boolean = true,

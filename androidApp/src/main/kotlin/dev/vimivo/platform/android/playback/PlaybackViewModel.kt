@@ -1,4 +1,13 @@
-@file:Suppress("CyclomaticComplexMethod", "UnstableApiUsage")
+@file:Suppress(
+    "ArgumentListWrapping",
+    "CyclomaticComplexMethod",
+    "LongParameterList",
+    "MaximumLineLength",
+    "MaxLineLength",
+    "MultiLineIfElse",
+    "TooManyFunctions",
+    "UnstableApiUsage",
+)
 
 package dev.vimivo.platform.android.playback
 
@@ -42,6 +51,8 @@ data class PlaybackUiState(
     val externalSubtitleCandidates: List<ExternalSubtitle> = emptyList(),
     val trackErrorMessage: String? = null,
     val bookmarks: List<Bookmark> = emptyList(),
+    val lyrics: LyricsDocument? = null,
+    val currentLyricIndex: Int = -1,
 )
 
 class PlaybackViewModel(
@@ -50,14 +61,19 @@ class PlaybackViewModel(
     private val diagnostics: PlaybackDiagnostics,
     private val subtitles: AndroidSubtitleRepository,
     private val organization: OrganizationRepository,
+    private val sleepTimer: SleepTimerController,
+    private val lyricsRepository: LyricsRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(PlaybackUiState())
     private var player: Player? = null
     private var loadedFavoriteId: String? = null
     private var detectedSubtitleMediaId: String? = null
     private var bookmarkMediaId: String? = null
+    private var lyricMediaId: String? = null
     private var bookmarkJob: Job? = null
     val state: StateFlow<PlaybackUiState> = mutableState.asStateFlow()
+    val sleepTimerState = sleepTimer.state
+    val audioEnhancementState = diagnostics.audio
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) = publish(player)
@@ -106,6 +122,17 @@ class PlaybackViewModel(
     }
     fun setSpeed(speed: Float) { player?.setPlaybackSpeed(speed) }
     fun setVolume(volume: Float) { player?.volume = volume.coerceIn(0f, 1f) }
+    fun startSleepTimer(minutes: Int, fadeOutSeconds: Int = 0) = sleepTimer.schedule(minutes, fadeOutSeconds)
+    fun stopAfterCurrent(fadeOutSeconds: Int = 0) = sleepTimer.afterCurrent(fadeOutSeconds)
+    fun cancelSleepTimer() = sleepTimer.cancel()
+    fun loadLyrics(uri: android.net.Uri) {
+        viewModelScope.launch {
+            lyricsRepository.load(uri).fold(
+                onSuccess = { lyrics -> mutableState.value = state.value.copy(lyrics = lyrics) },
+                onFailure = { error -> mutableState.value = state.value.copy(trackErrorMessage = error.message) },
+            )
+        }
+    }
     fun selectAudioTrack(id: String?) { diagnostics.selectAudioTrack(id) }
     fun selectSubtitleTrack(id: String?) { diagnostics.selectSubtitleTrack(id) }
     fun setSubtitleDelay(delayMillis: Long) = reportTrackResult(diagnostics.setSubtitleDelay(delayMillis))
@@ -188,6 +215,13 @@ class PlaybackViewModel(
             subtitleTracks = previous.subtitleTracks,
             externalSubtitleCandidates = previous.externalSubtitleCandidates,
             trackErrorMessage = previous.trackErrorMessage,
+            bookmarks = previous.bookmarks,
+            lyrics = previous.lyrics.takeIf { previous.current?.mediaId == player.currentMediaItem?.mediaId },
+            currentLyricIndex = previous.lyrics.takeIf {
+                previous.current?.mediaId == player.currentMediaItem?.mediaId
+            }?.lines?.indexOfLast {
+                it.timeMillis != null && it.timeMillis <= player.currentPosition
+            } ?: -1,
         )
         val id = player.currentMediaItem?.mediaId
         if (id != bookmarkMediaId) {
@@ -211,6 +245,17 @@ class PlaybackViewModel(
                 mediaRepository.media(listOf(MediaId(id))).getOrNull()?.firstOrNull()?.let { media ->
                     if (state.value.current?.mediaId == id) {
                         mutableState.value = state.value.copy(isFavorite = media.isFavorite)
+                    }
+                }
+            }
+        }
+        if (id != lyricMediaId) {
+            lyricMediaId = id
+            val uri = player.currentMediaItem?.localConfiguration?.uri
+            if (id != null && uri != null) viewModelScope.launch {
+                lyricsRepository.autoDetect(uri)?.let { detected ->
+                    if (state.value.current?.mediaId == id && state.value.lyrics == null) {
+                        mutableState.value = state.value.copy(lyrics = detected)
                     }
                 }
             }

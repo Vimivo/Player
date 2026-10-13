@@ -33,6 +33,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import org.koin.android.ext.android.inject
 import dev.vimivo.settings.SettingsRepository
 
@@ -67,6 +69,20 @@ class VimivoPlaybackService : MediaLibraryService() {
             val settings = settingsRepository.settings.first()
             if (settings.restoreQueue) sessionPlayer.restoreWithoutPlaying()
             sessionPlayer.applyDefaults(settings.shuffleBehavior, settings.repeatBehavior)
+        }
+        serviceScope.launch {
+            settingsRepository.settings.collect { settings ->
+                engineManager.applyAudioEnhancements(settings.audioEnhancements)
+            }
+        }
+        serviceScope.launch {
+            engineManager.activeEngine.flatMapLatest { engine ->
+                engine?.audioEnhancementState ?: flowOf(
+                    dev.vimivo.playback.AudioEnhancementState(
+                        dev.vimivo.playback.AudioEnhancementCapabilities(limitation = "No active playback engine"),
+                    ),
+                )
+            }.collect(diagnostics::publishAudio)
         }
         serviceScope.launch {
             var lastSavedAt = 0L

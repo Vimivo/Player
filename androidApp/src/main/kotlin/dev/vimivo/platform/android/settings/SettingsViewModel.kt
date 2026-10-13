@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.net.Uri
 import dev.vimivo.settings.AppSettings
+import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.settings.AccentColor
 import dev.vimivo.settings.DecoderPreference
 import dev.vimivo.settings.HiddenMediaBehavior
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.platform.android.database.LibraryDao
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
+import dev.vimivo.platform.android.playback.PlaybackDiagnostics
 
 data class SettingsOperationState(
     val exclusions: List<String> = emptyList(),
@@ -41,6 +43,7 @@ class SettingsViewModel(
     private val libraryDao: LibraryDao,
     private val thumbnails: AndroidThumbnailRepository,
     private val backup: LocalBackupManager,
+    private val playbackDiagnostics: PlaybackDiagnostics,
 ) : ViewModel() {
     val state: StateFlow<AppSettings> = repository.settings.stateIn(
         viewModelScope,
@@ -49,6 +52,7 @@ class SettingsViewModel(
     )
     private val mutableOperations = MutableStateFlow(SettingsOperationState())
     val operations = mutableOperations.asStateFlow()
+    val audio = playbackDiagnostics.audio
 
     init { refreshExclusions() }
 
@@ -83,6 +87,11 @@ class SettingsViewModel(
         it.copy(subtitleDelayMillis = delayMillis.coerceIn(-10_000, 10_000))
     }
     fun setAudioDelay(delayMillis: Long) = update { it.copy(audioDelayMillis = delayMillis.coerceIn(-10_000, 10_000)) }
+    fun setAudioEnhancements(value: AudioEnhancementSettings) {
+        playbackDiagnostics.applyAudioEnhancements(value)
+        update { it.copy(audioEnhancements = value) }
+    }
+    fun setAudioVisualizer(enabled: Boolean) = update { it.copy(audioVisualizerEnabled = enabled) }
     fun setSubtitleAppearance(appearance: SubtitleAppearance) = update { it.copy(subtitleAppearance = appearance) }
     fun setSectionVisible(section: HomeSection, visible: Boolean) = update { settings ->
         val sections = settings.homeSections.toMutableList().apply {

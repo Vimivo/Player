@@ -31,6 +31,12 @@
     <string name="decoder">Decoder preference</string>
     <string name="preferred_audio_language">Preferred audio language</string>
     <string name="audio_delay">Audio delay</string>
+    <string name="equalizer">Equalizer</string>
+    <string name="equalizer_preset">Equalizer preset</string>
+    <string name="bass_enhancement">Bass enhancement</string>
+    <string name="treble">Treble</string>
+    <string name="preamp">Safe preamp attenuation (dB)</string>
+    <string name="audio_visualizer">Lightweight visualizer</string>
     <string name="preferred_subtitle_language">Preferred subtitle language</string>
     <string name="subtitles_enabled">Enable subtitles by default</string>
     <string name="subtitle_size">Subtitle size</string>
