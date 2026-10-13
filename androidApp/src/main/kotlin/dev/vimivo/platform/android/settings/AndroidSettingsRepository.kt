@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.vimivo.settings.AppSettings
 import dev.vimivo.settings.PreferredEngine
+import dev.vimivo.settings.HomeSection
 import dev.vimivo.settings.SettingsRepository
 import dev.vimivo.settings.ThemeMode
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +25,12 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             preferredEngine = preferences[Keys.engine]?.let { runCatching { PreferredEngine.valueOf(it) }.getOrNull() }
                 ?: PreferredEngine.AUTOMATIC,
             resumePlayback = preferences[Keys.resume] ?: true,
+            dynamicColor = preferences[Keys.dynamicColor] ?: true,
+            homeSections = preferences[Keys.homeSections]
+                ?.split(',')
+                ?.mapNotNull { runCatching { HomeSection.valueOf(it) }.getOrNull() }
+                ?.takeIf(List<HomeSection>::isNotEmpty)
+                ?: HomeSection.entries,
         )
     }
 
@@ -33,6 +40,8 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             preferences[Keys.theme] = updated.themeMode.name
             preferences[Keys.engine] = updated.preferredEngine.name
             preferences[Keys.resume] = updated.resumePlayback
+            preferences[Keys.dynamicColor] = updated.dynamicColor
+            preferences[Keys.homeSections] = updated.homeSections.joinToString(",", transform = HomeSection::name)
         }
     }
 
@@ -40,5 +49,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
         val theme = stringPreferencesKey("theme")
         val engine = stringPreferencesKey("engine")
         val resume = booleanPreferencesKey("resume_playback")
+        val dynamicColor = booleanPreferencesKey("dynamic_color")
+        val homeSections = stringPreferencesKey("home_sections")
     }
 }

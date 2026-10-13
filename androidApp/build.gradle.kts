@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.koin.android)
     implementation(libs.koin.compose.viewmodel)
+    implementation(libs.navigation.compose)
     implementation(libs.coroutines.guava)
     implementation(libs.media3.common)
     implementation(libs.media3.exoplayer)
@@ -66,6 +67,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.espresso)
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.coroutines.test)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     detektPlugins(libs.detekt.formatting)
 }
 

@@ -31,7 +31,7 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             api(compose.material3)
-            implementation(compose.materialIconsExtended)
+            api(compose.materialIconsExtended)
             implementation(compose.components.resources)
             implementation(libs.coil.compose)
         }

@@ -11,7 +11,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class HomeUiState(
-    val media: List<MediaItem> = emptyList(),
+    val continueWatching: List<MediaItem> = emptyList(),
+    val recentlyPlayed: List<MediaItem> = emptyList(),
+    val recentlyAddedMusic: List<MediaItem> = emptyList(),
+    val recentlyAddedVideos: List<MediaItem> = emptyList(),
+    val favorites: List<MediaItem> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
 )
@@ -22,7 +26,22 @@ class HomeViewModel(private val repository: MediaRepository) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            repository.observeLibrary().collect { media -> mutableState.update { it.copy(media = media) } }
+            repository.observeLibrary().collect { media ->
+                mutableState.update {
+                    it.copy(
+                        continueWatching = media.filter { item ->
+                            item.kind == dev.vimivo.core.model.MediaKind.VIDEO && item.lastPlaybackPositionMillis > 0
+                        }.sortedByDescending(MediaItem::lastPlayedAtEpochMillis).take(12),
+                        recentlyPlayed = media.filter { item -> item.lastPlayedAtEpochMillis != null }
+                            .sortedByDescending(MediaItem::lastPlayedAtEpochMillis).take(12),
+                        recentlyAddedMusic = media.filter { item -> item.kind == dev.vimivo.core.model.MediaKind.AUDIO }
+                            .sortedByDescending(MediaItem::dateAddedEpochSeconds).take(12),
+                        recentlyAddedVideos = media.filter { item -> item.kind == dev.vimivo.core.model.MediaKind.VIDEO }
+                            .sortedByDescending(MediaItem::dateAddedEpochSeconds).take(12),
+                        favorites = media.filter(MediaItem::isFavorite).take(12),
+                    )
+                }
+            }
         }
     }
 

@@ -12,11 +12,15 @@ import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.library.LibraryViewModel
 import dev.vimivo.platform.android.library.MediaPermissionPolicy
 import dev.vimivo.platform.android.library.MediaStoreScanner
+import dev.vimivo.platform.android.library.PlaylistViewModel
 import dev.vimivo.platform.android.library.SafMediaScanner
 import dev.vimivo.platform.android.playback.LibVlcPlayerEngineFactory
 import dev.vimivo.platform.android.playback.Media3PlayerEngineFactory
 import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.platform.android.playback.PlaybackStateStore
+import dev.vimivo.platform.android.playback.PlaybackViewModel
+import dev.vimivo.platform.android.settings.SettingsViewModel
+import dev.vimivo.platform.android.network.NetworkViewModel
 import dev.vimivo.platform.android.settings.AndroidSettingsRepository
 import dev.vimivo.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -47,4 +51,8 @@ val androidModule = module {
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     viewModel { HomeViewModel(get()) }
     viewModel { LibraryViewModel(get()) }
+    viewModel { PlaybackViewModel(get()) }
+    viewModel { SettingsViewModel(get()) }
+    viewModel { NetworkViewModel(get(), get()) }
+    viewModel { PlaylistViewModel(get()) }
 }

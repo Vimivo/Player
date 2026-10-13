@@ -22,6 +22,29 @@ class AndroidThumbnailRepository(private val context: Context) {
         cache[key] ?: loadBitmap(key).also { bitmap -> if (bitmap != null) cache.put(key, bitmap) }
     }
 
+    suspend fun dominantColor(uri: String, artworkUri: String? = null): Int? = load(uri, artworkUri)?.let { bitmap ->
+        withContext(Dispatchers.Default) {
+            var red = 0L
+            var green = 0L
+            var blue = 0L
+            var samples = 0
+            val stepX = (bitmap.width / 12).coerceAtLeast(1)
+            val stepY = (bitmap.height / 12).coerceAtLeast(1)
+            for (x in 0 until bitmap.width step stepX) for (y in 0 until bitmap.height step stepY) {
+                val color = bitmap.getPixel(x, y)
+                red += android.graphics.Color.red(color)
+                green += android.graphics.Color.green(color)
+                blue += android.graphics.Color.blue(color)
+                samples++
+            }
+            if (samples == 0) null else android.graphics.Color.rgb(
+                (red / samples).toInt(),
+                (green / samples).toInt(),
+                (blue / samples).toInt(),
+            )
+        }
+    }
+
     private fun loadBitmap(value: String): Bitmap? = runCatching {
         val uri = Uri.parse(value)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
