@@ -16,6 +16,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
     buildFeatures { compose = true }
@@ -50,6 +51,7 @@ dependencies {
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
     implementation(libs.media3.ui.compose)
+    implementation(libs.media3.ui)
     implementation(libs.libvlc)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.junit)

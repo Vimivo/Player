@@ -26,7 +26,7 @@
 
 ## ADR-005: Toolchain compatibility baseline
 
-**Decision:** Kotlin 2.3.20, Compose Multiplatform 1.9.3, AGP 8.13.2, Gradle 8.13, JDK 17, Koin 4.2.2, Media3 1.11.0, Coil 3.4.0, and stable LibVLC 3.7.7.
+**Decision:** Kotlin 2.3.20, Compose Multiplatform 1.9.3, AGP 8.13.2, Gradle 8.13, JDK 17, Koin 4.2.2, Media3 1.11.1, Coil 3.4.0, and stable LibVLC 3.7.7.
 
 **Reason:** AGP 8.13.2 explicitly supports Kotlin 2.3 and API 36; Compose 1.9.3 and Coil 3.4.0 share a compatible baseline. LibVLC 4 remains EAP, so the latest stable 3.x release is used. Version upgrades require dependency resolution, tests, and an Android build.
 
@@ -35,3 +35,15 @@
 **Decision:** Default to `dev.vimivo.app`, overridable with `vimivo.applicationId` until publication.
 
 **Reason:** The working product name may change. After first publication the chosen ID must never change because Android/store upgrade identity depends on it.
+
+## ADR-007: Bounded Media3-to-LibVLC fallback
+
+**Decision:** Prefer Media3. Fall back once to LibVLC only for unsupported-container, decoder-initialization, or decode failures.
+
+**Reason:** Retrying missing, unauthorized, or unreachable sources in another engine cannot fix the source and can hide actionable errors. Tracking attempted engines eliminates loops. Switching closes the previous engine first, preventing concurrent playback.
+
+## ADR-008: Native ABI and page-size policy
+
+**Decision:** Package `arm64-v8a`, `armeabi-v7a`, and `x86_64`; exclude obsolete x86. Keep LibVLC 3.7.7 while it is the latest stable 3.x artifact.
+
+**Reason:** The selected AAR officially publishes all four ABIs. ARM64 and x86_64 cover modern devices and emulator testing; ARMv7 remains supported by the application minimum. Inspection found 16 KB-aligned (`2**14`) ARM64 ELF load segments, and the generated APK passes `zipalign -P 16`. Runtime testing on a 16 KB emulator/device remains required.

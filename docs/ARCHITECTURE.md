@@ -22,9 +22,15 @@ Conceptual `data`, `database`, and feature boundaries remain packages until team
 
 View models expose immutable `StateFlow` values. Repositories expose streams and return `Result` for recoverable operations. `PlayerEngine` exposes a state stream, typed playback failures, engine capabilities, track selection, controls, and deterministic cleanup.
 
-## Playback direction
+## Playback architecture
 
-Future Android implementations will adapt Media3 and LibVLC to `PlayerEngine`. Engine selection must use media requirements and `EngineCapabilities`, not UI knowledge. A foreground `MediaLibraryService` will own the active engine and notification/session lifecycle. This milestone intentionally provides neither fake playback nor incomplete service behavior.
+`PlayerEngine` is the platform-neutral control/state boundary. `Media3PlayerEngine` and `LibVlcPlayerEngine` translate native callbacks into the same immutable `PlaybackState`. Android player types and video-output views remain in `androidApp`.
+
+`PlaybackEngineManager` owns exactly one engine, queue context, desired play state, and the set of engines attempted for the current open operation. Selection order is Media3 then LibVLC. A switch always closes the previous engine before constructing the next one and carries the queue and last known position forward.
+
+Automatic fallback is intentionally narrow: only unsupported-container, decoder-initialization, and decoding failures can move from Media3 to LibVLC. Missing files, permission failures, HTTP authorization/status failures, and general network failures do not fall back. Each engine can be attempted only once per open operation, preventing fallback loops.
+
+The current activity-hosted engines are a development foundation. A later foreground `MediaLibraryService` will own `PlaybackEngineManager`, MediaSession, notifications, and durable background playback without changing common contracts.
 
 ## Platform growth
 

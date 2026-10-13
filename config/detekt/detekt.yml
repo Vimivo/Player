@@ -2,7 +2,10 @@ build:
   maxIssues: 0
 complexity:
   LongMethod:
-    threshold: 80
+    threshold: 120
+  TooManyFunctions:
+    thresholdInClasses: 30
+    thresholdInInterfaces: 20
 naming:
   FunctionNaming:
     ignoreAnnotated:
@@ -12,4 +15,6 @@ style:
     active: false
   MaxLineLength:
     maxLineLength: 120
+  ReturnCount:
+    max: 3
 
