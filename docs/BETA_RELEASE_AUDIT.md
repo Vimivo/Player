@@ -20,8 +20,8 @@ Audit date: 2026-10-14. Repository: `Vimivo/Player`, branch `main`, baseline com
 | Embedded video | PARTIAL | BLOCKED | macOS Cocoa bridge compiles but has no packaged clean-machine test. Windows renderer is deliberately unavailable pending HWND/render API work. |
 | Folder picker and Finder open files | IMPLEMENTED, TESTED | PARTIAL | Buffered macOS handler tests pass. Windows Explorer integration is not implemented. |
 | Library UI and search | IMPLEMENTED, TESTED | IMPLEMENTED, TESTED foundation | Real indexed list/search UI exists; albums/artists/folders are not complete desktop screens. |
-| Metadata, artwork, thumbnails | NOT IMPLEMENTED | NOT IMPLEMENTED | Schema supports metadata/cache references; extractor and rendering pipeline do not exist. |
-| Playlists, favorites, history, resume, bookmarks | IMPLEMENTED, TESTED repository | IMPLEMENTED, TESTED repository | SQLite repository persistence tests pass; desktop UI and playback lifecycle integration are incomplete. |
+| Metadata, artwork, thumbnails | PARTIAL, TESTED | PARTIAL, TESTED | Bounded Java Sound audio extraction and SQLite/library integration exist. Compressed/tagged audio, video metadata, artwork, and thumbnails remain incomplete. |
+| Playlists, favorites, history, resume, bookmarks | PARTIAL, TESTED | PARTIAL, TESTED | SQLite persistence is tested; history and conservative resume are wired to playback. Playlist/favorite/bookmark UI remains incomplete. |
 | Desktop settings / backup and restore | PARTIAL | PARTIAL | Key/value storage exists; settings and backup user flows do not. |
 | Subtitles / audio tracks | IMPLEMENTED engine API | PARTIAL | mpv track and external-subtitle calls exist; desktop control UI is incomplete. |
 | Equalizer | IMPLEMENTED, TESTED | PARTIAL | Filter construction/unit tests pass; active audio-path smoke testing remains outstanding. |
@@ -47,7 +47,7 @@ The combined Android debug build and unit-test request stalled at `:androidApp:k
 1. macOS distribution still loads libmpv and the renderer bridge from absolute Homebrew paths. The required transitive dylibs are not bundled, audited, signed, or clean-machine tested.
 2. A supported packaging JDK is absent; the Compose packaging safety check must not be disabled as a release workaround.
 3. Windows has no native libmpv DLL bundle, HWND/render-API adapter, Windows runner, installer validation, Explorer integration, or Credential Manager implementation.
-4. Desktop metadata/artwork/thumbnails, backup/restore, persistent settings UI, playlist/favorite/history UI, and network-storage implementations are unfinished.
+4. Production desktop metadata/artwork/thumbnails, backup/restore, persistent settings UI, playlist/favorite/bookmark UI, and network-storage implementations are unfinished.
 5. The LibVLC redistribution/source-replacement obligations described in `LICENSE_AUDIT.md` require legal review before an Android release.
 6. Signing, notarization, and code-signing credentials are not configured. No release signing claim is made.
 
