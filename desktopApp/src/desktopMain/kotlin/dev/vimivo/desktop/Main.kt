@@ -40,11 +40,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.platform.MacOpenFileHandler
 import dev.vimivo.desktop.library.DesktopLibraryController
 import dev.vimivo.desktop.library.DesktopLibraryUiState
 import dev.vimivo.desktop.library.LibraryScanState
@@ -57,19 +59,35 @@ import java.io.File
 
 fun main(args: Array<String>) = application {
     val engine = remember { MpvPlayerEngine() }
+    val openFileHandler = remember { MacOpenFileHandler().also { it.install() } }
     Window(
         onCloseRequest = {
             engine.close()
+            openFileHandler.close()
             exitApplication()
         },
         title = "Vimivo",
     ) {
-        MaterialTheme { DesktopPlayer(engine, args.firstOrNull()) }
+        MenuBar {
+            Menu("File") {
+                Item("Open File…", onClick = { chooseMediaFiles().let(openFileHandler::submit) })
+            }
+            Menu("Playback") {
+                Item("Play / Pause", onClick = {
+                    if (engine.state.value.status == PlaybackStatus.Playing) engine.pause() else engine.play()
+                })
+                Item("Stop", onClick = { engine.stop() })
+                Separator()
+                Item("Seek Backward", onClick = { engine.seekTo((engine.state.value.positionMillis - 10_000).coerceAtLeast(0)) })
+                Item("Seek Forward", onClick = { engine.seekTo(engine.state.value.positionMillis + 10_000) })
+            }
+        }
+        MaterialTheme { DesktopPlayer(engine, args.map(::File), openFileHandler) }
     }
 }
 
 @Composable
-private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
+private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, openFileHandler: MacOpenFileHandler) {
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
     val library = remember { DesktopLibraryController() }
@@ -83,9 +101,14 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
         engine.attachVideoSurface(videoCanvas)
         onDispose { }
     }
-    LaunchedEffect(initialPath) {
-        initialPath?.let { path ->
-            File(path).takeIf(File::isFile)?.let { file -> engine.open(file.toMediaItem()).onSuccess { engine.play() } }
+    LaunchedEffect(initialFiles, openFileHandler) {
+        initialFiles.filter(File::isFile).takeIf(List<File>::isNotEmpty)?.let { files ->
+            engine.open(files.first().toMediaItem()).onSuccess { engine.play() }
+        }
+        openFileHandler.files.collect { files ->
+            files.firstOrNull()?.let { file ->
+                engine.open(file.toMediaItem()).onSuccess { engine.play() }
+            }
         }
     }
 
@@ -125,7 +148,7 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = {
-                    chooseMediaFile()?.let { file ->
+                    chooseMediaFiles().firstOrNull()?.let { file ->
                         scope.launch { engine.open(file.toMediaItem()).onSuccess { engine.play() } }
                     }
                 }) { Text("Open media") }
@@ -302,12 +325,11 @@ private enum class DesktopDestination(
     Settings("Settings", "Appearance and playback preferences", "Settings are being prepared", "Preferences will be stored locally in the desktop persistence layer."),
 }
 
-private fun chooseMediaFile(): File? {
+private fun chooseMediaFiles(): List<File> {
     val dialog = FileDialog(null as Frame?, "Open media", FileDialog.LOAD)
+    dialog.isMultipleMode = true
     dialog.isVisible = true
-    val directory = dialog.directory ?: return null
-    val file = dialog.file ?: return null
-    return File(directory, file)
+    return dialog.files.orEmpty().toList()
 }
 
 private fun File.toMediaItem() = MediaItem(

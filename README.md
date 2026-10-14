@@ -23,14 +23,14 @@ Install JDK 17 and Android SDK Platform 36, then set `sdk.dir` in `local.propert
 
 The debug APK is written below `androidApp/build/outputs/apk/debug/`.
 
-For macOS, install a current libmpv build and run:
+For macOS development, install a current libmpv build and run:
 
 ```shell
 ./gradlew :desktopApp:run
 ./gradlew :desktopApp:packageDmg
 ```
 
-The desktop adapter loads `libmpv` from the system library path. A custom absolute library path may be supplied with `-Dvimivo.mpv.library=/path/to/libmpv.dylib`. On macOS development builds, a small JAWT/Objective-C++ bridge uses libmpv's OpenGL render API inside a Compose `SwingPanel`; the bridge is compiled locally and is not yet packaged for redistribution.
+The desktop adapter loads `libmpv` from the system library path. A custom absolute library path may be supplied with `-Dvimivo.mpv.library=/path/to/libmpv.dylib`. On macOS development builds, a small JAWT/Objective-C++ bridge uses libmpv's OpenGL render API inside a Compose `SwingPanel`; the bridge is compiled locally and is not yet packaged for redistribution. The current DMG is therefore not a standalone release. See [macOS distribution](docs/MACOS_DISTRIBUTION.md) for verified blockers and release requirements.
 
 ## Application ID
 
