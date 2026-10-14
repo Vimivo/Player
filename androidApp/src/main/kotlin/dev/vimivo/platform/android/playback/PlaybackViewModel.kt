@@ -1,7 +1,9 @@
 @file:Suppress(
     "ArgumentListWrapping",
     "CyclomaticComplexMethod",
+    "ImportOrdering",
     "LongParameterList",
+    "LoopWithTooManyJumpStatements",
     "MaximumLineLength",
     "MaxLineLength",
     "MultiLineIfElse",
@@ -27,6 +29,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -53,6 +56,8 @@ data class PlaybackUiState(
     val bookmarks: List<Bookmark> = emptyList(),
     val lyrics: LyricsDocument? = null,
     val currentLyricIndex: Int = -1,
+    val abRepeatStartMillis: Long? = null,
+    val abRepeatEndMillis: Long? = null,
 )
 
 class PlaybackViewModel(
@@ -71,6 +76,7 @@ class PlaybackViewModel(
     private var bookmarkMediaId: String? = null
     private var lyricMediaId: String? = null
     private var bookmarkJob: Job? = null
+    private var abRepeatJob: Job? = null
     val state: StateFlow<PlaybackUiState> = mutableState.asStateFlow()
     val sleepTimerState = sleepTimer.state
     val audioEnhancementState = diagnostics.audio
@@ -122,6 +128,27 @@ class PlaybackViewModel(
     }
     fun setSpeed(speed: Float) { player?.setPlaybackSpeed(speed) }
     fun setVolume(volume: Float) { player?.volume = volume.coerceIn(0f, 1f) }
+    fun setAbRepeatStart() {
+        val position = state.value.positionMillis
+        mutableState.value = state.value.copy(abRepeatStartMillis = position, abRepeatEndMillis = null)
+    }
+
+    fun setAbRepeatEnd() {
+        val start = state.value.abRepeatStartMillis ?: return
+        val end = state.value.positionMillis
+        if (end <= start + MIN_AB_REPEAT_MILLIS) {
+            mutableState.value = state.value.copy(trackErrorMessage = "Choose an end point at least one second after A")
+            return
+        }
+        mutableState.value = state.value.copy(abRepeatEndMillis = end, trackErrorMessage = null)
+        observeAbRepeat()
+    }
+
+    fun clearAbRepeat() {
+        abRepeatJob?.cancel()
+        abRepeatJob = null
+        mutableState.value = state.value.copy(abRepeatStartMillis = null, abRepeatEndMillis = null)
+    }
     fun startSleepTimer(minutes: Int, fadeOutSeconds: Int = 0) = sleepTimer.schedule(minutes, fadeOutSeconds)
     fun stopAfterCurrent(fadeOutSeconds: Int = 0) = sleepTimer.afterCurrent(fadeOutSeconds)
     fun cancelSleepTimer() = sleepTimer.cancel()
@@ -222,9 +249,12 @@ class PlaybackViewModel(
             }?.lines?.indexOfLast {
                 it.timeMillis != null && it.timeMillis <= player.currentPosition
             } ?: -1,
+            abRepeatStartMillis = previous.abRepeatStartMillis,
+            abRepeatEndMillis = previous.abRepeatEndMillis,
         )
         val id = player.currentMediaItem?.mediaId
         if (id != bookmarkMediaId) {
+            clearAbRepeat()
             bookmarkMediaId = id
             bookmarkJob?.cancel()
             if (id == null) {
@@ -284,12 +314,31 @@ class PlaybackViewModel(
         mutableState.value = state.value.copy(trackErrorMessage = result.exceptionOrNull()?.message)
     }
 
-    override fun onCleared() {
-        player?.removeListener(listener)
-    }
-
     private fun diagnosticsCapabilities(engine: EngineId): EngineCapabilities = when (engine) {
         EngineId.MEDIA3 -> Media3PlayerEngine.CAPABILITIES
         EngineId.LIBVLC -> LibVlcPlayerEngine.CAPABILITIES
+    }
+
+    private fun observeAbRepeat() {
+        abRepeatJob?.cancel()
+        abRepeatJob = viewModelScope.launch {
+            while (true) {
+                delay(100)
+                val playback = state.value
+                val start = playback.abRepeatStartMillis ?: break
+                val end = playback.abRepeatEndMillis ?: break
+                if (playback.isPlaying && playback.positionMillis >= end) seekTo(start)
+            }
+        }
+    }
+
+    override fun onCleared() {
+        player?.removeListener(listener)
+        abRepeatJob?.cancel()
+        bookmarkJob?.cancel()
+    }
+
+    private companion object {
+        const val MIN_AB_REPEAT_MILLIS = 1_000L
     }
 }

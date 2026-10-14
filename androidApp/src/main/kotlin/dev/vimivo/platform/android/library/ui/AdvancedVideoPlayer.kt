@@ -54,6 +54,7 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PictureInPicture
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.ScreenLockLandscape
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
@@ -522,6 +523,21 @@ private fun VideoSettingsSheet(
         }
         MenuHeading(Icons.Outlined.FitScreen, "Gesture sensitivity")
         Slider(settings.videoGestureSensitivity, onSensitivity, valueRange = 0.5f..2f, modifier = Modifier.padding(horizontal = 20.dp))
+        MenuHeading(Icons.Outlined.Repeat, "A–B repeat")
+        val abStart = player.abRepeatStartMillis
+        val abEnd = player.abRepeatEndMillis
+        when {
+            abStart == null -> SettingsRow(Icons.Outlined.Repeat, "Set A at current position", onClick = viewModel::setAbRepeatStart)
+            abEnd == null -> {
+                SettingsRow(Icons.Outlined.Repeat, "A: ${formatVideoTime(abStart)}", "Choose B at least one second later") {}
+                SettingsRow(Icons.Outlined.Repeat, "Set B at current position", onClick = viewModel::setAbRepeatEnd)
+                SettingsRow(Icons.Outlined.Close, "Clear A–B repeat", onClick = viewModel::clearAbRepeat)
+            }
+            else -> {
+                SettingsRow(Icons.Outlined.Repeat, "Repeating ${formatVideoTime(abStart)} – ${formatVideoTime(abEnd)}", onClick = viewModel::clearAbRepeat)
+                Text("Timing follows playback position; it is not frame-accurate.", Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         MenuHeading(Icons.Outlined.Info, "Decoder and video information")
         InfoLine("Engine", player.engine?.name)
         InfoLine("Decoder", player.engine?.let { if (player.capabilities?.hardwareDecoding == true) "$it · hardware when available" else it.name })
