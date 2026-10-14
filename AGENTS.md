@@ -19,6 +19,7 @@ These rules apply to the entire repository.
 - Use immutable UI state exposed as `StateFlow`; keep mutable flows private.
 - Playback engines implement `PlayerEngine`, report capabilities and failures explicitly, and release native resources in `close()`.
 - Desktop libmpv integration must use the documented client API, never shell commands or filename interpolation, and must report a missing native library as an actionable error.
+- Desktop persistence uses a non-destructive SQLite migration path under the per-user Application Support directory; never store databases in the bundle, repository, or temporary directory.
 - Prefer a small number of cohesive Gradle modules. Introduce another module only with a measured build/ownership reason.
 
 ## Kotlin and dependencies

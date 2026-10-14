@@ -40,6 +40,7 @@ kotlin {
                 implementation(compose.material3)
                 implementation(libs.coroutines.core)
                 implementation(libs.jna)
+                implementation(libs.sqlite.jdbc)
             }
         }
         val desktopTest by getting {
