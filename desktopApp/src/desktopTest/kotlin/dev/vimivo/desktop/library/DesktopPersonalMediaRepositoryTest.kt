@@ -109,6 +109,31 @@ class DesktopPersonalMediaRepositoryTest {
         }
     }
 
+    @Test
+    fun duplicatesPlaylistsAndSupportsHistoryAndBookmarkCleanup() {
+        val path = Files.createTempDirectory("vimivo-personal-actions-test").resolve("vimivo.sqlite")
+        val mediaId = MediaId("media-1")
+        DesktopDatabase.open(path).use { database ->
+            seedMedia(database, listOf(mediaId))
+            val repository = DesktopPersonalMediaRepository(database)
+            val playlist = repository.createPlaylist("Original", now = 1)
+            repository.addToPlaylist(playlist.id, mediaId, now = 2)
+            val duplicate = repository.duplicatePlaylist(playlist.id, now = 3)
+            assertEquals("Original copy", duplicate.name)
+            assertEquals(listOf(mediaId), duplicate.items)
+
+            repository.recordPlayback(mediaId, positionMillis = 4_000, completed = false, now = 4)
+            repository.removeHistory(mediaId)
+            assertTrue(repository.history().isEmpty())
+
+            val bookmark = repository.addBookmark(mediaId, 5_000, "Old", now = 5)
+            repository.renameBookmark(bookmark.id, "New")
+            assertEquals("New", repository.allBookmarks().single().name)
+            repository.deleteBookmark(bookmark.id)
+            assertTrue(repository.allBookmarks().isEmpty())
+        }
+    }
+
     private fun seedMedia(database: DesktopDatabase, ids: List<MediaId>) {
         database.transaction { connection ->
             connection.createStatement().execute("INSERT INTO library_roots(id,uri,display_name,added_at_ms) VALUES('root','file:///tmp/','Test',0)")

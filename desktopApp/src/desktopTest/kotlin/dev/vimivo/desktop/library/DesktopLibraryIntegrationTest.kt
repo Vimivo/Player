@@ -31,6 +31,10 @@ class DesktopLibraryIntegrationTest {
             assertEquals("Movie One", repository.media(MediaKind.VIDEO, "movie").single().title)
             assertEquals(2, scanner.scan(root.id, library).getOrThrow().indexed)
             assertEquals(1, repository.media(MediaKind.AUDIO).size)
+            val ordered = repository.media(
+                listOf(repository.media(MediaKind.VIDEO).single().id, repository.media(MediaKind.AUDIO).single().id),
+            )
+            assertEquals(listOf(MediaKind.VIDEO, MediaKind.AUDIO), ordered.map { it.kind })
         }
 
         DesktopDatabase.open(databasePath).use { database ->

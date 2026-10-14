@@ -95,6 +95,13 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
     var networkUrl by remember { mutableStateOf("") }
     var destination by remember { mutableStateOf(DesktopDestination.Home) }
     val videoCanvas = remember { Canvas() }
+    val playMedia: (MediaItem) -> Unit = { media ->
+        scope.launch {
+            library.preparePlayback(media).onSuccess { request ->
+                engine.open(request.media, request.startPositionMillis).onSuccess { engine.play() }
+            }
+        }
+    }
     DisposableEffect(engine) { onDispose(engine::close) }
     DisposableEffect(library) { onDispose(library::close) }
     DisposableEffect(videoCanvas) {
@@ -134,14 +141,30 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
                     onRemoveRoot = library::removeRoot,
                     onRefreshAvailability = library::refreshAvailability,
                     onSearch = library::setSearch,
-                    onPlay = { media ->
-                        scope.launch {
-                            library.preparePlayback(media).onSuccess { request ->
-                                engine.open(request.media, request.startPositionMillis).onSuccess { engine.play() }
-                            }
-                        }
+                    onPlay = playMedia,
+                    onToggleFavorite = library::toggleFavorite,
+                    onAddToPlaylist = library::addToPlaylist,
+                )
+            }
+            if (destination == DesktopDestination.Playlists) {
+                DesktopPlaylistsPanel(
+                    state = libraryState,
+                    onCreate = library::createPlaylist,
+                    onRename = library::renamePlaylist,
+                    onDelete = library::deletePlaylist,
+                    onDuplicate = library::duplicatePlaylist,
+                    onRemove = library::removeFromPlaylist,
+                    onMove = library::movePlaylistItem,
+                    onPlay = { playlistId ->
+                        scope.launch { library.playlistMedia(playlistId).onSuccess { it.firstOrNull()?.let(playMedia) } }
                     },
                 )
+            }
+            if (destination == DesktopDestination.Favorites) {
+                DesktopFavoritesPanel(libraryState.favorites, playMedia, library::toggleFavorite)
+            }
+            if (destination == DesktopDestination.History) {
+                DesktopHistoryPanel(libraryState.history, playMedia, library::removeHistory, library::clearHistory)
             }
             if (destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
                 SwingPanel(
@@ -197,6 +220,14 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
                 Spacer(Modifier.weight(1f))
                 Text(formatTime(state.durationMillis ?: 0))
             }
+            DesktopBookmarksPanel(
+                media = state.media,
+                positionMillis = state.positionMillis,
+                bookmarks = libraryState.bookmarks,
+                onAdd = library::addBookmark,
+                onSeek = { engine.seekTo(it) },
+                onDelete = library::deleteBookmark,
+            )
                 }
             }
             (state.status as? PlaybackStatus.Error)?.let { error ->
@@ -222,6 +253,8 @@ private fun DesktopLibraryPanel(
     onRefreshAvailability: () -> Unit,
     onSearch: (String) -> Unit,
     onPlay: (MediaItem) -> Unit,
+    onToggleFavorite: (MediaItem) -> Unit,
+    onAddToPlaylist: (String, MediaItem) -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = onAddFolder) { Text("Add Folder") }
@@ -261,10 +294,17 @@ private fun DesktopLibraryPanel(
         if (!state.loading && media.isEmpty()) Text(if (state.search.isBlank()) "No media found. Add and scan a folder." else "No matching media.")
         LazyColumn(Modifier.fillMaxWidth().height(260.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(media, key = { it.id.value }) { item ->
-                OutlinedButton(onClick = { onPlay(item) }, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth()) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f)) {
                         Text(item.title)
-                        Text(listOfNotNull(item.fileName, item.folderName, item.sizeBytes?.let(::formatBytes)).joinToString(" · "))
+                        Text(listOfNotNull(item.artist, item.album, item.fileName, item.sizeBytes?.let(::formatBytes)).joinToString(" · "))
+                    }
+                    Button(onClick = { onPlay(item) }) { Text("Play") }
+                    OutlinedButton(onClick = { onToggleFavorite(item) }) { Text(if (item.isFavorite) "Unfavorite" else "Favorite") }
+                    state.playlists.firstOrNull()?.let { playlist ->
+                        OutlinedButton(onClick = { onAddToPlaylist(playlist.id, item) }) { Text("Add to ${playlist.name}") }
+                    }
                     }
                 }
             }
@@ -324,6 +364,7 @@ private enum class DesktopDestination(
     Videos("Videos", "Local videos and resume points", "Your video library is empty", "Add and scan a library folder from Home, or open a video directly."),
     Playlists("Playlists", "Your local collections", "No playlists yet", "Playlist editing is not yet available in the desktop interface."),
     Favorites("Favorites", "Media you marked for quick access", "No favorites yet", "Favorite controls are not yet available in the desktop interface."),
+    History("History", "Recently played and watched", "No playback history", "Played library media appears here."),
     Network("Network", "Authorized streams and remote media", "Open an authorized stream", "Paste an HTTP, HTTPS, or RTSP address above."),
     Settings("Settings", "Appearance and playback preferences", "Settings are being prepared", "Preferences will be stored locally in the desktop persistence layer."),
 }

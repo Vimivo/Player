@@ -64,6 +64,24 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         }
     }
 
+    fun media(ids: Collection<MediaId>): List<MediaItem> {
+        if (ids.isEmpty()) return emptyList()
+        val orderedIds = ids.map(MediaId::value)
+        return database.transaction { connection ->
+            val placeholders = orderedIds.joinToString(",") { "?" }
+            connection.prepareStatement(
+                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
+                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                    "WHERE m.available=1 AND m.id IN ($placeholders)",
+            ).use { statement ->
+                orderedIds.forEachIndexed { index, id -> statement.setString(index + 1, id) }
+                val byId = statement.executeQuery().use { rows -> buildMap { while (rows.next()) put(rows.getString(1), rows.toMedia()) } }
+                orderedIds.mapNotNull(byId::get)
+            }
+        }
+    }
+
     fun root(id: String): LibraryRoot? = roots().firstOrNull { it.id == id }
     fun removeRoot(id: String): Result<Unit> = runCatching {
         database.transaction { connection ->

@@ -1,9 +1,13 @@
-@file:Suppress("MaximumLineLength", "MaxLineLength", "TooGenericExceptionCaught")
+@file:Suppress("CyclomaticComplexMethod", "MaximumLineLength", "MaxLineLength", "TooGenericExceptionCaught")
 
 package dev.vimivo.desktop.library
 
+import dev.vimivo.core.model.Bookmark
+import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.core.model.PlaybackHistory
+import dev.vimivo.core.model.Playlist
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +29,11 @@ internal data class DesktopLibraryUiState(
     val roots: List<LibraryRoot> = emptyList(),
     val audio: List<MediaItem> = emptyList(),
     val video: List<MediaItem> = emptyList(),
+    val playlists: List<Playlist> = emptyList(),
+    val personalMedia: Map<MediaId, MediaItem> = emptyMap(),
+    val favorites: List<MediaItem> = emptyList(),
+    val history: List<DesktopHistoryItem> = emptyList(),
+    val bookmarks: List<Bookmark> = emptyList(),
     val scanStates: Map<String, LibraryScanState> = emptyMap(),
     val search: String = "",
     val loading: Boolean = true,
@@ -32,6 +41,7 @@ internal data class DesktopLibraryUiState(
 )
 
 internal data class DesktopPlaybackRequest(val media: MediaItem, val startPositionMillis: Long)
+internal data class DesktopHistoryItem(val media: MediaItem, val history: PlaybackHistory)
 
 internal class DesktopLibraryController(
     private val database: DesktopDatabase = DesktopDatabase.open(),
@@ -80,6 +90,34 @@ internal class DesktopLibraryController(
         repository.refreshAvailability().onFailure(::report)
     }
 
+    fun createPlaylist(name: String) = mutatePersonalData { personalRepository.createPlaylist(name) }
+    fun renamePlaylist(id: String, name: String) = mutatePersonalData { personalRepository.renamePlaylist(id, name) }
+    fun deletePlaylist(id: String) = mutatePersonalData { personalRepository.deletePlaylist(id) }
+    fun duplicatePlaylist(id: String) = mutatePersonalData { personalRepository.duplicatePlaylist(id) }
+    fun addToPlaylist(playlistId: String, media: MediaItem) =
+        mutatePersonalData { personalRepository.addToPlaylist(playlistId, media.id) }
+    fun removeFromPlaylist(playlistId: String, mediaId: MediaId) =
+        mutatePersonalData { personalRepository.removeFromPlaylist(playlistId, mediaId) }
+    fun movePlaylistItem(playlistId: String, mediaId: MediaId, position: Int) =
+        mutatePersonalData { personalRepository.movePlaylistItem(playlistId, mediaId, position) }
+    fun toggleFavorite(media: MediaItem) = mutatePersonalData {
+        personalRepository.setFavorite(FavoriteTarget.MEDIA, media.id.value, !media.isFavorite)
+    }
+    fun removeHistory(mediaId: MediaId) = mutatePersonalData { personalRepository.removeHistory(mediaId) }
+    fun clearHistory() = mutatePersonalData { personalRepository.clearHistory() }
+    fun addBookmark(mediaId: MediaId, positionMillis: Long, label: String?) =
+        mutatePersonalData { personalRepository.addBookmark(mediaId, positionMillis, label) }
+    fun renameBookmark(id: String, label: String) = mutatePersonalData { personalRepository.renameBookmark(id, label) }
+    fun deleteBookmark(id: String) = mutatePersonalData { personalRepository.deleteBookmark(id) }
+
+    suspend fun playlistMedia(playlistId: String): Result<List<MediaItem>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val playlist = personalRepository.playlists().firstOrNull { it.id == playlistId }
+                ?: error("Playlist was not found")
+            repository.media(playlist.items)
+        }.onFailure(::report)
+    }
+
     suspend fun preparePlayback(media: MediaItem): Result<DesktopPlaybackRequest> = withContext(Dispatchers.IO) {
         runCatching {
             require(media.uri.startsWith("file:")) { "Only indexed local files can be opened from the library" }
@@ -109,6 +147,7 @@ internal class DesktopLibraryController(
                     personalRepository.recordPlayback(media.id, playbackState.positionMillis, completed = false)
                 }
                 historyRecorded = true
+                refresh()
             }
             val completed = playbackState.status == PlaybackStatus.Completed
             val shouldPersist = when {
@@ -130,6 +169,7 @@ internal class DesktopLibraryController(
                 }
                 lastSavedPosition = playbackState.positionMillis
                 completionSaved = completed
+                if (completed) refresh()
             }
         }
     }
@@ -138,11 +178,24 @@ internal class DesktopLibraryController(
         runCatching {
             val query = mutableState.value.search.trim()
             val roots = repository.roots()
+            val playlists = personalRepository.playlists()
+            val favoriteIds = personalRepository.favoriteIds(FavoriteTarget.MEDIA).map(::MediaId)
+            val favorites = repository.media(favoriteIds).map { it.copy(isFavorite = true) }
+            val favoriteIdSet = favoriteIds.mapTo(mutableSetOf(), MediaId::value)
+            val history = personalRepository.history()
+            val personalMedia = repository.media(
+                playlists.flatMap(Playlist::items) + favoriteIds + history.map(PlaybackHistory::mediaId),
+            ).associateBy { it.id }
             roots.forEach(::observeScan)
             mutableState.value = mutableState.value.copy(
                 roots = roots,
-                audio = repository.media(MediaKind.AUDIO, query),
-                video = repository.media(MediaKind.VIDEO, query),
+                audio = repository.media(MediaKind.AUDIO, query).map { it.copy(isFavorite = it.id.value in favoriteIdSet) },
+                video = repository.media(MediaKind.VIDEO, query).map { it.copy(isFavorite = it.id.value in favoriteIdSet) },
+                playlists = playlists,
+                personalMedia = personalMedia,
+                favorites = favorites,
+                history = history.mapNotNull { entry -> personalMedia[entry.mediaId]?.let { DesktopHistoryItem(it, entry) } },
+                bookmarks = personalRepository.allBookmarks(),
                 loading = false,
                 error = null,
             )
@@ -162,6 +215,11 @@ internal class DesktopLibraryController(
 
     private fun report(error: Throwable) {
         mutableState.value = mutableState.value.copy(loading = false, error = error.message ?: "Library operation failed")
+    }
+
+    private fun mutatePersonalData(block: () -> Unit) = scope.launch {
+        withContext(Dispatchers.IO) { runCatching(block).onFailure(::report) }
+            .onSuccess { refresh() }
     }
 
     override fun close() {

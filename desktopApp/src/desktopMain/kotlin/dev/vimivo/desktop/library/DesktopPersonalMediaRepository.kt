@@ -107,6 +107,13 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
         }
     }
 
+    fun duplicatePlaylist(id: String, name: String? = null, now: Long = System.currentTimeMillis()): Playlist {
+        val original = playlists().firstOrNull { it.id == id } ?: error("Playlist was not found")
+        val duplicate = createPlaylist(name ?: "${original.name} copy", now)
+        original.items.forEach { addToPlaylist(duplicate.id, it, now) }
+        return playlists().first { it.id == duplicate.id }
+    }
+
     fun setFavorite(type: FavoriteTarget, id: String, favorite: Boolean, now: Long = System.currentTimeMillis()) =
         database.transaction { connection ->
             val sql = if (favorite) "INSERT OR IGNORE INTO favorites(target_type,target_id,created_at_ms) VALUES(?,?,?)" else "DELETE FROM favorites WHERE target_type=? AND target_id=?"
@@ -156,6 +163,16 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
         }
     }
 
+    fun removeHistory(mediaId: MediaId) = database.transaction { connection ->
+        connection.prepareStatement("DELETE FROM playback_history WHERE media_id=?").use { statement ->
+            statement.setString(1, mediaId.value); statement.executeUpdate()
+        }
+    }
+
+    fun clearHistory() = database.transaction { connection ->
+        connection.createStatement().executeUpdate("DELETE FROM playback_history")
+    }
+
     fun savePosition(mediaId: MediaId, positionMillis: Long, durationMillis: Long?, completed: Boolean, now: Long = System.currentTimeMillis()) =
         database.transaction { connection ->
             connection.prepareStatement(
@@ -193,6 +210,29 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
             statement.setString(1, mediaId.value); statement.executeQuery().use { rows ->
                 buildList { while (rows.next()) add(Bookmark(rows.getString(1), mediaId, rows.getString(3).orEmpty(), rows.getLong(2), rows.getLong(4))) }
             }
+        }
+    }
+
+    fun allBookmarks(): List<Bookmark> = database.transaction { connection ->
+        connection.createStatement().executeQuery(
+            "SELECT id,media_id,position_ms,label,created_at_ms FROM media_bookmarks ORDER BY created_at_ms DESC",
+        ).use { rows ->
+            buildList {
+                while (rows.next()) add(Bookmark(rows.getString(1), MediaId(rows.getString(2)), rows.getString(4).orEmpty(), rows.getLong(3), rows.getLong(5)))
+            }
+        }
+    }
+
+    fun renameBookmark(id: String, label: String) = database.transaction { connection ->
+        connection.prepareStatement("UPDATE media_bookmarks SET label=? WHERE id=?").use { statement ->
+            statement.setString(1, label.trim()); statement.setString(2, id)
+            require(statement.executeUpdate() == 1) { "Bookmark was not found" }
+        }
+    }
+
+    fun deleteBookmark(id: String) = database.transaction { connection ->
+        connection.prepareStatement("DELETE FROM media_bookmarks WHERE id=?").use { statement ->
+            statement.setString(1, id); require(statement.executeUpdate() == 1) { "Bookmark was not found" }
         }
     }
 
