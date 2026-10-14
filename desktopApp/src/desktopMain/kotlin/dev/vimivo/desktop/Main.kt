@@ -230,6 +230,7 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            state.media?.let { DesktopArtwork(it.artworkUri, it.title, 96.dp) }
             Text(state.media?.title ?: "Nothing playing", style = MaterialTheme.typography.titleLarge)
             Text(state.status.label(), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Slider(
@@ -322,6 +323,7 @@ private fun DesktopLibraryPanel(
             items(media, key = { it.id.value }) { item ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DesktopArtwork(item.artworkUri, item.title)
                     Column(Modifier.weight(1f)) {
                         Text(item.title)
                         Text(listOfNotNull(item.artist, item.album, item.fileName, item.sizeBytes?.let(::formatBytes)).joinToString(" · "))

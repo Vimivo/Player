@@ -113,6 +113,7 @@ internal fun DesktopHistoryPanel(items: List<DesktopHistoryItem>, onPlay: (Media
         items(items, key = { it.media.id.value }) { item ->
             Card(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DesktopArtwork(item.media.artworkUri, item.media.title)
                     Column(Modifier.weight(1f)) {
                         Text(item.media.title, style = MaterialTheme.typography.titleMedium)
                         Text("Played ${item.history.playCount} time(s) · ${formatPersonalTime(item.history.positionMillis)}")
@@ -207,6 +208,7 @@ private fun MediaActionList(items: List<MediaItem>, onPlay: (MediaItem) -> Unit,
         items(items, key = { it.id.value }) { media ->
             Card(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DesktopArtwork(media.artworkUri, media.title)
                     Column(Modifier.weight(1f)) {
                         Text(media.title, style = MaterialTheme.typography.titleMedium)
                         Text(listOfNotNull(media.artist, media.album, media.fileName).joinToString(" · "))

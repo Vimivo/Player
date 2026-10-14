@@ -42,6 +42,7 @@ kotlin {
                 implementation(libs.jna)
                 implementation(libs.sqlite.jdbc)
                 implementation(libs.jaudiotagger)
+                implementation(libs.coil.compose)
             }
         }
         val desktopTest by getting {
