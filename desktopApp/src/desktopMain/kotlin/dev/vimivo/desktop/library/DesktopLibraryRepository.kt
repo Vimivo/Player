@@ -51,6 +51,27 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
     }
 
     fun root(id: String): LibraryRoot? = roots().firstOrNull { it.id == id }
+    fun removeRoot(id: String): Result<Unit> = runCatching {
+        database.transaction { connection ->
+            connection.prepareStatement("DELETE FROM media_items WHERE root_id=?").use { statement -> statement.setString(1, id); statement.executeUpdate() }
+            connection.prepareStatement("DELETE FROM library_roots WHERE id=?").use { statement -> statement.setString(1, id); require(statement.executeUpdate() == 1) { "Library root was not found" } }
+        }
+        invalidate()
+    }
+
+    fun refreshAvailability(): Result<Unit> = runCatching {
+        val currentRoots = roots()
+        database.transaction { connection ->
+            currentRoots.forEach { root ->
+                connection.prepareStatement("UPDATE library_roots SET available=? WHERE id=?").use { statement ->
+                    statement.setInt(1, if (Files.isDirectory(root.path) && Files.isReadable(root.path)) 1 else 0)
+                    statement.setString(2, root.id)
+                    statement.executeUpdate()
+                }
+            }
+        }
+        invalidate()
+    }
     fun invalidate() { mutableGeneration.value++ }
 
     private fun java.sql.ResultSet.toMedia() = MediaItem(MediaId(getString(1)), getString(2), getString(3), MediaKind.valueOf(getString(4)), sizeBytes = getLong(6).takeIf { !wasNull() }, mimeType = getString(7), fileName = getString(5), dateModifiedEpochSeconds = getLong(8).takeIf { !wasNull() }?.div(1000), source = MediaSource.SAF_TREE)
