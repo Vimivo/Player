@@ -13,6 +13,8 @@ internal interface MpvNative : Library {
     fun mpv_set_option_string(context: Pointer, name: String, value: String): Int
     fun mpv_set_property_string(context: Pointer, name: String, value: String): Int
     fun mpv_get_property(context: Pointer, name: String, format: Int, data: Pointer): Int
+    fun mpv_get_property_string(context: Pointer, name: String): Pointer?
+    fun mpv_free(data: Pointer)
     fun mpv_command(context: Pointer, arguments: Pointer): Int
     fun mpv_error_string(code: Int): String?
 

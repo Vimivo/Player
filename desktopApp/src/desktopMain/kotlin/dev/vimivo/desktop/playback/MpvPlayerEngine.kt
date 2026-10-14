@@ -5,7 +5,9 @@
     "MaximumLineLength",
     "MaxLineLength",
     "MultiLineIfElse",
+    "ParameterListWrapping",
     "TooGenericExceptionCaught",
+    "Wrapping",
 )
 
 package dev.vimivo.desktop.playback
@@ -19,6 +21,7 @@ import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.PlaybackError
 import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackMetadata
@@ -26,6 +29,9 @@ import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.SupportLevel
+import dev.vimivo.playback.TrackInfo
+import dev.vimivo.playback.TrackOrigin
+import dev.vimivo.playback.TrackType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,6 +44,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.awt.Canvas
+import java.io.File
+import java.net.URI
 
 /** Desktop libmpv adapter. mpv owns its native output window until render embedding is introduced. */
 class MpvPlayerEngine : PlayerEngine {
@@ -103,6 +111,22 @@ class MpvPlayerEngine : PlayerEngine {
     override fun selectAudioTrack(trackId: String?) = action { setProperty("aid", trackId ?: "no") }
     override fun selectVideoTrack(trackId: String?) = action { setProperty("vid", trackId ?: "no") }
     override fun selectSubtitleTrack(trackId: String?) = action { setProperty("sid", trackId ?: "no") }
+    override fun addExternalSubtitle(subtitle: ExternalSubtitle) = action { command("sub-add", subtitle.uri, "select") }
+    override fun setSubtitleDelay(delayMillis: Long) = action { setProperty("sub-delay", (delayMillis / 1_000.0).toString()) }
+    override fun setAudioDelay(delayMillis: Long) = action { setProperty("audio-delay", (delayMillis / 1_000.0).toString()) }
+
+    /** Finds sibling subtitles only for file URIs the user has already opened. */
+    fun detectAssociatedSubtitles(media: MediaItem): List<ExternalSubtitle> = runCatching {
+        val mediaFile = File(URI(media.uri))
+        val stem = mediaFile.nameWithoutExtension.lowercase()
+        mediaFile.parentFile?.listFiles()
+            .orEmpty()
+            .asSequence()
+            .filter { it.isFile && it.extension.lowercase() in SUBTITLE_EXTENSIONS }
+            .filter { it.nameWithoutExtension.lowercase() == stem || it.nameWithoutExtension.lowercase().startsWith("$stem.") }
+            .map { file -> ExternalSubtitle(file.toURI().toString(), file.name, languageFromSubtitleName(file.name), subtitleMimeType(file.extension)) }
+            .toList()
+    }.getOrDefault(emptyList())
     override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> =
         Result.failure(UnsupportedOperationException(capabilities.audioEnhancements.limitation))
 
@@ -144,6 +168,9 @@ class MpvPlayerEngine : PlayerEngine {
                     speed = doubleProperty("speed")?.toFloat() ?: previous.speed,
                     volume = ((doubleProperty("volume") ?: 100.0) / 100.0).toFloat().coerceIn(0f, 1f),
                     isSeekable = flagProperty("seekable") ?: false,
+                    audioTracks = tracks(TrackType.AUDIO),
+                    videoTracks = tracks(TrackType.VIDEO),
+                    subtitleTracks = tracks(TrackType.SUBTITLE),
                 )
                 delay(250)
             }
@@ -171,6 +198,36 @@ class MpvPlayerEngine : PlayerEngine {
         return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_FLAG, memory) >= 0) {
             memory.getInt(0) != 0
         } else null
+    }
+
+    private fun stringProperty(name: String): String? {
+        val value = checkNotNull(native).mpv_get_property_string(checkNotNull(context), name) ?: return null
+        return try { value.getString(0) } finally { checkNotNull(native).mpv_free(value) }
+    }
+
+    private fun tracks(type: TrackType): List<TrackInfo> {
+        val count = stringProperty("track-list/count")?.toIntOrNull() ?: return emptyList()
+        val selected = stringProperty(when (type) {
+            TrackType.AUDIO -> "aid"
+            TrackType.VIDEO -> "vid"
+            TrackType.SUBTITLE -> "sid"
+        })
+        return (0 until count).mapNotNull { index ->
+            val prefix = "track-list/$index"
+            val actualType = stringProperty("$prefix/type") ?: return@mapNotNull null
+            if (actualType != type.mpvName) return@mapNotNull null
+            val id = stringProperty("$prefix/id") ?: return@mapNotNull null
+            val language = stringProperty("$prefix/lang")
+            TrackInfo(
+                id = id,
+                type = type,
+                label = stringProperty("$prefix/title") ?: language ?: "${type.displayName} $id",
+                language = language,
+                codec = stringProperty("$prefix/codec"),
+                isSelected = id == selected,
+                origin = if (stringProperty("$prefix/external") == "yes") TrackOrigin.EXTERNAL else TrackOrigin.EMBEDDED,
+            )
+        }
     }
 
     private fun action(block: () -> Unit): Result<Unit> = runCatching {
@@ -211,6 +268,7 @@ class MpvPlayerEngine : PlayerEngine {
     companion object {
         private const val MPV_FORMAT_FLAG = 3
         private const val MPV_FORMAT_DOUBLE = 5
+        private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "webvtt")
         val CAPABILITIES = EngineCapabilities(
             localAudio = true,
             localVideo = true,
@@ -235,4 +293,22 @@ class MpvPlayerEngine : PlayerEngine {
             ),
         )
     }
+}
+
+private val TrackType.mpvName: String get() = when (this) {
+    TrackType.AUDIO -> "audio"
+    TrackType.VIDEO -> "video"
+    TrackType.SUBTITLE -> "sub"
+}
+
+private val TrackType.displayName: String get() = name.lowercase().replaceFirstChar(Char::uppercase)
+
+private fun languageFromSubtitleName(fileName: String): String? =
+    fileName.substringBeforeLast('.').substringAfterLast('.', "").takeIf { it.length in 2..8 }
+
+private fun subtitleMimeType(extension: String): String = when (extension.lowercase()) {
+    "srt" -> "application/x-subrip"
+    "vtt", "webvtt" -> "text/vtt"
+    "ass", "ssa" -> "text/x-ssa"
+    else -> "application/octet-stream"
 }
