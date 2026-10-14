@@ -41,6 +41,7 @@ kotlin {
                 implementation(libs.coroutines.core)
                 implementation(libs.jna)
                 implementation(libs.sqlite.jdbc)
+                implementation(libs.jaudiotagger)
             }
         }
         val desktopTest by getting {

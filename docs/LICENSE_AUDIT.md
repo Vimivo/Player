@@ -10,6 +10,7 @@ Audit date: 2026-10-13. Versions are those pinned in `gradle/libs.versions.toml`
 | Detekt | 1.23.8 | Apache License 2.0 | Build-time only; retain repository attribution. |
 | JUnit 4 | 4.13.2 | Eclipse Public License 1.0 | Test-only; not packaged in the release runtime. |
 | LibVLC Android (`libvlc-all`) | 3.7.7 | GNU LGPL 2.1 (published POM) | Include LGPL text and notices; allow replacement/relinking of the LGPL component; provide Corresponding Source, including applicable build scripts and modifications, by a compliant method. Preserve third-party codec notices. |
+| Jaudiotagger (`net.jthink:jaudiotagger`) | 3.0.1 | LGPL (published POM; project source headers describe LGPL 2.1-or-later) | Bundle the applicable LGPL text and attribution, keep the library replaceable as a distinct JAR, and publish modifications to the library if Vimivo makes any. Vimivo currently consumes it unmodified. |
 
 ## Native contents
 

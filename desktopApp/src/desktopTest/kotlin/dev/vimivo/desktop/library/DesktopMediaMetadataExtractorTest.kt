@@ -32,6 +32,6 @@ class DesktopMediaMetadataExtractorTest {
         assertEquals(1, metadata.channels)
         assertNotNull(metadata.durationMillis)
         assertEquals(1_000, metadata.durationMillis)
-        assertEquals("WAVE", metadata.container)
+        assertEquals("WAV", metadata.container)
     }
 }

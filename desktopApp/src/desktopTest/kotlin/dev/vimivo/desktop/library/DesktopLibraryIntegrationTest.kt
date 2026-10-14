@@ -66,6 +66,7 @@ class DesktopLibraryIntegrationTest {
                     sampleRate = 44_100,
                     channels = 2,
                     trackNumber = 3,
+                    artworkUri = "file:///tmp/artwork.jpg",
                 ),
             )
 
@@ -76,6 +77,7 @@ class DesktopLibraryIntegrationTest {
             assertEquals(12_345, media.durationMillis)
             assertEquals(1_411_200, media.bitrate)
             assertEquals(3, media.trackNumber)
+            assertEquals("file:///tmp/artwork.jpg", media.artworkUri)
             assertEquals(media, repository.media(MediaKind.AUDIO, "Desktop Album").single())
         }
     }

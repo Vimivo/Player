@@ -22,6 +22,8 @@ data class ExtractedMediaMetadata(
     val container: String? = null,
     val audioTrackCount: Int? = null,
     val subtitleTrackCount: Int? = null,
+    val artworkUri: String? = null,
+    val thumbnailUri: String? = null,
 )
 
 interface MediaMetadataExtractor {
