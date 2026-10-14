@@ -6,10 +6,13 @@
 package dev.vimivo.platform.android.playback
 
 import android.content.Context
+import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
+import android.os.Handler
+import android.os.Looper
 import dev.vimivo.playback.AudioEnhancementCapabilities
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
@@ -22,6 +25,11 @@ import kotlin.math.roundToInt
 /** Owns Android session effects. Effects are always released before a session/engine change. */
 internal class AndroidAudioEnhancementController(context: Context) : AutoCloseable {
     private val audioManager = context.getSystemService(AudioManager::class.java)
+    private val routeCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) = refreshRoute()
+
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) = refreshRoute()
+    }
     private val mutableState = MutableStateFlow(
         AudioEnhancementState(CAPABILITIES, route = currentRoute()),
     )
@@ -29,6 +37,10 @@ internal class AndroidAudioEnhancementController(context: Context) : AutoCloseab
     private var bassBoost: BassBoost? = null
     private var sessionId = 0
     private var requested = AudioEnhancementSettings()
+
+    init {
+        audioManager.registerAudioDeviceCallback(routeCallback, Handler(Looper.getMainLooper()))
+    }
 
     val state: StateFlow<AudioEnhancementState> = mutableState.asStateFlow()
 
@@ -50,6 +62,16 @@ internal class AndroidAudioEnhancementController(context: Context) : AutoCloseab
 
     fun apply(settings: AudioEnhancementSettings): Result<Unit> = runCatching {
         requested = settings.sanitized()
+        if (!requested.enabled) {
+            releaseEffects()
+            mutableState.value = mutableState.value.copy(
+                settings = requested,
+                route = currentRoute(),
+                active = false,
+                message = null,
+            )
+            return@runCatching
+        }
         if (sessionId <= 0) {
             mutableState.value = mutableState.value.copy(
                 settings = requested,
@@ -116,6 +138,7 @@ internal class AndroidAudioEnhancementController(context: Context) : AutoCloseab
     }
 
     override fun close() {
+        audioManager.unregisterAudioDeviceCallback(routeCallback)
         releaseEffects()
         sessionId = 0
         mutableState.value = mutableState.value.copy(active = false)

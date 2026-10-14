@@ -45,6 +45,7 @@ class SessionPlayerAdapter(
     private val manager: PlaybackEngineManager,
     private val scope: CoroutineScope,
     private val store: PlaybackStateStore,
+    private val sleepTimer: SleepTimerController,
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var playlist = emptyList<MediaItem>()
     private var currentIndex = 0
@@ -60,7 +61,9 @@ class SessionPlayerAdapter(
         scope.launch {
             manager.state.collectLatest { state ->
                 attachVideoOutputIfNeeded(state.engine)
-                if (state.status == PlaybackStatus.Completed) advanceAfterCompletion()
+                if (state.status == PlaybackStatus.Completed) {
+                    if (sleepTimer.consumeStopAfterCurrent()) manager.stop() else advanceAfterCompletion()
+                }
                 persistDebounced(state)
                 invalidateState()
             }

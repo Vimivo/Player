@@ -1,4 +1,5 @@
 @file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @file:Suppress("ImportOrdering", "UnstableApiUsage")
 
 package dev.vimivo.platform.android.playback
@@ -45,6 +46,7 @@ class VimivoPlaybackService : MediaLibraryService() {
     private val stateStore: PlaybackStateStore by inject()
     private val diagnostics: PlaybackDiagnostics by inject()
     private val settingsRepository: SettingsRepository by inject()
+    private val sleepTimer: SleepTimerController by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var sessionPlayer: SessionPlayerAdapter
     private lateinit var mediaSession: MediaLibrarySession
@@ -62,7 +64,7 @@ class VimivoPlaybackService : MediaLibraryService() {
             scope = serviceScope,
         )
         diagnostics.attach(engineManager)
-        sessionPlayer = SessionPlayerAdapter(engineManager, serviceScope, stateStore)
+        sessionPlayer = SessionPlayerAdapter(engineManager, serviceScope, stateStore, sleepTimer)
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, LibraryCallback()).build()
         registerNoisyReceiver()
         serviceScope.launch {

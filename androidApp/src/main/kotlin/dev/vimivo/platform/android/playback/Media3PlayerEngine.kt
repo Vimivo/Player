@@ -1,4 +1,5 @@
-@file:Suppress("ImportOrdering")
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
+@file:Suppress("ImportOrdering", "UnstableApiUsage")
 
 package dev.vimivo.platform.android.playback
 

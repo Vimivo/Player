@@ -27,14 +27,6 @@ class SleepTimerController(private val diagnostics: PlaybackDiagnostics) : AutoC
     private var timerJob: Job? = null
     val state: StateFlow<SleepTimerState> = mutableState.asStateFlow()
 
-    init {
-        scope.launch {
-            diagnostics.state.collect { playback ->
-                if (mutableState.value.stopAfterCurrent && playback.status == PlaybackStatus.Completed) expire()
-            }
-        }
-    }
-
     fun schedule(durationMinutes: Int, fadeOutSeconds: Int = 0) {
         require(durationMinutes in 1..24 * 60)
         start(System.currentTimeMillis() + durationMinutes * 60_000L, false, fadeOutSeconds)
@@ -49,6 +41,13 @@ class SleepTimerController(private val diagnostics: PlaybackDiagnostics) : AutoC
         timerJob?.cancel()
         timerJob = null
         mutableState.value = SleepTimerState()
+    }
+
+    /** Called by the authoritative queue adapter before it advances a completed item. */
+    fun consumeStopAfterCurrent(): Boolean {
+        if (!mutableState.value.stopAfterCurrent) return false
+        cancel()
+        return true
     }
 
     private fun start(deadline: Long, afterCurrent: Boolean, fadeSeconds: Int) {

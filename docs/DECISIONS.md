@@ -101,3 +101,9 @@
 **Decision:** Disable Android automatic application backup and provide a versioned JSON export/import selected through SAF. Backups contain settings and stable URI references for playlists, favorites, stream favorites, bookmarks, and history, but never media bytes, credentials, cached artwork, or persisted URI grants.
 
 **Reason:** Automatic platform backup can move private library history to a cloud account without an in-app action. Explicit local files match Vimivo's privacy model, remain inspectable and portable, and allow missing references to be reported rather than silently corrupting relationships.
+
+## ADR-016: Session-bound, capability-gated audio enhancement
+
+**Decision:** Apply Android `Equalizer` and `BassBoost` only to the active Media3 audio session, release them whenever the session, route, or engine changes, and expose controls only from reported engine/device capabilities. LibVLC currently reports these controls unavailable. ReplayGain, crossfade, balance, mono routing, forced output selection, and bit-perfect output remain unexposed until an engine path can implement and verify them.
+
+**Reason:** Android DSP support varies by device, route, and engine. Session ownership prevents effects leaking into later playback, while capability gating avoids settings that silently do nothing or imply output guarantees that Android's mixer cannot generally provide.
