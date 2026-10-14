@@ -119,3 +119,9 @@
 **Decision:** Add one `desktopApp` JVM target, reuse `shared/commonMain`, and access libmpv through JNA 5.19.1. The adapter uses `mpv_command` argument arrays, owns one native handle, polls bounded state at 250 ms, and always calls `mpv_terminate_destroy`. Missing libmpv is an explicit playback error. The first increment lets libmpv own its output window rather than shipping an unverified native rendering bridge.
 
 **Reason:** Compose Desktop provides portable Windows-ready presentation and native macOS packaging, while libmpv provides real codec, subtitle, track, and network playback. Keeping JNA and file dialogs in `desktopApp` preserves the common boundary and avoids shell-command injection or desktop APIs in shared code.
+
+## ADR-019: macOS uses a narrow JAWT render bridge
+
+**Decision:** Keep libmpv controls in the JNA `MpvPlayerEngine`, but render its frames through a locally built Objective-C++ bridge. The bridge obtains Compose's AWT surface through JAWT, installs a `CAOpenGLLayer`, creates one libmpv OpenGL render context, and releases that context before the engine handle. It is arm64-tested against Homebrew libmpv 0.41.0.
+
+**Reason:** Cocoa's supported `wid` embedding expects an `NSView`, whereas AWT's supported macOS embedding surface is Core Animation based. The libmpv render API is the supported way to render into that surface without launching a second player window. OpenGL is deprecated by macOS, so this is intentionally a feasibility bridge, not a promise of a future Metal renderer.

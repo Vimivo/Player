@@ -45,5 +45,5 @@ The desktop target requires JDK 17 and a current `libmpv` dynamic library. Homeb
 ./gradlew :desktopApp:packageDmg
 ```
 
-The runtime searches the normal macOS dynamic-library paths for `libmpv`. Development builds can provide an explicit path with `-Dvimivo.mpv.library=/absolute/path/to/libmpv.dylib`. The native library is not currently bundled, so redistribution licensing and hardened-runtime signing must be resolved before a public desktop release.
+The runtime searches the normal macOS dynamic-library paths for `libmpv`. Development builds can provide an explicit path with `-Dvimivo.mpv.library=/absolute/path/to/libmpv.dylib`. macOS development also compiles `desktopApp/src/desktopMain/native/macos/MpvCocoaRenderer.mm` with Xcode and the libmpv headers. The native library is not currently bundled, so redistribution licensing and hardened-runtime signing must be resolved before a public desktop release.
 

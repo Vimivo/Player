@@ -5,6 +5,29 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
+val macosMpvBridge by tasks.registering(Exec::class) {
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isMacOsX }
+    val javaHome = providers.environmentVariable("JAVA_HOME").orElse("/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home")
+    val output = layout.buildDirectory.file("native/libvimivo_mpv_cocoa.dylib")
+    inputs.file("src/desktopMain/native/macos/MpvCocoaRenderer.mm")
+    outputs.file(output)
+    commandLine(
+        "xcrun", "clang++", "-dynamiclib", "-std=c++17",
+        "-I${javaHome.get()}/include", "-I${javaHome.get()}/include/darwin", "-I/opt/homebrew/include",
+        "src/desktopMain/native/macos/MpvCocoaRenderer.mm", "-o", output.get().asFile.absolutePath,
+        "-L/opt/homebrew/lib", "-L${javaHome.get()}/lib", "-lmpv", "-ljawt", "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "QuartzCore",
+    )
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+    dependsOn(macosMpvBridge)
+}
+
+tasks.matching { it.name == "run" }.configureEach {
+    dependsOn(macosMpvBridge)
+    (this as JavaExec).jvmArgs("-Djava.library.path=${layout.buildDirectory.dir("native").get().asFile.absolutePath}")
+}
+
 kotlin {
     jvm("desktop") {
         compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }

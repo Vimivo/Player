@@ -30,7 +30,7 @@ For macOS, install a current libmpv build and run:
 ./gradlew :desktopApp:packageDmg
 ```
 
-The desktop adapter loads `libmpv` from the system library path. A custom absolute library path may be supplied with `-Dvimivo.mpv.library=/path/to/libmpv.dylib`. The first desktop increment uses libmpv's owned playback window; Compose owns the library and transport-control window.
+The desktop adapter loads `libmpv` from the system library path. A custom absolute library path may be supplied with `-Dvimivo.mpv.library=/path/to/libmpv.dylib`. On macOS development builds, a small JAWT/Objective-C++ bridge uses libmpv's OpenGL render API inside a Compose `SwingPanel`; the bridge is compiled locally and is not yet packaged for redistribution.
 
 ## Application ID
 

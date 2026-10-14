@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.awt.Canvas
 
 /** Desktop libmpv adapter. mpv owns its native output window until render embedding is introduced. */
 class MpvPlayerEngine : PlayerEngine {
@@ -50,6 +51,8 @@ class MpvPlayerEngine : PlayerEngine {
     private var native: MpvNative? = null
     private var context: Pointer? = null
     private var polling: Job? = null
+    private var renderer: MpvCocoaRenderer? = null
+    private var videoSurface: Canvas? = null
     private var closed = false
 
     override val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
@@ -58,6 +61,12 @@ class MpvPlayerEngine : PlayerEngine {
     override fun supportFor(media: MediaItem): SupportLevel = when (media.uri.substringBefore(':').lowercase()) {
         "file", "http", "https", "rtsp", "rtsps" -> SupportLevel.PREFERRED
         else -> SupportLevel.UNSUPPORTED
+    }
+
+    /** Must be called before opening video media; audio-only playback does not require a surface. */
+    fun attachVideoSurface(canvas: Canvas): Result<Unit> = runCatching {
+        check(context == null) { "Attach the video surface before initializing libmpv" }
+        videoSurface = canvas
     }
 
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> = runCatching {
@@ -105,9 +114,12 @@ class MpvPlayerEngine : PlayerEngine {
         context = created
         checkCode(loaded.mpv_set_option_string(created, "config", "no"))
         checkCode(loaded.mpv_set_option_string(created, "terminal", "no"))
-        checkCode(loaded.mpv_set_option_string(created, "force-window", "yes"))
+        checkCode(loaded.mpv_set_option_string(created, "vo", "libmpv"))
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
         checkCode(loaded.mpv_initialize(created))
+        videoSurface?.let { surface ->
+            MpvCocoaRenderer().also { renderer = it }.attach(surface, created)
+        }
     }
 
     private fun startPolling() {
@@ -187,6 +199,8 @@ class MpvPlayerEngine : PlayerEngine {
         if (closed) return
         closed = true
         polling?.cancel()
+        renderer?.detach()
+        renderer = null
         context?.let { native?.mpv_terminate_destroy(it) }
         context = null
         native = null

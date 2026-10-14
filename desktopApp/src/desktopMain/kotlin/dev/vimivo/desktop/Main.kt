@@ -19,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -36,11 +38,12 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.desktop.playback.MpvPlayerEngine
 import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.launch
+import java.awt.Canvas
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
 
-fun main() = application {
+fun main(args: Array<String>) = application {
     val engine = remember { MpvPlayerEngine() }
     Window(
         onCloseRequest = {
@@ -49,16 +52,26 @@ fun main() = application {
         },
         title = "Vimivo",
     ) {
-        MaterialTheme { DesktopPlayer(engine) }
+        MaterialTheme { DesktopPlayer(engine, args.firstOrNull()) }
     }
 }
 
 @Composable
-private fun DesktopPlayer(engine: MpvPlayerEngine) {
+private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
     var networkUrl by remember { mutableStateOf("") }
+    val videoCanvas = remember { Canvas() }
     DisposableEffect(engine) { onDispose(engine::close) }
+    DisposableEffect(videoCanvas) {
+        engine.attachVideoSurface(videoCanvas)
+        onDispose { }
+    }
+    LaunchedEffect(initialPath) {
+        initialPath?.let { path ->
+            File(path).takeIf(File::isFile)?.let { file -> engine.open(file.toMediaItem()).onSuccess { engine.play() } }
+        }
+    }
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -67,6 +80,10 @@ private fun DesktopPlayer(engine: MpvPlayerEngine) {
         ) {
             Text("Vimivo", style = MaterialTheme.typography.headlineLarge)
             Text("macOS desktop player · libmpv", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SwingPanel(
+                factory = { videoCanvas },
+                modifier = Modifier.fillMaxWidth().height(360.dp),
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = {
                     chooseMediaFile()?.let { file ->
