@@ -1,4 +1,7 @@
-@file:Suppress("ArgumentListWrapping", "FunctionNaming", "Indentation", "MagicNumber", "MaximumLineLength", "MaxLineLength")
+@file:Suppress(
+    "ArgumentListWrapping", "CyclomaticComplexMethod", "FunctionNaming", "ImportOrdering", "Indentation",
+    "LongParameterList", "MagicNumber", "MaximumLineLength", "MaxLineLength", "TooManyFunctions",
+)
 
 package dev.vimivo.desktop
 
@@ -12,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,6 +45,9 @@ import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.library.DesktopLibraryController
+import dev.vimivo.desktop.library.DesktopLibraryUiState
+import dev.vimivo.desktop.library.LibraryScanState
 import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.launch
 import java.awt.Canvas
@@ -64,10 +72,13 @@ fun main(args: Array<String>) = application {
 private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
+    val library = remember { DesktopLibraryController() }
+    val libraryState by library.state.collectAsState()
     var networkUrl by remember { mutableStateOf("") }
     var destination by remember { mutableStateOf(DesktopDestination.Home) }
     val videoCanvas = remember { Canvas() }
     DisposableEffect(engine) { onDispose(engine::close) }
+    DisposableEffect(library) { onDispose(library::close) }
     DisposableEffect(videoCanvas) {
         engine.attachVideoSurface(videoCanvas)
         onDispose { }
@@ -87,6 +98,19 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
         ) {
             Text(destination.title, style = MaterialTheme.typography.headlineLarge)
             Text(destination.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (destination in setOf(DesktopDestination.Home, DesktopDestination.Music, DesktopDestination.Videos)) {
+                DesktopLibraryPanel(
+                    destination = destination,
+                    state = libraryState,
+                    onAddFolder = library::addFolder,
+                    onScan = library::scan,
+                    onCancelScan = library::cancelScan,
+                    onRemoveRoot = library::removeRoot,
+                    onRefreshAvailability = library::refreshAvailability,
+                    onSearch = library::setSearch,
+                    onPlay = { media -> scope.launch { engine.open(media).onSuccess { engine.play() } } },
+                )
+            }
             if (destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
                 SwingPanel(
                     factory = { videoCanvas },
@@ -154,6 +178,75 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
         }
     }
 }
+
+@Composable
+private fun DesktopLibraryPanel(
+    destination: DesktopDestination,
+    state: DesktopLibraryUiState,
+    onAddFolder: () -> Unit,
+    onScan: (String) -> Unit,
+    onCancelScan: (String) -> Unit,
+    onRemoveRoot: (String) -> Unit,
+    onRefreshAvailability: () -> Unit,
+    onSearch: (String) -> Unit,
+    onPlay: (MediaItem) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = onAddFolder) { Text("Add Folder") }
+        OutlinedButton(onClick = onRefreshAvailability) { Text("Refresh Availability") }
+    }
+    state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    if (destination == DesktopDestination.Home) {
+        if (state.roots.isEmpty()) Text("No library folders configured.")
+        state.roots.forEach { root ->
+            val scan = state.scanStates[root.id] ?: LibraryScanState.Idle
+            Card(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(root.displayName, style = MaterialTheme.typography.titleMedium)
+                        Text(root.path.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (root.available) scan.label() else "Unavailable")
+                    }
+                    if (scan is LibraryScanState.Scanning) {
+                        OutlinedButton(onClick = { onCancelScan(root.id) }) { Text("Cancel") }
+                    } else {
+                        OutlinedButton(onClick = { onScan(root.id) }) { Text("Rescan") }
+                    }
+                    OutlinedButton(onClick = { onRemoveRoot(root.id) }) { Text("Remove") }
+                }
+            }
+        }
+    } else {
+        OutlinedTextField(
+            value = state.search,
+            onValueChange = onSearch,
+            label = { Text("Search library") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        val media = if (destination == DesktopDestination.Music) state.audio else state.video
+        if (!state.loading && media.isEmpty()) Text(if (state.search.isBlank()) "No media found. Add and scan a folder." else "No matching media.")
+        LazyColumn(Modifier.fillMaxWidth().height(260.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(media, key = { it.id.value }) { item ->
+                OutlinedButton(onClick = { onPlay(item) }, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth()) {
+                        Text(item.title)
+                        Text(listOfNotNull(item.fileName, item.folderName, item.sizeBytes?.let(::formatBytes)).joinToString(" · "))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun LibraryScanState.label(): String = when (this) {
+    LibraryScanState.Idle -> "Idle"
+    is LibraryScanState.Scanning -> "Scanning · $discovered discovered"
+    is LibraryScanState.Completed -> "Completed · ${result.indexed} indexed · ${result.errors} errors"
+    is LibraryScanState.Failed -> "Failed · $message"
+}
+
+private fun formatBytes(bytes: Long): String = if (bytes < 1_048_576) "${bytes / 1024} KB" else "${bytes / 1_048_576} MB"
 
 @Composable
 private fun DesktopSidebar(

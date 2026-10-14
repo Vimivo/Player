@@ -18,6 +18,7 @@ internal class DesktopDatabase private constructor(private val connection: Conne
         migrate()
     }
 
+    @Synchronized
     fun <T> transaction(block: (Connection) -> T): T {
         val wasAutoCommit = connection.autoCommit
         connection.autoCommit = false
