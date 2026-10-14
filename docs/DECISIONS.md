@@ -107,3 +107,9 @@
 **Decision:** Apply Android `Equalizer` and `BassBoost` only to the active Media3 audio session, release them whenever the session, route, or engine changes, and expose controls only from reported engine/device capabilities. LibVLC currently reports these controls unavailable. ReplayGain, crossfade, balance, mono routing, forced output selection, and bit-perfect output remain unexposed until an engine path can implement and verify them.
 
 **Reason:** Android DSP support varies by device, route, and engine. Session ownership prevents effects leaking into later playback, while capability gating avoids settings that silently do nothing or imply output guarantees that Android's mixer cannot generally provide.
+
+## ADR-017: Conservative remote-source transport policy
+
+**Decision:** Use Media3's maintained RTSP module for RTSP/RTSPS playback and an HTTPS-only WebDAV browser implemented with platform networking. Persist remote endpoints without passwords and reject credentials embedded in URLs. SMB, SFTP, and DLNA ContentDirectory remain capability placeholders until their protocol transports, authentication, and playback data sources can be integrated end-to-end without insecure fallback.
+
+**Reason:** A browser that cannot securely authenticate and provide the selected bytes to the active playback engine would be misleading. HTTPS WebDAV and RTSP offer useful, maintainable access today; SMB1, FTP, disabled SSH host-key validation, and plaintext credential persistence are explicitly excluded.

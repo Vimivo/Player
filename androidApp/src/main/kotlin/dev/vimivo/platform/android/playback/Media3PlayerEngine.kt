@@ -283,8 +283,10 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
 
         fun support(media: VimivoMediaItem): SupportLevel {
             val uri = Uri.parse(media.uri)
-            if (uri.scheme !in setOf("content", "file", "http", "https")) return SupportLevel.UNSUPPORTED
-            if (uri.scheme == "http" || uri.scheme == "https") return SupportLevel.PREFERRED
+            if (uri.scheme !in setOf("content", "file", "http", "https", "rtsp", "rtsps")) {
+                return SupportLevel.UNSUPPORTED
+            }
+            if (uri.scheme in setOf("http", "https", "rtsp", "rtsps")) return SupportLevel.PREFERRED
             val extension = uri.lastPathSegment?.substringAfterLast('.', "")?.lowercase().orEmpty()
             return if (extension.isEmpty() || extension in MEDIA3_EXTENSIONS) {
                 SupportLevel.PREFERRED

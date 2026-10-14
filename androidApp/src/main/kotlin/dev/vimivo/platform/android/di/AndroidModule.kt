@@ -29,9 +29,12 @@ import dev.vimivo.platform.android.playback.PlaybackViewModel
 import dev.vimivo.platform.android.settings.SettingsViewModel
 import dev.vimivo.platform.android.network.NetworkViewModel
 import dev.vimivo.platform.android.network.NetworkHistoryStore
+import dev.vimivo.platform.android.network.AndroidNetworkSourceRepository
+import dev.vimivo.platform.android.network.NetworkCredentialVault
 import dev.vimivo.platform.android.settings.AndroidSettingsRepository
 import dev.vimivo.platform.android.settings.LocalBackupManager
 import dev.vimivo.settings.SettingsRepository
+import dev.vimivo.network.NetworkSourceRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -57,6 +60,8 @@ val androidModule = module {
     single { PlaylistDocuments(get(), get(), get()) }
     single<SettingsRepository> { AndroidSettingsRepository(get()) }
     single { NetworkHistoryStore(get()) }
+    single { NetworkCredentialVault(get()) }
+    single<NetworkSourceRepository> { AndroidNetworkSourceRepository(get(), get()) }
     single { LocalBackupManager(get(), get(), get(), get(), get(), get(), get()) }
     single { Media3PlayerEngineFactory(get()) }
     single { LibVlcPlayerEngineFactory(get(), get()) }

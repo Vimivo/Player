@@ -1,4 +1,4 @@
-@file:Suppress("TooManyFunctions")
+@file:Suppress("ArgumentListWrapping", "MaxLineLength", "MaximumLineLength", "TooManyFunctions", "Wrapping")
 
 package dev.vimivo.platform.android.network
 
@@ -248,7 +248,7 @@ internal fun validateNetworkStreamUrl(input: String): Result<String> = runCatchi
     val value = input.trim()
     require(value.isNotEmpty()) { "Enter a media URL" }
     val uri = java.net.URI(value)
-    require(uri.scheme?.lowercase() in setOf("http", "https")) { "Use an HTTP or HTTPS media URL" }
+    require(uri.scheme?.lowercase() in setOf("http", "https", "rtsp", "rtsps")) { "Use an HTTP, HTTPS, RTSP, or RTSPS media URL" }
     require(!uri.host.isNullOrBlank()) { "The URL must include a host" }
     require(uri.rawUserInfo.isNullOrBlank()) { "URLs containing embedded credentials are not stored" }
     value
@@ -285,7 +285,7 @@ private fun PlaybackException.userMessage(): String = when (errorCode) {
     else -> message ?: "Stream playback failed"
 }
 
-private fun isNetworkUrl(value: String) = value.startsWith("https://") || value.startsWith("http://")
+private fun isNetworkUrl(value: String) = value.startsWith("https://") || value.startsWith("http://") || value.startsWith("rtsp://") || value.startsWith("rtsps://")
 private fun List<String>.encodeUrlList() = JSONArray(this).toString()
 private fun String.decodeUrlList(): List<String> = runCatching {
     JSONArray(this).let { array -> List(array.length()) { index -> array.getString(index) } }
