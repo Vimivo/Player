@@ -57,6 +57,7 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             }
             require(version <= SCHEMA_VERSION) { "Desktop database schema $version is newer than this Vimivo build" }
             if (version < 2) migrateToVersion2(statement)
+            if (version < 3) migrateToVersion3(statement)
         }
     }
 
@@ -106,10 +107,17 @@ internal class DesktopDatabase private constructor(private val connection: Conne
         statement.execute("UPDATE schema_version SET version=2")
     }
 
+    private fun migrateToVersion3(statement: java.sql.Statement) {
+        statement.execute("ALTER TABLE media_metadata ADD COLUMN title TEXT")
+        statement.execute("CREATE INDEX IF NOT EXISTS media_metadata_artist ON media_metadata(artist COLLATE NOCASE)")
+        statement.execute("CREATE INDEX IF NOT EXISTS media_metadata_album ON media_metadata(album COLLATE NOCASE)")
+        statement.execute("UPDATE schema_version SET version=3")
+    }
+
     override fun close() = connection.close()
 
     companion object {
-        private const val SCHEMA_VERSION = 2
+        private const val SCHEMA_VERSION = 3
 
         fun open(path: Path = defaultPath()): DesktopDatabase {
             Files.createDirectories(path.parent)

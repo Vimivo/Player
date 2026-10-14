@@ -1,5 +1,6 @@
 package dev.vimivo.desktop.library
 
+import dev.vimivo.core.model.ExtractedMediaMetadata
 import dev.vimivo.core.model.MediaKind
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
@@ -36,6 +37,42 @@ class DesktopLibraryIntegrationTest {
             val repository = DesktopLibraryRepository(database)
             assertEquals(1, repository.roots().size)
             assertTrue(repository.media(MediaKind.VIDEO).single().uri.contains("Movie%20One.mkv"))
+        }
+    }
+
+    @Test
+    fun exposesExtractedMetadataAndSearchesArtistAndAlbum() = runTest {
+        val directory = Files.createTempDirectory("vimivo-metadata-query-test")
+        val library = Files.createDirectories(directory.resolve("Library"))
+        library.resolve("track.wav").writeText("synthetic audio candidate")
+
+        DesktopDatabase.open(directory.resolve("vimivo.sqlite")).use { database ->
+            val repository = DesktopLibraryRepository(database)
+            val root = repository.addRoot(library).getOrThrow()
+            DesktopMediaScanner(database).scan(root.id, library).getOrThrow()
+            val indexed = repository.media(MediaKind.AUDIO).single()
+            DesktopMetadataRepository(database).save(
+                indexed,
+                ExtractedMediaMetadata(
+                    title = "Verified Title",
+                    artist = "Vimivo Artist",
+                    album = "Desktop Album",
+                    durationMillis = 12_345,
+                    bitrate = 1_411_200,
+                    sampleRate = 44_100,
+                    channels = 2,
+                    trackNumber = 3,
+                ),
+            )
+
+            val media = repository.media(MediaKind.AUDIO, "Vimivo Artist").single()
+            assertEquals("Verified Title", media.title)
+            assertEquals("Vimivo Artist", media.artist)
+            assertEquals("Desktop Album", media.album)
+            assertEquals(12_345, media.durationMillis)
+            assertEquals(1_411_200, media.bitrate)
+            assertEquals(3, media.trackNumber)
+            assertEquals(media, repository.media(MediaKind.AUDIO, "Desktop Album").single())
         }
     }
 

@@ -26,6 +26,10 @@ class DesktopDatabaseTest {
                     result.next()
                     assertEquals("dark", result.getString(1))
                 }
+                connection.createStatement().executeQuery("SELECT version FROM schema_version").use { result ->
+                    result.next()
+                    assertEquals(3, result.getInt(1))
+                }
             }
         }
     }

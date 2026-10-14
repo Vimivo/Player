@@ -51,8 +51,15 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
     }
 
     fun media(kind: MediaKind, query: String = ""): List<MediaItem> = database.transaction { connection ->
-        connection.prepareStatement("SELECT id,uri,title,kind,file_name,size_bytes,mime_type,modified_ms FROM media_items WHERE available=1 AND kind=? AND (title LIKE ? OR file_name LIKE ?) ORDER BY title COLLATE NOCASE LIMIT 500").use { statement ->
-            statement.setString(1, kind.name); statement.setString(2, "%$query%"); statement.setString(3, "%$query%")
+        connection.prepareStatement(
+            "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+                "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
+                "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                "WHERE m.available=1 AND m.kind=? AND (COALESCE(NULLIF(x.title,''),m.title) LIKE ? OR m.file_name LIKE ? " +
+                "OR x.artist LIKE ? OR x.album LIKE ?) ORDER BY COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE LIMIT 500",
+        ).use { statement ->
+            statement.setString(1, kind.name)
+            repeat(4) { statement.setString(it + 2, "%$query%") }
             statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
         }
     }
@@ -81,5 +88,16 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
     }
     fun invalidate() { mutableGeneration.value++ }
 
-    private fun java.sql.ResultSet.toMedia() = MediaItem(MediaId(getString(1)), getString(2), getString(3), MediaKind.valueOf(getString(4)), sizeBytes = getLong(6).takeIf { !wasNull() }, mimeType = getString(7), fileName = getString(5), dateModifiedEpochSeconds = getLong(8).takeIf { !wasNull() }?.div(1000), source = MediaSource.SAF_TREE)
+    private fun java.sql.ResultSet.toMedia() = MediaItem(
+        id = MediaId(getString(1)), uri = getString(2), title = getString(3), kind = MediaKind.valueOf(getString(4)),
+        fileName = getString(5), sizeBytes = nullableLong(6), mimeType = getString(7),
+        dateModifiedEpochSeconds = nullableLong(8)?.div(1_000), durationMillis = nullableLong(9), artist = getString(10),
+        album = getString(11), artworkUri = getString(12), albumArtist = getString(13), genre = getString(14),
+        width = nullableInt(15), height = nullableInt(16), frameRate = nullableFloat(17), bitrate = nullableInt(18),
+        trackNumber = nullableInt(19), discNumber = nullableInt(20), releaseYear = nullableInt(21), source = MediaSource.SAF_TREE,
+    )
+
+    private fun java.sql.ResultSet.nullableLong(column: Int) = getLong(column).takeIf { !wasNull() }
+    private fun java.sql.ResultSet.nullableInt(column: Int) = getInt(column).takeIf { !wasNull() }
+    private fun java.sql.ResultSet.nullableFloat(column: Int) = getFloat(column).takeIf { !wasNull() }
 }
