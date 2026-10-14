@@ -23,6 +23,13 @@ internal data class ResumePosition(
 
 /** Authoritative SQLite store for user-created desktop media data. */
 internal class DesktopPersonalMediaRepository(private val database: DesktopDatabase) {
+    fun containsMedia(mediaId: MediaId): Boolean = database.transaction { connection ->
+        connection.prepareStatement("SELECT 1 FROM media_items WHERE id=? AND available=1").use { statement ->
+            statement.setString(1, mediaId.value)
+            statement.executeQuery().use { it.next() }
+        }
+    }
+
     fun createPlaylist(name: String, now: Long = System.currentTimeMillis()): Playlist {
         val normalized = name.trim()
         require(normalized.isNotEmpty()) { "Playlist name cannot be empty" }
@@ -128,6 +135,16 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
                 statement.setInt(4, if (completed) 1 else 0)
                 if (completed) statement.setLong(5, now) else statement.setNull(5, java.sql.Types.BIGINT)
                 statement.executeUpdate()
+            }
+        }
+
+    fun markPlaybackCompleted(mediaId: MediaId, positionMillis: Long, now: Long = System.currentTimeMillis()) =
+        database.transaction { connection ->
+            connection.prepareStatement(
+                "UPDATE playback_history SET last_played_ms=?,recent_position_ms=?,completed=1,last_completed_ms=? WHERE media_id=?",
+            ).use { statement ->
+                statement.setLong(1, now); statement.setLong(2, positionMillis); statement.setLong(3, now)
+                statement.setString(4, mediaId.value); statement.executeUpdate()
             }
         }
 

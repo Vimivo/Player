@@ -3,6 +3,8 @@
 package dev.vimivo.desktop.library
 
 import dev.vimivo.core.model.MediaId
+import dev.vimivo.core.model.MediaItem
+import dev.vimivo.core.model.MediaKind
 import java.nio.file.Files
 import java.sql.DriverManager
 import kotlin.test.Test
@@ -12,6 +14,21 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class DesktopPersonalMediaRepositoryTest {
+    @Test
+    fun appliesConservativeResumeRules() {
+        val video = MediaItem(MediaId("video"), "file:///video.mp4", "Video", MediaKind.VIDEO, durationMillis = 600_000)
+        val song = MediaItem(MediaId("song"), "file:///song.flac", "Song", MediaKind.AUDIO, durationMillis = 240_000)
+        val lecture = MediaItem(
+            MediaId("lecture"), "file:///lecture.flac", "Lecture", MediaKind.AUDIO, durationMillis = 3_600_000,
+        )
+
+        assertEquals(120_000, DesktopLibraryController.resumePositionMillis(video, ResumePosition(video.id, 120_000, 600_000, false, 1)))
+        assertEquals(0, DesktopLibraryController.resumePositionMillis(video, ResumePosition(video.id, 595_000, 600_000, false, 1)))
+        assertEquals(0, DesktopLibraryController.resumePositionMillis(video, ResumePosition(video.id, 120_000, 600_000, true, 1)))
+        assertEquals(0, DesktopLibraryController.resumePositionMillis(song, ResumePosition(song.id, 120_000, 240_000, false, 1)))
+        assertEquals(120_000, DesktopLibraryController.resumePositionMillis(lecture, ResumePosition(lecture.id, 120_000, 3_600_000, false, 1)))
+    }
+
     @Test
     fun migratesVersionOneWithoutLosingExistingRecords() {
         val path = Files.createTempDirectory("vimivo-migration-test").resolve("vimivo.sqlite")
@@ -72,6 +89,23 @@ class DesktopPersonalMediaRepositoryTest {
             assertNotNull(repository.bookmarks(first).single())
             assertEquals("Chorus", repository.bookmarks(first).single().name)
             assertEquals("amoled", repository.setting("theme"))
+        }
+    }
+
+    @Test
+    fun completingPlaybackDoesNotDoubleCountTheSession() {
+        val path = Files.createTempDirectory("vimivo-completion-test").resolve("vimivo.sqlite")
+        val mediaId = MediaId("media-1")
+        DesktopDatabase.open(path).use { database ->
+            seedMedia(database, listOf(mediaId))
+            val repository = DesktopPersonalMediaRepository(database)
+            repository.recordPlayback(mediaId, positionMillis = 1_000, completed = false, now = 10)
+            repository.markPlaybackCompleted(mediaId, positionMillis = 9_900, now = 20)
+
+            val history = repository.history().single()
+            assertEquals(1, history.playCount)
+            assertEquals(9_900, history.positionMillis)
+            assertTrue(history.completed)
         }
     }
 

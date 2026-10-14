@@ -1,6 +1,6 @@
 @file:Suppress(
     "ArgumentListWrapping", "CyclomaticComplexMethod", "FunctionNaming", "ImportOrdering", "Indentation",
-    "LongParameterList", "MagicNumber", "MaximumLineLength", "MaxLineLength", "TooManyFunctions",
+    "LongMethod", "LongParameterList", "MagicNumber", "MaximumLineLength", "MaxLineLength", "TooManyFunctions",
 )
 
 package dev.vimivo.desktop
@@ -111,6 +111,9 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
             }
         }
     }
+    LaunchedEffect(engine, library) {
+        library.observePlayback(engine.state)
+    }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxSize()) {
@@ -133,8 +136,8 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
                     onSearch = library::setSearch,
                     onPlay = { media ->
                         scope.launch {
-                            library.preparePlayback(media).onSuccess { available ->
-                                engine.open(available).onSuccess { engine.play() }
+                            library.preparePlayback(media).onSuccess { request ->
+                                engine.open(request.media, request.startPositionMillis).onSuccess { engine.play() }
                             }
                         }
                     },
