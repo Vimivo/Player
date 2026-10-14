@@ -226,6 +226,7 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
                 bookmarks = libraryState.bookmarks,
                 onAdd = library::addBookmark,
                 onSeek = { engine.seekTo(it) },
+                onRename = library::renameBookmark,
                 onDelete = library::deleteBookmark,
             )
                 }
@@ -302,9 +303,7 @@ private fun DesktopLibraryPanel(
                     }
                     Button(onClick = { onPlay(item) }) { Text("Play") }
                     OutlinedButton(onClick = { onToggleFavorite(item) }) { Text(if (item.isFavorite) "Unfavorite" else "Favorite") }
-                    state.playlists.firstOrNull()?.let { playlist ->
-                        OutlinedButton(onClick = { onAddToPlaylist(playlist.id, item) }) { Text("Add to ${playlist.name}") }
-                    }
+                    AddToPlaylistButton(state.playlists, item, onAddToPlaylist)
                     }
                 }
             }
