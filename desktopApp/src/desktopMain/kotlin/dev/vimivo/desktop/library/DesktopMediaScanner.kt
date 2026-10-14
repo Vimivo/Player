@@ -35,9 +35,15 @@ internal class DesktopMediaScanner(private val database: DesktopDatabase) {
             }
         }
         database.transaction { connection ->
+            connection.prepareStatement("UPDATE media_items SET available=0 WHERE root_id=?").use { statement ->
+                statement.setString(1, rootId)
+                statement.executeUpdate()
+            }
             connection.prepareStatement(
                 "INSERT INTO media_items(id,root_id,uri,file_name,title,kind,mime_type,size_bytes,modified_ms,indexed_ms,available) " +
-                    "VALUES(?,?,?,?,?,?,?,?,?,?,1) ON CONFLICT(uri) DO UPDATE SET size_bytes=excluded.size_bytes,modified_ms=excluded.modified_ms,indexed_ms=excluded.indexed_ms,available=1",
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,1) ON CONFLICT(uri) DO UPDATE SET root_id=excluded.root_id,file_name=excluded.file_name," +
+                    "title=excluded.title,kind=excluded.kind,mime_type=excluded.mime_type,size_bytes=excluded.size_bytes," +
+                    "modified_ms=excluded.modified_ms,indexed_ms=excluded.indexed_ms,available=1",
             ).use { statement ->
                 candidates.forEach { item ->
                     statement.setString(1, item.id.value); statement.setString(2, rootId); statement.setString(3, item.uri)

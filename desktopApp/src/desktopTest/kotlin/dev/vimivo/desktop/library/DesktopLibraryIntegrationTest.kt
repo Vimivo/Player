@@ -58,4 +58,34 @@ class DesktopLibraryIntegrationTest {
             assertFalse(Files.isDirectory(directory.resolve("not-created")))
         }
     }
+
+    @Test
+    fun rescanMarksMissingMediaUnavailableWithoutDeletingItsRecord() = runTest {
+        val directory = Files.createTempDirectory("vimivo-reconcile-test")
+        val library = Files.createDirectories(directory.resolve("Library"))
+        val original = library.resolve("removable.mp3")
+        original.writeText("synthetic audio candidate")
+
+        DesktopDatabase.open(directory.resolve("vimivo.sqlite")).use { database ->
+            val repository = DesktopLibraryRepository(database)
+            val root = repository.addRoot(library).getOrThrow()
+            val scanner = DesktopMediaScanner(database)
+            scanner.scan(root.id, library).getOrThrow()
+            assertEquals(1, repository.media(MediaKind.AUDIO).size)
+
+            Files.delete(original)
+            scanner.scan(root.id, library).getOrThrow()
+
+            assertTrue(repository.media(MediaKind.AUDIO).isEmpty())
+            database.transaction { connection ->
+                connection.prepareStatement("SELECT available FROM media_items WHERE root_id=?").use { statement ->
+                    statement.setString(1, root.id)
+                    statement.executeQuery().use { rows ->
+                        assertTrue(rows.next())
+                        assertEquals(0, rows.getInt(1))
+                    }
+                }
+            }
+        }
+    }
 }
