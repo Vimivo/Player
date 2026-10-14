@@ -317,10 +317,10 @@ private enum class DesktopDestination(
     val emptyDetail: String,
 ) {
     Home("Home", "Your listening and viewing space", "Open media to begin", "Vimivo keeps your media on this device."),
-    Music("Music", "Songs, albums, artists, and folders", "Your music library is empty", "Add a library folder in the upcoming macOS library milestone."),
-    Videos("Videos", "Local videos and resume points", "Your video library is empty", "Use Open media for a file, or add a library folder when scanning is available."),
-    Playlists("Playlists", "Your local collections", "No playlists yet", "Playlist persistence depends on the desktop media database."),
-    Favorites("Favorites", "Media you marked for quick access", "No favorites yet", "Favorites appear here after the library is available."),
+    Music("Music", "Songs, albums, artists, and folders", "Your music library is empty", "Add and scan a library folder from Home."),
+    Videos("Videos", "Local videos and resume points", "Your video library is empty", "Add and scan a library folder from Home, or open a video directly."),
+    Playlists("Playlists", "Your local collections", "No playlists yet", "Playlist editing is not yet available in the desktop interface."),
+    Favorites("Favorites", "Media you marked for quick access", "No favorites yet", "Favorite controls are not yet available in the desktop interface."),
     Network("Network", "Authorized streams and remote media", "Open an authorized stream", "Paste an HTTP, HTTPS, or RTSP address above."),
     Settings("Settings", "Appearance and playback preferences", "Settings are being prepared", "Preferences will be stored locally in the desktop persistence layer."),
 }
