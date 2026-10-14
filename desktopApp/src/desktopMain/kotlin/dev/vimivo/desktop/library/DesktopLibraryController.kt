@@ -132,16 +132,32 @@ internal class DesktopLibraryController(
         var historyRecorded = false
         var completionSaved = false
         var lastSavedPosition = -PLAYBACK_SAVE_INTERVAL_MILLIS
+        var previousState: PlaybackState? = null
         playback.collect { playbackState ->
             val media = playbackState.media
             if (media?.id?.value != mediaId) {
+                val leaving = previousState
+                val leavingMedia = leaving?.media
+                if (persistable && leavingMedia != null) {
+                    withContext(Dispatchers.IO) {
+                        personalRepository.savePosition(
+                            leavingMedia.id,
+                            leaving.positionMillis,
+                            leaving.durationMillis,
+                            leaving.status == PlaybackStatus.Completed,
+                        )
+                    }
+                }
                 mediaId = media?.id?.value
                 persistable = media != null && withContext(Dispatchers.IO) { personalRepository.containsMedia(media.id) }
                 historyRecorded = false
                 completionSaved = false
                 lastSavedPosition = -PLAYBACK_SAVE_INTERVAL_MILLIS
             }
-            if (media == null || !persistable) return@collect
+            if (media == null || !persistable) {
+                previousState = playbackState
+                return@collect
+            }
             if (playbackState.status == PlaybackStatus.Playing && !historyRecorded) {
                 withContext(Dispatchers.IO) {
                     personalRepository.recordPlayback(media.id, playbackState.positionMillis, completed = false)
@@ -171,6 +187,7 @@ internal class DesktopLibraryController(
                 completionSaved = completed
                 if (completed) refresh()
             }
+            previousState = playbackState
         }
     }
 

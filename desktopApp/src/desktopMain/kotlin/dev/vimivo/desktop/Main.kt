@@ -1,6 +1,6 @@
 @file:Suppress(
     "ArgumentListWrapping", "CyclomaticComplexMethod", "FunctionNaming", "ImportOrdering", "Indentation",
-    "LongMethod", "LongParameterList", "MagicNumber", "MaximumLineLength", "MaxLineLength", "TooManyFunctions",
+    "LongMethod", "LongParameterList", "MagicNumber", "MaximumLineLength", "MaxLineLength", "TooManyFunctions", "Wrapping",
 )
 
 package dev.vimivo.desktop
@@ -51,6 +51,7 @@ import dev.vimivo.desktop.library.DesktopLibraryController
 import dev.vimivo.desktop.library.DesktopLibraryUiState
 import dev.vimivo.desktop.library.LibraryScanState
 import dev.vimivo.playback.PlaybackStatus
+import dev.vimivo.playback.PlaybackQueueController
 import kotlinx.coroutines.launch
 import java.awt.Canvas
 import java.awt.FileDialog
@@ -90,6 +91,12 @@ fun main(args: Array<String>) = application {
 private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, openFileHandler: MacOpenFileHandler) {
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
+    val queue = remember(engine, scope) {
+        PlaybackQueueController(engine, scope, isAvailable = { media ->
+            !media.uri.startsWith("file:") || runCatching { File(java.net.URI(media.uri)).isFile }.getOrDefault(false)
+        })
+    }
+    val queueState by queue.state.collectAsState()
     val library = remember { DesktopLibraryController() }
     val libraryState by library.state.collectAsState()
     var networkUrl by remember { mutableStateOf("") }
@@ -98,11 +105,12 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
     val playMedia: (MediaItem) -> Unit = { media ->
         scope.launch {
             library.preparePlayback(media).onSuccess { request ->
-                engine.open(request.media, request.startPositionMillis).onSuccess { engine.play() }
+                queue.play(listOf(request.media), startPositionMillis = request.startPositionMillis)
             }
         }
     }
     DisposableEffect(engine) { onDispose(engine::close) }
+    DisposableEffect(queue) { onDispose(queue::close) }
     DisposableEffect(library) { onDispose(library::close) }
     DisposableEffect(videoCanvas) {
         engine.attachVideoSurface(videoCanvas)
@@ -110,11 +118,11 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
     }
     LaunchedEffect(initialFiles, openFileHandler) {
         initialFiles.filter(File::isFile).takeIf(List<File>::isNotEmpty)?.let { files ->
-            engine.open(files.first().toMediaItem()).onSuccess { engine.play() }
+            queue.play(files.map(File::toMediaItem))
         }
         openFileHandler.files.collect { files ->
             files.firstOrNull()?.let { file ->
-                engine.open(file.toMediaItem()).onSuccess { engine.play() }
+                queue.play(listOf(file.toMediaItem()))
             }
         }
     }
@@ -156,7 +164,15 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
                     onRemove = library::removeFromPlaylist,
                     onMove = library::movePlaylistItem,
                     onPlay = { playlistId ->
-                        scope.launch { library.playlistMedia(playlistId).onSuccess { it.firstOrNull()?.let(playMedia) } }
+                        scope.launch {
+                            library.playlistMedia(playlistId).onSuccess { items ->
+                                items.firstOrNull()?.let { first ->
+                                    library.preparePlayback(first).onSuccess { request ->
+                                        queue.play(items, startPositionMillis = request.startPositionMillis)
+                                    }
+                                }
+                            }
+                        }
                     },
                 )
             }
@@ -175,13 +191,21 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = {
                     chooseMediaFiles().firstOrNull()?.let { file ->
-                        scope.launch { engine.open(file.toMediaItem()).onSuccess { engine.play() } }
+                        scope.launch { queue.play(listOf(file.toMediaItem())) }
                     }
                 }) { Text("Open media") }
                 OutlinedButton(onClick = { if (state.status == PlaybackStatus.Playing) engine.pause() else engine.play() }) {
                     Text(if (state.status == PlaybackStatus.Playing) "Pause" else "Play")
                 }
+                OutlinedButton(onClick = { scope.launch { queue.previous() } }, enabled = queueState.items.isNotEmpty()) { Text("Previous") }
                 OutlinedButton(onClick = { engine.stop() }) { Text("Stop") }
+                OutlinedButton(onClick = { scope.launch { queue.next() } }, enabled = queueState.items.isNotEmpty()) { Text("Next") }
+                OutlinedButton(onClick = queue::toggleShuffle, enabled = queueState.items.size > 1) {
+                    Text(if (queueState.shuffleEnabled) "Shuffle on" else "Shuffle off")
+                }
+                OutlinedButton(onClick = queue::cycleRepeat, enabled = queueState.items.isNotEmpty()) {
+                    Text("Repeat ${queueState.repeatMode.name.lowercase()}")
+                }
             }
             OutlinedTextField(
                 value = networkUrl,
@@ -194,7 +218,7 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
                 enabled = networkUrl.isNotBlank(),
                 onClick = {
                     val url = networkUrl.trim()
-                    scope.launch { engine.open(url.toNetworkItem()).onSuccess { engine.play() } }
+                    scope.launch { queue.play(listOf(url.toNetworkItem())) }
                 },
             ) { Text("Open stream") }
             if (state.media == null) {
@@ -229,6 +253,7 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
                 onRename = library::renameBookmark,
                 onDelete = library::deleteBookmark,
             )
+            DesktopQueuePanel(queueState, queue::remove, queue::move, queue::clear)
                 }
             }
             (state.status as? PlaybackStatus.Error)?.let { error ->

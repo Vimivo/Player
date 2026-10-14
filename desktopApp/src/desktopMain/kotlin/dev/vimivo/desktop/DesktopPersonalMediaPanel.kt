@@ -35,6 +35,7 @@ import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.Playlist
 import dev.vimivo.desktop.library.DesktopHistoryItem
 import dev.vimivo.desktop.library.DesktopLibraryUiState
+import dev.vimivo.playback.PlaybackQueueState
 
 @Composable
 internal fun DesktopPlaylistsPanel(
@@ -173,6 +174,29 @@ internal fun AddToPlaylistButton(playlists: List<Playlist>, media: MediaItem, on
                 text = { Text(playlist.name) },
                 onClick = { onAdd(playlist.id, media); expanded = false },
             )
+        }
+    }
+}
+
+@Composable
+internal fun DesktopQueuePanel(
+    state: PlaybackQueueState,
+    onRemove: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
+    onClear: () -> Unit,
+) {
+    if (state.items.isEmpty()) return
+    Text("Queue · ${state.items.size} item(s)", style = MaterialTheme.typography.titleMedium)
+    OutlinedButton(onClick = onClear) { Text("Clear queue") }
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 180.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        items(state.items.size, key = { state.items[it].queueId }) { index ->
+            val item = state.items[index]
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(if (index == state.currentIndex) "▶ ${item.media.title}" else item.media.title, modifier = Modifier.weight(1f))
+                OutlinedButton(onClick = { onMove(index, index - 1) }, enabled = index > 0) { Text("↑") }
+                OutlinedButton(onClick = { onMove(index, index + 1) }, enabled = index < state.items.lastIndex) { Text("↓") }
+                OutlinedButton(onClick = { onRemove(index) }, enabled = index != state.currentIndex) { Text("Remove") }
+            }
         }
     }
 }
