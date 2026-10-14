@@ -33,7 +33,12 @@ internal class DesktopLibraryController(
 ) : AutoCloseable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val repository = DesktopLibraryRepository(database)
-    private val coordinator = LibraryScanCoordinator(repository, DesktopMediaScanner(database), scope)
+    private val coordinator = LibraryScanCoordinator(
+        repository,
+        DesktopMediaScanner(database),
+        DesktopMetadataCoordinator(DesktopMetadataRepository(database), DesktopMediaMetadataExtractor(), scope),
+        scope,
+    )
     private val mutableState = MutableStateFlow(DesktopLibraryUiState())
     private val scanObservers = mutableMapOf<String, Job>()
     val state: StateFlow<DesktopLibraryUiState> = mutableState.asStateFlow()
