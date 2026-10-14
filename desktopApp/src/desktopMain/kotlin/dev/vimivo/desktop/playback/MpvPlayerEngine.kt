@@ -127,8 +127,17 @@ class MpvPlayerEngine : PlayerEngine {
             .map { file -> ExternalSubtitle(file.toURI().toString(), file.name, languageFromSubtitleName(file.name), subtitleMimeType(file.extension)) }
             .toList()
     }.getOrDefault(emptyList())
-    override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> =
-        Result.failure(UnsupportedOperationException(capabilities.audioEnhancements.limitation))
+    override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> = action {
+        val effective = DesktopAudioEffects.effectiveSettings(settings)
+        setProperty("af", DesktopAudioEffects.filter(effective).orEmpty())
+        mutableAudio.value = AudioEnhancementState(
+            capabilities = capabilities.audioEnhancements,
+            settings = effective,
+            availableBandsHz = DesktopAudioEffects.frequencies,
+            active = effective.enabled,
+            message = if (effective.enabled) "libmpv audio filters active" else null,
+        )
+    }
 
     private fun ensureInitialized() {
         if (context != null) return
@@ -288,8 +297,12 @@ class MpvPlayerEngine : PlayerEngine {
             audioDelay = true,
             supportedSpeedRange = 0.25f..4f,
             audioEnhancements = AudioEnhancementCapabilities(
+                graphicEqualizer = true,
+                bassEnhancement = true,
+                trebleAdjustment = true,
+                attenuatingPreamp = true,
                 pitchPreservation = true,
-                limitation = "Use explicit libmpv profiles; Android audio-session effects do not apply on desktop",
+                limitation = "Equalizer uses libmpv's FFmpeg filter chain; crossfade and bit-perfect output are not available",
             ),
         )
     }
