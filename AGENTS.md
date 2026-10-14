@@ -7,7 +7,7 @@ These rules apply to the entire repository.
 - Vimivo is a free, ad-free, login-free, privacy-first music and video player.
 - Never add advertising, analytics, trackers, or account infrastructure.
 - Local media and explicitly authorized network sources are in scope. Do not bypass access controls or DRM.
-- Android remains the released target. A macOS Compose Desktop target is now explicitly authorized; preserve Android behavior and do not create Windows, Linux, or iOS applications until requested.
+- Android remains the released target. macOS and Windows Compose Desktop targets are explicitly authorized; preserve Android and macOS behavior and do not create Linux or iOS applications until requested.
 
 ## Architecture
 
@@ -15,6 +15,7 @@ These rules apply to the entire repository.
 - Put media, playlist, settings, and playback contracts and business logic in `shared/commonMain`.
 - Keep Android APIs (MediaStore, permissions, services, notifications, DataStore, Media3, and LibVLC) in `androidApp`.
 - Keep macOS/JVM desktop APIs, JNA, libmpv, file dialogs, and packaging in `desktopApp`; common code must remain platform-neutral.
+- Select desktop platform adapters at runtime or through Gradle packaging configuration; never execute macOS native integrations on Windows or Windows native integrations on macOS.
 - Do not expose Android `Uri`, `Context`, Media3, or LibVLC types through shared interfaces.
 - Use immutable UI state exposed as `StateFlow`; keep mutable flows private.
 - Playback engines implement `PlayerEngine`, report capabilities and failures explicitly, and release native resources in `close()`.

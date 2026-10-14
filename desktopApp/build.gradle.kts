@@ -56,7 +56,16 @@ compose.desktop {
     application {
         mainClass = "dev.vimivo.desktop.MainKt"
         nativeDistributions {
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg)
+            val operatingSystem = org.gradle.internal.os.OperatingSystem.current()
+            val formats = when {
+                operatingSystem.isWindows -> arrayOf(
+                    org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe,
+                    org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+                )
+                operatingSystem.isMacOsX -> arrayOf(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg)
+                else -> emptyArray()
+            }
+            targetFormats(*formats)
             packageName = "Vimivo"
             packageVersion = "1.0.0"
             description = "Privacy-first music and video player"
@@ -64,6 +73,10 @@ compose.desktop {
             macOS {
                 bundleID = "dev.vimivo.desktop"
                 minimumSystemVersion = "12.0"
+            }
+            windows {
+                upgradeUuid = "e32d5e8d-901d-4d16-9b26-32d2fe47f890"
+                menuGroup = "Vimivo"
             }
         }
     }

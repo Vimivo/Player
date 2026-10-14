@@ -2,6 +2,7 @@
 
 package dev.vimivo.desktop.library
 
+import dev.vimivo.desktop.platform.DesktopDirectories
 import java.nio.file.Files
 import java.nio.file.Path
 import java.sql.Connection
@@ -116,9 +117,6 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             return DesktopDatabase(DriverManager.getConnection("jdbc:sqlite:${path.toAbsolutePath()}"))
         }
 
-        fun defaultPath(): Path {
-            val home = System.getProperty("user.home") ?: error("The macOS user home directory is unavailable")
-            return Path.of(home, "Library", "Application Support", "Vimivo", "vimivo.sqlite")
-        }
+        fun defaultPath(): Path = DesktopDirectories.resolve().database
     }
 }

@@ -9,10 +9,10 @@ import java.awt.Canvas
  * The native bridge is deliberately limited to JAWT/Core Animation and the
  * libmpv render API; player commands and state remain in [MpvPlayerEngine].
  */
-internal class MpvCocoaRenderer {
+internal class MpvCocoaRenderer : DesktopVideoRenderer {
     private var attached = false
 
-    fun attach(canvas: Canvas, context: Pointer) {
+    override fun attach(canvas: Canvas, context: Pointer) {
         check(!attached) { "A render target is already attached" }
         System.loadLibrary("vimivo_mpv_cocoa")
         require(attachNative(canvas, Pointer.nativeValue(context))) {
@@ -21,7 +21,7 @@ internal class MpvCocoaRenderer {
         attached = true
     }
 
-    fun detach() {
+    override fun detach() {
         if (attached) detachNative()
         attached = false
     }

@@ -16,6 +16,8 @@ import com.sun.jna.Memory
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
 import dev.vimivo.core.model.MediaItem
+import dev.vimivo.core.model.MediaKind
+import dev.vimivo.desktop.platform.DesktopPlatform
 import dev.vimivo.playback.AudioEnhancementCapabilities
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
@@ -50,7 +52,8 @@ import java.net.URI
 /** Desktop libmpv adapter. mpv owns its native output window until render embedding is introduced. */
 class MpvPlayerEngine : PlayerEngine {
     override val id = EngineId.MPV
-    override val capabilities = CAPABILITIES
+    private val desktopPlatform = DesktopPlatform.detect()
+    override val capabilities = capabilitiesFor(desktopPlatform)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutableState = MutableStateFlow(PlaybackState(engine = id))
     private val mutableAudio = MutableStateFlow(
@@ -59,15 +62,16 @@ class MpvPlayerEngine : PlayerEngine {
     private var native: MpvNative? = null
     private var context: Pointer? = null
     private var polling: Job? = null
-    private var renderer: MpvCocoaRenderer? = null
+    private var renderer: DesktopVideoRenderer? = null
     private var videoSurface: Canvas? = null
     private var closed = false
 
     override val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
     override val audioEnhancementState: StateFlow<AudioEnhancementState> = mutableAudio.asStateFlow()
 
-    override fun supportFor(media: MediaItem): SupportLevel = when (media.uri.substringBefore(':').lowercase()) {
-        "file", "http", "https", "rtsp", "rtsps" -> SupportLevel.PREFERRED
+    override fun supportFor(media: MediaItem): SupportLevel = when {
+        media.kind == MediaKind.VIDEO && !capabilities.localVideo -> SupportLevel.UNSUPPORTED
+        media.uri.substringBefore(':').lowercase() in SUPPORTED_SCHEMES -> SupportLevel.PREFERRED
         else -> SupportLevel.UNSUPPORTED
     }
 
@@ -151,7 +155,7 @@ class MpvPlayerEngine : PlayerEngine {
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
         checkCode(loaded.mpv_initialize(created))
         videoSurface?.let { surface ->
-            MpvCocoaRenderer().also { renderer = it }.attach(surface, created)
+            DesktopVideoRendererFactory.create(desktopPlatform).also { renderer = it }.attach(surface, created)
         }
     }
 
@@ -278,9 +282,10 @@ class MpvPlayerEngine : PlayerEngine {
         private const val MPV_FORMAT_FLAG = 3
         private const val MPV_FORMAT_DOUBLE = 5
         private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "webvtt")
-        val CAPABILITIES = EngineCapabilities(
+        private val SUPPORTED_SCHEMES = setOf("file", "http", "https", "rtsp", "rtsps")
+        internal fun capabilitiesFor(platform: DesktopPlatform) = EngineCapabilities(
             localAudio = true,
-            localVideo = true,
+            localVideo = platform == DesktopPlatform.MACOS,
             httpStreaming = true,
             hlsStreaming = true,
             dashStreaming = true,
@@ -292,7 +297,7 @@ class MpvPlayerEngine : PlayerEngine {
             videoTrackSelection = true,
             embeddedSubtitles = true,
             externalSubtitles = true,
-            hdr = true,
+            hdr = platform == DesktopPlatform.MACOS,
             subtitleDelay = true,
             audioDelay = true,
             supportedSpeedRange = 0.25f..4f,

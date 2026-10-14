@@ -44,6 +44,8 @@ Choose this once with care: stores and Android treat the published application I
 
 See [architecture](docs/ARCHITECTURE.md), [features](docs/FEATURES.md), [development](docs/DEVELOPMENT.md), and [decisions](docs/DECISIONS.md).
 
+The authorized Windows target reuses the Compose Desktop application and shared SQLite repositories. Windows persistence and packaging boundaries are documented in [Windows architecture](docs/WINDOWS_ARCHITECTURE.md). Native Windows video rendering and clean-machine installer validation are not yet complete.
+
 Playback details are documented in [engine capabilities](docs/PLAYBACK_CAPABILITIES.md) and the [media test matrix](docs/MEDIA_TEST_MATRIX.md).
 
 # Player
