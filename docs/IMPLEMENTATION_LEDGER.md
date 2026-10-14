@@ -10,8 +10,8 @@ Status terms: **implemented** means code exists, **tested** means automated test
 | Linux playback | Partial | Compile/package foundation exists; installed runtime and native bundling are not verified. |
 | Desktop folder selection and scanning | Implemented, tested | Native macOS picker, asynchronous recursive scanner, reconciliation, cancellation, exclusions, and SQLite persistence have tests. Security-scoped bookmarks are not yet implemented. |
 | Desktop metadata | Partial, tested | Bounded Java Sound extraction, retry bookkeeping, schema v3 persistence, and library-query integration are tested. Tagged compressed audio, video metadata, artwork, and thumbnails still need a production backend. |
-| Desktop library UI | Partial | Real indexed audio/video data, roots, search, scan controls, and playback launch are connected. Categories, paging, richer sorting, and collection detail views remain. |
-| Personal media database | Implemented, tested | Playlists, favorites, history, positions, bookmarks, and settings persist with foreign keys and migration tests. Most operations are not yet exposed in desktop UI. |
+| Desktop library UI | Partial | Real indexed audio/video data, roots, search, scan controls, playback launch, favorites, playlists, history, and bookmarks are connected. Categories, paging, richer sorting, and collection detail views remain. |
+| Personal media database | Implemented, tested | Playlists, favorites, history, positions, bookmarks, and settings persist with foreign keys and migration tests. Desktop create/rename/delete/duplicate/add/remove/reorder/favorite/history/bookmark actions are connected. Import/export and full queue playback remain. |
 | Playback history and resume | Implemented, tested | One play count per session, ten-second position checkpoints, completion handling, and conservative video/long-audio resume rules. Real process-restart playback verification remains. |
 | Network URL playback | Partial | HTTP/HTTPS/RTSP URLs use the existing engine. Recent/favorite URL UI, credential storage, SMB/WebDAV/SFTP, and discovery are not implemented. |
 | Desktop distribution | Partial | Compose packaging configuration exists for supported host targets. Native libmpv bundling, clean-machine installs, signatures, notarization, checksums, and Windows installer validation remain. |
@@ -22,10 +22,12 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `fd44a6e` — bounded desktop audio metadata extraction.
 - `8b50e77` — extracted metadata exposed through SQLite library queries and search.
 - `e2f6369` — playback history and resume integrated with the desktop playback lifecycle.
+- `8fd548f` — persistent playlists, favorites, history, and bookmarks connected to desktop UI state.
+- `90a6d4a` — arbitrary playlist selection, bookmark renaming, and destructive-action confirmations.
 
 ## Quality record
 
-On 2026-10-14, after `e2f6369`, these commands completed successfully:
+On 2026-10-14, after `90a6d4a`, these commands completed successfully:
 
 - `./gradlew :desktopApp:desktopTest`
 - `./gradlew :desktopApp:compileKotlinDesktop`

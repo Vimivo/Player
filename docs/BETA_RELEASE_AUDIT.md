@@ -21,7 +21,7 @@ Audit date: 2026-10-14. Repository: `Vimivo/Player`, branch `main`, baseline com
 | Folder picker and Finder open files | IMPLEMENTED, TESTED | PARTIAL | Buffered macOS handler tests pass. Windows Explorer integration is not implemented. |
 | Library UI and search | IMPLEMENTED, TESTED | IMPLEMENTED, TESTED foundation | Real indexed list/search UI exists; albums/artists/folders are not complete desktop screens. |
 | Metadata, artwork, thumbnails | PARTIAL, TESTED | PARTIAL, TESTED | Bounded Java Sound audio extraction and SQLite/library integration exist. Compressed/tagged audio, video metadata, artwork, and thumbnails remain incomplete. |
-| Playlists, favorites, history, resume, bookmarks | PARTIAL, TESTED | PARTIAL, TESTED | SQLite persistence is tested; history and conservative resume are wired to playback. Playlist/favorite/bookmark UI remains incomplete. |
+| Playlists, favorites, history, resume, bookmarks | PARTIAL, TESTED | PARTIAL, TESTED | SQLite persistence, history/resume lifecycle, and desktop personal-media UI actions are tested. Import/export, queue-backed playlist playback, and runtime interaction verification remain. |
 | Desktop settings / backup and restore | PARTIAL | PARTIAL | Key/value storage exists; settings and backup user flows do not. |
 | Subtitles / audio tracks | IMPLEMENTED engine API | PARTIAL | mpv track and external-subtitle calls exist; desktop control UI is incomplete. |
 | Equalizer | IMPLEMENTED, TESTED | PARTIAL | Filter construction/unit tests pass; active audio-path smoke testing remains outstanding. |

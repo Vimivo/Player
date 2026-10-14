@@ -4,7 +4,7 @@ Last verified on 2026-10-14 on macOS, branch `main`.
 
 ## Resume point
 
-Implementation is verified through commit `e2f6369` (`feat(desktop): persist playback history and resume`). The repository was clean before this checkpoint documentation was added.
+Implementation is verified through commit `90a6d4a` (`fix(desktop): safeguard personal media actions`).
 
 The latest completed desktop increments are:
 
@@ -12,16 +12,17 @@ The latest completed desktop increments are:
 2. SQLite schema version 3, including persisted extracted titles and searchable artist/album metadata;
 3. real metadata returned to the desktop music/video library UI and playback model;
 4. playback history and conservative resume-position persistence for indexed video and long-form audio.
+5. reactive desktop playlists, favorites, history, and bookmarks, including persistent mutations and destructive-action confirmations.
 
 Do not rebuild these components. Continue from the first executable item in the backlog below.
 
 ## Next executable work
 
-1. Expose the existing favorites, playlists, bookmarks, and history repository operations through controller state and real desktop UI actions.
-2. Add a production metadata backend for video and compressed/tagged audio. The current Java Sound extractor is intentionally bounded and does not claim MP3/FLAC/MKV coverage.
-3. Add artwork/thumbnail extraction and a bounded cache.
-4. Expand library queries with paging, sorting, categories, favorites, and recent/continue-watching projections.
-5. Add queue ownership above the single `MpvPlayerEngine`; persist and restore the queue without auto-playing after restart.
+1. Add a production metadata backend for video and compressed/tagged audio. The current Java Sound extractor is intentionally bounded and does not claim MP3/FLAC/MKV coverage.
+2. Add artwork/thumbnail extraction and a bounded cache.
+3. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
+4. Add queue ownership above the single `MpvPlayerEngine`; persist and restore the queue without auto-playing after restart. Playlist playback currently opens the first available item only and is labeled accordingly.
+5. Complete playlist import/export and backup/restore after a versioned portable format is defined.
 6. Finish Windows video embedding. Windows can compile and package, but the current renderer capability truthfully reports local video unavailable.
 7. Bundle redistributable libmpv binaries per supported OS/architecture and validate installed applications on clean machines.
 
