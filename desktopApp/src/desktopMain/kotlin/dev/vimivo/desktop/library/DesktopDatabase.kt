@@ -1,4 +1,4 @@
-@file:Suppress("MaximumLineLength", "MaxLineLength", "TooGenericExceptionCaught")
+@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength", "TooGenericExceptionCaught")
 
 package dev.vimivo.desktop.library
 
@@ -55,13 +55,60 @@ internal class DesktopDatabase private constructor(private val connection: Conne
                 statement.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
             }
             require(version <= SCHEMA_VERSION) { "Desktop database schema $version is newer than this Vimivo build" }
+            if (version < 2) migrateToVersion2(statement)
         }
+    }
+
+    private fun migrateToVersion2(statement: java.sql.Statement) {
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS media_metadata (media_id TEXT PRIMARY KEY, artist TEXT, album TEXT, " +
+                "album_artist TEXT, genre TEXT, track_number INTEGER, disc_number INTEGER, release_year INTEGER, " +
+                "duration_ms INTEGER, bitrate INTEGER, sample_rate INTEGER, channels INTEGER, video_width INTEGER, " +
+                "video_height INTEGER, frame_rate REAL, video_codec TEXT, audio_codec TEXT, container TEXT, " +
+                "audio_track_count INTEGER, subtitle_track_count INTEGER, artwork_uri TEXT, thumbnail_uri TEXT, " +
+                "extraction_version INTEGER NOT NULL DEFAULT 1, extraction_status TEXT NOT NULL DEFAULT 'PENDING', " +
+                "extraction_error TEXT, extracted_size_bytes INTEGER, extracted_modified_ms INTEGER, updated_at_ms INTEGER NOT NULL, " +
+                "FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE CASCADE)",
+        )
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS playlists (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at_ms INTEGER NOT NULL, " +
+                "updated_at_ms INTEGER NOT NULL)",
+        )
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS playlist_items (playlist_id TEXT NOT NULL, media_id TEXT NOT NULL, position INTEGER NOT NULL, " +
+                "added_at_ms INTEGER NOT NULL, PRIMARY KEY(playlist_id, media_id), " +
+                "FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE, " +
+                "FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE RESTRICT)",
+        )
+        statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS playlist_items_order ON playlist_items(playlist_id, position)")
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS favorites (target_type TEXT NOT NULL, target_id TEXT NOT NULL, created_at_ms INTEGER NOT NULL, " +
+                "PRIMARY KEY(target_type, target_id))",
+        )
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS playback_history (media_id TEXT PRIMARY KEY, last_played_ms INTEGER NOT NULL, " +
+                "play_count INTEGER NOT NULL DEFAULT 0, recent_position_ms INTEGER NOT NULL DEFAULT 0, completed INTEGER NOT NULL DEFAULT 0, " +
+                "last_completed_ms INTEGER, FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE RESTRICT)",
+        )
+        statement.execute("CREATE INDEX IF NOT EXISTS playback_history_recent ON playback_history(last_played_ms DESC)")
+        statement.execute("CREATE INDEX IF NOT EXISTS playback_history_popular ON playback_history(play_count DESC)")
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS playback_positions (media_id TEXT PRIMARY KEY, position_ms INTEGER NOT NULL, duration_ms INTEGER, " +
+                "completed INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL, " +
+                "FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE RESTRICT)",
+        )
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS media_bookmarks (id TEXT PRIMARY KEY, media_id TEXT NOT NULL, position_ms INTEGER NOT NULL, " +
+                "label TEXT, created_at_ms INTEGER NOT NULL, FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE CASCADE)",
+        )
+        statement.execute("CREATE INDEX IF NOT EXISTS media_bookmarks_media ON media_bookmarks(media_id, position_ms)")
+        statement.execute("UPDATE schema_version SET version=2")
     }
 
     override fun close() = connection.close()
 
     companion object {
-        private const val SCHEMA_VERSION = 1
+        private const val SCHEMA_VERSION = 2
 
         fun open(path: Path = defaultPath()): DesktopDatabase {
             Files.createDirectories(path.parent)
