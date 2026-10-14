@@ -32,6 +32,17 @@ class DesktopPlatformTest {
     }
 
     @Test
+    fun linuxUsesXdgDirectoriesAndKeepsCacheSeparate() {
+        val directories = DesktopDirectories.resolve(
+            platform = DesktopPlatform.LINUX,
+            environment = mapOf("XDG_DATA_HOME" to "/var/data", "XDG_CACHE_HOME" to "/var/cache"),
+            userHome = "/home/vimivo",
+        )
+        assertEquals(Path.of("/var/data/vimivo/vimivo.sqlite"), directories.database)
+        assertEquals(Path.of("/var/cache/vimivo"), directories.cache)
+    }
+
+    @Test
     fun missingHomeFailsInsteadOfWritingToWorkingDirectory() {
         assertFailsWith<IllegalArgumentException> {
             DesktopDirectories.resolve(DesktopPlatform.WINDOWS, emptyMap(), null)

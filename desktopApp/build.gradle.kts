@@ -63,6 +63,11 @@ compose.desktop {
                     org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 )
                 operatingSystem.isMacOsX -> arrayOf(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg)
+                operatingSystem.isLinux -> arrayOf(
+                    org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
+                    org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm,
+                    org.jetbrains.compose.desktop.application.dsl.TargetFormat.AppImage,
+                )
                 else -> emptyArray()
             }
             targetFormats(*formats)

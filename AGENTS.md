@@ -7,7 +7,7 @@ These rules apply to the entire repository.
 - Vimivo is a free, ad-free, login-free, privacy-first music and video player.
 - Never add advertising, analytics, trackers, or account infrastructure.
 - Local media and explicitly authorized network sources are in scope. Do not bypass access controls or DRM.
-- Android remains the released target. macOS and Windows Compose Desktop targets are explicitly authorized; preserve Android and macOS behavior and do not create Linux or iOS applications until requested.
+- Android remains the released target. macOS, Windows, and Linux Compose Desktop targets are explicitly authorized; preserve existing platform behavior and do not create iOS applications until requested.
 
 ## Architecture
 
