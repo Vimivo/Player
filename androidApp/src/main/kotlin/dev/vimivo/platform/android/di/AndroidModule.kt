@@ -76,6 +76,6 @@ val androidModule = module {
     viewModel { LibraryViewModel(get(), get()) }
     viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
-    viewModel { NetworkViewModel(get(), get(), get(), get()) }
+    viewModel { NetworkViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { PlaylistViewModel(get(), get(), get()) }
 }

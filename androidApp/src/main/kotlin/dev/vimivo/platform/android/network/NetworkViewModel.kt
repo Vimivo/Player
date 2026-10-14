@@ -1,4 +1,4 @@
-@file:Suppress("ArgumentListWrapping", "MaxLineLength", "MaximumLineLength", "TooManyFunctions", "Wrapping")
+@file:Suppress("ArgumentListWrapping", "ImportOrdering", "MaxLineLength", "MaximumLineLength", "TooManyFunctions", "Wrapping")
 
 package dev.vimivo.platform.android.network
 
@@ -20,6 +20,11 @@ import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.settings.SettingsRepository
+import dev.vimivo.network.NetworkBrowseResult
+import dev.vimivo.network.NetworkLocation
+import dev.vimivo.network.NetworkProtocol
+import dev.vimivo.network.NetworkSourceRepository
+import dev.vimivo.network.RemoteDirectoryEntry
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,6 +76,11 @@ data class NetworkUiState(
     val isSeekable: Boolean = false,
     val retryAttempt: Int = 0,
     val errorMessage: String? = null,
+    val locations: List<NetworkLocation> = emptyList(),
+    val browsingLocation: NetworkLocation? = null,
+    val directoryEntries: List<RemoteDirectoryEntry> = emptyList(),
+    val isBrowsing: Boolean = false,
+    val browserMessage: String? = null,
 )
 
 class NetworkViewModel(
@@ -78,6 +88,8 @@ class NetworkViewModel(
     private val playback: PlaybackController,
     settingsRepository: SettingsRepository,
     private val historyStore: NetworkHistoryStore,
+    private val networkSources: NetworkSourceRepository,
+    private val credentials: NetworkCredentialVault,
 ) : ViewModel() {
     private val appContext = context.applicationContext
     private val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
@@ -176,6 +188,49 @@ class NetworkViewModel(
         persist(emptyList(), state.value.favorites)
     }
 
+    fun addWebDavLocation(name: String, endpoint: String, username: String?, password: CharArray?) = viewModelScope.launch {
+        val location = NetworkLocation(
+            id = "webdav:${endpoint.trim().lowercase()}",
+            name = name.trim().ifBlank { "WebDAV" },
+            protocol = NetworkProtocol.WEBDAV,
+            endpoint = endpoint.trim(),
+            username = username?.trim()?.takeIf { it.isNotBlank() },
+        )
+        networkSources.save(location).onSuccess {
+            password?.takeIf { it.isNotEmpty() }?.let { credentials.save(location.id, it) }
+            refreshLocations()
+            browse(location)
+        }.onFailure { error -> mutableState.update { it.copy(browserMessage = error.message) } }
+    }
+
+    fun removeLocation(location: NetworkLocation) = viewModelScope.launch {
+        networkSources.remove(location.id)
+        mutableState.update {
+            it.copy(
+                locations = it.locations.filterNot { saved -> saved.id == location.id },
+                browsingLocation = it.browsingLocation?.takeIf { active -> active.id != location.id },
+                directoryEntries = if (it.browsingLocation?.id == location.id) emptyList() else it.directoryEntries,
+            )
+        }
+    }
+
+    fun browse(location: NetworkLocation, path: String = location.endpoint) = viewModelScope.launch {
+        mutableState.update { it.copy(browsingLocation = location, isBrowsing = true, browserMessage = null) }
+        when (val result = networkSources.browse(location, path)) {
+            is NetworkBrowseResult.Success -> mutableState.update {
+                it.copy(directoryEntries = result.entries, isBrowsing = false)
+            }
+            is NetworkBrowseResult.Failure -> mutableState.update {
+                it.copy(isBrowsing = false, browserMessage = result.message)
+            }
+        }
+    }
+
+    fun openRemote(entry: RemoteDirectoryEntry) {
+        entry.media?.let(playback::play)
+            ?: browse(requireNotNull(mutableState.value.browsingLocation), entry.uri)
+    }
+
     private fun publish(player: Player) {
         val current = player.currentMediaItem?.localConfiguration?.uri?.toString()
         if (current?.let(::isNetworkUrl) != true) return
@@ -224,7 +279,11 @@ class NetworkViewModel(
 
     private suspend fun load() {
         val history = historyStore.load()
-        mutableState.update { it.copy(recent = history.recent, favorites = history.favorites) }
+        mutableState.update { it.copy(recent = history.recent, favorites = history.favorites, locations = networkSources.locations()) }
+    }
+
+    private suspend fun refreshLocations() {
+        mutableState.update { it.copy(locations = networkSources.locations()) }
     }
 
     private suspend fun persist(recent: List<String>, favorites: Set<String>) {

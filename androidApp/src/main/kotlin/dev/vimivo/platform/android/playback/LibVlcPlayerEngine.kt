@@ -361,7 +361,7 @@ class LibVlcPlayerEngine(
 
         fun support(media: MediaItem): SupportLevel {
             val scheme = Uri.parse(media.uri).scheme
-            return if (scheme in setOf("content", "file", "http", "https")) {
+            return if (scheme in setOf("content", "file", "http", "https", "rtsp", "rtsps", "smb", "upnp")) {
                 SupportLevel.FALLBACK
             } else {
                 SupportLevel.UNSUPPORTED

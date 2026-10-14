@@ -70,6 +70,7 @@ import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
@@ -875,7 +876,48 @@ private fun formatBytes(bytes: Long): String = when {
 private fun NetworkScreen(viewModel: NetworkViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    var addingWebDav by remember { mutableStateOf(false) }
+    if (addingWebDav) {
+        WebDavLocationDialog(
+            onDismiss = { addingWebDav = false },
+            onSave = { name, endpoint, username, password ->
+                viewModel.addWebDavLocation(name, endpoint, username, password)
+                addingWebDav = false
+            },
+        )
+    }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Network locations", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                OutlinedButton({ addingWebDav = true }) { Text("Add WebDAV") }
+            }
+            Text("WebDAV uses HTTPS. Passwords are encrypted with Android Keystore and are never exported.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (state.locations.isNotEmpty()) {
+            items(state.locations, key = { "location:${it.id}" }) { location ->
+                ListItem(
+                    modifier = Modifier.clickable { viewModel.browse(location) },
+                    headlineContent = { Text(location.name) },
+                    supportingContent = { Text(location.endpoint, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingContent = { Icon(Icons.Outlined.Folder, null) },
+                    trailingContent = { IconButton({ viewModel.removeLocation(location) }) { Icon(Icons.Outlined.Delete, "Remove location") } },
+                )
+            }
+        }
+        state.browsingLocation?.let { activeLocation ->
+            item { SectionTitle("${activeLocation.name} files") }
+            if (state.isBrowsing) item { LoadingIndicator("Browsing network folder") }
+            state.browserMessage?.let { message -> item { ErrorState(message) } }
+            items(state.directoryEntries, key = { it.uri }) { entry ->
+                ListItem(
+                    modifier = Modifier.clickable { viewModel.openRemote(entry) },
+                    headlineContent = { Text(entry.name) },
+                    supportingContent = { Text(if (entry.isDirectory) "Folder" else "Media file") },
+                    leadingContent = { Icon(if (entry.isDirectory) Icons.Outlined.Folder else Icons.Outlined.PlayArrow, null) },
+                )
+            }
+        }
         item {
             Text("Open network stream", style = MaterialTheme.typography.headlineMedium)
             SearchBar(state.url, viewModel::setUrl)
@@ -937,6 +979,31 @@ private fun NetworkScreen(viewModel: NetworkViewModel = koinViewModel()) {
             }
         } else item { EmptyState(Icons.Outlined.Link, "No recent streams", "Authorized HTTP and HTTPS streams you open will appear here.") }
     }
+}
+
+@Composable
+private fun WebDavLocationDialog(
+    onDismiss: () -> Unit,
+    onSave: (String, String, String?, CharArray?) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var endpoint by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add WebDAV location") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                OutlinedTextField(endpoint, { endpoint = it }, label = { Text("HTTPS URL") }, singleLine = true)
+                OutlinedTextField(username, { username = it }, label = { Text("Username (optional)") }, singleLine = true)
+                OutlinedTextField(password, { password = it }, label = { Text("Password") }, singleLine = true)
+            }
+        },
+        confirmButton = { Button({ onSave(name, endpoint, username.takeIf { it.isNotBlank() }, password.takeIf { it.isNotEmpty() }?.toCharArray()) }, enabled = endpoint.isNotBlank()) { Text("Save") } },
+        dismissButton = { OutlinedButton(onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

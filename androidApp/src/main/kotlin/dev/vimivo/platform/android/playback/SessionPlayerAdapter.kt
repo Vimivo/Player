@@ -330,7 +330,7 @@ private fun MediaItem.toVimivo() = VimivoMediaItem(
     title = mediaMetadata.title?.toString() ?: mediaId,
     kind = when {
         localConfiguration?.mimeType?.startsWith("video/") == true -> MediaKind.VIDEO
-        localConfiguration?.uri?.scheme in setOf("http", "https") -> MediaKind.STREAM
+        localConfiguration?.uri?.scheme in setOf("http", "https", "rtsp", "rtsps", "smb", "upnp") -> MediaKind.STREAM
         else -> MediaKind.AUDIO
     },
     artist = mediaMetadata.artist?.toString(),

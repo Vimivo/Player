@@ -16,6 +16,8 @@ class NetworkStreamTest {
             "https://cdn.example.test/manifest.mpd",
             "http://192.168.1.20:8080/radio",
             "http://localhost:8000/media",
+            "rtsp://camera.example.test:8554/live",
+            "rtsps://camera.example.test/live",
         ).forEach { url -> assertEquals(url, validateNetworkStreamUrl(url).getOrThrow()) }
     }
 
@@ -23,6 +25,7 @@ class NetworkStreamTest {
     fun rejectsInvalidSchemesMissingHostsAndEmbeddedCredentials() {
         listOf(
             "ftp://example.test/media.mp3",
+            "smb://user:secret@example.test/share/movie.mkv",
             "https:///missing-host.mp3",
             "https://user:secret@example.test/media.mp3",
             "not a url",
