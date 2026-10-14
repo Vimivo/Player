@@ -1,8 +1,9 @@
-@file:Suppress("ArgumentListWrapping", "FunctionNaming", "MagicNumber", "MaximumLineLength", "MaxLineLength")
+@file:Suppress("ArgumentListWrapping", "FunctionNaming", "Indentation", "MagicNumber", "MaximumLineLength", "MaxLineLength")
 
 package dev.vimivo.desktop
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,7 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -61,6 +65,7 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
     var networkUrl by remember { mutableStateOf("") }
+    var destination by remember { mutableStateOf(DesktopDestination.Home) }
     val videoCanvas = remember { Canvas() }
     DisposableEffect(engine) { onDispose(engine::close) }
     DisposableEffect(videoCanvas) {
@@ -73,17 +78,21 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
         }
     }
 
-    Surface(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.fillMaxSize().padding(28.dp),
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Row(Modifier.fillMaxSize()) {
+            DesktopSidebar(destination, onDestinationSelected = { destination = it })
+            Column(
+                Modifier.fillMaxSize().padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("Vimivo", style = MaterialTheme.typography.headlineLarge)
-            Text("macOS desktop player · libmpv", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            SwingPanel(
-                factory = { videoCanvas },
-                modifier = Modifier.fillMaxWidth().height(360.dp),
-            )
+            Text(destination.title, style = MaterialTheme.typography.headlineLarge)
+            Text(destination.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
+                SwingPanel(
+                    factory = { videoCanvas },
+                    modifier = Modifier.fillMaxWidth().height(360.dp),
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = {
                     chooseMediaFile()?.let { file ->
@@ -109,7 +118,15 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
                     scope.launch { engine.open(url.toNetworkItem()).onSuccess { engine.play() } }
                 },
             ) { Text("Open stream") }
-            Spacer(Modifier.height(12.dp))
+            if (state.media == null) {
+                DesktopEmptyState(destination)
+            }
+            Spacer(Modifier.height(4.dp))
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(state.media?.title ?: "Nothing playing", style = MaterialTheme.typography.titleLarge)
             Text(state.status.label(), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Slider(
@@ -124,6 +141,8 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
                 Spacer(Modifier.weight(1f))
                 Text(formatTime(state.durationMillis ?: 0))
             }
+                }
+            }
             (state.status as? PlaybackStatus.Error)?.let { error ->
                 Text(error.error.message, color = MaterialTheme.colorScheme.error)
                 Text(
@@ -131,8 +150,56 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            }
         }
     }
+}
+
+@Composable
+private fun DesktopSidebar(
+    selected: DesktopDestination,
+    onDestinationSelected: (DesktopDestination) -> Unit,
+) {
+    Column(
+        modifier = Modifier.width(184.dp).fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text("Vimivo", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(12.dp))
+        DesktopDestination.entries.forEach { destination ->
+            OutlinedButton(
+                onClick = { onDestinationSelected(destination) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (selected == destination) "• ${destination.title}" else destination.title) }
+        }
+        Spacer(Modifier.weight(1f))
+        Text("Private, local-first playback", style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun DesktopEmptyState(destination: DesktopDestination) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(destination.emptyTitle, style = MaterialTheme.typography.titleLarge)
+            Text(destination.emptyDetail, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private enum class DesktopDestination(
+    val title: String,
+    val subtitle: String,
+    val emptyTitle: String,
+    val emptyDetail: String,
+) {
+    Home("Home", "Your listening and viewing space", "Open media to begin", "Vimivo keeps your media on this device."),
+    Music("Music", "Songs, albums, artists, and folders", "Your music library is empty", "Add a library folder in the upcoming macOS library milestone."),
+    Videos("Videos", "Local videos and resume points", "Your video library is empty", "Use Open media for a file, or add a library folder when scanning is available."),
+    Playlists("Playlists", "Your local collections", "No playlists yet", "Playlist persistence depends on the desktop media database."),
+    Favorites("Favorites", "Media you marked for quick access", "No favorites yet", "Favorites appear here after the library is available."),
+    Network("Network", "Authorized streams and remote media", "Open an authorized stream", "Paste an HTTP, HTTPS, or RTSP address above."),
+    Settings("Settings", "Appearance and playback preferences", "Settings are being prepared", "Preferences will be stored locally in the desktop persistence layer."),
 }
 
 private fun chooseMediaFile(): File? {
