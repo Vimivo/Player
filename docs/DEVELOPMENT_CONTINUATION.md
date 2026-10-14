@@ -1,10 +1,10 @@
 # Development continuation
 
-Last verified on 2026-10-14 on macOS, branch `main`.
+Last verified on 2026-10-15 on macOS, branch `main`.
 
 ## Resume point
 
-Implementation is verified through commit `90a6d4a` (`fix(desktop): safeguard personal media actions`).
+Implementation is verified through commit `372cd28` (`feat(desktop): integrate cached artwork UI`).
 
 The latest completed desktop increments are:
 
@@ -13,18 +13,20 @@ The latest completed desktop increments are:
 3. real metadata returned to the desktop music/video library UI and playback model;
 4. playback history and conservative resume-position persistence for indexed video and long-form audio.
 5. reactive desktop playlists, favorites, history, and bookmarks, including persistent mutations and destructive-action confirmations.
+6. Jaudiotagger-backed rich audio metadata, extraction-version invalidation, bounded embedded-artwork caching, and artwork UI.
+7. a shared unified queue with continuous playlist playback, next/previous, missing-item skipping, shuffle, repeat, and queue editing.
 
 Do not rebuild these components. Continue from the first executable item in the backlog below.
 
 ## Next executable work
 
-1. Add a production metadata backend for video and compressed/tagged audio. The current Java Sound extractor is intentionally bounded and does not claim MP3/FLAC/MKV coverage.
-2. Add artwork/thumbnail extraction and a bounded cache.
-3. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
-4. Add queue ownership above the single `MpvPlayerEngine`; persist and restore the queue without auto-playing after restart. Playlist playback currently opens the first available item only and is labeled accordingly.
-5. Complete playlist import/export and backup/restore after a versioned portable format is defined.
-6. Finish Windows video embedding. Windows can compile and package, but the current renderer capability truthfully reports local video unavailable.
-7. Bundle redistributable libmpv binaries per supported OS/architecture and validate installed applications on clean machines.
+1. Implement safe desktop video metadata and thumbnail extraction without invoking the active player or requiring a user-installed command-line tool.
+2. Persist and conservatively restore the unified queue, repeat, and shuffle state without autoplay.
+3. Add Play Next/Add to Queue actions throughout library and playlist UI, and add album/artist projections.
+4. Add licensed generated tagged MP3/FLAC/M4A fixtures; current rich parser paths compile but only WAV and cache behavior have automated fixtures.
+5. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
+6. Complete playlist import/export and backup/restore after a versioned portable format is defined.
+7. Finish Windows/Linux video embedding and bundle redistributable libmpv binaries per supported OS/architecture.
 
 ## External or hardware blockers
 
@@ -35,13 +37,16 @@ Do not rebuild these components. Continue from the first executable item in the 
 
 ## Required verification
 
-For desktop changes run:
+For shared queue or desktop changes run:
 
 ```shell
 ./gradlew :desktopApp:desktopTest
 ./gradlew :desktopApp:compileKotlinDesktop
 ./gradlew :desktopApp:detekt
+./gradlew :shared:desktopTest
 ```
 
 Before a broader handoff also run `./gradlew detekt`. Run Android assembly only when Android sources or build configuration changed. Never infer runtime playback success from compilation or unit tests.
+
+The shared queue change was validated against `:androidApp:assembleDebug` on 2026-10-15; the build completed successfully, including KSP and Kotlin compilation.
 
