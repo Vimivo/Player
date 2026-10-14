@@ -108,7 +108,13 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialPath: String?) {
                     onRemoveRoot = library::removeRoot,
                     onRefreshAvailability = library::refreshAvailability,
                     onSearch = library::setSearch,
-                    onPlay = { media -> scope.launch { engine.open(media).onSuccess { engine.play() } } },
+                    onPlay = { media ->
+                        scope.launch {
+                            library.preparePlayback(media).onSuccess { available ->
+                                engine.open(available).onSuccess { engine.play() }
+                            }
+                        }
+                    },
                 )
             }
             if (destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
@@ -205,6 +211,7 @@ private fun DesktopLibraryPanel(
                     Column(Modifier.weight(1f)) {
                         Text(root.displayName, style = MaterialTheme.typography.titleMedium)
                         Text(root.path.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${root.mediaCount} indexed media items")
                         Text(if (root.available) scan.label() else "Unavailable")
                     }
                     if (scan is LibraryScanState.Scanning) {

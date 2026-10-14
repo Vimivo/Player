@@ -12,7 +12,14 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
 
-internal data class LibraryRoot(val id: String, val path: Path, val displayName: String, val available: Boolean, val lastScanMillis: Long?)
+internal data class LibraryRoot(
+    val id: String,
+    val path: Path,
+    val displayName: String,
+    val available: Boolean,
+    val lastScanMillis: Long?,
+    val mediaCount: Int = 0,
+)
 
 /** Explicit invalidation is used because JDBC does not provide observable table queries. */
 internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
@@ -20,8 +27,8 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
     val generation: StateFlow<Long> = mutableGeneration
 
     fun roots(): List<LibraryRoot> = database.transaction { connection ->
-        connection.createStatement().executeQuery("SELECT id,uri,display_name,available,last_scan_ms FROM library_roots ORDER BY display_name COLLATE NOCASE").use { rows ->
-            buildList { while (rows.next()) add(LibraryRoot(rows.getString(1), Path.of(java.net.URI(rows.getString(2))), rows.getString(3), rows.getInt(4) != 0, rows.getLong(5).takeIf { !rows.wasNull() })) }
+        connection.createStatement().executeQuery("SELECT id,uri,display_name,available,last_scan_ms,(SELECT COUNT(*) FROM media_items WHERE root_id=library_roots.id AND available=1) FROM library_roots ORDER BY display_name COLLATE NOCASE").use { rows ->
+            buildList { while (rows.next()) add(LibraryRoot(rows.getString(1), Path.of(java.net.URI(rows.getString(2))), rows.getString(3), rows.getInt(4) != 0, rows.getLong(5).takeIf { !rows.wasNull() }, rows.getInt(6))) }
         }
     }
 

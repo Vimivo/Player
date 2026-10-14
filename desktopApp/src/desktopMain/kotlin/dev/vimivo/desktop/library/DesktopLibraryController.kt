@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.net.URI
 
 internal data class DesktopLibraryUiState(
     val roots: List<LibraryRoot> = emptyList(),
@@ -65,6 +67,14 @@ internal class DesktopLibraryController(
 
     fun refreshAvailability() = scope.launch {
         repository.refreshAvailability().onFailure(::report)
+    }
+
+    suspend fun preparePlayback(media: MediaItem): Result<MediaItem> = withContext(Dispatchers.IO) {
+        runCatching {
+            require(media.uri.startsWith("file:")) { "Only indexed local files can be opened from the library" }
+            require(File(URI(media.uri)).isFile) { "The indexed media file is unavailable" }
+            media
+        }.onFailure(::report)
     }
 
     private suspend fun refresh() = withContext(Dispatchers.IO) {
