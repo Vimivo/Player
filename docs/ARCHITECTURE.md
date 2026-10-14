@@ -15,6 +15,7 @@ permissions, service (future)   playback contracts
 
 - `shared`: KMP module containing `core`, `domain`, `settings`, `playback`, `features`, and shared Compose UI. It currently declares only an Android target; adding native/desktop targets does not require moving common code.
 - `androidApp`: the Android entry point and Android-specific adapters under `platform/android`. Media engine dependencies live here so their types cannot leak into common code.
+- `desktopApp`: the macOS-first JVM desktop entry point. Compose Desktop owns presentation and native packaging; a JNA adapter owns the documented libmpv client lifecycle. The initial video output is libmpv-owned while a safe render API bridge is evaluated.
 
 Conceptual `data`, `database`, and feature boundaries remain packages until team size or build performance justifies extra Gradle modules. Android persistence uses Room behind shared repository contracts; no Room or Android type crosses into `commonMain`.
 
@@ -60,5 +61,5 @@ The activity owns Android-only window concerns: Picture-in-Picture entry, immers
 
 ## Platform growth
 
-Desktop and iOS targets can provide their own persistence, library scanners, and engines while retaining the shared contracts. No Android type is allowed in `commonMain`; URI values are opaque strings at the boundary.
+Desktop and iOS targets can provide their own persistence, library scanners, and engines while retaining the shared contracts. The macOS target now supplies its first libmpv engine and file-selection UI. No Android or macOS type is allowed in `commonMain`; URI values are opaque strings at the boundary.
 

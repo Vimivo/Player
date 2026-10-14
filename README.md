@@ -1,6 +1,6 @@
 # Vimivo
 
-Vimivo is an early-stage, privacy-first universal music and video player. The current milestone establishes an Android application and a Kotlin Multiplatform foundation; it deliberately does not implement full playback engines yet.
+Vimivo is a privacy-first universal music and video player. Android remains the primary application, with an incremental macOS Compose Desktop target backed by libmpv.
 
 ## Current foundation
 
@@ -9,6 +9,7 @@ Vimivo is an early-stage, privacy-first universal music and video player. The cu
 - Compose Multiplatform with Material 3, light/dark/AMOLED palettes, and edge-to-edge Android hosting
 - Android MediaStore library adapter and DataStore settings adapter
 - Working Media3 engine with controlled LibVLC fallback behind a shared `PlayerEngine` contract
+- macOS Compose Desktop application using the same shared contracts and a real JNA/libmpv adapter
 - Koin dependency injection, Coroutines/Flow, Coil, Detekt, unit tests, and instrumentation-test setup
 
 ## Build
@@ -21,6 +22,15 @@ Install JDK 17 and Android SDK Platform 36, then set `sdk.dir` in `local.propert
 ```
 
 The debug APK is written below `androidApp/build/outputs/apk/debug/`.
+
+For macOS, install a current libmpv build and run:
+
+```shell
+./gradlew :desktopApp:run
+./gradlew :desktopApp:packageDmg
+```
+
+The desktop adapter loads `libmpv` from the system library path. A custom absolute library path may be supplied with `-Dvimivo.mpv.library=/path/to/libmpv.dylib`. The first desktop increment uses libmpv's owned playback window; Compose owns the library and transport-control window.
 
 ## Application ID
 

@@ -35,3 +35,15 @@ Keep shared models free of platform classes. Add an interface only at a real bou
 
 Release signing is intentionally not committed. Production builds must inject a protected keystore configuration in CI before publication.
 
+# macOS desktop
+
+The desktop target requires JDK 17 and a current `libmpv` dynamic library. Homebrew's JDK is suitable for compilation and tests, but Compose Desktop blocks native packaging with that JDK because of known packaging issues. Use Amazon Corretto 17 for `:desktopApp:packageDmg`; do not disable the vendor safety check in committed configuration.
+
+```shell
+./gradlew :desktopApp:desktopTest :desktopApp:compileKotlinDesktop
+./gradlew :desktopApp:run
+./gradlew :desktopApp:packageDmg
+```
+
+The runtime searches the normal macOS dynamic-library paths for `libmpv`. Development builds can provide an explicit path with `-Dvimivo.mpv.library=/absolute/path/to/libmpv.dylib`. The native library is not currently bundled, so redistribution licensing and hardened-runtime signing must be resolved before a public desktop release.
+

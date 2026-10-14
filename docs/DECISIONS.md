@@ -113,3 +113,9 @@
 **Decision:** Use Media3's maintained RTSP module for RTSP/RTSPS playback and an HTTPS-only WebDAV browser implemented with platform networking. Persist remote endpoints without passwords and reject credentials embedded in URLs. SMB, SFTP, and DLNA ContentDirectory remain capability placeholders until their protocol transports, authentication, and playback data sources can be integrated end-to-end without insecure fallback.
 
 **Reason:** A browser that cannot securely authenticate and provide the selected bytes to the active playback engine would be misleading. HTTPS WebDAV and RTSP offer useful, maintainable access today; SMB1, FTP, disabled SSH host-key validation, and plaintext credential persistence are explicitly excluded.
+
+## ADR-018: macOS Compose Desktop with a JNA libmpv boundary
+
+**Decision:** Add one `desktopApp` JVM target, reuse `shared/commonMain`, and access libmpv through JNA 5.19.1. The adapter uses `mpv_command` argument arrays, owns one native handle, polls bounded state at 250 ms, and always calls `mpv_terminate_destroy`. Missing libmpv is an explicit playback error. The first increment lets libmpv own its output window rather than shipping an unverified native rendering bridge.
+
+**Reason:** Compose Desktop provides portable Windows-ready presentation and native macOS packaging, while libmpv provides real codec, subtitle, track, and network playback. Keeping JNA and file dialogs in `desktopApp` preserves the common boundary and avoids shell-command injection or desktop APIs in shared code.

@@ -15,5 +15,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Vimivo"
-include(":androidApp", ":shared")
+include(":androidApp", ":shared", ":desktopApp")
 
