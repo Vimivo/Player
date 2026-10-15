@@ -156,8 +156,9 @@ private fun DesktopPlayer(
             queue.play(files.map(File::toMediaItem))
         }
         openFileHandler.files.collect { files ->
-            files.firstOrNull()?.let { file ->
-                queue.play(listOf(file.toMediaItem()))
+            val valid = files.filter(File::isFile).map(File::toMediaItem)
+            if (valid.isNotEmpty()) {
+                queue.play(valid)
             }
         }
     }

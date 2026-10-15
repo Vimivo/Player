@@ -30,7 +30,7 @@ Intel support requires a separately built and tested x86_64 dependency set or ve
 
 The desktop application installs a buffered AWT open-file handler. Finder events received before the Compose collector is active are retained, file order is preserved, and unavailable paths are ignored. The native menu invokes the same authoritative `MpvPlayerEngine`; it does not create another playback session.
 
-Multiple Finder files are currently accepted and ordered, but only the first is opened because the desktop queue controller is not yet implemented. This is intentionally documented as partial rather than presented as complete queue support.
+Multiple Finder files are accepted, ordered, and loaded directly into the unified continuous playback queue, preserving order and skipping unavailable paths.
 
 ## Release status
 
