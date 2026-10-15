@@ -1,4 +1,4 @@
-@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength")
+@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength", "Wrapping")
 
 package dev.vimivo.playback
 
@@ -13,6 +13,8 @@ import kotlinx.coroutines.test.runTest
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -82,6 +84,95 @@ class PlaybackQueueControllerTest {
 
         assertEquals(activeQueueId, controller.state.value.current?.queueId)
         assertEquals(3, controller.state.value.items.map { it.queueId }.distinct().size)
+    }
+
+    @Test
+    fun restoresSnapshotPausedWithIdentitiesShuffleAndRepeat() = runTest {
+        val original = PlaybackQueueController(FakeQueueEngine(), backgroundScope, random = Random(3))
+        val duplicate = media("same")
+        original.play(listOf(duplicate, media("b"), duplicate, media("c")), startIndex = 2, shuffle = true, sourceLabel = "Album · Test").getOrThrow()
+        original.cycleRepeat()
+        original.cycleRepeat()
+        val snapshot = original.snapshot()
+
+        val engine = FakeQueueEngine()
+        val restored = PlaybackQueueController(engine, backgroundScope)
+        restored.restore(snapshot)
+        runCurrent()
+
+        assertTrue(engine.opened.isEmpty(), "Restoration must not open or start media")
+        assertEquals(snapshot.playbackItems.map { it.queueId }, restored.state.value.items.map { it.queueId })
+        assertEquals(snapshot.currentQueueId, restored.state.value.current?.queueId)
+        assertTrue(restored.state.value.shuffleEnabled)
+        assertEquals(QueueRepeatMode.ALL, restored.state.value.repeatMode)
+        assertEquals("Album · Test", restored.state.value.sourceLabel)
+
+        restored.toggleShuffle()
+        assertEquals(snapshot.sourceItems.map { it.queueId }, restored.state.value.items.map { it.queueId })
+        assertEquals(snapshot.currentQueueId, restored.state.value.current?.queueId)
+
+        restored.playCurrent().getOrThrow()
+        assertEquals(listOf("same"), engine.opened)
+        restored.addToQueue(listOf(media("new")))
+        assertEquals(5, restored.state.value.items.map { it.queueId }.distinct().size, "New entries must not reuse restored identities")
+    }
+
+    @Test
+    fun rejectsInconsistentSnapshots() = runTest {
+        val controller = PlaybackQueueController(FakeQueueEngine(), backgroundScope)
+        val item = QueueItem(1, media("a"))
+        assertFailsWith<IllegalArgumentException> {
+            controller.restore(PlaybackQueueSnapshot(listOf(item), listOf(item, item), 1, false, QueueRepeatMode.OFF))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            controller.restore(PlaybackQueueSnapshot(listOf(item), listOf(QueueItem(2, media("b"))), 1, false, QueueRepeatMode.OFF))
+        }
+        assertTrue(controller.state.value.items.isEmpty())
+    }
+
+    @Test
+    fun playNextKeepsSourceOrderWhenShuffled() = runTest {
+        val controller = PlaybackQueueController(FakeQueueEngine(), backgroundScope, random = Random(11))
+        controller.play(listOf(media("a"), media("b"), media("c"), media("d")), startIndex = 1, shuffle = true).getOrThrow()
+
+        controller.playNext(listOf(media("next")))
+        assertEquals("next", controller.state.value.items[controller.state.value.currentIndex + 1].media.id.value)
+
+        controller.toggleShuffle()
+        assertEquals(listOf("a", "b", "next", "c", "d"), controller.state.value.items.map { it.media.id.value })
+        assertEquals("b", controller.state.value.currentMedia?.id?.value)
+    }
+
+    @Test
+    fun queueActionsOnEmptyQueueSelectFirstEntryWithoutPlaying() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.addToQueue(listOf(media("a"), media("b")))
+        assertEquals(0, controller.state.value.currentIndex)
+        assertTrue(engine.opened.isEmpty())
+
+        controller.playAt(1).getOrThrow()
+        assertEquals("b", controller.state.value.currentMedia?.id?.value)
+        assertEquals(listOf("a"), controller.state.value.items.take(controller.state.value.currentIndex).map { it.media.id.value })
+    }
+
+    @Test
+    fun retainOnlyAdvancesActiveEntryAndPreservesDuplicates() {
+        val a = media("a")
+        val snapshot = PlaybackQueueSnapshot(
+            sourceItems = listOf(QueueItem(1, a), QueueItem(2, media("transient")), QueueItem(3, a)),
+            playbackItems = listOf(QueueItem(2, media("transient")), QueueItem(3, a), QueueItem(1, a)),
+            currentQueueId = 2,
+            shuffleEnabled = true,
+            repeatMode = QueueRepeatMode.ONE,
+        )
+
+        val retained = snapshot.retainOnly { it.id.value != "transient" }
+
+        assertEquals(listOf(3L, 1L), retained.playbackItems.map { it.queueId })
+        assertEquals(listOf(1L, 3L), retained.sourceItems.map { it.queueId })
+        assertEquals(3L, retained.currentQueueId)
+        assertNull(snapshot.retainOnly { false }.currentQueueId)
     }
 
     private fun media(id: String) = MediaItem(MediaId(id), "file:///$id.mp3", id, MediaKind.AUDIO)

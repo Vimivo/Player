@@ -14,7 +14,7 @@ Status terms: **implemented** means code exists, **tested** means automated test
 | Desktop library UI | Partial | Real indexed data, metadata/artwork, roots, search, scanning, playback, favorites, playlists, history, bookmarks, and queue are connected. Categories, paging, sorting, album/artist views, and video thumbnails remain. |
 | Personal media database | Implemented, tested | Playlists, favorites, history, positions, bookmarks, and settings persist with foreign keys and migration tests. Desktop create/rename/delete/duplicate/add/remove/reorder/favorite/history/bookmark actions are connected. Import/export and full queue playback remain. |
 | Playback history and resume | Implemented, tested | One play count per session, ten-second position checkpoints, completion handling, and conservative video/long-audio resume rules. Real process-restart playback verification remains. |
-| Unified playback queue | Implemented, tested; persistence partial | One engine owns continuous play-all, next/previous, stable duplicate occurrences, missing-item skipping, reorder/remove/clear, shuffle, and repeat modes. Queue state is not yet restored after restart. |
+| Unified playback queue | Implemented, tested | One engine owns continuous play-all, next/previous, stable duplicate occurrences, missing-item skipping, reorder/remove/clear, shuffle, repeat modes, SQLite schema version 4 persistence, and paused restoration without autoplay. |
 | Network URL playback | Partial | HTTP/HTTPS/RTSP URLs use the existing engine. Recent/favorite URL UI, credential storage, SMB/WebDAV/SFTP, and discovery are not implemented. |
 | Desktop distribution | Partial | Compose packaging configuration exists for supported host targets. Native libmpv bundling, clean-machine installs, signatures, notarization, checksums, and Windows installer validation remain. |
 | Android application | Existing target; unchanged by this checkpoint | Desktop work must not regress Android. Run Android gates when Android code/build files change. |
@@ -29,18 +29,20 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `0a95609` — rich tagged audio metadata and bounded embedded-artwork cache.
 - `bc7d3fb` — unified continuous desktop playback queue.
 - `372cd28` — cached artwork connected to desktop media UI.
+- `feat(desktop): persist and restore paused playback queue` — schema v4 queue persistence, snapshot restoration without autoplay, and queue actions.
 
 ## Quality record
 
-On 2026-10-15, after `372cd28`, these commands completed successfully:
+On 2026-10-15, these commands completed successfully:
 
-- `./gradlew :desktopApp:desktopTest`
+- `./gradlew :desktopApp:desktopTest` (27 tests)
 - `./gradlew :desktopApp:compileKotlinDesktop`
 - `./gradlew :desktopApp:detekt`
-- `./gradlew :shared:desktopTest` (9 tests)
+- `./gradlew :shared:desktopTest` (14 tests)
 - `./gradlew detekt`
-- `./gradlew :androidApp:assembleDebug` (shared queue compatibility; completed in 1m 30s)
+- `./gradlew :androidApp:assembleDebug` (verified Android build compatibility with updated shared queue controller; completed successfully)
 
-The desktop suite currently contains 25 tests.
+The desktop suite currently contains 27 tests and shared desktop test suite contains 14 tests.
 
 This record does not claim installed-application or real-media runtime verification.
+

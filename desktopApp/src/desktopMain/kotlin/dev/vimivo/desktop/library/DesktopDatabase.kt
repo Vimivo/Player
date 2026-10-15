@@ -58,6 +58,7 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             require(version <= SCHEMA_VERSION) { "Desktop database schema $version is newer than this Vimivo build" }
             if (version < 2) migrateToVersion2(statement)
             if (version < 3) migrateToVersion3(statement)
+            if (version < 4) migrateToVersion4(statement)
         }
     }
 
@@ -114,10 +115,27 @@ internal class DesktopDatabase private constructor(private val connection: Conne
         statement.execute("UPDATE schema_version SET version=3")
     }
 
+    private fun migrateToVersion4(statement: java.sql.Statement) {
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS playback_queue_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), " +
+                "current_queue_id INTEGER, shuffle_enabled INTEGER NOT NULL DEFAULT 0, repeat_mode TEXT NOT NULL, " +
+                "source_label TEXT, updated_at_ms INTEGER NOT NULL)",
+        )
+        // Temporary queue entries must never block library-root removal, so they cascade with indexed media.
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS playback_queue_items (queue_id INTEGER PRIMARY KEY, media_id TEXT NOT NULL, " +
+                "source_position INTEGER NOT NULL, playback_position INTEGER NOT NULL, " +
+                "FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE CASCADE)",
+        )
+        statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS playback_queue_source_order ON playback_queue_items(source_position)")
+        statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS playback_queue_playback_order ON playback_queue_items(playback_position)")
+        statement.execute("UPDATE schema_version SET version=4")
+    }
+
     override fun close() = connection.close()
 
     companion object {
-        private const val SCHEMA_VERSION = 3
+        private const val SCHEMA_VERSION = 4
 
         fun open(path: Path = defaultPath()): DesktopDatabase {
             Files.createDirectories(path.parent)

@@ -1,4 +1,7 @@
-@file:Suppress("CyclomaticComplexMethod", "MaximumLineLength", "MaxLineLength", "TooGenericExceptionCaught")
+@file:Suppress(
+    "ArgumentListWrapping", "CyclomaticComplexMethod", "ImportOrdering", "Indentation",
+    "MaximumLineLength", "MaxLineLength", "ParameterListWrapping", "TooGenericExceptionCaught", "Wrapping",
+)
 
 package dev.vimivo.desktop.library
 
@@ -8,8 +11,12 @@ import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.model.PlaybackHistory
 import dev.vimivo.core.model.Playlist
+import dev.vimivo.playback.PlaybackQueueSnapshot
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
+import dev.vimivo.playback.QueueItem
+import java.io.File
+import java.net.URI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -22,8 +29,6 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.net.URI
 
 internal data class DesktopLibraryUiState(
     val roots: List<LibraryRoot> = emptyList(),
@@ -49,6 +54,7 @@ internal class DesktopLibraryController(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val repository = DesktopLibraryRepository(database)
     private val personalRepository = DesktopPersonalMediaRepository(database)
+    private val queueRepository = DesktopPlaybackQueueRepository(database)
     private val coordinator = LibraryScanCoordinator(
         repository,
         DesktopMediaScanner(database),
@@ -109,6 +115,46 @@ internal class DesktopLibraryController(
         mutatePersonalData { personalRepository.addBookmark(mediaId, positionMillis, label) }
     fun renameBookmark(id: String, label: String) = mutatePersonalData { personalRepository.renameBookmark(id, label) }
     fun deleteBookmark(id: String) = mutatePersonalData { personalRepository.deleteBookmark(id) }
+
+    /**
+     * Persists indexed media only; transient file and network entries cannot be restored safely, so they are
+     * filtered while preserving occurrence identities, ordering, and the nearest active entry.
+     */
+    suspend fun saveQueue(snapshot: PlaybackQueueSnapshot): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val indexed = queueRepository.indexedMediaIds(snapshot.playbackItems.map { it.media.id })
+            val persistable = snapshot.retainOnly { it.id in indexed }
+            if (persistable.playbackItems.isEmpty()) queueRepository.clear() else queueRepository.save(persistable)
+        }.onFailure(::report)
+    }
+
+    /**
+     * Restores a paused queue. Temporarily unavailable media (for example an unmounted drive) is kept and marked
+     * unavailable so the queue can skip it; media removed from the library is dropped. Corrupt state is discarded.
+     */
+    suspend fun restoredQueue(): PlaybackQueueSnapshot? = withContext(Dispatchers.IO) {
+        runCatching {
+            val stored = queueRepository.load() ?: return@runCatching null
+            val mediaById = repository.media(stored.items.map(StoredQueueItem::mediaId), includeUnavailable = true).associateBy { it.id }
+            val entries = stored.items.map { storedItem -> storedItem to mediaById[storedItem.mediaId] }
+            val queueItem = { pair: Pair<StoredQueueItem, MediaItem?> ->
+                QueueItem(pair.first.queueId, pair.second ?: MediaItem(pair.first.mediaId, "", "", MediaKind.AUDIO, isAvailable = false))
+            }
+            val snapshot = PlaybackQueueSnapshot(
+                sourceItems = entries.sortedBy { it.first.sourcePosition }.map(queueItem),
+                playbackItems = entries.sortedBy { it.first.playbackPosition }.map(queueItem),
+                currentQueueId = stored.currentQueueId,
+                shuffleEnabled = stored.shuffleEnabled,
+                repeatMode = stored.repeatMode,
+                sourceLabel = stored.sourceLabel,
+            ).retainOnly { it.id in mediaById }
+            snapshot.takeIf { it.playbackItems.isNotEmpty() }
+        }.getOrElse { error ->
+            report(IllegalStateException("The saved playback queue could not be restored and was discarded", error))
+            runCatching { queueRepository.clear() }
+            null
+        }
+    }
 
     suspend fun playlistMedia(playlistId: String): Result<List<MediaItem>> = withContext(Dispatchers.IO) {
         runCatching {

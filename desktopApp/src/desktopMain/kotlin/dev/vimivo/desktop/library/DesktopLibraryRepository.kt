@@ -64,19 +64,20 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         }
     }
 
-    fun media(ids: Collection<MediaId>): List<MediaItem> {
+    fun media(ids: Collection<MediaId>, includeUnavailable: Boolean = false): List<MediaItem> {
         if (ids.isEmpty()) return emptyList()
         val orderedIds = ids.map(MediaId::value)
         return database.transaction { connection ->
-            val placeholders = orderedIds.joinToString(",") { "?" }
+            val placeholders = orderedIds.distinct().joinToString(",") { "?" }
             connection.prepareStatement(
                 "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
                     "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
-                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
-                    "WHERE m.available=1 AND m.id IN ($placeholders)",
+                    "x.bitrate,x.track_number,x.disc_number,x.release_year,m.available FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                    "WHERE (m.available=1 OR ?) AND m.id IN ($placeholders)",
             ).use { statement ->
-                orderedIds.forEachIndexed { index, id -> statement.setString(index + 1, id) }
-                val byId = statement.executeQuery().use { rows -> buildMap { while (rows.next()) put(rows.getString(1), rows.toMedia()) } }
+                statement.setInt(1, if (includeUnavailable) 1 else 0)
+                orderedIds.distinct().forEachIndexed { index, id -> statement.setString(index + 2, id) }
+                val byId = statement.executeQuery().use { rows -> buildMap { while (rows.next()) put(rows.getString(1), rows.toMedia().copy(isAvailable = rows.getInt(22) != 0)) } }
                 orderedIds.mapNotNull(byId::get)
             }
         }

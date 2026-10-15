@@ -52,6 +52,7 @@ import dev.vimivo.desktop.library.DesktopLibraryUiState
 import dev.vimivo.desktop.library.LibraryScanState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlaybackQueueController
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.awt.Canvas
 import java.awt.FileDialog
@@ -61,8 +62,16 @@ import java.io.File
 fun main(args: Array<String>) = application {
     val engine = remember { MpvPlayerEngine() }
     val openFileHandler = remember { MacOpenFileHandler().also { it.install() } }
+    val applicationScope = rememberCoroutineScope()
+    val library = remember { DesktopLibraryController() }
+    val queue = remember(engine, applicationScope) {
+        PlaybackQueueController(engine, applicationScope, isAvailable = { media ->
+            media.isAvailable && (!media.uri.startsWith("file:") || runCatching { File(java.net.URI(media.uri)).isFile }.getOrDefault(false))
+        })
+    }
     Window(
         onCloseRequest = {
+            queue.close()
             engine.close()
             openFileHandler.close()
             exitApplication()
@@ -74,30 +83,47 @@ fun main(args: Array<String>) = application {
                 Item("Open File…", onClick = { chooseMediaFiles().let(openFileHandler::submit) })
             }
             Menu("Playback") {
-                Item("Play / Pause", onClick = {
-                    if (engine.state.value.status == PlaybackStatus.Playing) engine.pause() else engine.play()
-                })
+                Item("Play / Pause", onClick = { applicationScope.launch { togglePlayback(engine, queue, library) } })
                 Item("Stop", onClick = { engine.stop() })
+                Item("Next", onClick = { applicationScope.launch { queue.next() } })
+                Item("Previous", onClick = { applicationScope.launch { queue.previous() } })
                 Separator()
                 Item("Seek Backward", onClick = { engine.seekTo((engine.state.value.positionMillis - 10_000).coerceAtLeast(0)) })
                 Item("Seek Forward", onClick = { engine.seekTo(engine.state.value.positionMillis + 10_000) })
             }
         }
-        MaterialTheme { DesktopPlayer(engine, args.map(::File), openFileHandler) }
+        MaterialTheme { DesktopPlayer(engine, queue, library, args.map(::File), openFileHandler) }
+    }
+}
+
+/** Pauses active playback, resumes loaded media, or opens a restored queue entry only after a user action. */
+internal suspend fun togglePlayback(
+    engine: MpvPlayerEngine,
+    queue: PlaybackQueueController,
+    library: DesktopLibraryController,
+) {
+    val playback = engine.state.value
+    when {
+        playback.status == PlaybackStatus.Playing -> engine.pause()
+        playback.media != null -> engine.play()
+        else -> queue.state.value.currentMedia?.let { media ->
+            val start = library.preparePlayback(media).getOrNull()?.startPositionMillis ?: 0
+            queue.playCurrent(start)
+        }
     }
 }
 
 @Composable
-private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, openFileHandler: MacOpenFileHandler) {
+private fun DesktopPlayer(
+    engine: MpvPlayerEngine,
+    queue: PlaybackQueueController,
+    library: DesktopLibraryController,
+    initialFiles: List<File>,
+    openFileHandler: MacOpenFileHandler,
+) {
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
-    val queue = remember(engine, scope) {
-        PlaybackQueueController(engine, scope, isAvailable = { media ->
-            !media.uri.startsWith("file:") || runCatching { File(java.net.URI(media.uri)).isFile }.getOrDefault(false)
-        })
-    }
     val queueState by queue.state.collectAsState()
-    val library = remember { DesktopLibraryController() }
     val libraryState by library.state.collectAsState()
     var networkUrl by remember { mutableStateOf("") }
     var destination by remember { mutableStateOf(DesktopDestination.Home) }
@@ -116,7 +142,12 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
         engine.attachVideoSurface(videoCanvas)
         onDispose { }
     }
-    LaunchedEffect(initialFiles, openFileHandler) {
+    LaunchedEffect(initialFiles, openFileHandler, library, queue) {
+        // Restore first so explicitly opened files replace, rather than race with, the saved paused queue.
+        library.restoredQueue()?.let { snapshot -> runCatching { queue.restore(snapshot) } }
+        launch {
+            queue.state.drop(1).collect { library.saveQueue(queue.snapshot()) }
+        }
         initialFiles.filter(File::isFile).takeIf(List<File>::isNotEmpty)?.let { files ->
             queue.play(files.map(File::toMediaItem))
         }
@@ -194,7 +225,7 @@ private fun DesktopPlayer(engine: MpvPlayerEngine, initialFiles: List<File>, ope
                         scope.launch { queue.play(listOf(file.toMediaItem())) }
                     }
                 }) { Text("Open media") }
-                OutlinedButton(onClick = { if (state.status == PlaybackStatus.Playing) engine.pause() else engine.play() }) {
+                OutlinedButton(onClick = { scope.launch { togglePlayback(engine, queue, library) } }) {
                     Text(if (state.status == PlaybackStatus.Playing) "Pause" else "Play")
                 }
                 OutlinedButton(onClick = { scope.launch { queue.previous() } }, enabled = queueState.items.isNotEmpty()) { Text("Previous") }

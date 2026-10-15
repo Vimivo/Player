@@ -15,15 +15,17 @@ The latest completed desktop increments are:
 5. reactive desktop playlists, favorites, history, and bookmarks, including persistent mutations and destructive-action confirmations.
 6. Jaudiotagger-backed rich audio metadata, extraction-version invalidation, bounded embedded-artwork caching, and artwork UI.
 7. a shared unified queue with continuous playlist playback, next/previous, missing-item skipping, shuffle, repeat, and queue editing.
+8. SQLite schema version 4 queue persistence, snapshot restoration without autoplay, and queue actions across app startup.
 
 Do not rebuild these components. Continue from the first executable item in the backlog below.
 
 ## Next executable work
 
-1. Implement safe desktop video metadata and thumbnail extraction without invoking the active player or requiring a user-installed command-line tool.
-2. Persist and conservatively restore the unified queue, repeat, and shuffle state without autoplay.
-3. Add Play Next/Add to Queue actions throughout library and playlist UI, and add album/artist projections.
-4. Add licensed generated tagged MP3/FLAC/M4A fixtures; current rich parser paths compile but only WAV and cache behavior have automated fixtures.
+1. Add licensed generated tagged MP3/FLAC/M4A/Ogg/Opus test fixtures and verify extraction parser output, Unicode/Bengali tags, and extraction-version invalidation.
+2. Implement safe desktop video metadata and thumbnail extraction (MP4, MKV, MOV, WebM) without invoking the active player or requiring a user-installed command-line tool.
+3. Add thumbnail caching with stable keys, size bounds, and atomic writes.
+4. Add album and artist database projections and connect them to real Compose screens (Albums, Artists, Album Details, Artist Details).
+5. Add Play Next / Add to Queue / Play All / Shuffle Play actions throughout library and playlist UI.
 5. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
 6. Complete playlist import/export and backup/restore after a versioned portable format is defined.
 7. Finish Windows/Linux video embedding and bundle redistributable libmpv binaries per supported OS/architecture.
