@@ -13,9 +13,7 @@ internal object DesktopVideoRendererFactory {
     fun create(platform: DesktopPlatform = DesktopPlatform.detect()): DesktopVideoRenderer = when (platform) {
         DesktopPlatform.MACOS -> MpvCocoaRenderer()
         DesktopPlatform.WINDOWS -> MpvWin32Renderer()
-        DesktopPlatform.LINUX -> UnsupportedDesktopVideoRenderer(
-            "Linux embedded video is outside the current project scope",
-        )
+        DesktopPlatform.LINUX -> MpvX11Renderer()
         DesktopPlatform.UNKNOWN -> UnsupportedDesktopVideoRenderer(
             "Embedded video is unavailable on this operating system",
         )

@@ -44,6 +44,24 @@ internal interface MpvNative : Library {
             }
         }
 
+        fun findBundledLinuxLibDir(): File? {
+            val codeSource = MpvNative::class.java.protectionDomain?.codeSource?.location ?: return null
+            val jarOrClassesDir = runCatching { File(codeSource.toURI()) }.getOrNull() ?: return null
+            val appDir = if (jarOrClassesDir.isFile) jarOrClassesDir.parentFile else jarOrClassesDir
+            val installDir = appDir?.parentFile
+            val candidates = listOfNotNull(
+                appDir,
+                appDir?.resolve("lib"),
+                installDir,
+                installDir?.resolve("lib"),
+                installDir?.resolve("runtime")?.resolve("lib"),
+            )
+            val soNames = listOf("libmpv.so.2", "libmpv.so.1", "libmpv.so")
+            return candidates.firstOrNull { dir ->
+                dir.exists() && dir.isDirectory && soNames.any { so -> dir.resolve(so).exists() }
+            }
+        }
+
         @Suppress("ReturnCount")
         fun load(): MpvNative {
             val explicit = System.getProperty("vimivo.mpv.library")?.takeIf(String::isNotBlank)
@@ -67,6 +85,16 @@ internal interface MpvNative : Library {
                     .firstOrNull(File::exists)
                 if (candidate != null) {
                     appendJnaLibraryPath(windowsDllDir)
+                    return Native.load(candidate.absolutePath, MpvNative::class.java)
+                }
+            }
+            val linuxLibDir = findBundledLinuxLibDir()
+            if (linuxLibDir != null) {
+                val candidate = listOf("libmpv.so.2", "libmpv.so.1", "libmpv.so")
+                    .map { File(linuxLibDir, it) }
+                    .firstOrNull(File::exists)
+                if (candidate != null) {
+                    appendJnaLibraryPath(linuxLibDir)
                     return Native.load(candidate.absolutePath, MpvNative::class.java)
                 }
             }

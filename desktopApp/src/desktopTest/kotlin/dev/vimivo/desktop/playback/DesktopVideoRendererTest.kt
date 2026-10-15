@@ -10,10 +10,14 @@ import kotlin.test.assertTrue
 class DesktopVideoRendererTest {
 
     @Test
-    fun capabilityReportingReflectsWindowsNativeVideoSupport() {
+    fun capabilityReportingReflectsWindowsAndLinuxNativeVideoSupport() {
         assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.WINDOWS).localVideo)
         assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.WINDOWS).hdr)
         assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.WINDOWS).localAudio)
+
+        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX).localVideo)
+        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX).hdr)
+        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX).localAudio)
     }
 
     @Test
@@ -27,11 +31,21 @@ class DesktopVideoRendererTest {
     }
 
     @Test
-    fun linuxRendererRemainsExplicitlyUnsupported() {
+    fun linuxRendererInstantiatesX11RendererAndFailsCleanlyWithoutXid() {
         val renderer = DesktopVideoRendererFactory.create(DesktopPlatform.LINUX)
+        assertTrue(renderer is MpvX11Renderer)
+        val error = assertFailsWith<IllegalStateException> {
+            renderer.attach(Canvas(), Pointer.createConstant(1))
+        }
+        assertTrue(error.message.orEmpty().contains("X11"))
+    }
+
+    @Test
+    fun unknownPlatformRendererRemainsUnsupported() {
+        val renderer = DesktopVideoRendererFactory.create(DesktopPlatform.UNKNOWN)
         val error = assertFailsWith<UnsupportedOperationException> {
             renderer.attach(Canvas(), Pointer.createConstant(1))
         }
-        assertTrue(error.message.orEmpty().contains("Linux embedded video"))
+        assertTrue(error.message.orEmpty().contains("Embedded video is unavailable"))
     }
 }

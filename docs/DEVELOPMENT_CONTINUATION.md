@@ -4,7 +4,7 @@ Last verified on 2026-10-15 on macOS, branch `main`.
 
 ## Resume point
 
-Implementation is verified through Milestone 17 and 18 foundations (`feat(windows): embedded video renderer, secure credentials, and standalone distribution packaging`).
+Implementation is verified through Milestone 19 and 20 foundations (`feat(linux): embedded video renderer, MPRIS media controls, secure credentials, and distribution packaging`).
 
 The latest completed desktop increments are:
 
@@ -30,25 +30,32 @@ The latest completed desktop increments are:
 20. Windows secure DLL directory resolution (`MpvNative.findBundledWindowsDllDir()`) with cross-platform JNA library path management;
 21. Windows Credential Manager integration (`WindowsCredentialStore`) with Win32 `Advapi32` APIs and safe in-memory fallback;
 22. Windows desktop integration including Drag-and-Drop (`DropTarget`), MenuBar keyboard shortcuts (`Ctrl+O`, `Ctrl+Shift+O`, `Space`, `Left`/`Right`), and `%LOCALAPPDATA%\Vimivo` persistence;
-23. Windows standalone packaging configuration in `build.gradle.kts` for EXE and MSI formats, native dependency bundling script `bundle_windows_mpv.py`, official 256x256 `.ico` icon, and `.github/workflows/windows.yml` CI pipeline.
+23. Windows standalone packaging configuration in `build.gradle.kts` for EXE and MSI formats, native dependency bundling script `bundle_windows_mpv.py`, official 256x256 `.ico` icon, and `.github/workflows/windows.yml` CI pipeline;
+24. Linux embedded video renderer (`MpvX11Renderer`) attaching AWT Canvas X11/XWayland Window ID (`XID`) to libmpv (`wid`) with `vo = gpu` and capability reporting (`localVideo = true`, `hdr = true`);
+25. Linux dynamic library locator (`MpvNative.findBundledLinuxLibDir()`) resolving bundled and system `libmpv.so*`;
+26. Linux MPRIS 2 media player subsystem over Session D-Bus (`org.mpris.MediaPlayer2.vimivo`), tracking playback state, queue, microsecond positions, track object paths, and reactive `PropertiesChanged` notifications with `NoOpMprisService` fallback;
+27. Linux Secret Service integration (`LinuxCredentialStore`) binding `libsecret-1.so.0` with `MemoryCredentialStore` fallback;
+28. Linux desktop integration including multi-resolution Hicolor icons (16px to 512px), freedesktop `.desktop` launcher, and AppStream metainfo specification;
+29. Linux packaging configuration in `build.gradle.kts` for DEB and RPM formats, standalone AppImage packaging script `build_appimage.sh`, Flatpak sandboxed manifest `dev.vimivo.desktop.json`, native ELF bundler `bundle_linux_mpv.py`, and Linux CI workflow in `.github/workflows/linux.yml`.
 
 Do not rebuild these components. Continue from the first executable item in the backlog below.
 
 ## Next executable work
 
-1. Execute Windows GitHub Actions CI pipeline on a Windows runner to generate genuine EXE/MSI binaries and SHA-256 checksums.
-2. Run clean-machine Windows runtime playback verification for audio, embedded video, resizing, fullscreen, and track switching.
-3. Prepare Authenticode signing configuration for Windows application executable and installers.
-4. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
-5. Complete playlist import/export and backup/restore after a versioned portable format is defined.
-6. Implement Linux native renderer (Wayland/X11 surface) and bundle Linux native libraries.
+1. Execute Linux GitHub Actions CI pipeline on an Ubuntu runner to generate genuine DEB, RPM, and AppImage packages and SHA-256 checksums.
+2. Execute Windows GitHub Actions CI pipeline on a Windows runner to generate genuine EXE/MSI binaries and SHA-256 checksums.
+3. Run clean-machine Linux runtime playback verification under GNOME and KDE Plasma (Wayland and X11 sessions).
+4. Run clean-machine Windows runtime playback verification for audio, embedded video, resizing, fullscreen, and track switching.
+5. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
+6. Complete playlist import/export and backup/restore after a versioned portable format is defined.
 7. Prepare Apple Developer ID signing and notarization workflow via `xcrun notarytool`.
 
 ## External or hardware blockers
 
+- Linux packaging (`jpackage` creating DEB/RPM and AppImage tools) requires a Linux host/runner (e.g. GitHub Actions `ubuntu-latest`). It cannot be generated on macOS.
 - Windows packaging (`jpackage` creating EXE/MSI) requires a Windows host (e.g. GitHub Actions `windows-latest` runner). It cannot be generated on macOS.
 - Real macOS audio/video playback, resize, fullscreen, sleep/wake, and cleanup require a machine with a compatible libmpv runtime and legal test media.
-- Production signing/notarization requires owner-managed Apple and Windows signing credentials. Never commit credentials.
+- Production signing/notarization requires owner-managed Apple, Windows, and Linux signing credentials. Never commit credentials.
 - Cross-architecture native validation requires the corresponding hardware or runners.
 
 ## Required verification
@@ -60,6 +67,7 @@ For shared queue or desktop changes run:
 ./gradlew :desktopApp:compileKotlinDesktop
 ./gradlew :desktopApp:detekt
 ./gradlew :shared:desktopTest
+./gradlew :androidApp:assembleDebug
 ```
 
-The desktop suite currently contains 56 tests and shared desktop test suite contains 14 tests.
+The desktop suite currently contains 64 tests and shared desktop test suite contains 14 tests.

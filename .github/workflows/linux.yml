@@ -1,0 +1,80 @@
+name: Linux Desktop Quality & Packaging
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Linux packaging tools and libmpv
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile and run tests
+        run: ./gradlew :desktopApp:compileKotlinDesktop :desktopApp:desktopTest :shared:desktopTest :desktopApp:detekt
+
+      - name: Build Linux Distributable & Bundle Native Dependencies
+        run: |
+          ./gradlew :desktopApp:createDistributable
+          python3 desktopApp/scripts/bundle_linux_mpv.py desktopApp/build/compose/binaries/main/app/Vimivo /usr/lib/x86_64-linux-gnu
+
+      - name: Package DEB and RPM
+        run: ./gradlew :desktopApp:packageDeb :desktopApp:packageRpm
+
+      - name: Package AppImage
+        run: |
+          # Download appimagetool if not installed
+          if ! command -v appimagetool >/dev/null 2>&1; then
+            wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool
+            chmod +x /tmp/appimagetool
+            # Extract AppImage in runner since FUSE is not enabled by default in container
+            (cd /tmp && /tmp/appimagetool --appimage-extract)
+            export PATH="/tmp/squashfs-root/usr/bin:${PATH}"
+          fi
+          bash desktopApp/scripts/build_appimage.sh desktopApp/build/compose/binaries/main/app/Vimivo desktopApp/build/compose/binaries/main/appimage
+
+      - name: Verify packages and generate SHA-256 checksums
+        run: |
+          distDir="desktopApp/build/compose/binaries/main"
+          mkdir -p build/artifacts
+          find "$distDir" -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) ! -path "*/temp/*" | while read -r pkg; do
+            filename=$(basename "$pkg")
+            echo "Processing $filename..."
+            cp "$pkg" "build/artifacts/$filename"
+            sha256sum "$pkg" | awk '{print $1}' > "build/artifacts/${filename}.sha256"
+            echo "$filename: $(cat build/artifacts/${filename}.sha256)"
+          done
+
+      - name: Upload Linux distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vimivo-linux-packages
+          path: build/artifacts/*
+          if-no-files-found: error

@@ -68,5 +68,14 @@ class SecureCredentialStoreTest {
         val macStore = SecureCredentialStoreFactory.create(DesktopPlatform.MACOS)
         assertNotNull(macStore)
         macStore.close()
+
+        val linuxStore = SecureCredentialStoreFactory.create(DesktopPlatform.LINUX)
+        assertNotNull(linuxStore)
+        linuxStore.saveSecret("linux_key", "linux_secret".toCharArray()).getOrThrow()
+        val linuxRead = linuxStore.getSecret("linux_key").getOrThrow()
+        assertNotNull(linuxRead)
+        assertContentEquals("linux_secret".toCharArray(), linuxRead)
+        linuxStore.deleteSecret("linux_key").getOrThrow()
+        linuxStore.close()
     }
 }

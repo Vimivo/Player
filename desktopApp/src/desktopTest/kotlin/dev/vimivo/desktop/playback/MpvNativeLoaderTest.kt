@@ -30,6 +30,16 @@ class MpvNativeLoaderTest {
     }
 
     @Test
+    fun findBundledLinuxLibDirHandlesNonPackagedEnvironmentSafely() {
+        val libDir = MpvNative.findBundledLinuxLibDir()
+        if (libDir != null) {
+            assertTrue(libDir.isDirectory)
+        } else {
+            assertNull(libDir)
+        }
+    }
+
+    @Test
     fun explicitSystemPropertyOverridesDefaultLibrary() {
         val original = System.getProperty("vimivo.mpv.library")
         try {

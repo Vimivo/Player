@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.vimivo.desktop</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <name>Vimivo</name>
+  <summary>Universal Music &amp; Video Player</summary>
+  <description>
+    <p>
+      Vimivo is a free, privacy-first, offline-first music and video player with native hardware-accelerated playback powered by libmpv.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>High-fidelity audio playback with equalizer, volume normalization, and continuous queue</li>
+      <li>Embedded video player with subtitle selection, aspect ratio control, and resume tracking</li>
+      <li>Local media library indexing with fast search, album/artist projections, and artwork caching</li>
+      <li>MPRIS 2 D-Bus integration with system media keys and desktop notifications</li>
+      <li>Zero tracking, zero analytics, zero advertisements</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">dev.vimivo.desktop.desktop</launchable>
+  <url type="homepage">https://github.com/Vimivo/Player</url>
+  <url type="bugtracker">https://github.com/Vimivo/Player/issues</url>
+  <provides>
+    <binary>vimivo</binary>
+    <mediatype>audio/mpeg</mediatype>
+    <mediatype>audio/flac</mediatype>
+    <mediatype>audio/mp4</mediatype>
+    <mediatype>audio/ogg</mediatype>
+    <mediatype>audio/opus</mediatype>
+    <mediatype>video/mp4</mediatype>
+    <mediatype>video/x-matroska</mediatype>
+    <mediatype>video/webm</mediatype>
+  </provides>
+  <releases>
+    <release version="1.0.0" date="2026-10-15"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

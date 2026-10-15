@@ -71,8 +71,16 @@ fun main(args: Array<String>) = application {
             media.isAvailable && (!media.uri.startsWith("file:") || runCatching { File(java.net.URI(media.uri)).isFile }.getOrDefault(false))
         })
     }
+    val mpris = remember(engine, queue) {
+        dev.vimivo.desktop.integration.mpris.MprisServiceFactory.create(
+            engine,
+            queue,
+            { togglePlayback(engine, queue, library) },
+        )
+    }
     Window(
         onCloseRequest = {
+            mpris.close()
             queue.close()
             engine.close()
             openFileHandler.close()
@@ -136,7 +144,7 @@ fun main(args: Array<String>) = application {
                 )
             }
         }
-        MaterialTheme { DesktopPlayer(engine, queue, library, args.map(::File), openFileHandler) }
+        MaterialTheme { DesktopPlayer(engine, queue, library, args.map(::File), openFileHandler, mpris) }
     }
 }
 
@@ -164,6 +172,7 @@ private fun DesktopPlayer(
     library: DesktopLibraryController,
     initialFiles: List<File>,
     openFileHandler: MacOpenFileHandler,
+    mpris: dev.vimivo.desktop.integration.mpris.MprisService,
 ) {
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -206,6 +215,12 @@ private fun DesktopPlayer(
     }
     LaunchedEffect(engine, library) {
         library.observePlayback(engine.state)
+    }
+    LaunchedEffect(engine, mpris) {
+        engine.state.collect { mpris.updatePlayback(it) }
+    }
+    LaunchedEffect(queue, mpris) {
+        queue.state.collect { mpris.updateQueue(it) }
     }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {

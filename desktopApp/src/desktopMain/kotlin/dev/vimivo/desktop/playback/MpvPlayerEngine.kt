@@ -286,7 +286,7 @@ class MpvPlayerEngine : PlayerEngine {
         private val SUPPORTED_SCHEMES = setOf("file", "http", "https", "rtsp", "rtsps")
         internal fun capabilitiesFor(platform: DesktopPlatform) = EngineCapabilities(
             localAudio = true,
-            localVideo = platform == DesktopPlatform.MACOS || platform == DesktopPlatform.WINDOWS,
+            localVideo = platform != DesktopPlatform.UNKNOWN,
             httpStreaming = true,
             hlsStreaming = true,
             dashStreaming = true,
@@ -298,7 +298,7 @@ class MpvPlayerEngine : PlayerEngine {
             videoTrackSelection = true,
             embeddedSubtitles = true,
             externalSubtitles = true,
-            hdr = platform == DesktopPlatform.MACOS || platform == DesktopPlatform.WINDOWS,
+            hdr = platform != DesktopPlatform.UNKNOWN,
             subtitleDelay = true,
             audioDelay = true,
             supportedSpeedRange = 0.25f..4f,

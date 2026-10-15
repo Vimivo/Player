@@ -11,12 +11,17 @@ val macosMpvBridge by tasks.registering(Exec::class) {
     val output = layout.buildDirectory.file("native/libvimivo_mpv_cocoa.dylib")
     inputs.file("src/desktopMain/native/macos/MpvCocoaRenderer.mm")
     outputs.file(output)
-    commandLine(
+    val cmd = mutableListOf(
         "xcrun", "clang++", "-dynamiclib", "-std=c++17",
         "-I${javaHome.get()}/include", "-I${javaHome.get()}/include/darwin", "-I/opt/homebrew/include",
         "src/desktopMain/native/macos/MpvCocoaRenderer.mm", "-o", output.get().asFile.absolutePath,
         "-L/opt/homebrew/lib", "-L${javaHome.get()}/lib", "-lmpv", "-ljawt", "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "QuartzCore",
     )
+    val stableSdk = file("/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk")
+    if (stableSdk.exists()) {
+        cmd.addAll(listOf("-isysroot", stableSdk.absolutePath))
+    }
+    commandLine(cmd)
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
@@ -101,6 +106,15 @@ compose.desktop {
                 perUserInstall = true
                 iconFile.set(project.file("src/desktopMain/resources/windows/icon.ico"))
             }
+            linux {
+                iconFile.set(project.file("src/desktopMain/resources/linux/icon.png"))
+                appCategory = "AudioVideo"
+                menuGroup = "AudioVideo"
+                rpmLicenseType = "Apache-2.0"
+                debPackageVersion = "1.0.0"
+                appRelease = "1"
+                shortcut = true
+            }
         }
     }
 }
@@ -132,6 +146,32 @@ val bundleWindowsMpv by tasks.registering(Exec::class) {
     )
 }
 
+val bundleLinuxMpv by tasks.registering(Exec::class) {
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isLinux }
+    dependsOn("createDistributable")
+    val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")
+    val nativeDir = providers.environmentVariable("VIMIVO_LINUX_MPV_DIR").orElse("")
+    commandLine(
+        "python3",
+        project.file("scripts/bundle_linux_mpv.py").absolutePath,
+        appPath.get().asFile.absolutePath,
+        nativeDir.get(),
+    )
+}
+
+val packageAppImage by tasks.registering(Exec::class) {
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isLinux }
+    dependsOn("createDistributable")
+    dependsOn(bundleLinuxMpv)
+    val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")
+    val outputDir = layout.buildDirectory.dir("compose/binaries/main/appimage")
+    commandLine(
+        project.file("scripts/build_appimage.sh").absolutePath,
+        appPath.get().asFile.absolutePath,
+        outputDir.get().asFile.absolutePath,
+    )
+}
+
 tasks.matching {
     val isMac = org.gradle.internal.os.OperatingSystem.current().isMacOsX
     isMac && it.name in listOf(
@@ -156,6 +196,20 @@ tasks.matching {
     )
 }.configureEach {
     dependsOn(bundleWindowsMpv)
+}
+
+tasks.matching {
+    val isLinux = org.gradle.internal.os.OperatingSystem.current().isLinux
+    isLinux && it.name in listOf(
+        "packageDeb",
+        "packageRpm",
+        "packageReleaseDeb",
+        "packageReleaseRpm",
+        "packageDistributionForCurrentOS",
+        "packageReleaseDistributionForCurrentOS",
+    )
+}.configureEach {
+    dependsOn(bundleLinuxMpv)
 }
 
 detekt {

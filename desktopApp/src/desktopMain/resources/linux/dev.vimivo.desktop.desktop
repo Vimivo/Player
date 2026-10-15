@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Vimivo
+GenericName=Music and Video Player
+Comment=Every Sound. Every Frame.
+Exec=vimivo %U
+Icon=vimivo
+Terminal=false
+Categories=AudioVideo;Audio;Video;Player;
+MimeType=audio/mpeg;audio/flac;audio/mp4;audio/aac;audio/x-wav;audio/ogg;audio/opus;video/mp4;video/x-matroska;video/quicktime;video/webm;video/x-msvideo;
+StartupWMClass=dev.vimivo.desktop.MainKt
+Keywords=Music;Video;Player;Audio;Media;mpv;
