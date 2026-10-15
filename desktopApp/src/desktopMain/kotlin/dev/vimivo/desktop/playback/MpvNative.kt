@@ -5,6 +5,7 @@ package dev.vimivo.desktop.playback
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
+import java.io.File
 
 internal interface MpvNative : Library {
     fun mpv_create(): Pointer?
@@ -19,12 +20,31 @@ internal interface MpvNative : Library {
     fun mpv_error_string(code: Int): String?
 
     companion object {
-        fun findBundledFrameworksDir(): java.io.File? {
+        fun findBundledFrameworksDir(): File? {
             val codeSource = MpvNative::class.java.protectionDomain?.codeSource?.location ?: return null
-            val contentsDir = runCatching { java.io.File(codeSource.toURI()) }.getOrNull()?.parentFile?.parentFile
+            val contentsDir = runCatching { File(codeSource.toURI()) }.getOrNull()?.parentFile?.parentFile
             return contentsDir?.resolve("Frameworks")?.takeIf { it.exists() && it.isDirectory }
         }
 
+        fun findBundledWindowsDllDir(): File? {
+            val codeSource = MpvNative::class.java.protectionDomain?.codeSource?.location ?: return null
+            val jarOrClassesDir = runCatching { File(codeSource.toURI()) }.getOrNull() ?: return null
+            val appDir = if (jarOrClassesDir.isFile) jarOrClassesDir.parentFile else jarOrClassesDir
+            val installDir = appDir?.parentFile
+            val candidates = listOfNotNull(
+                appDir,
+                appDir?.resolve("bin"),
+                installDir,
+                installDir?.resolve("bin"),
+                installDir?.resolve("runtime")?.resolve("bin"),
+            )
+            val dllNames = listOf("mpv-2.dll", "libmpv-2.dll", "libmpv.dll", "mpv.dll")
+            return candidates.firstOrNull { dir ->
+                dir.exists() && dir.isDirectory && dllNames.any { dll -> dir.resolve(dll).exists() }
+            }
+        }
+
+        @Suppress("ReturnCount")
         fun load(): MpvNative {
             val explicit = System.getProperty("vimivo.mpv.library")?.takeIf(String::isNotBlank)
             if (explicit != null) {
@@ -33,19 +53,33 @@ internal interface MpvNative : Library {
             val frameworks = findBundledFrameworksDir()
             if (frameworks != null) {
                 val candidate = listOf("libmpv.2.dylib", "libmpv.dylib")
-                    .map { java.io.File(frameworks, it) }
-                    .firstOrNull(java.io.File::exists)
+                    .map { File(frameworks, it) }
+                    .firstOrNull(File::exists)
                 if (candidate != null) {
-                    val currentJna = System.getProperty("jna.library.path")
-                    if (currentJna.isNullOrBlank()) {
-                        System.setProperty("jna.library.path", frameworks.absolutePath)
-                    } else if (!currentJna.contains(frameworks.absolutePath)) {
-                        System.setProperty("jna.library.path", "$currentJna:${frameworks.absolutePath}")
-                    }
+                    appendJnaLibraryPath(frameworks)
+                    return Native.load(candidate.absolutePath, MpvNative::class.java)
+                }
+            }
+            val windowsDllDir = findBundledWindowsDllDir()
+            if (windowsDllDir != null) {
+                val candidate = listOf("mpv-2.dll", "libmpv-2.dll", "libmpv.dll", "mpv.dll")
+                    .map { File(windowsDllDir, it) }
+                    .firstOrNull(File::exists)
+                if (candidate != null) {
+                    appendJnaLibraryPath(windowsDllDir)
                     return Native.load(candidate.absolutePath, MpvNative::class.java)
                 }
             }
             return Native.load("mpv", MpvNative::class.java)
+        }
+
+        private fun appendJnaLibraryPath(dir: File) {
+            val currentJna = System.getProperty("jna.library.path")
+            if (currentJna.isNullOrBlank()) {
+                System.setProperty("jna.library.path", dir.absolutePath)
+            } else if (!currentJna.contains(dir.absolutePath)) {
+                System.setProperty("jna.library.path", "$currentJna${File.pathSeparator}${dir.absolutePath}")
+            }
         }
     }
 }

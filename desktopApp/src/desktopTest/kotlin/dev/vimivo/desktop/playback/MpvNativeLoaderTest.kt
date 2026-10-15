@@ -20,6 +20,16 @@ class MpvNativeLoaderTest {
     }
 
     @Test
+    fun findBundledWindowsDllDirHandlesNonPackagedEnvironmentSafely() {
+        val dllDir = MpvNative.findBundledWindowsDllDir()
+        if (dllDir != null) {
+            assertTrue(dllDir.isDirectory)
+        } else {
+            assertNull(dllDir)
+        }
+    }
+
+    @Test
     fun explicitSystemPropertyOverridesDefaultLibrary() {
         val original = System.getProperty("vimivo.mpv.library")
         try {

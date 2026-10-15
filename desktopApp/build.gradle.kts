@@ -95,6 +95,11 @@ compose.desktop {
             windows {
                 upgradeUuid = "e32d5e8d-901d-4d16-9b26-32d2fe47f890"
                 menuGroup = "Vimivo"
+                shortcut = true
+                menu = true
+                dirChooser = true
+                perUserInstall = true
+                iconFile.set(project.file("src/desktopMain/resources/windows/icon.ico"))
             }
         }
     }
@@ -114,8 +119,22 @@ val bundleMacosMpv by tasks.registering(Exec::class) {
     )
 }
 
+val bundleWindowsMpv by tasks.registering(Exec::class) {
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
+    dependsOn("createDistributable")
+    val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")
+    val nativeDir = providers.environmentVariable("VIMIVO_WINDOWS_MPV_DIR").orElse("")
+    commandLine(
+        "python",
+        project.file("scripts/bundle_windows_mpv.py").absolutePath,
+        appPath.get().asFile.absolutePath,
+        nativeDir.get(),
+    )
+}
+
 tasks.matching {
-    it.name in listOf(
+    val isMac = org.gradle.internal.os.OperatingSystem.current().isMacOsX
+    isMac && it.name in listOf(
         "packageDmg",
         "packageDistributionForCurrentOS",
         "packageReleaseDmg",
@@ -123,6 +142,20 @@ tasks.matching {
     )
 }.configureEach {
     dependsOn(bundleMacosMpv)
+}
+
+tasks.matching {
+    val isWin = org.gradle.internal.os.OperatingSystem.current().isWindows
+    isWin && it.name in listOf(
+        "packageExe",
+        "packageMsi",
+        "packageReleaseExe",
+        "packageReleaseMsi",
+        "packageDistributionForCurrentOS",
+        "packageReleaseDistributionForCurrentOS",
+    )
+}.configureEach {
+    dependsOn(bundleWindowsMpv)
 }
 
 detekt {

@@ -4,7 +4,7 @@ Last verified on 2026-10-15 on macOS, branch `main`.
 
 ## Resume point
 
-Implementation is verified through Milestone 15 (`feat(desktop): video metadata, thumbnails, album & artist library, and collection queue actions`).
+Implementation is verified through Milestone 17 and 18 foundations (`feat(windows): embedded video renderer, secure credentials, and standalone distribution packaging`).
 
 The latest completed desktop increments are:
 
@@ -25,22 +25,29 @@ The latest completed desktop increments are:
 15. Play All, Shuffle Play, Play Next, and Add to Queue integration across all collection views (Songs, Albums, Artists, Playlists, Favorites, History);
 16. continuous queue integration for multiple Finder open-file selections preserving ordering;
 17. automated bundling of 50 native dylibs (libmpv, FFmpeg, etc.) into `Vimivo.app/Contents/Frameworks/` with `@rpath` rewriting and zero Homebrew runtime dependencies;
-18. self-contained JVM packaging with required runtime modules and verified installable `Vimivo-1.0.0.dmg`.
+18. self-contained JVM packaging with required runtime modules and verified installable `Vimivo-1.0.0.dmg`;
+19. Windows embedded video renderer (`MpvWin32Renderer`) attaching AWT Canvas Win32 HWND directly to libmpv (`wid`) with `vo = gpu` and capability reporting;
+20. Windows secure DLL directory resolution (`MpvNative.findBundledWindowsDllDir()`) with cross-platform JNA library path management;
+21. Windows Credential Manager integration (`WindowsCredentialStore`) with Win32 `Advapi32` APIs and safe in-memory fallback;
+22. Windows desktop integration including Drag-and-Drop (`DropTarget`), MenuBar keyboard shortcuts (`Ctrl+O`, `Ctrl+Shift+O`, `Space`, `Left`/`Right`), and `%LOCALAPPDATA%\Vimivo` persistence;
+23. Windows standalone packaging configuration in `build.gradle.kts` for EXE and MSI formats, native dependency bundling script `bundle_windows_mpv.py`, official 256x256 `.ico` icon, and `.github/workflows/windows.yml` CI pipeline.
 
 Do not rebuild these components. Continue from the first executable item in the backlog below.
 
 ## Next executable work
 
-1. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
-2. Complete playlist import/export and backup/restore after a versioned portable format is defined.
-3. Implement Windows native renderer (Direct3D/OpenGL surface) and bundle Windows native DLLs.
-4. Implement Linux native renderer (Wayland/X11 surface) and bundle Linux native libraries.
-5. Prepare Apple Developer ID signing and notarization workflow via `xcrun notarytool`.
+1. Execute Windows GitHub Actions CI pipeline on a Windows runner to generate genuine EXE/MSI binaries and SHA-256 checksums.
+2. Run clean-machine Windows runtime playback verification for audio, embedded video, resizing, fullscreen, and track switching.
+3. Prepare Authenticode signing configuration for Windows application executable and installers.
+4. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
+5. Complete playlist import/export and backup/restore after a versioned portable format is defined.
+6. Implement Linux native renderer (Wayland/X11 surface) and bundle Linux native libraries.
+7. Prepare Apple Developer ID signing and notarization workflow via `xcrun notarytool`.
 
 ## External or hardware blockers
 
+- Windows packaging (`jpackage` creating EXE/MSI) requires a Windows host (e.g. GitHub Actions `windows-latest` runner). It cannot be generated on macOS.
 - Real macOS audio/video playback, resize, fullscreen, sleep/wake, and cleanup require a machine with a compatible libmpv runtime and legal test media.
-- Windows embedded video and installer runtime verification require a Windows runner or machine.
 - Production signing/notarization requires owner-managed Apple and Windows signing credentials. Never commit credentials.
 - Cross-architecture native validation requires the corresponding hardware or runners.
 
@@ -55,7 +62,4 @@ For shared queue or desktop changes run:
 ./gradlew :shared:desktopTest
 ```
 
-Before a broader handoff also run `./gradlew detekt`. Run Android assembly only when Android sources or build configuration changed. Never infer runtime playback success from compilation or unit tests.
-
-The shared queue change was validated against `:androidApp:assembleDebug` on 2026-10-15; the build completed successfully, including KSP and Kotlin compilation.
-
+The desktop suite currently contains 56 tests and shared desktop test suite contains 14 tests.

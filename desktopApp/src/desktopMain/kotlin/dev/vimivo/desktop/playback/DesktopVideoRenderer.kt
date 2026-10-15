@@ -12,9 +12,7 @@ internal interface DesktopVideoRenderer {
 internal object DesktopVideoRendererFactory {
     fun create(platform: DesktopPlatform = DesktopPlatform.detect()): DesktopVideoRenderer = when (platform) {
         DesktopPlatform.MACOS -> MpvCocoaRenderer()
-        DesktopPlatform.WINDOWS -> UnsupportedDesktopVideoRenderer(
-            "Windows embedded video requires the pending libmpv HWND/render-API adapter",
-        )
+        DesktopPlatform.WINDOWS -> MpvWin32Renderer()
         DesktopPlatform.LINUX -> UnsupportedDesktopVideoRenderer(
             "Linux embedded video is outside the current project scope",
         )

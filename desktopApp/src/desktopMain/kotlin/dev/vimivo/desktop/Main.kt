@@ -80,18 +80,60 @@ fun main(args: Array<String>) = application {
         },
         title = "Vimivo",
     ) {
+        LaunchedEffect(window) {
+            window.dropTarget = java.awt.dnd.DropTarget(window, object : java.awt.dnd.DropTargetAdapter() {
+                override fun drop(dtde: java.awt.dnd.DropTargetDropEvent) {
+                    runCatching {
+                        dtde.acceptDrop(java.awt.dnd.DnDConstants.ACTION_COPY)
+                        val transferable = dtde.transferable
+                        if (transferable.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.javaFileListFlavor)) {
+                            val dropped = transferable.getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor) as? List<*>
+                            val files = dropped?.filterIsInstance<File>() ?: emptyList()
+                            if (files.isNotEmpty()) {
+                                openFileHandler.submit(files)
+                            }
+                        }
+                    }
+                }
+            })
+        }
         MenuBar {
             Menu("File") {
-                Item("Open File…", onClick = { chooseMediaFiles().let(openFileHandler::submit) })
+                Item(
+                    "Open File…",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.O, ctrl = true),
+                    onClick = { chooseMediaFiles().let(openFileHandler::submit) },
+                )
+                Item(
+                    "Add Folder…",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(
+                        androidx.compose.ui.input.key.Key.O,
+                        ctrl = true,
+                        shift = true,
+                    ),
+                    onClick = { library.addFolder() },
+                )
             }
             Menu("Playback") {
-                Item("Play / Pause", onClick = { applicationScope.launch { togglePlayback(engine, queue, library) } })
+                Item(
+                    "Play / Pause",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.Spacebar),
+                    onClick = { applicationScope.launch { togglePlayback(engine, queue, library) } },
+                )
                 Item("Stop", onClick = { engine.stop() })
                 Item("Next", onClick = { applicationScope.launch { queue.next() } })
                 Item("Previous", onClick = { applicationScope.launch { queue.previous() } })
                 Separator()
-                Item("Seek Backward", onClick = { engine.seekTo((engine.state.value.positionMillis - 10_000).coerceAtLeast(0)) })
-                Item("Seek Forward", onClick = { engine.seekTo(engine.state.value.positionMillis + 10_000) })
+                Item(
+                    "Seek Backward",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionLeft),
+                    onClick = { engine.seekTo((engine.state.value.positionMillis - 10_000).coerceAtLeast(0)) },
+                )
+                Item(
+                    "Seek Forward",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionRight),
+                    onClick = { engine.seekTo(engine.state.value.positionMillis + 10_000) },
+                )
             }
         }
         MaterialTheme { DesktopPlayer(engine, queue, library, args.map(::File), openFileHandler) }

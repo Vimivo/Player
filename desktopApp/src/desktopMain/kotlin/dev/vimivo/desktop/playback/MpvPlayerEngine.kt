@@ -151,7 +151,8 @@ class MpvPlayerEngine : PlayerEngine {
         context = created
         checkCode(loaded.mpv_set_option_string(created, "config", "no"))
         checkCode(loaded.mpv_set_option_string(created, "terminal", "no"))
-        checkCode(loaded.mpv_set_option_string(created, "vo", "libmpv"))
+        val vo = if (desktopPlatform == DesktopPlatform.MACOS) "libmpv" else "gpu"
+        checkCode(loaded.mpv_set_option_string(created, "vo", vo))
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
         checkCode(loaded.mpv_initialize(created))
         videoSurface?.let { surface ->
@@ -285,7 +286,7 @@ class MpvPlayerEngine : PlayerEngine {
         private val SUPPORTED_SCHEMES = setOf("file", "http", "https", "rtsp", "rtsps")
         internal fun capabilitiesFor(platform: DesktopPlatform) = EngineCapabilities(
             localAudio = true,
-            localVideo = platform == DesktopPlatform.MACOS,
+            localVideo = platform == DesktopPlatform.MACOS || platform == DesktopPlatform.WINDOWS,
             httpStreaming = true,
             hlsStreaming = true,
             dashStreaming = true,
@@ -297,7 +298,7 @@ class MpvPlayerEngine : PlayerEngine {
             videoTrackSelection = true,
             embeddedSubtitles = true,
             externalSubtitles = true,
-            hdr = platform == DesktopPlatform.MACOS,
+            hdr = platform == DesktopPlatform.MACOS || platform == DesktopPlatform.WINDOWS,
             subtitleDelay = true,
             audioDelay = true,
             supportedSpeedRange = 0.25f..4f,
