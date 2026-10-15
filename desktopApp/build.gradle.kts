@@ -77,6 +77,17 @@ compose.desktop {
             packageVersion = "1.0.0"
             description = "Privacy-first music and video player"
             vendor = "Vimivo"
+            modules(
+                "java.base",
+                "java.desktop",
+                "java.sql",
+                "java.instrument",
+                "java.logging",
+                "java.prefs",
+                "java.xml",
+                "jdk.unsupported",
+                "jdk.crypto.ec",
+            )
             macOS {
                 bundleID = "dev.vimivo.desktop"
                 minimumSystemVersion = "12.0"
@@ -87,6 +98,31 @@ compose.desktop {
             }
         }
     }
+}
+
+val bundleMacosMpv by tasks.registering(Exec::class) {
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isMacOsX }
+    dependsOn("createDistributable")
+    dependsOn(macosMpvBridge)
+    val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo.app")
+    val bridgeDylib = layout.buildDirectory.file("native/libvimivo_mpv_cocoa.dylib")
+    commandLine(
+        "python3",
+        project.file("scripts/bundle_macos_mpv.py").absolutePath,
+        appPath.get().asFile.absolutePath,
+        bridgeDylib.get().asFile.absolutePath,
+    )
+}
+
+tasks.matching {
+    it.name in listOf(
+        "packageDmg",
+        "packageDistributionForCurrentOS",
+        "packageReleaseDmg",
+        "packageReleaseDistributionForCurrentOS",
+    )
+}.configureEach {
+    dependsOn(bundleMacosMpv)
 }
 
 detekt {

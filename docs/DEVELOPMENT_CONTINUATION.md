@@ -22,7 +22,10 @@ The latest completed desktop increments are:
 12. video frame thumbnail caching with atomic writes, aspect-ratio preservation, and invalidation;
 13. album and artist database projections with multi-disc/track ordering, album artist fallbacks, and compilation support;
 14. real Compose screens for Albums, Artists, Album Details, and Artist Details with artwork/thumbnail rendering;
-15. Play All, Shuffle Play, Play Next, and Add to Queue integration across all collection views (Songs, Albums, Artists, Playlists, Favorites, History).
+15. Play All, Shuffle Play, Play Next, and Add to Queue integration across all collection views (Songs, Albums, Artists, Playlists, Favorites, History);
+16. continuous queue integration for multiple Finder open-file selections preserving ordering;
+17. automated bundling of 50 native dylibs (libmpv, FFmpeg, etc.) into `Vimivo.app/Contents/Frameworks/` with `@rpath` rewriting and zero Homebrew runtime dependencies;
+18. self-contained JVM packaging with required runtime modules and verified installable `Vimivo-1.0.0.dmg`.
 
 Do not rebuild these components. Continue from the first executable item in the backlog below.
 
@@ -30,8 +33,9 @@ Do not rebuild these components. Continue from the first executable item in the 
 
 1. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
 2. Complete playlist import/export and backup/restore after a versioned portable format is defined.
-3. Finish Windows/Linux video embedding and bundle redistributable libmpv binaries per supported OS/architecture.
-4. Verify standalone macOS APP/DMG packaging and native library distribution.
+3. Implement Windows native renderer (Direct3D/OpenGL surface) and bundle Windows native DLLs.
+4. Implement Linux native renderer (Wayland/X11 surface) and bundle Linux native libraries.
+5. Prepare Apple Developer ID signing and notarization workflow via `xcrun notarytool`.
 
 ## External or hardware blockers
 

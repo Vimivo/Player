@@ -19,9 +19,33 @@ internal interface MpvNative : Library {
     fun mpv_error_string(code: Int): String?
 
     companion object {
+        fun findBundledFrameworksDir(): java.io.File? {
+            val codeSource = MpvNative::class.java.protectionDomain?.codeSource?.location ?: return null
+            val contentsDir = runCatching { java.io.File(codeSource.toURI()) }.getOrNull()?.parentFile?.parentFile
+            return contentsDir?.resolve("Frameworks")?.takeIf { it.exists() && it.isDirectory }
+        }
+
         fun load(): MpvNative {
             val explicit = System.getProperty("vimivo.mpv.library")?.takeIf(String::isNotBlank)
-            return Native.load(explicit ?: "mpv", MpvNative::class.java)
+            if (explicit != null) {
+                return Native.load(explicit, MpvNative::class.java)
+            }
+            val frameworks = findBundledFrameworksDir()
+            if (frameworks != null) {
+                val candidate = listOf("libmpv.2.dylib", "libmpv.dylib")
+                    .map { java.io.File(frameworks, it) }
+                    .firstOrNull(java.io.File::exists)
+                if (candidate != null) {
+                    val currentJna = System.getProperty("jna.library.path")
+                    if (currentJna.isNullOrBlank()) {
+                        System.setProperty("jna.library.path", frameworks.absolutePath)
+                    } else if (!currentJna.contains(frameworks.absolutePath)) {
+                        System.setProperty("jna.library.path", "$currentJna:${frameworks.absolutePath}")
+                    }
+                    return Native.load(candidate.absolutePath, MpvNative::class.java)
+                }
+            }
+            return Native.load("mpv", MpvNative::class.java)
         }
     }
 }

@@ -14,7 +14,13 @@ internal class MpvCocoaRenderer : DesktopVideoRenderer {
 
     override fun attach(canvas: Canvas, context: Pointer) {
         check(!attached) { "A render target is already attached" }
-        System.loadLibrary("vimivo_mpv_cocoa")
+        val frameworks = MpvNative.findBundledFrameworksDir()
+        val bundledBridge = frameworks?.resolve("libvimivo_mpv_cocoa.dylib")
+        if (bundledBridge != null && bundledBridge.exists()) {
+            System.load(bundledBridge.absolutePath)
+        } else {
+            System.loadLibrary("vimivo_mpv_cocoa")
+        }
         require(attachNative(canvas, Pointer.nativeValue(context))) {
             "Unable to attach libmpv to the Cocoa render target"
         }

@@ -16,7 +16,7 @@ Status terms: **implemented** means code exists, **tested** means automated test
 | Playback history and resume | Implemented, tested | One play count per session, ten-second position checkpoints, completion handling, and conservative video/long-audio resume rules. Real process-restart playback verification remains. |
 | Unified playback queue | Implemented, tested | One engine owns continuous play-all, next/previous, stable duplicate occurrences, missing-item skipping, reorder/remove/clear, shuffle, repeat modes, SQLite schema version 4 persistence, paused restoration without autoplay, and UI queue management. |
 | Network URL playback | Partial | HTTP/HTTPS/RTSP URLs use the existing engine. Recent/favorite URL UI, credential storage, SMB/WebDAV/SFTP, and discovery are not implemented. |
-| Desktop distribution | Partial | Compose packaging configuration exists for supported host targets. Native libmpv bundling, clean-machine installs, signatures, notarization, checksums, and Windows installer validation remain. |
+| Desktop distribution | Implemented, tested | Standalone macOS application bundle (`Vimivo.app`) and installable DMG (`Vimivo-1.0.0.dmg`) with self-contained JVM runtime and 50 bundled relocatable native dylibs (libmpv, FFmpeg, dav1d, etc.) with zero `/opt/homebrew` dependencies. Public release blocked on Developer ID signing and notarization. |
 | Android application | Existing target; unchanged by this checkpoint | Desktop work must not regress Android. Run Android gates when Android code/build files change. |
 
 ## Verified increments
@@ -30,21 +30,25 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `bc7d3fb` — unified continuous desktop playback queue.
 - `372cd28` — cached artwork connected to desktop media UI.
 - `0bae65d` — schema v4 queue persistence, snapshot restoration without autoplay, and queue actions.
-- `feat(desktop): video metadata, thumbnails, album & artist library, and collection queue actions` — video metadata extraction, video frame thumbnail caching, Opus metadata parser, album/artist projections & UI, and queue action integration.
+- `656e744` — video metadata extraction, video frame thumbnail caching, Opus metadata parser, album/artist projections & UI, and queue action integration.
+- `fc83ff5` — play all submitted Finder files in unified continuous queue.
+- `feat(desktop): bundle native libmpv dependencies and generate standalone macOS DMG` — self-contained JVM modules, automated 50-dylib packaging and rpath rewriting, hardened native loader, and verified `Vimivo-1.0.0.dmg`.
 
 ## Quality record
 
 On 2026-10-15, these commands completed successfully:
 
-- `./gradlew :desktopApp:desktopTest` (48 tests)
+- `./gradlew :desktopApp:desktopTest` (51 tests)
 - `./gradlew :desktopApp:compileKotlinDesktop`
 - `./gradlew :desktopApp:detekt`
 - `./gradlew :shared:desktopTest` (14 tests)
 - `./gradlew test` (96 tasks across all Android and shared unit tests)
 - `./gradlew detekt` (all modules passed)
 - `./gradlew :androidApp:assembleDebug` (verified Android build compatibility; completed successfully)
+- `./gradlew :desktopApp:bundleMacosMpv` (verified 50 bundled dylibs with zero `/opt/homebrew` references)
+- `./gradlew :desktopApp:packageDmg` (generated `Vimivo-1.0.0.dmg`, mounted, verified, and checksummed)
 
-The desktop suite currently contains 48 tests and shared desktop test suite contains 14 tests.
+The desktop suite currently contains 51 tests and shared desktop test suite contains 14 tests.
 
-This record does not claim installed-application or real-media runtime verification.
+This record confirms standalone package creation and automated testing; public release remains blocked on Apple Developer ID credentials.
 

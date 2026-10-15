@@ -26,7 +26,39 @@ LibVLC is the material licensing risk. Its Maven POM declares LGPL 2.1 and links
 
 The [VideoLAN legal page](https://www.videolan.org/legal.html), the artifact's published POM, and the corresponding source distribution are authoritative inputs. Do not infer that VLC application GPL terms apply to Vimivo merely because it uses LibVLC, and do not claim compliance until the replacement/source-delivery process is tested.
 
+## macOS Desktop Native Contents and Licenses
+
+Audit date: 2026-10-15 for arm64 macOS standalone distribution (`Vimivo.app` and `Vimivo-1.0.0.dmg`).
+
+| Native Component | Version | License | Redistribution Notes |
+|---|---:|---|---|
+| libmpv | 0.41.0 | LGPL 2.1+ / GPL 2+ | Dynamically linked via JNA and Cocoa render bridge. Bundled in `Contents/Frameworks/`. |
+| FFmpeg (avcodec, avformat, avfilter, avutil, swresample, swscale, avdevice) | 9.0.2 | LGPL 2.1+ / GPL 2+ | Transitive dependency of libmpv. Bundled with `@rpath` install names. |
+| libass | 0.17.5 | ISC License | Subtitle renderer. |
+| libplacebo | 7.360.1 | LGPL 2.1+ | GPU image processing and color management. |
+| dav1d | 1.5.4 | BSD 2-Clause | AV1 decoder. |
+| fribidi | 1.0.17 | LGPL 2.1+ | Bi-directional text support. |
+| harfbuzz | 14.6.0 | MIT (Old Style) | Text shaping engine. |
+| freetype | 2.14.3 | FreeType License / GPLv2 | Font rendering. |
+| libvpx | 1.17.0 | BSD 3-Clause | VP8/VP9 video codec. |
+| opus | 1.6.1 | BSD 3-Clause | Opus audio codec. |
+| libpng | 1.6.59 | PNG License | PNG image decoding. |
+| libjpeg-turbo | 3.2.0 | BSD-style / IJG | JPEG image decoding. |
+| zimg | 3.0.6 | WTFPL / Public Domain | Scaling and colorspace conversion. |
+| uchardet | 0.0.8 | MPL 1.1 / LGPL 2.1+ | Subtitle encoding detection. |
+| luajit | 2.1 | MIT License | mpv scripting engine. |
+| mujs | 1.3.10 | ISC License | mpv Javascript engine. |
+| little-cms2 | 2.19.1 | MIT License | ICC color management. |
+| libarchive | 3.8.9 | BSD 2-Clause | Archive format support. |
+| librubberband | 4.0.0 | GPL 2+ | Audio pitch and tempo scaling. |
+| JNA (`net.java.dev.jna:jna`) | 5.14.0 | Apache 2.0 / LGPL 2.1 | Native binding layer for libmpv. |
+| SQLite JDBC | 3.45.1.0 | Apache 2.0 / Public Domain | Bundled JDBC native SQLite engine. |
+
+### GPL Compliance Notice for Desktop Distribution
+
+Because the current Homebrew-built `libmpv` and `ffmpeg` link GPL components (such as `librubberband`, `x264`, and `x265`), the distributed desktop application image is subject to GNU GPL v2/v3 source disclosure terms for bundled binaries. Complete source code for Vimivo is maintained at https://github.com/Vimivo/Player. For a pure LGPL desktop distribution, a custom build of libmpv configured with `--enable-lgpl` and without GPL-only filters/codecs should be compiled.
+
 ## Compatibility conclusion
 
-No known license in the declared application runtime is inherently incompatible with a free Play Store distribution. **Release remains blocked on completing and legally reviewing LGPL compliance materials for the exact LibVLC binary.** Generate a machine-readable dependency/SBOM report from the final release graph and re-run vulnerability and Play SDK Index checks immediately before upload.
+No known license in the declared application runtime is inherently incompatible with a free open-source distribution. **Release remains blocked on Apple Developer ID code signing and Apple notarization.** For public DMG distribution, binary tickets must be stapled after `xcrun notarytool` acceptance.
 

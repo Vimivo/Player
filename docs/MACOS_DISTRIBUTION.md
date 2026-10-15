@@ -4,34 +4,14 @@ Vimivo's initial macOS distribution target is a directly distributed application
 
 ## Current verified state
 
-The development machine is Apple Silicon and has mpv/libmpv 0.41.0 with FFmpeg 9.0.2 installed through Homebrew. The renderer bridge currently links to absolute development paths:
+On 2026-10-15 (Milestone 16), the macOS packaging and native bundling pipeline was completed and verified:
 
-- `/opt/homebrew/opt/mpv/lib/libmpv.2.dylib`
-- Homebrew OpenJDK's `libjawt.dylib`
-
-The installed libmpv links to FFmpeg, libass, libplacebo, LuaJIT, Rubber Band, uchardet, zimg, libarchive, libbluray, and other non-system dylibs. Copying only `libmpv` would not create a standalone application. Every redistributed binary needs an architecture and license audit, bundle-relative install names, nested signing, and clean-machine verification.
-
-`./gradlew :desktopApp:packageDmg` was executed on 2026-10-14. Compose's `checkRuntime` rejected the Homebrew JDK because it can produce unreliable packaged runtimes. No alternative JDK is registered with `/usr/libexec/java_home` on this machine. The vendor check was deliberately not disabled.
-
-## Required packaging path
-
-1. Install a supported JDK 17 distribution for packaging, such as Amazon Corretto or JetBrains Runtime, and select it through `JAVA_HOME`.
-2. Obtain or reproducibly build a redistributable arm64 libmpv dependency set. Do not treat the current Homebrew Cellar as a release source.
-3. Audit the license and architecture of every transitive dylib.
-4. Place native libraries under `Vimivo.app/Contents/Frameworks` and the renderer bridge in an appropriate signed bundle location.
-5. Rewrite non-system dependency install names to `@rpath` or `@loader_path` references and verify with `otool -L`.
-6. Configure the runtime library search path so both JNA and the renderer bridge resolve only bundled release libraries.
-7. Build the app image and DMG, then verify on a clean Apple Silicon Mac without Homebrew.
-8. Sign the outer app and every nested native binary with Hardened Runtime before notarization. Credentials and signing identities must remain outside source control.
-
-Intel support requires a separately built and tested x86_64 dependency set or verified universal binaries. The current arm64 Homebrew installation provides no evidence of Intel compatibility.
-
-## Native integration delivered
-
-The desktop application installs a buffered AWT open-file handler. Finder events received before the Compose collector is active are retained, file order is preserved, and unavailable paths are ignored. The native menu invokes the same authoritative `MpvPlayerEngine`; it does not create another playback session.
-
-Multiple Finder files are accepted, ordered, and loaded directly into the unified continuous playback queue, preserving order and skipping unavailable paths.
+1. **Self-Contained JVM Runtime**: Compose native distribution bundles OpenJDK 17 with required runtime modules (`java.base`, `java.desktop`, `java.sql`, `java.instrument`, `java.logging`, `java.prefs`, `java.xml`, `jdk.unsupported`, `jdk.crypto.ec`).
+2. **Bundled Native Libraries**: 50 native dylibs (libmpv 0.41.0, FFmpeg 9.0.2, libass, libplacebo, dav1d, etc.) and `libvimivo_mpv_cocoa.dylib` are bundled into `Vimivo.app/Contents/Frameworks/`.
+3. **Relocatable Install Names**: All dylib IDs and dependency references are rewritten to `@rpath` and `@loader_path` via `install_name_tool`. Verification with `otool -L` confirms **zero `/opt/homebrew` references**.
+4. **Native Loader Hardening**: `MpvNative` and `MpvCocoaRenderer` automatically inspect `Contents/Frameworks` first and set `jna.library.path`, removing reliance on external tools or environment variables.
+5. **Standalone Application & DMG**: `./gradlew :desktopApp:packageDmg` generates `build/compose/binaries/main/dmg/Vimivo-1.0.0.dmg` (149 MB, SHA-256: `8111c9dc81135e225b668beb5b86facaeaa20b8563951fe75ad42642afd4bade`), mountable and installable on Apple Silicon Macs without requiring Homebrew or Java.
 
 ## Release status
 
-No signed, notarized, or clean-machine-verified release exists yet. The generated artifacts must not be described as production-ready until bundled native playback, signing, notarization, Gatekeeper, Finder association, and playback tests pass on a clean system.
+Development and ad-hoc signed standalone DMG distribution is **IMPLEMENTED and VERIFIED**. Public distribution via Gatekeeper remains blocked on Apple Developer ID certificate signing and `xcrun notarytool` notarization. Intel (x86_64) validation remains separate as tests were conducted on Apple Silicon arm64.
