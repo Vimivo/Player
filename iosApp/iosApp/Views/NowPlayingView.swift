@@ -63,6 +63,8 @@ public struct NowPlayingView: View {
                         }
                     )
                     .accentColor(.accentColor)
+                    .accessibilityLabel("Playback progress")
+                    .accessibilityValue("\(formatTime(millis: engine.state.positionMillis)) of \(formatTime(millis: engine.state.durationMillis))")
 
                     HStack {
                         Text(formatTime(millis: isDraggingSlider ? Int64(sliderValue * Double(engine.state.durationMillis)) : engine.state.positionMillis))
@@ -83,12 +85,14 @@ public struct NowPlayingView: View {
                             .font(.system(size: 20))
                             .foregroundColor(engine.state.isShuffled ? .accentColor : .secondary)
                     }
+                    .accessibilityLabel(engine.state.isShuffled ? "Shuffle on" : "Shuffle off")
 
                     Button(action: engine.playPrevious) {
                         Image(systemName: "backward.fill")
                             .font(.system(size: 28))
                             .foregroundColor(.primary)
                     }
+                    .accessibilityLabel("Previous track")
 
                     Button(action: engine.togglePlayPause) {
                         ZStack {
@@ -102,18 +106,21 @@ public struct NowPlayingView: View {
                                 .foregroundColor(.white)
                         }
                     }
+                    .accessibilityLabel(engine.state.status == .playing ? "Pause" : "Play")
 
                     Button(action: engine.playNext) {
                         Image(systemName: "forward.fill")
                             .font(.system(size: 28))
                             .foregroundColor(.primary)
                     }
+                    .accessibilityLabel("Next track")
 
                     Button(action: engine.cycleRepeatMode) {
                         Image(systemName: engine.state.repeatMode.iconName)
                             .font(.system(size: 20))
                             .foregroundColor(engine.state.repeatMode != .off ? .accentColor : .secondary)
                     }
+                    .accessibilityLabel("Repeat mode: \(engine.state.repeatMode.rawValue)")
                 }
                 .padding(.vertical, 8)
 
@@ -139,6 +146,7 @@ public struct NowPlayingView: View {
                             .background(Color.secondary.opacity(0.12))
                             .clipShape(Capsule())
                     }
+                    .accessibilityLabel("Playback speed \(String(format: "%.2fx", engine.state.playbackRate))")
 
                     Spacer()
 
@@ -148,6 +156,7 @@ public struct NowPlayingView: View {
                             .foregroundColor(.primary)
                             .padding(8)
                     }
+                    .accessibilityLabel("Show playback queue")
                 }
                 .padding(.horizontal, 32)
                 .padding(.bottom, 16)
@@ -160,6 +169,7 @@ public struct NowPlayingView: View {
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.primary)
                     }
+                    .accessibilityLabel("Dismiss now playing")
                 }
             }
             .sheet(isPresented: $showQueue) {

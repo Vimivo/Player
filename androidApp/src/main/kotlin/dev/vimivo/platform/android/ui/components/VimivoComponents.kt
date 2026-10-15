@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.vimivo.platform.android.ui.theme.LocalLargeTouchTargets
@@ -190,6 +191,10 @@ fun PlayerControls(
             onValueChange = { onSeek(it.toLong()) },
             valueRange = 0f..duration.coerceAtLeast(1).toFloat(),
             enabled = duration > 0,
+            modifier = Modifier.semantics {
+                contentDescription = "Playback seekbar"
+                stateDescription = "${formatTime(position)} of ${formatTime(duration)}"
+            },
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(formatTime(position), style = MaterialTheme.typography.labelSmall)

@@ -7,6 +7,7 @@ package dev.vimivo.desktop
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,10 +39,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
+import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.core.model.AlbumItem
 import dev.vimivo.core.model.ArtistItem
 import dev.vimivo.core.model.MediaId
@@ -144,7 +148,7 @@ fun main(args: Array<String>) = application {
                 )
             }
         }
-        MaterialTheme { DesktopPlayer(engine, queue, library, args.map(::File), openFileHandler, mpris) }
+        DesktopPlayer(engine, queue, library, args.map(::File), openFileHandler, mpris)
     }
 }
 
@@ -223,22 +227,28 @@ private fun DesktopPlayer(
         queue.state.collect { mpris.updateQueue(it) }
     }
 
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        Row(Modifier.fillMaxSize()) {
-            DesktopSidebar(
-                destination,
-                onDestinationSelected = {
-                    destination = it
-                    selectedAlbum = null
-                    selectedArtist = null
-                },
-            )
-            Column(
-                Modifier.fillMaxSize().padding(28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text(destination.title, style = MaterialTheme.typography.headlineLarge)
-            Text(destination.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    VimivoTheme(mode = libraryState.themeMode) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val isCompact = maxWidth < 820.dp
+                val sidebarWidth = if (isCompact) 140.dp else 192.dp
+                val contentPadding = if (isCompact) 16.dp else 28.dp
+                Row(Modifier.fillMaxSize()) {
+                    DesktopSidebar(
+                        destination,
+                        onDestinationSelected = {
+                            destination = it
+                            selectedAlbum = null
+                            selectedArtist = null
+                        },
+                        modifier = Modifier.width(sidebarWidth),
+                    )
+                    Column(
+                        Modifier.fillMaxSize().padding(contentPadding),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Text(destination.title, style = MaterialTheme.typography.headlineLarge)
+                        Text(destination.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (destination in setOf(DesktopDestination.Home, DesktopDestination.Music, DesktopDestination.Videos)) {
                 DesktopLibraryPanel(
                     destination = destination,
@@ -385,6 +395,14 @@ private fun DesktopPlayer(
                     onClear = library::clearHistory,
                 )
             }
+            if (destination == DesktopDestination.Settings) {
+                DesktopSettingsPanel(
+                    state = libraryState,
+                    onThemeSelected = library::setThemeMode,
+                    onAddFolder = library::addFolder,
+                    onRefreshAvailability = library::refreshAvailability,
+                )
+            }
             if (destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
                 SwingPanel(
                     factory = { videoCanvas },
@@ -392,28 +410,59 @@ private fun DesktopPlayer(
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = {
-                    chooseMediaFiles().firstOrNull()?.let { file ->
-                        scope.launch { queue.play(listOf(file.toMediaItem())) }
-                    }
-                }) { Text("Open media") }
-                OutlinedButton(onClick = { scope.launch { togglePlayback(engine, queue, library) } }) {
+                Button(
+                    onClick = {
+                        chooseMediaFiles().firstOrNull()?.let { file ->
+                            scope.launch { queue.play(listOf(file.toMediaItem())) }
+                        }
+                    },
+                    modifier = Modifier.semantics { contentDescription = "Open local media files" },
+                ) { Text("Open media") }
+                OutlinedButton(
+                    onClick = { scope.launch { togglePlayback(engine, queue, library) } },
+                    modifier = Modifier.semantics {
+                        contentDescription = if (state.status == PlaybackStatus.Playing) "Pause playback" else "Start playback"
+                    },
+                ) {
                     Text(if (state.status == PlaybackStatus.Playing) "Pause" else "Play")
                 }
-                OutlinedButton(onClick = { scope.launch { queue.previous() } }, enabled = queueState.items.isNotEmpty()) { Text("Previous") }
-                OutlinedButton(onClick = { engine.stop() }) { Text("Stop") }
-                OutlinedButton(onClick = { scope.launch { queue.next() } }, enabled = queueState.items.isNotEmpty()) { Text("Next") }
-                OutlinedButton(onClick = queue::toggleShuffle, enabled = queueState.items.size > 1) {
+                OutlinedButton(
+                    onClick = { scope.launch { queue.previous() } },
+                    enabled = queueState.items.isNotEmpty(),
+                    modifier = Modifier.semantics { contentDescription = "Previous track in queue" },
+                ) { Text("Previous") }
+                OutlinedButton(
+                    onClick = { engine.stop() },
+                    modifier = Modifier.semantics { contentDescription = "Stop playback" },
+                ) { Text("Stop") }
+                OutlinedButton(
+                    onClick = { scope.launch { queue.next() } },
+                    enabled = queueState.items.isNotEmpty(),
+                    modifier = Modifier.semantics { contentDescription = "Next track in queue" },
+                ) { Text("Next") }
+                OutlinedButton(
+                    onClick = queue::toggleShuffle,
+                    enabled = queueState.items.size > 1,
+                    modifier = Modifier.semantics {
+                        contentDescription = if (queueState.shuffleEnabled) "Shuffle enabled. Click to disable." else "Shuffle disabled. Click to enable."
+                    },
+                ) {
                     Text(if (queueState.shuffleEnabled) "Shuffle on" else "Shuffle off")
                 }
-                OutlinedButton(onClick = queue::cycleRepeat, enabled = queueState.items.isNotEmpty()) {
+                OutlinedButton(
+                    onClick = queue::cycleRepeat,
+                    enabled = queueState.items.isNotEmpty(),
+                    modifier = Modifier.semantics {
+                        contentDescription = "Cycle repeat mode: currently ${queueState.repeatMode.name.lowercase()}"
+                    },
+                ) {
                     Text("Repeat ${queueState.repeatMode.name.lowercase()}")
                 }
             }
             OutlinedTextField(
                 value = networkUrl,
                 onValueChange = { networkUrl = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Authorized HTTP, HTTPS, or RTSP streaming address" },
                 label = { Text("Authorized HTTP, HTTPS, or RTSP URL") },
                 singleLine = true,
             )
@@ -423,30 +472,37 @@ private fun DesktopPlayer(
                     val url = networkUrl.trim()
                     scope.launch { queue.play(listOf(url.toNetworkItem())) }
                 },
+                modifier = Modifier.semantics { contentDescription = "Open stream URL" },
             ) { Text("Open stream") }
-            if (state.media == null) {
+            if (state.media == null && destination != DesktopDestination.Settings) {
                 DesktopEmptyState(destination)
             }
             Spacer(Modifier.height(4.dp))
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+                    contentDescription = "Now playing card for ${state.media?.title ?: "Nothing playing"}"
+                },
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            state.media?.let { DesktopArtwork(it.artworkUri, it.title, 96.dp) }
-            Text(state.media?.title ?: "Nothing playing", style = MaterialTheme.typography.titleLarge)
-            Text(state.status.label(), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Slider(
-                value = state.positionMillis.toFloat().coerceAtMost((state.durationMillis ?: 1).toFloat()),
-                onValueChange = { engine.seekTo(it.toLong()) },
-                valueRange = 0f..(state.durationMillis ?: 1).coerceAtLeast(1).toFloat(),
-                enabled = state.isSeekable,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(formatTime(state.positionMillis))
-                Spacer(Modifier.weight(1f))
-                Text(formatTime(state.durationMillis ?: 0))
+                    state.media?.let { DesktopArtwork(it.artworkUri, it.title, 96.dp) }
+                    Text(state.media?.title ?: "Nothing playing", style = MaterialTheme.typography.titleLarge)
+                    Text(state.status.label(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Slider(
+                        value = state.positionMillis.toFloat().coerceAtMost((state.durationMillis ?: 1).toFloat()),
+                        onValueChange = { engine.seekTo(it.toLong()) },
+                        valueRange = 0f..(state.durationMillis ?: 1).coerceAtLeast(1).toFloat(),
+                        enabled = state.isSeekable,
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            contentDescription = "Playback seekbar: ${formatTime(state.positionMillis)} of ${formatTime(state.durationMillis ?: 0)}"
+                        },
+                    )
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(formatTime(state.positionMillis))
+                        Spacer(Modifier.weight(1f))
+                        Text(formatTime(state.durationMillis ?: 0))
+                    }
+                }
             }
             DesktopBookmarksPanel(
                 media = state.media,
@@ -464,8 +520,6 @@ private fun DesktopPlayer(
                 onClear = queue::clear,
                 onPlayAt = { index -> scope.launch { queue.playAt(index) } },
             )
-                }
-            }
             (state.status as? PlaybackStatus.Error)?.let { error ->
                 Text(error.error.message, color = MaterialTheme.colorScheme.error)
                 Text(
@@ -473,6 +527,8 @@ private fun DesktopPlayer(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+                    }
+                }
             }
         }
     }
@@ -579,18 +635,31 @@ private fun formatBytes(bytes: Long): String = if (bytes < 1_048_576) "${bytes /
 private fun DesktopSidebar(
     selected: DesktopDestination,
     onDestinationSelected: (DesktopDestination) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier.width(184.dp).fillMaxSize().padding(16.dp),
+        modifier = modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text("Vimivo", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(12.dp))
         DesktopDestination.entries.forEach { destination ->
-            OutlinedButton(
-                onClick = { onDestinationSelected(destination) },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (selected == destination) "• ${destination.title}" else destination.title) }
+            val isSelected = selected == destination
+            if (isSelected) {
+                Button(
+                    onClick = { onDestinationSelected(destination) },
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        contentDescription = "${destination.title} navigation tab, active"
+                    },
+                ) { Text(destination.title) }
+            } else {
+                OutlinedButton(
+                    onClick = { onDestinationSelected(destination) },
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        contentDescription = "Navigate to ${destination.title}"
+                    },
+                ) { Text(destination.title) }
+            }
         }
         Spacer(Modifier.weight(1f))
         Text("Private, local-first playback", style = MaterialTheme.typography.labelSmall)

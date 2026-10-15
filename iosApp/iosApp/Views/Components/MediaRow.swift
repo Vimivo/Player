@@ -67,6 +67,7 @@ public struct MediaRow: View {
                     .font(.system(size: 16))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(isFavorite ? "Remove \(item.title) from favorites" : "Add \(item.title) to favorites")
             .padding(.trailing, 4)
         }
         .contentShape(Rectangle())

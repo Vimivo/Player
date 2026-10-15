@@ -19,6 +19,7 @@ import dev.vimivo.playback.PlaybackQueueSnapshot
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.QueueItem
+import dev.vimivo.settings.ThemeMode
 import java.io.File
 import java.net.URI
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +48,7 @@ internal data class DesktopLibraryUiState(
     val bookmarks: List<Bookmark> = emptyList(),
     val scanStates: Map<String, LibraryScanState> = emptyMap(),
     val search: String = "",
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val loading: Boolean = true,
     val error: String? = null,
 )
@@ -117,6 +119,10 @@ internal class DesktopLibraryController(
     }
     fun removeHistory(mediaId: MediaId) = mutatePersonalData { personalRepository.removeHistory(mediaId) }
     fun clearHistory() = mutatePersonalData { personalRepository.clearHistory() }
+    fun setThemeMode(mode: ThemeMode) {
+        mutableState.value = mutableState.value.copy(themeMode = mode)
+        mutatePersonalData { personalRepository.putSetting("theme_mode", mode.name) }
+    }
     fun addBookmark(mediaId: MediaId, positionMillis: Long, label: String?) =
         mutatePersonalData { personalRepository.addBookmark(mediaId, positionMillis, label) }
     fun renameBookmark(id: String, label: String) = mutatePersonalData { personalRepository.renameBookmark(id, label) }
@@ -254,6 +260,9 @@ internal class DesktopLibraryController(
             val favorites = repository.media(favoriteIds).map { it.copy(isFavorite = true) }
             val favoriteIdSet = favoriteIds.mapTo(mutableSetOf(), MediaId::value)
             val history = personalRepository.history()
+            val themeMode = personalRepository.setting("theme_mode")?.let {
+                runCatching { ThemeMode.valueOf(it) }.getOrNull()
+            } ?: ThemeMode.SYSTEM
             val personalMedia = repository.media(
                 playlists.flatMap(Playlist::items) + favoriteIds + history.map(PlaybackHistory::mediaId),
             ).associateBy { it.id }
@@ -269,6 +278,7 @@ internal class DesktopLibraryController(
                 favorites = favorites,
                 history = history.mapNotNull { entry -> personalMedia[entry.mediaId]?.let { DesktopHistoryItem(it, entry) } },
                 bookmarks = personalRepository.allBookmarks(),
+                themeMode = themeMode,
                 loading = false,
                 error = null,
             )

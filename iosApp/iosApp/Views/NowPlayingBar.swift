@@ -46,6 +46,7 @@ public struct NowPlayingBar: View {
                             .frame(width: 36, height: 36)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(engine.state.status == .playing ? "Pause" : "Play")
 
                     Button(action: engine.playNext) {
                         Image(systemName: "forward.fill")
@@ -54,6 +55,7 @@ public struct NowPlayingBar: View {
                             .frame(width: 36, height: 36)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Next track")
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
