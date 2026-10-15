@@ -557,7 +557,10 @@ private fun LibraryChrome(
                     Text("Library access is optional", style = MaterialTheme.typography.titleMedium)
                     Text("Allow access to discover shared media, or open individual files and folders with Android's picker.")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button({ request.launch(if (kind == MediaKind.AUDIO) permissions.audioRequest() else permissions.videoRequest()) }) { Text("Allow access") }
+                        Button({
+                            val perms = (if (kind == MediaKind.AUDIO) permissions.audioRequest() else permissions.videoRequest()) + permissions.notificationRequest()
+                            request.launch(perms)
+                        }) { Text("Allow access") }
                         OutlinedButton({ file.launch(arrayOf("audio/*", "video/*")) }) { Text("Open file") }
                         OutlinedButton({ folder.launch(null) }) { Text("Add folder") }
                     }

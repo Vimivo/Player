@@ -42,6 +42,16 @@ class MediaPermissionPolicy(private val context: Context) {
         else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
+    fun hasNotificationPermission(): Boolean = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> granted(Manifest.permission.POST_NOTIFICATIONS)
+        else -> true
+    }
+
+    fun notificationRequest(): Array<String> = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+        else -> emptyArray()
+    }
+
     private fun access(permission: String) = if (granted(permission)) {
         MediaPermissionAccess.FULL
     } else {
