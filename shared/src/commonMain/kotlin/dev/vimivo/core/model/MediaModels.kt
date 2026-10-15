@@ -1,5 +1,7 @@
 package dev.vimivo.core.model
 
+import kotlin.jvm.JvmInline
+
 /** Platform-neutral identifier; Android content URIs must remain opaque to common code. */
 @JvmInline
 value class MediaId(val value: String)

@@ -1,0 +1,601 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1001 /* VimivoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2001 /* VimivoApp.swift */; };
+		1002 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2002 /* MediaModels.swift */; };
+		1003 /* PlaybackModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2003 /* PlaybackModels.swift */; };
+		1004 /* KeychainCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2004 /* KeychainCredentialStore.swift */; };
+		1005 /* SecurityScopedMediaManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2005 /* SecurityScopedMediaManager.swift */; };
+		1006 /* IOSDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2006 /* IOSDatabase.swift */; };
+		1007 /* AudioSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2007 /* AudioSessionController.swift */; };
+		1008 /* NowPlayingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2008 /* NowPlayingManager.swift */; };
+		1009 /* RemoteCommandController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2009 /* RemoteCommandController.swift */; };
+		1010 /* AVPlayerPlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2010 /* AVPlayerPlaybackEngine.swift */; };
+		1011 /* ArtworkThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2011 /* ArtworkThumbnailView.swift */; };
+		1012 /* MediaRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2012 /* MediaRow.swift */; };
+		1013 /* NowPlayingBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2013 /* NowPlayingBar.swift */; };
+		1014 /* NowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2014 /* NowPlayingView.swift */; };
+		1015 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2015 /* VideoPlayerView.swift */; };
+		1016 /* QueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2016 /* QueueView.swift */; };
+		1017 /* PlaylistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2017 /* PlaylistView.swift */; };
+		1018 /* MusicView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2018 /* MusicView.swift */; };
+		1019 /* VideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2019 /* VideoView.swift */; };
+		1020 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2020 /* HomeView.swift */; };
+		1021 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2021 /* SettingsView.swift */; };
+		1022 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2022 /* MainTabView.swift */; };
+		1023 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2023 /* Assets.xcassets */; };
+		1024 /* VimivoShared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2024 /* VimivoShared.framework */; };
+		1025 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2025 /* libsqlite3.tbd */; };
+		1026 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2026 /* AVFoundation.framework */; };
+		1027 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2027 /* AVKit.framework */; };
+		1028 /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2028 /* MediaPlayer.framework */; };
+		1029 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2029 /* Security.framework */; };
+		1101 /* MediaModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2101 /* MediaModelsTests.swift */; };
+		1102 /* IOSDatabaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2102 /* IOSDatabaseTests.swift */; };
+		1103 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2025 /* libsqlite3.tbd */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5201 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5001;
+			remoteInfo = iosApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0001 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2001 /* VimivoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VimivoApp.swift; sourceTree = "<group>"; };
+		2002 /* MediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModels.swift; sourceTree = "<group>"; };
+		2003 /* PlaybackModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackModels.swift; sourceTree = "<group>"; };
+		2004 /* KeychainCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainCredentialStore.swift; sourceTree = "<group>"; };
+		2005 /* SecurityScopedMediaManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityScopedMediaManager.swift; sourceTree = "<group>"; };
+		2006 /* IOSDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDatabase.swift; sourceTree = "<group>"; };
+		2007 /* AudioSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionController.swift; sourceTree = "<group>"; };
+		2008 /* NowPlayingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingManager.swift; sourceTree = "<group>"; };
+		2009 /* RemoteCommandController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteCommandController.swift; sourceTree = "<group>"; };
+		2010 /* AVPlayerPlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVPlayerPlaybackEngine.swift; sourceTree = "<group>"; };
+		2011 /* ArtworkThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkThumbnailView.swift; sourceTree = "<group>"; };
+		2012 /* MediaRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaRow.swift; sourceTree = "<group>"; };
+		2013 /* NowPlayingBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingBar.swift; sourceTree = "<group>"; };
+		2014 /* NowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingView.swift; sourceTree = "<group>"; };
+		2015 /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
+		2016 /* QueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueView.swift; sourceTree = "<group>"; };
+		2017 /* PlaylistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistView.swift; sourceTree = "<group>"; };
+		2018 /* MusicView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicView.swift; sourceTree = "<group>"; };
+		2019 /* VideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
+		2020 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		2021 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		2022 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		2023 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2024 /* VimivoShared.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VimivoShared.framework; path = "../../shared/build/bin/iosSimulatorArm64/debugFramework/VimivoShared.framework"; sourceTree = "<group>"; };
+		2025 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
+		2026 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		2027 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
+		2028 /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
+		2029 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		2030 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		0002 /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2101 /* MediaModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModelsTests.swift; sourceTree = "<group>"; };
+		2102 /* IOSDatabaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDatabaseTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		3001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1024 /* VimivoShared.framework in Frameworks */,
+				1025 /* libsqlite3.tbd in Frameworks */,
+				1026 /* AVFoundation.framework in Frameworks */,
+				1027 /* AVKit.framework in Frameworks */,
+				1028 /* MediaPlayer.framework in Frameworks */,
+				1029 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1103 /* libsqlite3.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4001 = {
+			isa = PBXGroup;
+			children = (
+				4002 /* iosApp */,
+				4012 /* iosAppTests */,
+				4007 /* Frameworks */,
+				4008 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4002 /* iosApp */ = {
+			isa = PBXGroup;
+			children = (
+				4003 /* App */,
+				4004 /* Models */,
+				4005 /* Storage */,
+				4006 /* Playback */,
+				4009 /* Views */,
+				4011 /* Resources */,
+			);
+			path = iosApp;
+			sourceTree = "<group>";
+		};
+		4003 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				2001 /* VimivoApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		4004 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				2002 /* MediaModels.swift */,
+				2003 /* PlaybackModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		4005 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				2004 /* KeychainCredentialStore.swift */,
+				2005 /* SecurityScopedMediaManager.swift */,
+				2006 /* IOSDatabase.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		4006 /* Playback */ = {
+			isa = PBXGroup;
+			children = (
+				2007 /* AudioSessionController.swift */,
+				2008 /* NowPlayingManager.swift */,
+				2009 /* RemoteCommandController.swift */,
+				2010 /* AVPlayerPlaybackEngine.swift */,
+			);
+			path = Playback;
+			sourceTree = "<group>";
+		};
+		4007 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2024 /* VimivoShared.framework */,
+				2025 /* libsqlite3.tbd */,
+				2026 /* AVFoundation.framework */,
+				2027 /* AVKit.framework */,
+				2028 /* MediaPlayer.framework */,
+				2029 /* Security.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		4008 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0001 /* iosApp.app */,
+				0002 /* iosAppTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4012 /* iosAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				2101 /* MediaModelsTests.swift */,
+				2102 /* IOSDatabaseTests.swift */,
+			);
+			path = iosAppTests;
+			sourceTree = "<group>";
+		};
+		4009 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				4010 /* Components */,
+				2013 /* NowPlayingBar.swift */,
+				2014 /* NowPlayingView.swift */,
+				2015 /* VideoPlayerView.swift */,
+				2016 /* QueueView.swift */,
+				2017 /* PlaylistView.swift */,
+				2018 /* MusicView.swift */,
+				2019 /* VideoView.swift */,
+				2020 /* HomeView.swift */,
+				2021 /* SettingsView.swift */,
+				2022 /* MainTabView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		4010 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				2011 /* ArtworkThumbnailView.swift */,
+				2012 /* MediaRow.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		4011 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2023 /* Assets.xcassets */,
+				2030 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5001 /* iosApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6001 /* Build configuration list for PBXNativeTarget "iosApp" */;
+			buildPhases = (
+				7001 /* Run Kotlin Script */,
+				7002 /* Sources */,
+				3001 /* Frameworks */,
+				7003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = iosApp;
+			productName = iosApp;
+			productReference = 0001 /* iosApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+		5002 /* iosAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6003 /* Build configuration list for PBXNativeTarget "iosAppTests" */;
+			buildPhases = (
+				7004 /* Sources */,
+				3002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5101 /* PBXTargetDependency */,
+			);
+			name = iosAppTests;
+			productName = iosAppTests;
+			productReference = 0002 /* iosAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					5001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					5002 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = 5001;
+					};
+				};
+			};
+			buildConfigurationList = 6002 /* Build configuration list for PBXProject "iosApp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 4001;
+			productRefGroup = 4008 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5001 /* iosApp */,
+				5002 /* iosAppTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1023 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		7001 /* Run Kotlin Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Compile Kotlin Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$SRCROOT/..\" && ./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1001 /* VimivoApp.swift in Sources */,
+				1002 /* MediaModels.swift in Sources */,
+				1003 /* PlaybackModels.swift in Sources */,
+				1004 /* KeychainCredentialStore.swift in Sources */,
+				1005 /* SecurityScopedMediaManager.swift in Sources */,
+				1006 /* IOSDatabase.swift in Sources */,
+				1007 /* AudioSessionController.swift in Sources */,
+				1008 /* NowPlayingManager.swift in Sources */,
+				1009 /* RemoteCommandController.swift in Sources */,
+				1010 /* AVPlayerPlaybackEngine.swift in Sources */,
+				1011 /* ArtworkThumbnailView.swift in Sources */,
+				1012 /* MediaRow.swift in Sources */,
+				1013 /* NowPlayingBar.swift in Sources */,
+				1014 /* NowPlayingView.swift in Sources */,
+				1015 /* VideoPlayerView.swift in Sources */,
+				1016 /* QueueView.swift in Sources */,
+				1017 /* PlaylistView.swift in Sources */,
+				1018 /* MusicView.swift in Sources */,
+				1019 /* VideoView.swift in Sources */,
+				1020 /* HomeView.swift in Sources */,
+				1021 /* SettingsView.swift in Sources */,
+				1022 /* MainTabView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1101 /* MediaModelsTests.swift in Sources */,
+				1102 /* IOSDatabaseTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5101 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5001 /* iosApp */;
+			targetProxy = 5201 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		9001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		9003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/bin/iosSimulatorArm64/debugFramework",
+					"$(CONFIGURATION_BUILD_DIR)",
+				);
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = iosApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.vimivo.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/bin/iosSimulatorArm64/releaseFramework",
+					"$(CONFIGURATION_BUILD_DIR)",
+				);
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = iosApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.vimivo.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		9005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.vimivo.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/iosApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/iosApp";
+			};
+			name = Debug;
+		};
+		9006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.vimivo.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/iosApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/iosApp";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6001 /* Build configuration list for PBXNativeTarget "iosApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9003 /* Debug */,
+				9004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6002 /* Build configuration list for PBXProject "iosApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9001 /* Debug */,
+				9002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6003 /* Build configuration list for PBXNativeTarget "iosAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9005 /* Debug */,
+				9006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 8001 /* Project object */;
+}

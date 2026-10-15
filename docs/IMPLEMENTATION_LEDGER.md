@@ -19,7 +19,8 @@ Status terms: **implemented** means code exists, **tested** means automated test
 | Playback history and resume | Implemented, tested | One play count per session, ten-second position checkpoints, completion handling, and conservative video/long-audio resume rules. |
 | Unified playback queue | Implemented, tested | One engine owns continuous play-all, next/previous, stable duplicate occurrences, missing-item skipping, reorder/remove/clear, shuffle, repeat modes, SQLite schema version 4 persistence, paused restoration without autoplay, and UI queue management. |
 | Desktop distribution | Implemented, tested | Standalone macOS application bundle (`Vimivo.app`) and installable DMG (`Vimivo-1.0.0.dmg`) with self-contained JVM runtime and 50 bundled relocatable native dylibs (libmpv, FFmpeg, dav1d, etc.) with zero `/opt/homebrew` dependencies. Windows distribution configured for EXE/MSI via GitHub Actions runner. Linux distribution configured for DEB, RPM, AppImage, and Flatpak via GitHub Actions runner. |
-| Android application | Existing target; unchanged by this checkpoint | Desktop work must not regress Android. Run Android gates when Android code/build files change. |
+| Android application | Implemented, tested | Milestone 21 complete. Android 13+ `POST_NOTIFICATIONS` integrated for media service foreground notifications. Media3 service, MediaSession, Lock Screen / Notification shade controls, video playback, PiP, unit tests (20/20 passed), Detekt static analysis, release APK (`androidApp-release-unsigned.apk`), and release App Bundle (`androidApp-release.aab`) verified. |
+| iOS & iPadOS application | Implemented, tested | Milestone 22 complete. Native SwiftUI application integrating Kotlin Multiplatform shared framework (`VimivoShared.framework`), AVFoundation audio/video playback, background playback (`UIBackgroundModes: ["audio"]`), Lock Screen / Control Center integration (`MPNowPlayingInfoCenter`, `MPRemoteCommandCenter`), PiP (`AVKit`), sandboxed Files access (`SecurityScopedMediaManager`), native SQLite persistence in WAL mode (`IOSDatabase`), and Keychain credential storage (`KeychainCredentialStore`). Simulator unit tests (7/7 passed on iPhone 17 Pro and iPad Pro simulators) and release build succeeded. |
 
 ## Verified increments
 
@@ -37,6 +38,8 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `300a76c` — bundle native libmpv dependencies and generate standalone macOS DMG.
 - `8d6593b` — embedded video renderer, secure credentials, and standalone distribution packaging for Windows.
 - `feat(linux): embedded video renderer, MPRIS media controls, secure credentials, and distribution packaging` — MpvX11Renderer XID attachment, MPRIS 2 D-Bus media integration, LinuxCredentialStore Secret Service binding, multi-resolution icons, desktop entry, AppStream metainfo, Flatpak manifest, AppImage script, native ELF bundler, and Linux CI pipeline.
+- `d7bfe63` — `feat(android): enhance notification permissions for Android 13+ background media controls` (Milestone 21 Android production hardening).
+- `feat(ios): add complete iOS and iPadOS native application with AVPlayer, background playback, and SQLite persistence` — Native SwiftUI app, Kotlin shared framework integration (`iosArm64`, `iosSimulatorArm64`), AVPlayer engine, AVAudioSession handling, MPRemoteCommandCenter, MPNowPlayingInfoCenter, AVKit PiP, sandboxed Files importing with security-scoped bookmarks, native SQLite persistence, and Keychain credential storage (Milestone 22 iOS production completion).
 
 ## Quality record
 
@@ -47,6 +50,12 @@ On 2026-10-15, these commands completed successfully:
 - `./gradlew :desktopApp:detekt`
 - `./gradlew :shared:desktopTest` (14 tests)
 - `./gradlew detekt` (all modules passed)
-- `./gradlew :androidApp:assembleDebug` (verified zero regression)
-
-The desktop suite currently contains 64 tests and shared desktop test suite contains 14 tests.
+- `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
+- `./gradlew :androidApp:detekt` (0 violations)
+- `./gradlew :androidApp:assembleRelease` (`androidApp-release-unsigned.apk` generated)
+- `./gradlew :androidApp:bundleRelease` (`androidApp-release.aab` generated)
+- `./gradlew :shared:compileKotlinIosSimulatorArm64 :shared:linkDebugFrameworkIosSimulatorArm64`
+- `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO` (BUILD SUCCEEDED)
+- `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPad Pro 11-inch (M5)' build CODE_SIGNING_ALLOWED=NO` (BUILD SUCCEEDED)
+- `xcodebuild test -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO` (7 tests executed, 0 failures, TEST SUCCEEDED)
+- `xcodebuild test -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPad Pro 11-inch (M5)' CODE_SIGNING_ALLOWED=NO` (7 tests executed, 0 failures, TEST SUCCEEDED)

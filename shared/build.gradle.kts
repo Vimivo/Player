@@ -23,6 +23,17 @@ kotlin {
         compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
     }
 
+    listOf(
+        iosArm64(),
+        iosSimulatorArm64(),
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "VimivoShared"
+            isStatic = true
+            binaryOption("bundleId", "dev.vimivo.shared")
+        }
+    }
+
     sourceSets {
         commonMain.dependencies {
             implementation(libs.coroutines.core)

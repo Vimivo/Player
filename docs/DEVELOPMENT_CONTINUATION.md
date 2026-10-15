@@ -36,38 +36,49 @@ The latest completed desktop increments are:
 26. Linux MPRIS 2 media player subsystem over Session D-Bus (`org.mpris.MediaPlayer2.vimivo`), tracking playback state, queue, microsecond positions, track object paths, and reactive `PropertiesChanged` notifications with `NoOpMprisService` fallback;
 27. Linux Secret Service integration (`LinuxCredentialStore`) binding `libsecret-1.so.0` with `MemoryCredentialStore` fallback;
 28. Linux desktop integration including multi-resolution Hicolor icons (16px to 512px), freedesktop `.desktop` launcher, and AppStream metainfo specification;
-29. Linux packaging configuration in `build.gradle.kts` for DEB and RPM formats, standalone AppImage packaging script `build_appimage.sh`, Flatpak sandboxed manifest `dev.vimivo.desktop.json`, native ELF bundler `bundle_linux_mpv.py`, and Linux CI workflow in `.github/workflows/linux.yml`.
+29. Linux packaging configuration in `build.gradle.kts` for DEB and RPM formats, standalone AppImage packaging script `build_appimage.sh`, Flatpak sandboxed manifest `dev.vimivo.desktop.json`, native ELF bundler `bundle_linux_mpv.py`, and Linux CI workflow in `.github/workflows/linux.yml`;
+30. Android 13+ `POST_NOTIFICATIONS` integration, MediaSession, foreground playback service, release APK (`androidApp-release-unsigned.apk`), and release App Bundle (`androidApp-release.aab`) verified;
+31. Native iOS and iPadOS application (`iosApp`) with adaptive SwiftUI navigation (`MainTabView` on iPhone, `NavigationSplitView` on iPad), Kotlin Multiplatform shared framework integration (`iosArm64`, `iosSimulatorArm64`), AVFoundation playback engine (`AVPlayerPlaybackEngine`), audio session and interruption management (`AudioSessionController`), Lock Screen and Control Center integration (`MPNowPlayingInfoCenter`, `MPRemoteCommandCenter`), Picture-in-Picture (`AVKit`), sandboxed Files importing with security-scoped bookmarks (`SecurityScopedMediaManager`), native SQLite persistence in WAL mode (`IOSDatabase`), Keychain credential storage (`KeychainCredentialStore`), and verified simulator unit tests (7/7 tests passed on iPhone 17 Pro and iPad Pro).
 
 Do not rebuild these components. Continue from the first executable item in the backlog below.
 
 ## Next executable work
 
-1. Execute Linux GitHub Actions CI pipeline on an Ubuntu runner to generate genuine DEB, RPM, and AppImage packages and SHA-256 checksums.
-2. Execute Windows GitHub Actions CI pipeline on a Windows runner to generate genuine EXE/MSI binaries and SHA-256 checksums.
-3. Run clean-machine Linux runtime playback verification under GNOME and KDE Plasma (Wayland and X11 sessions).
-4. Run clean-machine Windows runtime playback verification for audio, embedded video, resizing, fullscreen, and track switching.
-5. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
-6. Complete playlist import/export and backup/restore after a versioned portable format is defined.
-7. Prepare Apple Developer ID signing and notarization workflow via `xcrun notarytool`.
+1. Physical device testing on real Android and iOS devices (audio output, lock-screen controls, bluetooth audio disconnect).
+2. Configure Apple Developer signing certificate and provisioning profile in Xcode for App Store / TestFlight archive distribution.
+3. Configure Google Play upload keystore for signing release Android App Bundle (`androidApp-release.aab`).
+4. Execute Linux GitHub Actions CI pipeline on an Ubuntu runner to generate genuine DEB, RPM, and AppImage packages.
+5. Execute Windows GitHub Actions CI pipeline on a Windows runner to generate genuine EXE/MSI binaries.
+6. Run clean-machine Linux and Windows runtime playback verification.
 
 ## External or hardware blockers
 
-- Linux packaging (`jpackage` creating DEB/RPM and AppImage tools) requires a Linux host/runner (e.g. GitHub Actions `ubuntu-latest`). It cannot be generated on macOS.
-- Windows packaging (`jpackage` creating EXE/MSI) requires a Windows host (e.g. GitHub Actions `windows-latest` runner). It cannot be generated on macOS.
-- Real macOS audio/video playback, resize, fullscreen, sleep/wake, and cleanup require a machine with a compatible libmpv runtime and legal test media.
-- Production signing/notarization requires owner-managed Apple, Windows, and Linux signing credentials. Never commit credentials.
-- Cross-architecture native validation requires the corresponding hardware or runners.
+- Public Google Play store submission requires owner-managed upload keystore. Never commit signing keys.
+- iOS physical device installation and TestFlight / App Store submission require owner-managed Apple Developer Team signing certificate and provisioning profile.
+- Linux packaging (`jpackage` creating DEB/RPM and AppImage) requires a Linux host/runner.
+- Windows packaging (`jpackage` creating EXE/MSI) requires a Windows host/runner.
 
 ## Required verification
 
-For shared queue or desktop changes run:
+For mobile and cross-platform verification run:
 
 ```shell
+# Android
+./gradlew :androidApp:testDebugUnitTest
+./gradlew :androidApp:detekt
+./gradlew :androidApp:assembleRelease
+./gradlew :androidApp:bundleRelease
+
+# iOS
+./gradlew :shared:compileKotlinIosSimulatorArm64 :shared:linkDebugFrameworkIosSimulatorArm64
+xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO
+xcodebuild test -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPad Pro 11-inch (M5)' CODE_SIGNING_ALLOWED=NO
+
+# Desktop & Shared
 ./gradlew :desktopApp:desktopTest
 ./gradlew :desktopApp:compileKotlinDesktop
 ./gradlew :desktopApp:detekt
 ./gradlew :shared:desktopTest
-./gradlew :androidApp:assembleDebug
+./gradlew detekt
 ```
-
-The desktop suite currently contains 64 tests and shared desktop test suite contains 14 tests.
