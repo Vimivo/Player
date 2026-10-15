@@ -2,6 +2,10 @@
 
 package dev.vimivo.desktop.library
 
+import dev.vimivo.core.model.AlbumDetails
+import dev.vimivo.core.model.AlbumItem
+import dev.vimivo.core.model.ArtistDetails
+import dev.vimivo.core.model.ArtistItem
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
@@ -81,6 +85,122 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
                 orderedIds.mapNotNull(byId::get)
             }
         }
+    }
+
+    fun albums(query: String = ""): List<AlbumItem> = database.transaction { connection ->
+        connection.prepareStatement(
+            "SELECT COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album') AS album_title, " +
+                "COALESCE(NULLIF(TRIM(x.album_artist), ''), NULLIF(TRIM(x.artist), ''), 'Unknown Artist') AS album_artist, " +
+                "COUNT(m.id) AS track_count, " +
+                "COALESCE(SUM(COALESCE(x.duration_ms, 0)), 0) AS total_duration, " +
+                "MAX(x.artwork_uri) AS artwork_uri, " +
+                "MAX(x.release_year) AS release_year " +
+                "FROM media_items m " +
+                "LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                "WHERE m.available=1 AND m.kind='AUDIO' " +
+                "GROUP BY 1, 2 " +
+                "HAVING album_title LIKE ? OR album_artist LIKE ? " +
+                "ORDER BY album_title COLLATE NOCASE",
+        ).use { statement ->
+            statement.setString(1, "%$query%")
+            statement.setString(2, "%$query%")
+            statement.executeQuery().use { rows ->
+                buildList {
+                    while (rows.next()) {
+                        val title = rows.getString(1)
+                        val artist = rows.getString(2)
+                        val id = UUID.nameUUIDFromBytes("$title::$artist".toByteArray(Charsets.UTF_8)).toString()
+                        add(
+                            AlbumItem(
+                                id = id,
+                                title = title,
+                                artist = artist.takeIf { it != "Unknown Artist" },
+                                albumArtist = artist.takeIf { it != "Unknown Artist" },
+                                trackCount = rows.getInt(3),
+                                totalDurationMillis = rows.getLong(4),
+                                artworkUri = rows.getString(5),
+                                releaseYear = rows.getInt(6).takeIf { !rows.wasNull() },
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun albumDetails(albumId: String): AlbumDetails? {
+        val album = albums().firstOrNull { it.id == albumId } ?: return null
+        val tracks = database.transaction { connection ->
+            connection.prepareStatement(
+                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
+                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                    "WHERE m.available=1 AND m.kind='AUDIO' AND COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album')=? " +
+                    "AND COALESCE(NULLIF(TRIM(x.album_artist), ''), NULLIF(TRIM(x.artist), ''), 'Unknown Artist')=? " +
+                    "ORDER BY COALESCE(x.disc_number, 999999) ASC, COALESCE(x.track_number, 999999) ASC, COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE",
+            ).use { statement ->
+                statement.setString(1, album.title)
+                statement.setString(2, album.albumArtist ?: album.artist ?: "Unknown Artist")
+                statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
+            }
+        }
+        return AlbumDetails(album, tracks)
+    }
+
+    fun artists(query: String = ""): List<ArtistItem> = database.transaction { connection ->
+        connection.prepareStatement(
+            "SELECT COALESCE(NULLIF(TRIM(x.artist), ''), NULLIF(TRIM(x.album_artist), ''), 'Unknown Artist') AS artist_name, " +
+                "COUNT(DISTINCT COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album')) AS album_count, " +
+                "COUNT(m.id) AS track_count, " +
+                "MAX(x.artwork_uri) AS artwork_uri " +
+                "FROM media_items m " +
+                "LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                "WHERE m.available=1 AND m.kind='AUDIO' " +
+                "GROUP BY 1 " +
+                "HAVING artist_name LIKE ? " +
+                "ORDER BY artist_name COLLATE NOCASE",
+        ).use { statement ->
+            statement.setString(1, "%$query%")
+            statement.executeQuery().use { rows ->
+                buildList {
+                    while (rows.next()) {
+                        val name = rows.getString(1)
+                        val id = UUID.nameUUIDFromBytes(name.toByteArray(Charsets.UTF_8)).toString()
+                        add(
+                            ArtistItem(
+                                id = id,
+                                name = name,
+                                albumCount = rows.getInt(2),
+                                trackCount = rows.getInt(3),
+                                artworkUri = rows.getString(4),
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun artistDetails(artistId: String): ArtistDetails? {
+        val artist = artists().firstOrNull { it.id == artistId } ?: return null
+        val artistAlbums = albums().filter {
+            it.artist.equals(artist.name, ignoreCase = true) || it.albumArtist.equals(artist.name, ignoreCase = true)
+        }
+        val tracks = database.transaction { connection ->
+            connection.prepareStatement(
+                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
+                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                    "WHERE m.available=1 AND m.kind='AUDIO' AND (" +
+                    "COALESCE(NULLIF(TRIM(x.artist), ''), '')=? OR COALESCE(NULLIF(TRIM(x.album_artist), ''), '')=? " +
+                    ") ORDER BY COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE",
+            ).use { statement ->
+                statement.setString(1, artist.name)
+                statement.setString(2, artist.name)
+                statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
+            }
+        }
+        return ArtistDetails(artist, artistAlbums, tracks)
     }
 
     fun root(id: String): LibraryRoot? = roots().firstOrNull { it.id == id }

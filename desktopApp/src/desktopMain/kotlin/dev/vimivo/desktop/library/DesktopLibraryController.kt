@@ -1,10 +1,14 @@
 @file:Suppress(
     "ArgumentListWrapping", "CyclomaticComplexMethod", "ImportOrdering", "Indentation",
-    "MaximumLineLength", "MaxLineLength", "ParameterListWrapping", "TooGenericExceptionCaught", "Wrapping",
+    "MaximumLineLength", "MaxLineLength", "ParameterListWrapping", "TooGenericExceptionCaught", "TooManyFunctions", "Wrapping",
 )
 
 package dev.vimivo.desktop.library
 
+import dev.vimivo.core.model.AlbumDetails
+import dev.vimivo.core.model.AlbumItem
+import dev.vimivo.core.model.ArtistDetails
+import dev.vimivo.core.model.ArtistItem
 import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
@@ -34,6 +38,8 @@ internal data class DesktopLibraryUiState(
     val roots: List<LibraryRoot> = emptyList(),
     val audio: List<MediaItem> = emptyList(),
     val video: List<MediaItem> = emptyList(),
+    val albums: List<AlbumItem> = emptyList(),
+    val artists: List<ArtistItem> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
     val personalMedia: Map<MediaId, MediaItem> = emptyMap(),
     val favorites: List<MediaItem> = emptyList(),
@@ -114,6 +120,8 @@ internal class DesktopLibraryController(
     fun addBookmark(mediaId: MediaId, positionMillis: Long, label: String?) =
         mutatePersonalData { personalRepository.addBookmark(mediaId, positionMillis, label) }
     fun renameBookmark(id: String, label: String) = mutatePersonalData { personalRepository.renameBookmark(id, label) }
+    fun albumDetails(albumId: String): AlbumDetails? = repository.albumDetails(albumId)
+    fun artistDetails(artistId: String): ArtistDetails? = repository.artistDetails(artistId)
     fun deleteBookmark(id: String) = mutatePersonalData { personalRepository.deleteBookmark(id) }
 
     /**
@@ -254,6 +262,8 @@ internal class DesktopLibraryController(
                 roots = roots,
                 audio = repository.media(MediaKind.AUDIO, query).map { it.copy(isFavorite = it.id.value in favoriteIdSet) },
                 video = repository.media(MediaKind.VIDEO, query).map { it.copy(isFavorite = it.id.value in favoriteIdSet) },
+                albums = repository.albums(query),
+                artists = repository.artists(query),
                 playlists = playlists,
                 personalMedia = personalMedia,
                 favorites = favorites,

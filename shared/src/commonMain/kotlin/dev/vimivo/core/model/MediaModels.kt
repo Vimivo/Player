@@ -127,3 +127,33 @@ data class PlaybackHistory(
     val playCount: Int,
     val completed: Boolean,
 )
+
+data class AlbumItem(
+    val id: String,
+    val title: String,
+    val artist: String?,
+    val albumArtist: String?,
+    val artworkUri: String?,
+    val trackCount: Int,
+    val totalDurationMillis: Long,
+    val releaseYear: Int?,
+)
+
+data class AlbumDetails(
+    val album: AlbumItem,
+    val tracks: List<MediaItem>,
+)
+
+data class ArtistItem(
+    val id: String,
+    val name: String,
+    val albumCount: Int,
+    val trackCount: Int,
+    val artworkUri: String?,
+)
+
+data class ArtistDetails(
+    val artist: ArtistItem,
+    val albums: List<AlbumItem>,
+    val tracks: List<MediaItem>,
+)

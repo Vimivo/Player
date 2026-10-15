@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
+import dev.vimivo.core.model.AlbumItem
+import dev.vimivo.core.model.ArtistItem
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
@@ -127,6 +129,8 @@ private fun DesktopPlayer(
     val libraryState by library.state.collectAsState()
     var networkUrl by remember { mutableStateOf("") }
     var destination by remember { mutableStateOf(DesktopDestination.Home) }
+    var selectedAlbum by remember { mutableStateOf<AlbumItem?>(null) }
+    var selectedArtist by remember { mutableStateOf<ArtistItem?>(null) }
     val videoCanvas = remember { Canvas() }
     val playMedia: (MediaItem) -> Unit = { media ->
         scope.launch {
@@ -163,7 +167,14 @@ private fun DesktopPlayer(
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxSize()) {
-            DesktopSidebar(destination, onDestinationSelected = { destination = it })
+            DesktopSidebar(
+                destination,
+                onDestinationSelected = {
+                    destination = it
+                    selectedAlbum = null
+                    selectedArtist = null
+                },
+            )
             Column(
                 Modifier.fillMaxSize().padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -181,9 +192,75 @@ private fun DesktopPlayer(
                     onRefreshAvailability = library::refreshAvailability,
                     onSearch = library::setSearch,
                     onPlay = playMedia,
+                    onPlayNext = { queue.playNext(listOf(it)) },
+                    onAddToQueue = { queue.addToQueue(listOf(it)) },
                     onToggleFavorite = library::toggleFavorite,
                     onAddToPlaylist = library::addToPlaylist,
                 )
+            }
+            if (destination == DesktopDestination.Albums) {
+                if (selectedAlbum != null) {
+                    val details = remember(selectedAlbum, libraryState) { library.albumDetails(selectedAlbum!!.id) }
+                    if (details != null) {
+                        DesktopAlbumDetailsPanel(
+                            details = details,
+                            playlists = libraryState.playlists,
+                            onBack = { selectedAlbum = null },
+                            onPlayAll = { tracks, title -> scope.launch { queue.play(tracks, sourceLabel = title) } },
+                            onShufflePlay = { tracks, title -> scope.launch { queue.play(tracks, shuffle = true, sourceLabel = title) } },
+                            onPlayNext = { tracks -> queue.playNext(tracks) },
+                            onAddToQueue = { tracks -> queue.addToQueue(tracks) },
+                            onPlayTrack = playMedia,
+                            onToggleFavorite = library::toggleFavorite,
+                            onAddToPlaylist = library::addToPlaylist,
+                        )
+                    } else {
+                        selectedAlbum = null
+                    }
+                } else {
+                    DesktopAlbumsPanel(
+                        albums = libraryState.albums,
+                        onSelectAlbum = { selectedAlbum = it },
+                        onPlayAll = { tracks, title -> scope.launch { queue.play(tracks, sourceLabel = title) } },
+                        onShufflePlay = { tracks, title -> scope.launch { queue.play(tracks, shuffle = true, sourceLabel = title) } },
+                        onAddToQueue = { tracks -> queue.addToQueue(tracks) },
+                        loadTracks = { id -> library.albumDetails(id)?.tracks.orEmpty() },
+                    )
+                }
+            }
+            if (destination == DesktopDestination.Artists) {
+                if (selectedArtist != null) {
+                    val details = remember(selectedArtist, libraryState) { library.artistDetails(selectedArtist!!.id) }
+                    if (details != null) {
+                        DesktopArtistDetailsPanel(
+                            details = details,
+                            playlists = libraryState.playlists,
+                            onBack = { selectedArtist = null },
+                            onSelectAlbum = { album ->
+                                selectedAlbum = album
+                                destination = DesktopDestination.Albums
+                            },
+                            onPlayAll = { tracks, title -> scope.launch { queue.play(tracks, sourceLabel = title) } },
+                            onShufflePlay = { tracks, title -> scope.launch { queue.play(tracks, shuffle = true, sourceLabel = title) } },
+                            onPlayNext = { tracks -> queue.playNext(tracks) },
+                            onAddToQueue = { tracks -> queue.addToQueue(tracks) },
+                            onPlayTrack = playMedia,
+                            onToggleFavorite = library::toggleFavorite,
+                            onAddToPlaylist = library::addToPlaylist,
+                        )
+                    } else {
+                        selectedArtist = null
+                    }
+                } else {
+                    DesktopArtistsPanel(
+                        artists = libraryState.artists,
+                        onSelectArtist = { selectedArtist = it },
+                        onPlayAll = { tracks, title -> scope.launch { queue.play(tracks, sourceLabel = title) } },
+                        onShufflePlay = { tracks, title -> scope.launch { queue.play(tracks, shuffle = true, sourceLabel = title) } },
+                        onAddToQueue = { tracks -> queue.addToQueue(tracks) },
+                        loadTracks = { id -> library.artistDetails(id)?.tracks.orEmpty() },
+                    )
+                }
             }
             if (destination == DesktopDestination.Playlists) {
                 DesktopPlaylistsPanel(
@@ -205,13 +282,50 @@ private fun DesktopPlayer(
                             }
                         }
                     },
+                    onShufflePlay = { playlistId ->
+                        scope.launch {
+                            library.playlistMedia(playlistId).onSuccess { items ->
+                                if (items.isNotEmpty()) queue.play(items, shuffle = true)
+                            }
+                        }
+                    },
+                    onPlayNext = { playlistId ->
+                        scope.launch {
+                            library.playlistMedia(playlistId).onSuccess { items ->
+                                queue.playNext(items)
+                            }
+                        }
+                    },
+                    onAddToQueue = { playlistId ->
+                        scope.launch {
+                            library.playlistMedia(playlistId).onSuccess { items ->
+                                queue.addToQueue(items)
+                            }
+                        }
+                    },
+                    onPlayMedia = playMedia,
+                    onPlayMediaNext = { queue.playNext(listOf(it)) },
+                    onAddMediaToQueue = { queue.addToQueue(listOf(it)) },
                 )
             }
             if (destination == DesktopDestination.Favorites) {
-                DesktopFavoritesPanel(libraryState.favorites, playMedia, library::toggleFavorite)
+                DesktopFavoritesPanel(
+                    items = libraryState.favorites,
+                    onPlay = playMedia,
+                    onPlayNext = { queue.playNext(listOf(it)) },
+                    onAddToQueue = { queue.addToQueue(listOf(it)) },
+                    onToggle = library::toggleFavorite,
+                )
             }
             if (destination == DesktopDestination.History) {
-                DesktopHistoryPanel(libraryState.history, playMedia, library::removeHistory, library::clearHistory)
+                DesktopHistoryPanel(
+                    items = libraryState.history,
+                    onPlay = playMedia,
+                    onPlayNext = { queue.playNext(listOf(it)) },
+                    onAddToQueue = { queue.addToQueue(listOf(it)) },
+                    onRemove = library::removeHistory,
+                    onClear = library::clearHistory,
+                )
             }
             if (destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
                 SwingPanel(
@@ -285,7 +399,13 @@ private fun DesktopPlayer(
                 onRename = library::renameBookmark,
                 onDelete = library::deleteBookmark,
             )
-            DesktopQueuePanel(queueState, queue::remove, queue::move, queue::clear)
+            DesktopQueuePanel(
+                state = queueState,
+                onRemove = queue::remove,
+                onMove = queue::move,
+                onClear = queue::clear,
+                onPlayAt = { index -> scope.launch { queue.playAt(index) } },
+            )
                 }
             }
             (state.status as? PlaybackStatus.Error)?.let { error ->
@@ -311,6 +431,8 @@ private fun DesktopLibraryPanel(
     onRefreshAvailability: () -> Unit,
     onSearch: (String) -> Unit,
     onPlay: (MediaItem) -> Unit,
+    onPlayNext: (MediaItem) -> Unit,
+    onAddToQueue: (MediaItem) -> Unit,
     onToggleFavorite: (MediaItem) -> Unit,
     onAddToPlaylist: (String, MediaItem) -> Unit,
 ) {
@@ -353,15 +475,32 @@ private fun DesktopLibraryPanel(
         LazyColumn(Modifier.fillMaxWidth().height(260.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(media, key = { it.id.value }) { item ->
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DesktopArtwork(item.artworkUri, item.title)
-                    Column(Modifier.weight(1f)) {
-                        Text(item.title)
-                        Text(listOfNotNull(item.artist, item.album, item.fileName, item.sizeBytes?.let(::formatBytes)).joinToString(" · "))
-                    }
-                    Button(onClick = { onPlay(item) }) { Text("Play") }
-                    OutlinedButton(onClick = { onToggleFavorite(item) }) { Text(if (item.isFavorite) "Unfavorite" else "Favorite") }
-                    AddToPlaylistButton(state.playlists, item, onAddToPlaylist)
+                    Row(
+                        Modifier.fillMaxWidth().padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        DesktopArtwork(item.artworkUri, item.title, if (destination == DesktopDestination.Videos) 80.dp else 48.dp)
+                        Column(Modifier.weight(1f)) {
+                            Text(item.title, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                listOfNotNull(
+                                    item.artist,
+                                    item.album,
+                                    if (item.width != null && item.height != null) "${item.width}x${item.height}" else null,
+                                    item.durationMillis?.let(::formatTime),
+                                    item.fileName,
+                                    item.sizeBytes?.let(::formatBytes),
+                                ).joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Button(onClick = { onPlay(item) }) { Text("Play") }
+                        OutlinedButton(onClick = { onPlayNext(item) }) { Text("Next") }
+                        OutlinedButton(onClick = { onAddToQueue(item) }) { Text("+ Queue") }
+                        OutlinedButton(onClick = { onToggleFavorite(item) }) { Text(if (item.isFavorite) "★" else "☆") }
+                        AddToPlaylistButton(state.playlists, item, onAddToPlaylist)
                     }
                 }
             }
@@ -417,10 +556,12 @@ private enum class DesktopDestination(
     val emptyDetail: String,
 ) {
     Home("Home", "Your listening and viewing space", "Open media to begin", "Vimivo keeps your media on this device."),
-    Music("Music", "Songs, albums, artists, and folders", "Your music library is empty", "Add and scan a library folder from Home."),
+    Music("Music", "Songs and tracks in your library", "Your music library is empty", "Add and scan a library folder from Home."),
+    Albums("Albums", "Browse albums and complete discographies", "No albums yet", "Add and scan music folders with album metadata."),
+    Artists("Artists", "Musicians, bands, and composers", "No artists yet", "Add and scan music folders with artist metadata."),
     Videos("Videos", "Local videos and resume points", "Your video library is empty", "Add and scan a library folder from Home, or open a video directly."),
-    Playlists("Playlists", "Your local collections", "No playlists yet", "Playlist editing is not yet available in the desktop interface."),
-    Favorites("Favorites", "Media you marked for quick access", "No favorites yet", "Favorite controls are not yet available in the desktop interface."),
+    Playlists("Playlists", "Your local collections", "No playlists yet", "Create a playlist to organize your media."),
+    Favorites("Favorites", "Media you marked for quick access", "No favorites yet", "Favorite controls are available on media cards."),
     History("History", "Recently played and watched", "No playback history", "Played library media appears here."),
     Network("Network", "Authorized streams and remote media", "Open an authorized stream", "Paste an HTTP, HTTPS, or RTSP address above."),
     Settings("Settings", "Appearance and playback preferences", "Settings are being prepared", "Preferences will be stored locally in the desktop persistence layer."),

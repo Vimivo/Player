@@ -15,18 +15,41 @@ import javax.imageio.ImageIO
 /** Bounded, non-authoritative image cache rooted in the platform's per-user cache directory. */
 internal class DesktopMediaCache(
     private val artworkDirectory: Path = DesktopDirectories.resolve().artwork,
+    private val thumbnailDirectory: Path = DesktopDirectories.resolve().thumbnails,
     private val maximumBytes: Long = 256L * 1024 * 1024,
 ) {
     @Synchronized
-    fun storeArtwork(cacheIdentity: String, encodedImage: ByteArray): Result<String> = runCatching {
-        require(encodedImage.isNotEmpty() && encodedImage.size <= MAX_SOURCE_IMAGE_BYTES) { "Embedded artwork is empty or too large" }
-        val source = ImageIO.read(ByteArrayInputStream(encodedImage)) ?: error("Embedded artwork is not a supported image")
-        val target = scale(source, MAX_ARTWORK_EDGE)
-        Files.createDirectories(artworkDirectory)
-        val destination = artworkDirectory.resolve("${sha256(cacheIdentity)}.jpg")
-        val temporary = Files.createTempFile(artworkDirectory, ".artwork-", ".tmp")
+    fun storeArtwork(cacheIdentity: String, encodedImage: ByteArray): Result<String> =
+        storeImage(artworkDirectory, cacheIdentity, encodedImage, MAX_ARTWORK_EDGE)
+
+    @Synchronized
+    fun storeThumbnail(cacheIdentity: String, encodedImage: ByteArray): Result<String> =
+        storeImage(thumbnailDirectory, cacheIdentity, encodedImage, MAX_THUMBNAIL_EDGE)
+
+    fun getArtwork(cacheIdentity: String): String? {
+        val file = artworkDirectory.resolve("${sha256(cacheIdentity)}.jpg")
+        return if (Files.isRegularFile(file) && Files.size(file) > 0) file.toUri().toString() else null
+    }
+
+    fun getThumbnail(cacheIdentity: String): String? {
+        val file = thumbnailDirectory.resolve("${sha256(cacheIdentity)}.jpg")
+        return if (Files.isRegularFile(file) && Files.size(file) > 0) file.toUri().toString() else null
+    }
+
+    private fun storeImage(
+        directory: Path,
+        cacheIdentity: String,
+        encodedImage: ByteArray,
+        maximumEdge: Int,
+    ): Result<String> = runCatching {
+        require(encodedImage.isNotEmpty() && encodedImage.size <= MAX_SOURCE_IMAGE_BYTES) { "Source image is empty or too large" }
+        val source = ImageIO.read(ByteArrayInputStream(encodedImage)) ?: error("Source image is not a supported format")
+        val target = scale(source, maximumEdge)
+        Files.createDirectories(directory)
+        val destination = directory.resolve("${sha256(cacheIdentity)}.jpg")
+        val temporary = Files.createTempFile(directory, ".cache-", ".tmp")
         try {
-            require(ImageIO.write(target, "jpg", temporary.toFile())) { "JPEG artwork encoder is unavailable" }
+            require(ImageIO.write(target, "jpg", temporary.toFile())) { "JPEG encoder is unavailable" }
             runCatching {
                 Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
             }.getOrElse {
@@ -35,14 +58,14 @@ internal class DesktopMediaCache(
         } finally {
             Files.deleteIfExists(temporary)
         }
-        trim()
+        trim(directory)
         destination.toUri().toString()
     }
 
     @Synchronized
-    fun trim() {
-        if (!Files.isDirectory(artworkDirectory)) return
-        val files = Files.list(artworkDirectory).use { stream ->
+    fun trim(directory: Path = artworkDirectory) {
+        if (!Files.isDirectory(directory)) return
+        val files = Files.list(directory).use { stream ->
             stream.filter(Files::isRegularFile).map { path -> path to Files.getLastModifiedTime(path).toMillis() }.toList()
         }.sortedByDescending { it.second }
         var retainedBytes = 0L
@@ -72,6 +95,7 @@ internal class DesktopMediaCache(
 
     private companion object {
         const val MAX_ARTWORK_EDGE = 1_024
+        const val MAX_THUMBNAIL_EDGE = 640
         const val MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024
     }
 }

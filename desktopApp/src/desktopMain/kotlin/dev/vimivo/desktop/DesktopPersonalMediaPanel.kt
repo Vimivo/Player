@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.vimivo.core.model.Bookmark
@@ -47,6 +49,12 @@ internal fun DesktopPlaylistsPanel(
     onRemove: (String, MediaId) -> Unit,
     onMove: (String, MediaId, Int) -> Unit,
     onPlay: (String) -> Unit,
+    onShufflePlay: ((String) -> Unit)? = null,
+    onPlayNext: ((String) -> Unit)? = null,
+    onAddToQueue: ((String) -> Unit)? = null,
+    onPlayMedia: ((MediaItem) -> Unit)? = null,
+    onPlayMediaNext: ((MediaItem) -> Unit)? = null,
+    onAddMediaToQueue: ((MediaItem) -> Unit)? = null,
 ) {
     var newName by remember { mutableStateOf("") }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
@@ -69,13 +77,32 @@ internal fun DesktopPlaylistsPanel(
                         OutlinedButton(onClick = { onRename(playlist.id, editedName) }, enabled = editedName.isNotBlank()) { Text("Rename") }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onPlay(playlist.id) }, enabled = playlist.items.isNotEmpty()) { Text("Play") }
+                        Button(onClick = { onPlay(playlist.id) }, enabled = playlist.items.isNotEmpty()) { Text("Play All") }
+                        if (onShufflePlay != null) {
+                            OutlinedButton(onClick = { onShufflePlay(playlist.id) }, enabled = playlist.items.isNotEmpty()) { Text("Shuffle") }
+                        }
+                        if (onPlayNext != null) {
+                            OutlinedButton(onClick = { onPlayNext(playlist.id) }, enabled = playlist.items.isNotEmpty()) { Text("Play Next") }
+                        }
+                        if (onAddToQueue != null) {
+                            OutlinedButton(onClick = { onAddToQueue(playlist.id) }, enabled = playlist.items.isNotEmpty()) { Text("+ Queue") }
+                        }
                         OutlinedButton(onClick = { onDuplicate(playlist.id) }) { Text("Duplicate") }
                         OutlinedButton(onClick = { pendingDelete = playlist.id }) { Text("Delete") }
                     }
                     playlist.items.forEachIndexed { index, mediaId ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(mediaById[mediaId]?.title ?: "Unavailable media", modifier = Modifier.weight(1f))
+                        val media = mediaById[mediaId]
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(media?.title ?: "Unavailable media", modifier = Modifier.weight(1f))
+                            if (media != null && onPlayMedia != null) {
+                                OutlinedButton(onClick = { onPlayMedia(media) }) { Text("Play") }
+                            }
+                            if (media != null && onPlayMediaNext != null) {
+                                OutlinedButton(onClick = { onPlayMediaNext(media) }) { Text("Next") }
+                            }
+                            if (media != null && onAddMediaToQueue != null) {
+                                OutlinedButton(onClick = { onAddMediaToQueue(media) }) { Text("+ Queue") }
+                            }
                             OutlinedButton(onClick = { onMove(playlist.id, mediaId, index - 1) }, enabled = index > 0) { Text("↑") }
                             OutlinedButton(onClick = { onMove(playlist.id, mediaId, index + 1) }, enabled = index < playlist.items.lastIndex) { Text("↓") }
                             OutlinedButton(onClick = { onRemove(playlist.id, mediaId) }) { Text("Remove") }
@@ -99,26 +126,41 @@ internal fun DesktopPlaylistsPanel(
 }
 
 @Composable
-internal fun DesktopFavoritesPanel(items: List<MediaItem>, onPlay: (MediaItem) -> Unit, onToggle: (MediaItem) -> Unit) {
+internal fun DesktopFavoritesPanel(
+    items: List<MediaItem>,
+    onPlay: (MediaItem) -> Unit,
+    onPlayNext: ((MediaItem) -> Unit)? = null,
+    onAddToQueue: ((MediaItem) -> Unit)? = null,
+    onToggle: (MediaItem) -> Unit,
+) {
     if (items.isEmpty()) Text("No favorites yet. Mark media from the Music or Videos library.")
-    MediaActionList(items, onPlay) { media -> OutlinedButton(onClick = { onToggle(media) }) { Text("Unfavorite") } }
+    MediaActionList(items, onPlay, onPlayNext, onAddToQueue) { media -> OutlinedButton(onClick = { onToggle(media) }) { Text("Unfavorite") } }
 }
 
 @Composable
-internal fun DesktopHistoryPanel(items: List<DesktopHistoryItem>, onPlay: (MediaItem) -> Unit, onRemove: (MediaId) -> Unit, onClear: () -> Unit) {
+internal fun DesktopHistoryPanel(
+    items: List<DesktopHistoryItem>,
+    onPlay: (MediaItem) -> Unit,
+    onPlayNext: ((MediaItem) -> Unit)? = null,
+    onAddToQueue: ((MediaItem) -> Unit)? = null,
+    onRemove: (MediaId) -> Unit,
+    onClear: () -> Unit,
+) {
     var confirmClear by remember { mutableStateOf(false) }
     if (items.isNotEmpty()) OutlinedButton(onClick = { confirmClear = true }) { Text("Clear history") }
     if (items.isEmpty()) Text("Playback history is empty.")
     LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         items(items, key = { it.media.id.value }) { item ->
             Card(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     DesktopArtwork(item.media.artworkUri, item.media.title)
                     Column(Modifier.weight(1f)) {
                         Text(item.media.title, style = MaterialTheme.typography.titleMedium)
                         Text("Played ${item.history.playCount} time(s) · ${formatPersonalTime(item.history.positionMillis)}")
                     }
                     Button(onClick = { onPlay(item.media) }) { Text(if (item.history.completed) "Play" else "Resume") }
+                    if (onPlayNext != null) OutlinedButton(onClick = { onPlayNext(item.media) }) { Text("Next") }
+                    if (onAddToQueue != null) OutlinedButton(onClick = { onAddToQueue(item.media) }) { Text("+ Queue") }
                     OutlinedButton(onClick = { onRemove(item.media.id) }) { Text("Remove") }
                 }
             }
@@ -185,35 +227,75 @@ internal fun DesktopQueuePanel(
     onRemove: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onClear: () -> Unit,
+    onPlayAt: ((Int) -> Unit)? = null,
 ) {
     if (state.items.isEmpty()) return
-    Text("Queue · ${state.items.size} item(s)", style = MaterialTheme.typography.titleMedium)
-    OutlinedButton(onClick = onClear) { Text("Clear queue") }
-    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 180.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column {
+            Text("Queue · ${state.items.size} item(s)", style = MaterialTheme.typography.titleMedium)
+            state.sourceLabel?.let { Text("Source: $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
+        }
+        OutlinedButton(onClick = onClear) { Text("Clear queue") }
+    }
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 240.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items(state.items.size, key = { state.items[it].queueId }) { index ->
             val item = state.items[index]
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(if (index == state.currentIndex) "▶ ${item.media.title}" else item.media.title, modifier = Modifier.weight(1f))
-                OutlinedButton(onClick = { onMove(index, index - 1) }, enabled = index > 0) { Text("↑") }
-                OutlinedButton(onClick = { onMove(index, index + 1) }, enabled = index < state.items.lastIndex) { Text("↓") }
-                OutlinedButton(onClick = { onRemove(index) }, enabled = index != state.currentIndex) { Text("Remove") }
+            val isCurrent = index == state.currentIndex
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    DesktopArtwork(item.media.artworkUri, item.media.title, 36.dp)
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            (if (isCurrent) "▶ " else "") + item.media.title,
+                            style = if (isCurrent) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            listOfNotNull(item.media.artist, item.media.durationMillis?.let(::formatPersonalTime)).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (onPlayAt != null && !isCurrent) {
+                        OutlinedButton(onClick = { onPlayAt(index) }) { Text("Play") }
+                    }
+                    OutlinedButton(onClick = { onMove(index, index - 1) }, enabled = index > 0) { Text("↑") }
+                    OutlinedButton(onClick = { onMove(index, index + 1) }, enabled = index < state.items.lastIndex) { Text("↓") }
+                    OutlinedButton(onClick = { onRemove(index) }, enabled = !isCurrent) { Text("Remove") }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun MediaActionList(items: List<MediaItem>, onPlay: (MediaItem) -> Unit, action: @Composable (MediaItem) -> Unit) {
+private fun MediaActionList(
+    items: List<MediaItem>,
+    onPlay: (MediaItem) -> Unit,
+    onPlayNext: ((MediaItem) -> Unit)? = null,
+    onAddToQueue: ((MediaItem) -> Unit)? = null,
+    action: @Composable (MediaItem) -> Unit,
+) {
     LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         items(items, key = { it.id.value }) { media ->
             Card(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     DesktopArtwork(media.artworkUri, media.title)
                     Column(Modifier.weight(1f)) {
                         Text(media.title, style = MaterialTheme.typography.titleMedium)
                         Text(listOfNotNull(media.artist, media.album, media.fileName).joinToString(" · "))
                     }
                     Button(onClick = { onPlay(media) }) { Text("Play") }
+                    if (onPlayNext != null) OutlinedButton(onClick = { onPlayNext(media) }) { Text("Next") }
+                    if (onAddToQueue != null) OutlinedButton(onClick = { onAddToQueue(media) }) { Text("+ Queue") }
                     action(media)
                 }
             }

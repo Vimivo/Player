@@ -4,31 +4,34 @@ Last verified on 2026-10-15 on macOS, branch `main`.
 
 ## Resume point
 
-Implementation is verified through commit `372cd28` (`feat(desktop): integrate cached artwork UI`).
+Implementation is verified through Milestone 15 (`feat(desktop): video metadata, thumbnails, album & artist library, and collection queue actions`).
 
 The latest completed desktop increments are:
 
 1. bounded Java Sound metadata extraction for supported audio files;
 2. SQLite schema version 3, including persisted extracted titles and searchable artist/album metadata;
 3. real metadata returned to the desktop music/video library UI and playback model;
-4. playback history and conservative resume-position persistence for indexed video and long-form audio.
-5. reactive desktop playlists, favorites, history, and bookmarks, including persistent mutations and destructive-action confirmations.
-6. Jaudiotagger-backed rich audio metadata, extraction-version invalidation, bounded embedded-artwork caching, and artwork UI.
-7. a shared unified queue with continuous playlist playback, next/previous, missing-item skipping, shuffle, repeat, and queue editing.
-8. SQLite schema version 4 queue persistence, snapshot restoration without autoplay, and queue actions across app startup.
+4. playback history and conservative resume-position persistence for indexed video and long-form audio;
+5. reactive desktop playlists, favorites, history, and bookmarks, including persistent mutations and destructive-action confirmations;
+6. Jaudiotagger-backed rich audio metadata, extraction-version invalidation, bounded embedded-artwork caching, and artwork UI;
+7. a shared unified queue with continuous playlist playback, next/previous, missing-item skipping, shuffle, repeat, and queue editing;
+8. SQLite schema version 4 queue persistence, snapshot restoration without autoplay, and queue actions across app startup;
+9. licensed generated test fixtures for tagged MP3, FLAC, M4A, Ogg, Opus, WAV, and AIFF verifying parser output, duration, Unicode/Bengali tags, and invalidation;
+10. pure-Kotlin Opus metadata parser for Ogg Opus containers and embedded tags without external dependencies;
+11. argument-safe video inspection and frame thumbnail generation using isolated tool locators (ffprobe/ffmpeg) with bounded memory/timeout;
+12. video frame thumbnail caching with atomic writes, aspect-ratio preservation, and invalidation;
+13. album and artist database projections with multi-disc/track ordering, album artist fallbacks, and compilation support;
+14. real Compose screens for Albums, Artists, Album Details, and Artist Details with artwork/thumbnail rendering;
+15. Play All, Shuffle Play, Play Next, and Add to Queue integration across all collection views (Songs, Albums, Artists, Playlists, Favorites, History).
 
 Do not rebuild these components. Continue from the first executable item in the backlog below.
 
 ## Next executable work
 
-1. Add licensed generated tagged MP3/FLAC/M4A/Ogg/Opus test fixtures and verify extraction parser output, Unicode/Bengali tags, and extraction-version invalidation.
-2. Implement safe desktop video metadata and thumbnail extraction (MP4, MKV, MOV, WebM) without invoking the active player or requiring a user-installed command-line tool.
-3. Add thumbnail caching with stable keys, size bounds, and atomic writes.
-4. Add album and artist database projections and connect them to real Compose screens (Albums, Artists, Album Details, Artist Details).
-5. Add Play Next / Add to Queue / Play All / Shuffle Play actions throughout library and playlist UI.
-5. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
-6. Complete playlist import/export and backup/restore after a versioned portable format is defined.
-7. Finish Windows/Linux video embedding and bundle redistributable libmpv binaries per supported OS/architecture.
+1. Expand library queries with paging, sorting, categories, and recent/continue-watching projections.
+2. Complete playlist import/export and backup/restore after a versioned portable format is defined.
+3. Finish Windows/Linux video embedding and bundle redistributable libmpv binaries per supported OS/architecture.
+4. Verify standalone macOS APP/DMG packaging and native library distribution.
 
 ## External or hardware blockers
 

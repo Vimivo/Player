@@ -9,12 +9,12 @@ Status terms: **implemented** means code exists, **tested** means automated test
 | Windows playback | Partial | Audio/network engine path exists. Embedded local video is disabled by capability reporting until a Windows render surface is implemented. |
 | Linux playback | Partial | Compile/package foundation exists; installed runtime and native bundling are not verified. |
 | Desktop folder selection and scanning | Implemented, tested | Native macOS picker, asynchronous recursive scanner, reconciliation, cancellation, exclusions, and SQLite persistence have tests. Security-scoped bookmarks are not yet implemented. |
-| Desktop metadata | Partial, tested | Jaudiotagger rich audio parsing, Java Sound fallback, extraction versioning, persistence, and library queries exist. WAV/cache tests pass; tagged-format fixtures and video metadata remain. |
-| Artwork cache/UI | Implemented, tested | Embedded artwork is bounded, decoded/scaled off the UI thread, atomically cached, size-limited, persisted by URI, and shown in library, favorites/history, and now playing. Tagged real-media fixture verification remains. |
-| Desktop library UI | Partial | Real indexed data, metadata/artwork, roots, search, scanning, playback, favorites, playlists, history, bookmarks, and queue are connected. Categories, paging, sorting, album/artist views, and video thumbnails remain. |
+| Desktop metadata | Implemented, tested | Rich audio parsing (Jaudiotagger + Opus parser fallback), video metadata extraction (ffprobe/ffmpeg via safe locator), extraction versioning, persistence, and queries. Full fixture suite (MP3, FLAC, M4A, Ogg, Opus, WAV, AIFF, MP4, MKV, WebM) verified. |
+| Artwork & thumbnail cache/UI | Implemented, tested | Embedded audio artwork and video frame thumbnails are bounded, decoded/scaled off UI thread, atomically cached, size-limited, persisted, and shown in library, favorites/history, albums/artists, and now playing. |
+| Desktop library UI | Implemented, tested | Real indexed data, metadata/artwork/thumbnails, roots, search, scanning, playback, favorites, playlists, history, bookmarks, queue, Album and Artist library views, and full queue actions (Play All, Shuffle Play, Play Next, Add to Queue) are connected. |
 | Personal media database | Implemented, tested | Playlists, favorites, history, positions, bookmarks, and settings persist with foreign keys and migration tests. Desktop create/rename/delete/duplicate/add/remove/reorder/favorite/history/bookmark actions are connected. Import/export and full queue playback remain. |
 | Playback history and resume | Implemented, tested | One play count per session, ten-second position checkpoints, completion handling, and conservative video/long-audio resume rules. Real process-restart playback verification remains. |
-| Unified playback queue | Implemented, tested | One engine owns continuous play-all, next/previous, stable duplicate occurrences, missing-item skipping, reorder/remove/clear, shuffle, repeat modes, SQLite schema version 4 persistence, and paused restoration without autoplay. |
+| Unified playback queue | Implemented, tested | One engine owns continuous play-all, next/previous, stable duplicate occurrences, missing-item skipping, reorder/remove/clear, shuffle, repeat modes, SQLite schema version 4 persistence, paused restoration without autoplay, and UI queue management. |
 | Network URL playback | Partial | HTTP/HTTPS/RTSP URLs use the existing engine. Recent/favorite URL UI, credential storage, SMB/WebDAV/SFTP, and discovery are not implemented. |
 | Desktop distribution | Partial | Compose packaging configuration exists for supported host targets. Native libmpv bundling, clean-machine installs, signatures, notarization, checksums, and Windows installer validation remain. |
 | Android application | Existing target; unchanged by this checkpoint | Desktop work must not regress Android. Run Android gates when Android code/build files change. |
@@ -29,20 +29,22 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `0a95609` — rich tagged audio metadata and bounded embedded-artwork cache.
 - `bc7d3fb` — unified continuous desktop playback queue.
 - `372cd28` — cached artwork connected to desktop media UI.
-- `feat(desktop): persist and restore paused playback queue` — schema v4 queue persistence, snapshot restoration without autoplay, and queue actions.
+- `0bae65d` — schema v4 queue persistence, snapshot restoration without autoplay, and queue actions.
+- `feat(desktop): video metadata, thumbnails, album & artist library, and collection queue actions` — video metadata extraction, video frame thumbnail caching, Opus metadata parser, album/artist projections & UI, and queue action integration.
 
 ## Quality record
 
 On 2026-10-15, these commands completed successfully:
 
-- `./gradlew :desktopApp:desktopTest` (27 tests)
+- `./gradlew :desktopApp:desktopTest` (48 tests)
 - `./gradlew :desktopApp:compileKotlinDesktop`
 - `./gradlew :desktopApp:detekt`
 - `./gradlew :shared:desktopTest` (14 tests)
-- `./gradlew detekt`
-- `./gradlew :androidApp:assembleDebug` (verified Android build compatibility with updated shared queue controller; completed successfully)
+- `./gradlew test` (96 tasks across all Android and shared unit tests)
+- `./gradlew detekt` (all modules passed)
+- `./gradlew :androidApp:assembleDebug` (verified Android build compatibility; completed successfully)
 
-The desktop suite currently contains 27 tests and shared desktop test suite contains 14 tests.
+The desktop suite currently contains 48 tests and shared desktop test suite contains 14 tests.
 
 This record does not claim installed-application or real-media runtime verification.
 

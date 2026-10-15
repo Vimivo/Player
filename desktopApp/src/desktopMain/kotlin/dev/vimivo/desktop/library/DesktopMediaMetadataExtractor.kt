@@ -39,10 +39,18 @@ internal class DesktopMediaMetadataExtractor(
         require(media.uri.startsWith("file:")) { "Only local files can be inspected" }
         val file = File(URI(media.uri))
         require(file.isFile) { "Media file is unavailable" }
-        return if (media.kind == MediaKind.AUDIO && file.extension.lowercase() in TAGGED_AUDIO_EXTENSIONS) {
-            extractTagged(media, file)
-        } else {
-            extractJavaSound(media, file)
+        return when {
+            media.kind == MediaKind.VIDEO -> DesktopVideoInspector.inspect(media, file, cache)
+            media.kind == MediaKind.AUDIO && file.extension.lowercase() in TAGGED_AUDIO_EXTENSIONS -> {
+                if (file.extension.equals("opus", ignoreCase = true)) {
+                    OpusMetadataParser.parse(file) ?: extractTagged(media, file)
+                } else {
+                    runCatching { extractTagged(media, file) }
+                        .recoverCatching { OpusMetadataParser.parse(file) ?: throw it }
+                        .getOrElse { extractJavaSound(media, file) }
+                }
+            }
+            else -> extractJavaSound(media, file)
         }
     }
 
@@ -55,6 +63,13 @@ internal class DesktopMediaMetadataExtractor(
         val artworkUri = artwork?.let {
             cache.storeArtwork("${media.id.value}:${media.sizeBytes}:${media.dateModifiedEpochSeconds}", it).getOrNull()
         }
+        val duration = (header.preciseTrackLength * 1_000).toLong().takeIf { it > 0 }
+            ?: (header.trackLength * 1_000L).takeIf { it > 0 }
+        val channels = when {
+            header.channels.contains("stereo", ignoreCase = true) -> 2
+            header.channels.contains("mono", ignoreCase = true) -> 1
+            else -> header.channels.filter(Char::isDigit).toIntOrNull()
+        }
         return ExtractedMediaMetadata(
             title = tag?.text(FieldKey.TITLE),
             artist = tag?.text(FieldKey.ARTIST),
@@ -64,10 +79,10 @@ internal class DesktopMediaMetadataExtractor(
             trackNumber = tag?.number(FieldKey.TRACK),
             discNumber = tag?.number(FieldKey.DISC_NO),
             releaseYear = tag?.text(FieldKey.YEAR)?.take(4)?.toIntOrNull(),
-            durationMillis = (header.preciseTrackLength * 1_000).toLong().takeIf { it > 0 },
+            durationMillis = duration,
             bitrate = header.bitRateAsNumber.toInt().takeIf { it > 0 }?.let { if (it < 100_000) it * 1_000 else it },
             sampleRate = header.sampleRateAsNumber.takeIf { it > 0 },
-            channels = header.channels.substringBefore(' ').toIntOrNull(),
+            channels = channels,
             audioCodec = header.encodingType.trim().takeIf(String::isNotEmpty),
             container = header.format.trim().uppercase().takeIf(String::isNotEmpty) ?: file.extension.uppercase(),
             audioTrackCount = 1,
