@@ -41,8 +41,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -87,6 +89,8 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -162,6 +166,10 @@ import dev.vimivo.platform.android.ui.theme.VimivoAndroidTheme
 import dev.vimivo.platform.android.ui.theme.LocalReducedMotion
 import dev.vimivo.settings.HomeSection
 import dev.vimivo.settings.ThemeMode
+import dev.vimivo.ui.components.VimivoGlassSurface
+import dev.vimivo.ui.theme.ShellNavigationMode
+import dev.vimivo.ui.theme.VimivoGlassVariant
+import dev.vimivo.ui.theme.VimivoShell
 import org.koin.compose.viewmodel.koinViewModel
 
 private enum class AppDestination(val label: String, val icon: ImageVector) {
@@ -221,9 +229,12 @@ private fun AppShell(
     var nowPlayingVisible by remember { mutableStateOf(false) }
     var queueVisible by remember { mutableStateOf(false) }
     var videoPlayerVisible by remember { mutableStateOf(false) }
+    var overflowVisible by remember { mutableStateOf(false) }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val useRail = maxWidth >= 720.dp
+        val navigationMode = VimivoShell.navigationMode(maxWidth)
+        val useRail = navigationMode != ShellNavigationMode.BOTTOM_BAR
+        val useSplitQueue = navigationMode == ShellNavigationMode.RAIL_WITH_SPLIT_VIEW
         val nav: @Composable () -> Unit = {
             if (useRail) AppRail(destination) { destination = it } else AppBottomBar(destination) { destination = it }
         }
@@ -237,6 +248,40 @@ private fun AppShell(
                         actions = {
                             IconButton(onClick = { searchVisible = !searchVisible }) {
                                 Icon(Icons.Outlined.Search, "Global search")
+                            }
+                            IconButton(onClick = { queueVisible = !queueVisible }) {
+                                Icon(Icons.AutoMirrored.Outlined.QueueMusic, if (queueVisible) "Close queue" else "Open queue")
+                            }
+                            Box {
+                                IconButton(onClick = { overflowVisible = true }) {
+                                    Icon(Icons.Outlined.MoreVert, "More application actions")
+                                }
+                                DropdownMenu(overflowVisible, onDismissRequest = { overflowVisible = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text("Search library") },
+                                        onClick = {
+                                            overflowVisible = false
+                                            searchVisible = true
+                                        },
+                                        leadingIcon = { Icon(Icons.Outlined.Search, null) },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Open queue") },
+                                        onClick = {
+                                            overflowVisible = false
+                                            queueVisible = true
+                                        },
+                                        leadingIcon = { Icon(Icons.AutoMirrored.Outlined.QueueMusic, null) },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Settings") },
+                                        onClick = {
+                                            overflowVisible = false
+                                            destination = AppDestination.SETTINGS
+                                        },
+                                        leadingIcon = { Icon(Icons.Outlined.Settings, null) },
+                                    )
+                                }
                             }
                         },
                     )
@@ -290,7 +335,16 @@ private fun AppShell(
                     }
                 }
             }
+            if (useSplitQueue && queueVisible) {
+                VimivoGlassSurface(
+                    variant = VimivoGlassVariant.SHEET,
+                    modifier = Modifier.width(VimivoShell.desktopQueueWidth).fillMaxHeight().padding(8.dp),
+                ) {
+                    QueueContent(player, playbackViewModel, Modifier.fillMaxSize())
+                }
+            }
         }
+        if (!useSplitQueue && queueVisible) QueueSheet(player, playbackViewModel) { queueVisible = false }
     }
     if (nowPlayingVisible) NowPlayingSheet(
         player,
@@ -303,7 +357,6 @@ private fun AppShell(
     ) {
         queueVisible = true
     }
-    if (queueVisible) QueueSheet(player, playbackViewModel) { queueVisible = false }
     if (videoPlayerVisible) AdvancedVideoPlayer(
         player = player,
         controller = playback.controller.collectAsState().value,
@@ -324,29 +377,39 @@ private fun AppShell(
 
 @Composable
 private fun AppBottomBar(selected: AppDestination, onSelect: (AppDestination) -> Unit) {
-    NavigationBar(Modifier.navigationBarsPadding()) {
-        AppDestination.entries.forEach { destination ->
-            NavigationBarItem(
-                selected == destination,
-                { onSelect(destination) },
-                { Icon(destination.icon, destination.label) },
-                label = { Text(destination.label) },
-            )
+    VimivoGlassSurface(
+        variant = VimivoGlassVariant.NAVIGATION,
+        modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
+        NavigationBar(containerColor = Color.Transparent) {
+            AppDestination.entries.forEach { destination ->
+                NavigationBarItem(
+                    selected == destination,
+                    { onSelect(destination) },
+                    { Icon(destination.icon, destination.label) },
+                    label = { Text(destination.label, maxLines = 1) },
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun AppRail(selected: AppDestination, onSelect: (AppDestination) -> Unit) {
-    NavigationRail(Modifier.fillMaxHeight()) {
-        Spacer(Modifier.height(64.dp))
-        AppDestination.entries.forEach { destination ->
-            NavigationRailItem(
-                selected == destination,
-                { onSelect(destination) },
-                { Icon(destination.icon, destination.label) },
-                label = { Text(destination.label) },
-            )
+    VimivoGlassSurface(
+        variant = VimivoGlassVariant.NAVIGATION,
+        modifier = Modifier.width(VimivoShell.navigationRailWidth).fillMaxHeight().safeDrawingPadding().padding(8.dp),
+    ) {
+        NavigationRail(containerColor = Color.Transparent) {
+            Spacer(Modifier.height(48.dp))
+            AppDestination.entries.forEach { destination ->
+                NavigationRailItem(
+                    selected == destination,
+                    { onSelect(destination) },
+                    { Icon(destination.icon, destination.label) },
+                    label = { Text(destination.label, maxLines = 1) },
+                )
+            }
         }
     }
 }
@@ -1555,20 +1618,36 @@ private fun NowPlayingSheet(
 @Composable
 private fun QueueSheet(player: PlaybackUiState, viewModel: PlaybackViewModel, onDismiss: () -> Unit) {
     BottomSheet(onDismiss) {
-        Text("Up next", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp))
+        QueueContent(player, viewModel)
+    }
+}
+
+@Composable
+private fun QueueContent(
+    player: PlaybackUiState,
+    viewModel: PlaybackViewModel,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(modifier.fillMaxWidth().heightIn(max = 720.dp)) {
+        item { Text("Up next", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp)) }
+        if (player.queue.isEmpty()) {
+            item { Text("Your queue is empty.", modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
+        }
         player.queue.forEachIndexed { index, item ->
-            ListItem(
-                modifier = Modifier.clickable { viewModel.playQueueIndex(index) },
-                headlineContent = { Text(item.mediaMetadata.title?.toString() ?: item.mediaId, maxLines = 1) },
-                supportingContent = { if (index == player.currentIndex) Text("Playing now", color = MaterialTheme.colorScheme.primary) },
-                trailingContent = {
-                    Row {
-                        IconButton({ if (index > 0) viewModel.moveQueueItem(index, index - 1) }, enabled = index > 0) { Icon(Icons.Outlined.ArrowUpward, "Move up") }
-                        IconButton({ if (index < player.queue.lastIndex) viewModel.moveQueueItem(index, index + 1) }, enabled = index < player.queue.lastIndex) { Icon(Icons.Outlined.ArrowDownward, "Move down") }
-                        IconButton({ viewModel.removeQueueItem(index) }) { Icon(Icons.Outlined.Delete, "Remove from queue") }
-                    }
-                },
-            )
+            item(key = item.mediaId + index) {
+                ListItem(
+                    modifier = Modifier.clickable { viewModel.playQueueIndex(index) },
+                    headlineContent = { Text(item.mediaMetadata.title?.toString() ?: item.mediaId, maxLines = 1) },
+                    supportingContent = { if (index == player.currentIndex) Text("Playing now", color = MaterialTheme.colorScheme.primary) },
+                    trailingContent = {
+                        Row {
+                            IconButton({ if (index > 0) viewModel.moveQueueItem(index, index - 1) }, enabled = index > 0) { Icon(Icons.Outlined.ArrowUpward, "Move up") }
+                            IconButton({ if (index < player.queue.lastIndex) viewModel.moveQueueItem(index, index + 1) }, enabled = index < player.queue.lastIndex) { Icon(Icons.Outlined.ArrowDownward, "Move down") }
+                            IconButton({ viewModel.removeQueueItem(index) }) { Icon(Icons.Outlined.Delete, "Remove from queue") }
+                        }
+                    },
+                )
+            }
         }
     }
 }

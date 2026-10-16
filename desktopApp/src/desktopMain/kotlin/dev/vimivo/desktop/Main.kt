@@ -5,6 +5,9 @@
 
 package dev.vimivo.desktop
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,6 +23,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,6 +58,9 @@ import androidx.compose.ui.window.application
 import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.ui.components.VimivoGlassSurface
 import dev.vimivo.ui.theme.VimivoGlassVariant
+import dev.vimivo.ui.theme.LocalReducedMotion
+import dev.vimivo.ui.theme.VimivoMotion
+import dev.vimivo.ui.theme.VimivoShell
 import dev.vimivo.core.model.AlbumItem
 import dev.vimivo.core.model.ArtistItem
 import dev.vimivo.core.model.MediaId
@@ -259,6 +268,10 @@ private fun DesktopPlayer(
     var showLyrics by remember { mutableStateOf(false) }
     var showFeedbackDialog by remember { mutableStateOf(false) }
     var showOpenStreamDialog by remember { mutableStateOf(false) }
+    var sidebarCollapsed by remember { mutableStateOf(false) }
+    var queuePanelVisible by remember { mutableStateOf(false) }
+    var gridView by remember { mutableStateOf(false) }
+    var descendingSort by remember { mutableStateOf(false) }
     val streamHistoryRepository = remember { dev.vimivo.desktop.streaming.DesktopStreamHistoryRepository() }
     var lyricsDoc by remember(state.media?.uri) { mutableStateOf<dev.vimivo.core.lyrics.LyricsDocument?>(null) }
 
@@ -336,7 +349,17 @@ private fun DesktopPlayer(
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val isVeryCompact = maxWidth < 640.dp
                 val isCompact = maxWidth < 840.dp
-                val sidebarWidth = if (isVeryCompact) 110.dp else if (isCompact) 160.dp else 220.dp
+                val targetSidebarWidth = when {
+                    sidebarCollapsed -> VimivoShell.collapsedSidebarWidth
+                    isVeryCompact -> 110.dp
+                    isCompact -> 160.dp
+                    else -> VimivoShell.expandedSidebarWidth
+                }
+                val sidebarWidth by animateDpAsState(
+                    targetValue = targetSidebarWidth,
+                    animationSpec = if (LocalReducedMotion.current) snap() else tween(VimivoMotion.navigationMillis),
+                    label = "desktop sidebar width",
+                )
                 val contentPadding = if (isVeryCompact) 10.dp else if (isCompact) 16.dp else 24.dp
                 val contentScrollState = rememberScrollState()
                 Row(Modifier.fillMaxSize()) {
@@ -347,13 +370,26 @@ private fun DesktopPlayer(
                             selectedAlbum = null
                             selectedArtist = null
                         },
+                        collapsed = sidebarCollapsed,
                         modifier = Modifier.width(sidebarWidth),
                     )
                     Column(
                         Modifier.fillMaxSize().verticalScroll(contentScrollState).padding(contentPadding),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        Text(destination.title, style = MaterialTheme.typography.headlineLarge)
+                        DesktopTopToolbar(
+                            destination = destination,
+                            search = libraryState.search,
+                            showLibraryControls = destination in setOf(DesktopDestination.Music, DesktopDestination.Videos),
+                            gridView = gridView,
+                            descendingSort = descendingSort,
+                            queueVisible = queuePanelVisible,
+                            onToggleSidebar = { sidebarCollapsed = !sidebarCollapsed },
+                            onSearch = library::setSearch,
+                            onToggleView = { gridView = !gridView },
+                            onToggleSort = { descendingSort = !descendingSort },
+                            onToggleQueue = { queuePanelVisible = !queuePanelVisible },
+                        )
                         Text(destination.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (destination == DesktopDestination.Home) {
                 DesktopPersonalizedHomePanel(
@@ -378,6 +414,8 @@ private fun DesktopPlayer(
                     onAddToQueue = { queue.addToQueue(listOf(it)) },
                     onToggleFavorite = library::toggleFavorite,
                     onAddToPlaylist = library::addToPlaylist,
+                    gridView = gridView,
+                    descendingSort = descendingSort,
                 )
             }
             if (destination == DesktopDestination.Albums) {
@@ -887,13 +925,17 @@ private fun DesktopPlayer(
                 onRename = library::renameBookmark,
                 onDelete = library::deleteBookmark,
             )
-            DesktopQueuePanel(
-                state = queueState,
-                onRemove = queue::remove,
-                onMove = queue::move,
-                onClear = queue::clear,
-                onPlayAt = { index -> scope.launch { queue.playAt(index) } },
-            )
+            if (queuePanelVisible) {
+                VimivoGlassSurface(VimivoGlassVariant.SHEET, Modifier.fillMaxWidth()) {
+                    DesktopQueuePanel(
+                        state = queueState,
+                        onRemove = queue::remove,
+                        onMove = queue::move,
+                        onClear = queue::clear,
+                        onPlayAt = { index -> scope.launch { queue.playAt(index) } },
+                    )
+                }
+            }
             (state.status as? PlaybackStatus.Error)?.let { error ->
                 Text(error.error.message, color = MaterialTheme.colorScheme.error)
                 Text(
@@ -955,6 +997,8 @@ private fun DesktopLibraryPanel(
     onAddToQueue: (MediaItem) -> Unit,
     onToggleFavorite: (MediaItem) -> Unit,
     onAddToPlaylist: (String, MediaItem) -> Unit,
+    gridView: Boolean,
+    descendingSort: Boolean,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = onAddFolder) { Text("Add Folder") }
@@ -990,54 +1034,78 @@ private fun DesktopLibraryPanel(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
-        val media = if (destination == DesktopDestination.Music) state.audio else state.video
+        val source = if (destination == DesktopDestination.Music) state.audio else state.video
+        val media = if (descendingSort) source.sortedByDescending { it.title.lowercase() } else source.sortedBy { it.title.lowercase() }
         if (!state.loading && media.isEmpty()) Text(if (state.search.isBlank()) "No media found. Add and scan a folder." else "No matching media.")
-        LazyColumn(Modifier.fillMaxWidth().height(260.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(media, key = { it.id.value }) { item ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        DesktopArtwork(item.artworkUri, item.title, if (destination == DesktopDestination.Videos) 80.dp else 48.dp)
-                        Column(Modifier.weight(1f)) {
-                            Text(item.title, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                listOfNotNull(
-                                    item.artist,
-                                    item.album,
-                                    if (item.width != null && item.height != null) "${item.width}x${item.height}" else null,
-                                    item.durationMillis?.let(::formatTime),
-                                    item.fileName,
-                                    item.sizeBytes?.let(::formatBytes),
-                                ).joinToString(" · "),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Button(
-                            onClick = { onPlay(item) },
-                            modifier = Modifier.semantics { contentDescription = "Play ${item.title}" },
-                        ) { Text("Play") }
-                        OutlinedButton(
-                            onClick = { onPlayNext(item) },
-                            modifier = Modifier.semantics { contentDescription = "Play ${item.title} next" },
-                        ) { Text("Next") }
-                        OutlinedButton(
-                            onClick = { onAddToQueue(item) },
-                            modifier = Modifier.semantics { contentDescription = "Add ${item.title} to queue" },
-                        ) { Text("+ Queue") }
-                        OutlinedButton(
-                            onClick = { onToggleFavorite(item) },
-                            modifier = Modifier.semantics {
-                                contentDescription = if (item.isFavorite) "Remove ${item.title} from favorites" else "Add ${item.title} to favorites"
-                            },
-                        ) { Text(if (item.isFavorite) "★" else "☆") }
-                        AddToPlaylistButton(state.playlists, item, onAddToPlaylist)
-                    }
+        if (gridView) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(260.dp),
+                modifier = Modifier.fillMaxWidth().height(360.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                gridItems(media, key = { it.id.value }) { item ->
+                    DesktopMediaGridCard(item, destination, state, onPlay, onAddToQueue, onToggleFavorite, onAddToPlaylist)
                 }
             }
+        } else {
+            LazyColumn(Modifier.fillMaxWidth().height(360.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(media, key = { it.id.value }) { item ->
+                    DesktopMediaListRow(item, destination, state, onPlay, onPlayNext, onAddToQueue, onToggleFavorite, onAddToPlaylist)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DesktopMediaListRow(
+    item: MediaItem,
+    destination: DesktopDestination,
+    state: DesktopLibraryUiState,
+    onPlay: (MediaItem) -> Unit,
+    onPlayNext: (MediaItem) -> Unit,
+    onAddToQueue: (MediaItem) -> Unit,
+    onToggleFavorite: (MediaItem) -> Unit,
+    onAddToPlaylist: (String, MediaItem) -> Unit,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            DesktopArtwork(item.artworkUri, item.title, if (destination == DesktopDestination.Videos) 80.dp else 48.dp)
+            Column(Modifier.weight(1f)) {
+                Text(item.title, style = MaterialTheme.typography.titleMedium)
+                Text(listOfNotNull(item.artist, item.album, item.durationMillis?.let(::formatTime)).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button({ onPlay(item) }, modifier = Modifier.semantics { contentDescription = "Play ${item.title}" }) { Text("Play") }
+            OutlinedButton({ onPlayNext(item) }) { Text("Next") }
+            OutlinedButton({ onAddToQueue(item) }) { Text("Queue") }
+            OutlinedButton({ onToggleFavorite(item) }) { Text(if (item.isFavorite) "★" else "☆") }
+            AddToPlaylistButton(state.playlists, item, onAddToPlaylist)
+        }
+    }
+}
+
+@Composable
+private fun DesktopMediaGridCard(
+    item: MediaItem,
+    destination: DesktopDestination,
+    state: DesktopLibraryUiState,
+    onPlay: (MediaItem) -> Unit,
+    onAddToQueue: (MediaItem) -> Unit,
+    onToggleFavorite: (MediaItem) -> Unit,
+    onAddToPlaylist: (String, MediaItem) -> Unit,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            DesktopArtwork(item.artworkUri, item.title, if (destination == DesktopDestination.Videos) 120.dp else 88.dp)
+            Text(item.title, style = MaterialTheme.typography.titleMedium)
+            Text(item.artist ?: item.album ?: "Local media", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Button({ onPlay(item) }) { Text("Play") }
+                OutlinedButton({ onAddToQueue(item) }) { Text("Queue") }
+                OutlinedButton({ onToggleFavorite(item) }) { Text(if (item.isFavorite) "★" else "☆") }
+            }
+            AddToPlaylistButton(state.playlists, item, onAddToPlaylist)
         }
     }
 }
@@ -1052,9 +1120,43 @@ private fun LibraryScanState.label(): String = when (this) {
 private fun formatBytes(bytes: Long): String = if (bytes < 1_048_576) "${bytes / 1024} KB" else "${bytes / 1_048_576} MB"
 
 @Composable
+private fun DesktopTopToolbar(
+    destination: DesktopDestination,
+    search: String,
+    showLibraryControls: Boolean,
+    gridView: Boolean,
+    descendingSort: Boolean,
+    queueVisible: Boolean,
+    onToggleSidebar: () -> Unit,
+    onSearch: (String) -> Unit,
+    onToggleView: () -> Unit,
+    onToggleSort: () -> Unit,
+    onToggleQueue: () -> Unit,
+) {
+    VimivoGlassSurface(VimivoGlassVariant.NAVIGATION, Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = VimivoShell.desktopToolbarHeight).padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(onToggleSidebar, modifier = Modifier.semantics { contentDescription = "Collapse or expand navigation sidebar" }) { Text("Navigation") }
+            Text(destination.title, style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.weight(1f))
+            if (showLibraryControls) {
+                OutlinedTextField(search, onSearch, label = { Text("Search") }, singleLine = true, modifier = Modifier.width(240.dp))
+                OutlinedButton(onToggleView) { Text(if (gridView) "List" else "Grid") }
+                OutlinedButton(onToggleSort) { Text(if (descendingSort) "Z–A" else "A–Z") }
+            }
+            OutlinedButton(onToggleQueue) { Text(if (queueVisible) "Hide queue" else "Queue") }
+        }
+    }
+}
+
+@Composable
 private fun DesktopSidebar(
     selected: DesktopDestination,
     onDestinationSelected: (DesktopDestination) -> Unit,
+    collapsed: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -1062,7 +1164,7 @@ private fun DesktopSidebar(
         modifier = modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text("Vimivo", style = MaterialTheme.typography.titleLarge)
+        Text(if (collapsed) "V" else "Vimivo", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(12.dp))
         DesktopDestination.entries.forEach { destination ->
             val isSelected = selected == destination
@@ -1072,18 +1174,18 @@ private fun DesktopSidebar(
                     modifier = Modifier.fillMaxWidth().semantics {
                         contentDescription = "${destination.title} navigation tab, active"
                     },
-                ) { Text(destination.title) }
+                ) { Text(if (collapsed) destination.title.take(1) else destination.title) }
             } else {
                 OutlinedButton(
                     onClick = { onDestinationSelected(destination) },
                     modifier = Modifier.fillMaxWidth().semantics {
                         contentDescription = "Navigate to ${destination.title}"
                     },
-                ) { Text(destination.title) }
+                ) { Text(if (collapsed) destination.title.take(1) else destination.title) }
             }
         }
         Spacer(Modifier.weight(1f))
-        Text("Private, local-first playback", style = MaterialTheme.typography.labelSmall)
+        if (!collapsed) Text("Private, local-first playback", style = MaterialTheme.typography.labelSmall)
     }
 }
 

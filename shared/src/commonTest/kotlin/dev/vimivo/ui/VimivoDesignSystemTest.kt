@@ -2,6 +2,7 @@ package dev.vimivo.ui
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import dev.vimivo.ui.theme.ShellNavigationMode
 import dev.vimivo.ui.theme.VimivoAmoledColorScheme
 import dev.vimivo.ui.theme.VimivoDarkColorScheme
 import dev.vimivo.ui.theme.VimivoElevation
@@ -13,6 +14,7 @@ import dev.vimivo.ui.theme.VimivoLayout
 import dev.vimivo.ui.theme.VimivoLightColorScheme
 import dev.vimivo.ui.theme.VimivoMotion
 import dev.vimivo.ui.theme.VimivoRadius
+import dev.vimivo.ui.theme.VimivoShell
 import dev.vimivo.ui.theme.VimivoSpacing
 import dev.vimivo.ui.theme.WindowSizeClass
 import dev.vimivo.ui.theme.calculateContrastRatio
@@ -23,6 +25,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class VimivoDesignSystemTest {
+
+    @Test
+    fun shellBreakpointsSelectMobileTabletAndSplitLayouts() {
+        assertEquals(ShellNavigationMode.BOTTOM_BAR, VimivoShell.navigationMode(599.dp))
+        assertEquals(ShellNavigationMode.RAIL, VimivoShell.navigationMode(720.dp))
+        assertEquals(ShellNavigationMode.RAIL_WITH_SPLIT_VIEW, VimivoShell.navigationMode(1_000.dp))
+    }
 
     @Test
     fun testWindowSizeClassBreakpoints() {

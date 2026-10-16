@@ -129,6 +129,13 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Consolidated Android onto shared color/typography definitions, added semantic layout and glass component tokens, and migrated the desktop Now Playing surface.
 - Built and launched the macOS distributable, manually captured Home and Dark Settings states, and recorded the result in `AURORA_GLASS_PHASE_1_VERIFICATION.md`; this is not an automated golden-test pass.
 
+### Professional responsive shell Phase 2 checkpoint (2026-10-16)
+
+- Added shared shell breakpoint and dimension tokens for bottom navigation, navigation rail, tablet split queue, desktop sidebar, toolbar, and queue panel.
+- Android now exposes search, queue, and settings from the premium top app bar; uses Aurora Glass adaptive bottom navigation/rail; and renders the existing queue as a tablet split view without duplicating playback state.
+- Desktop now provides a collapsible navigation sidebar plus real search, list/grid, sort, and queue toolbar actions while preserving native application menus.
+- Built and launched the macOS distributable and manually inspected expanded/collapsed navigation and queue-toggle states. See `AURORA_GLASS_PHASE_2_VERIFICATION.md`; automated golden tests were not run.
+
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)

@@ -57,6 +57,29 @@ object VimivoLayout {
     val maximumContentWidth: Dp = 1_280.dp
 }
 
+/** Component tokens and breakpoint policy for the responsive application shell. */
+object VimivoShell {
+    val compactNavigationHeight: Dp = 80.dp
+    val navigationRailWidth: Dp = 88.dp
+    val expandedSidebarWidth: Dp = 220.dp
+    val collapsedSidebarWidth: Dp = 88.dp
+    val desktopToolbarHeight: Dp = 64.dp
+    val desktopQueueWidth: Dp = 360.dp
+    val floatingDockMaxWidth: Dp = 960.dp
+
+    fun navigationMode(width: Dp): ShellNavigationMode = when {
+        width < 720.dp -> ShellNavigationMode.BOTTOM_BAR
+        width < 1_000.dp -> ShellNavigationMode.RAIL
+        else -> ShellNavigationMode.RAIL_WITH_SPLIT_VIEW
+    }
+}
+
+enum class ShellNavigationMode {
+    BOTTOM_BAR,
+    RAIL,
+    RAIL_WITH_SPLIT_VIEW,
+}
+
 /** Shared motion timings. Callers must bypass decorative transitions when [LocalReducedMotion] is true. */
 object VimivoMotion {
     const val instantMillis: Int = 0
