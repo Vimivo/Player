@@ -927,6 +927,9 @@ private fun DesktopPlayer(
             onAddToQueue = { mediaItem ->
                 queue.addToQueue(listOf(mediaItem))
             },
+            onSetLiveLatencyMode = { mode ->
+                engine.setLiveLatencyMode(mode)
+            },
             historyRepository = streamHistoryRepository,
         )
     }

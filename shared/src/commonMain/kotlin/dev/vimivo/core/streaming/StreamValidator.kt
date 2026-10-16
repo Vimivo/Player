@@ -203,4 +203,37 @@ object StreamValidator {
             durationMillis = if (valid.isLive) null else 0L,
         )
     }
+
+    fun toStreamSource(valid: StreamValidationResult.Valid): StreamSource = when (valid.protocol) {
+        StreamProtocol.HLS -> StreamSource.HlsStream(valid.normalizedUrl, valid.isLive)
+        StreamProtocol.DASH -> StreamSource.DashStream(valid.normalizedUrl, valid.isLive)
+        StreamProtocol.RTSP -> StreamSource.RtspStream(valid.normalizedUrl)
+        StreamProtocol.INTERNET_RADIO -> StreamSource.InternetRadio(valid.normalizedUrl, valid.displayTitle)
+        StreamProtocol.HTTP_PROGRESSIVE, StreamProtocol.HTTPS_PROGRESSIVE ->
+            StreamSource.DirectHttpMedia(valid.normalizedUrl, valid.protocol)
+        StreamProtocol.UNKNOWN -> StreamSource.DirectHttpMedia(valid.normalizedUrl, valid.protocol)
+    }
+
+    fun classifyHttpStatus(statusCode: Int): StreamFailureReason = when (statusCode) {
+        401, 403 -> StreamFailureReason.HTTP_FORBIDDEN
+        404 -> StreamFailureReason.NOT_FOUND
+        408 -> StreamFailureReason.TIMEOUT
+        410 -> StreamFailureReason.EXPIRED_URL
+        429 -> StreamFailureReason.CONNECTION_FAILED
+        in 500..599 -> StreamFailureReason.CONNECTION_FAILED
+        else -> StreamFailureReason.UNKNOWN
+    }
+
+    fun validateHeaders(headers: Map<String, String>): Result<Map<String, String>> = runCatching {
+        headers.forEach { (name, value) ->
+            require(name.isNotBlank()) { "Header name cannot be blank." }
+            require(!name.any { it == '\r' || it == '\n' || it == ':' }) {
+                "Header name contains illegal characters: $name"
+            }
+            require(!value.any { it == '\r' || it == '\n' }) {
+                "Header value contains illegal newline characters: $name"
+            }
+        }
+        headers
+    }
 }

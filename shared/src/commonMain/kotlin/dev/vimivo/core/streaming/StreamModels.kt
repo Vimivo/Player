@@ -82,6 +82,79 @@ data class StreamRequest(
 )
 
 @Serializable
+enum class LiveLatencyMode(
+    val displayName: String,
+    val readaheadSeconds: Double,
+    val maxBufferBytes: Long,
+) {
+    BALANCED("Balanced", 5.0, 33_554_432L),
+    LOW_LATENCY("Low Latency", 1.5, 8_388_608L),
+    STABLE_PLAYBACK("Stable Playback", 10.0, 67_108_864L),
+}
+
+@Serializable
+sealed interface StreamSource {
+    val url: String
+    val protocol: StreamProtocol
+    val isLive: Boolean
+
+    @Serializable
+    data class DirectHttpMedia(
+        override val url: String,
+        override val protocol: StreamProtocol,
+        val mimeType: String? = null,
+    ) : StreamSource {
+        override val isLive: Boolean get() = false
+    }
+
+    @Serializable
+    data class HlsStream(
+        override val url: String,
+        override val isLive: Boolean,
+        val isLowLatencyCapable: Boolean = false,
+    ) : StreamSource {
+        override val protocol: StreamProtocol get() = StreamProtocol.HLS
+    }
+
+    @Serializable
+    data class DashStream(
+        override val url: String,
+        override val isLive: Boolean,
+    ) : StreamSource {
+        override val protocol: StreamProtocol get() = StreamProtocol.DASH
+    }
+
+    @Serializable
+    data class RtspStream(
+        override val url: String,
+    ) : StreamSource {
+        override val protocol: StreamProtocol get() = StreamProtocol.RTSP
+        override val isLive: Boolean get() = true
+    }
+
+    @Serializable
+    data class InternetRadio(
+        override val url: String,
+        val stationName: String? = null,
+    ) : StreamSource {
+        override val protocol: StreamProtocol get() = StreamProtocol.INTERNET_RADIO
+        override val isLive: Boolean get() = true
+    }
+}
+
+@Serializable
+data class StreamQualityVariant(
+    val id: String,
+    val label: String,
+    val width: Int? = null,
+    val height: Int? = null,
+    val bitrate: Int? = null,
+    val frameRate: Float? = null,
+    val isAuto: Boolean = false,
+    val isSelected: Boolean = false,
+)
+
+@Serializable
 data class StreamDiagnostics(
     val protocol: StreamProtocol = StreamProtocol.UNKNOWN,
     val container: String? = null,
@@ -95,4 +168,5 @@ data class StreamDiagnostics(
     val isLive: Boolean = false,
     val bufferedMillis: Long = 0L,
     val droppedFrames: Long = 0L,
+    val latencyMode: LiveLatencyMode = LiveLatencyMode.BALANCED,
 )

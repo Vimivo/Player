@@ -69,6 +69,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.vimivo.core.model.MediaItem
+import dev.vimivo.core.streaming.LiveLatencyMode
 import dev.vimivo.core.streaming.StreamValidationResult
 import dev.vimivo.core.streaming.StreamValidator
 import java.awt.Toolkit
@@ -79,9 +80,11 @@ fun DesktopOpenStreamDialog(
     onDismissRequest: () -> Unit,
     onPlayStream: (MediaItem) -> Unit,
     onAddToQueue: ((MediaItem) -> Unit)? = null,
+    onSetLiveLatencyMode: ((LiveLatencyMode) -> Unit)? = null,
     historyRepository: DesktopStreamHistoryRepository = remember { DesktopStreamHistoryRepository() },
 ) {
     var urlInput by remember { mutableStateOf("") }
+    var selectedLatencyMode by remember { mutableStateOf(LiveLatencyMode.BALANCED) }
     var recentStreams by remember { mutableStateOf<List<String>>(emptyList()) }
 
     fun refreshHistory() {
@@ -210,6 +213,43 @@ fun DesktopOpenStreamDialog(
                                         StreamBadge(result.type.displayName)
                                     }
                                 }
+                                if (result.isLive && onSetLiveLatencyMode != null) {
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = "Latency Mode:",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        LiveLatencyMode.entries.forEach { mode ->
+                                            val isSelected = selectedLatencyMode == mode
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = if (isSelected) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceVariant
+                                                },
+                                                modifier = Modifier.clickable {
+                                                    selectedLatencyMode = mode
+                                                    onSetLiveLatencyMode(mode)
+                                                },
+                                            ) {
+                                                Text(
+                                                    text = mode.displayName,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.onPrimary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                    },
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -324,6 +364,9 @@ fun DesktopOpenStreamDialog(
                     onClick = {
                         val valid = validationResult as? StreamValidationResult.Valid ?: return@Button
                         val mediaItem = StreamValidator.toMediaItem(valid)
+                        if (valid.isLive) {
+                            onSetLiveLatencyMode?.invoke(selectedLatencyMode)
+                        }
                         historyRepository.recordStream(valid.normalizedUrl)
                         onPlayStream(mediaItem)
                         onDismissRequest()

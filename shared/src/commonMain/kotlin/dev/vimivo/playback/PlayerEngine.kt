@@ -227,6 +227,8 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Audio output selection is not supported"))
     fun setHardwareAccelerationMode(mode: HardwareAccelerationMode): Result<Unit> =
         Result.failure(UnsupportedOperationException("Hardware acceleration control is not supported"))
+    fun setLiveLatencyMode(mode: dev.vimivo.core.streaming.LiveLatencyMode): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Live latency mode is not supported by this engine"))
     fun getDiagnosticsSnapshot(): PlaybackDiagnosticsSnapshot? = null
     fun seekTo(positionMillis: Long, exact: Boolean): Result<Unit> = seekTo(positionMillis)
     override fun close()

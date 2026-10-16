@@ -18,6 +18,7 @@ import com.sun.jna.Pointer
 import com.sun.jna.StringArray
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.core.streaming.LiveLatencyMode
 import dev.vimivo.desktop.platform.DesktopPlatform
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.AudioEnhancementCapabilities
@@ -77,6 +78,11 @@ class MpvPlayerEngine : PlayerEngine {
     private var hwdecMode: HardwareAccelerationMode = HardwareAccelerationMode.AUTO
     private var attemptedSoftwareFallback = false
     private var closed = false
+    private var sessionGeneration = 0L
+    private var userPaused = false
+    private var userStopped = false
+    var liveLatencyMode: LiveLatencyMode = LiveLatencyMode.BALANCED
+        private set
 
     override val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
     override val audioEnhancementState: StateFlow<AudioEnhancementState> = mutableAudio.asStateFlow()
@@ -93,25 +99,67 @@ class MpvPlayerEngine : PlayerEngine {
         videoSurface = canvas
     }
 
+    override fun setLiveLatencyMode(mode: LiveLatencyMode): Result<Unit> = runCatching {
+        check(!closed) { "Player is closed" }
+        liveLatencyMode = mode
+        if (context != null) {
+            applyLatencySettings(mode)
+        }
+    }
+
+    private fun applyLatencySettings(mode: LiveLatencyMode) {
+        setProperty("demuxer-readahead-secs", mode.readaheadSeconds.toString())
+        setProperty("demuxer-max-bytes", mode.maxBufferBytes.toString())
+    }
+
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> = runCatching {
         check(!closed) { "Player is closed" }
         require(supportFor(media) != SupportLevel.UNSUPPORTED) { "Unsupported desktop media URI" }
         ensureInitialized()
+        val currentSession = ++sessionGeneration
+        userStopped = false
+        userPaused = false
         mutableState.value = PlaybackState(
             engine = id,
             media = media,
             status = PlaybackStatus.Preparing,
             metadata = PlaybackMetadata(media.title, media.artist, media.album, media.artworkUri),
         )
+        if (media.kind == MediaKind.STREAM) {
+            applyLatencySettings(liveLatencyMode)
+        }
         command("loadfile", media.uri, "replace")
         if (startPositionMillis > 0) command("seek", (startPositionMillis / 1_000.0).toString(), "absolute+exact")
         setProperty("pause", "yes")
-        startPolling()
+        startPolling(currentSession)
     }.onFailure(::publishFailure)
 
-    override fun play() = action { setProperty("pause", "no") }
-    override fun pause() = action { setProperty("pause", "yes") }
-    override fun stop() = action { command("stop") }
+    override fun play() = action {
+        userStopped = false
+        userPaused = false
+        setProperty("pause", "no")
+    }
+
+    override fun pause() = runCatching {
+        check(!closed) { "Player is closed" }
+        userPaused = true
+        if (context != null) {
+            setProperty("pause", "yes")
+        }
+    }
+
+    override fun stop() = runCatching {
+        check(!closed) { "Player is closed" }
+        userStopped = true
+        userPaused = false
+        sessionGeneration++
+        polling?.cancel()
+        if (context != null) {
+            command("stop")
+        }
+        mutableState.value = PlaybackState(engine = id, status = PlaybackStatus.Idle)
+    }
+
     override fun seekTo(positionMillis: Long): Result<Unit> = seekTo(positionMillis, exact = true)
 
     override fun seekTo(positionMillis: Long, exact: Boolean): Result<Unit> = action {
@@ -350,10 +398,10 @@ class MpvPlayerEngine : PlayerEngine {
         }
     }
 
-    private fun startPolling() {
+    private fun startPolling(expectedSession: Long) {
         polling?.cancel()
         polling = scope.launch {
-            while (isActive && !closed) {
+            while (isActive && !closed && sessionGeneration == expectedSession) {
                 val previous = mutableState.value
                 val duration = doubleProperty("duration")?.times(1_000)?.toLong()
                 val position = doubleProperty("time-pos")?.times(1_000)?.toLong()?.coerceAtLeast(0) ?: 0
@@ -362,12 +410,13 @@ class MpvPlayerEngine : PlayerEngine {
                 val pausedForCache = flagProperty("paused-for-cache") ?: false
                 val cacheDurationMs = doubleProperty("demuxer-cache-time")?.times(1_000)?.toLong() ?: 0L
                 val bufferedPosition = position + cacheDurationMs
+                if (sessionGeneration != expectedSession) break
                 mutableState.value = previous.copy(
                     status = when {
                         idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
                         idle -> PlaybackStatus.Ready
                         pausedForCache -> PlaybackStatus.Buffering
-                        paused -> PlaybackStatus.Paused
+                        paused || userPaused -> PlaybackStatus.Paused
                         else -> PlaybackStatus.Playing
                     },
                     positionMillis = position,
@@ -439,6 +488,12 @@ class MpvPlayerEngine : PlayerEngine {
                 label = stringProperty("$prefix/title") ?: language ?: "${type.displayName} $id",
                 language = language,
                 codec = stringProperty("$prefix/codec"),
+                bitrate = stringProperty("$prefix/demux-bitrate")?.toIntOrNull(),
+                channels = stringProperty("$prefix/demux-channel-count")?.toIntOrNull(),
+                sampleRate = stringProperty("$prefix/demux-samplerate")?.toIntOrNull(),
+                width = stringProperty("$prefix/demux-w")?.toIntOrNull(),
+                height = stringProperty("$prefix/demux-h")?.toIntOrNull(),
+                frameRate = stringProperty("$prefix/demux-fps")?.toFloatOrNull(),
                 isSelected = id == selected,
                 origin = if (stringProperty("$prefix/external") == "yes") TrackOrigin.EXTERNAL else TrackOrigin.EMBEDDED,
             )
