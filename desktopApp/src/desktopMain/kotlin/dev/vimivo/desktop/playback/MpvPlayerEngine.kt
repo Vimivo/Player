@@ -338,6 +338,9 @@ class MpvPlayerEngine : PlayerEngine {
         loaded.mpv_set_option_string(created, "hwdec", initialHwdec)
         loaded.mpv_set_option_string(created, "demuxer-max-bytes", "33554432")
         loaded.mpv_set_option_string(created, "demuxer-readahead-secs", "5.0")
+        loaded.mpv_set_option_string(created, "network-timeout", "15")
+        loaded.mpv_set_option_string(created, "tls-verify", "yes")
+        loaded.mpv_set_option_string(created, "user-agent", "Vimivo/1.0.0 (Universal Media Player)")
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
         checkCode(loaded.mpv_set_option_string(created, "gapless-audio", "yes"))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
@@ -356,15 +359,19 @@ class MpvPlayerEngine : PlayerEngine {
                 val position = doubleProperty("time-pos")?.times(1_000)?.toLong()?.coerceAtLeast(0) ?: 0
                 val paused = flagProperty("pause") ?: true
                 val idle = flagProperty("idle-active") ?: false
+                val pausedForCache = flagProperty("paused-for-cache") ?: false
+                val cacheDurationMs = doubleProperty("demuxer-cache-time")?.times(1_000)?.toLong() ?: 0L
+                val bufferedPosition = position + cacheDurationMs
                 mutableState.value = previous.copy(
                     status = when {
                         idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
                         idle -> PlaybackStatus.Ready
+                        pausedForCache -> PlaybackStatus.Buffering
                         paused -> PlaybackStatus.Paused
                         else -> PlaybackStatus.Playing
                     },
                     positionMillis = position,
-                    bufferedPositionMillis = position,
+                    bufferedPositionMillis = bufferedPosition,
                     durationMillis = duration,
                     speed = doubleProperty("speed")?.toFloat() ?: previous.speed,
                     volume = ((doubleProperty("volume") ?: 100.0) / 100.0).toFloat().coerceIn(0f, 1f),

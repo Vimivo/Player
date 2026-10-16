@@ -304,22 +304,23 @@ class NetworkViewModel(
 }
 
 internal fun validateNetworkStreamUrl(input: String): Result<String> = runCatching {
-    val value = input.trim()
-    require(value.isNotEmpty()) { "Enter a media URL" }
-    val uri = java.net.URI(value)
-    require(uri.scheme?.lowercase() in setOf("http", "https", "rtsp", "rtsps")) { "Use an HTTP, HTTPS, RTSP, or RTSPS media URL" }
-    require(!uri.host.isNullOrBlank()) { "The URL must include a host" }
-    require(uri.rawUserInfo.isNullOrBlank()) { "URLs containing embedded credentials are not stored" }
-    value
+    when (val validation = dev.vimivo.core.streaming.StreamValidator.validate(input)) {
+        is dev.vimivo.core.streaming.StreamValidationResult.Valid -> validation.normalizedUrl
+        is dev.vimivo.core.streaming.StreamValidationResult.Invalid -> throw IllegalArgumentException(validation.message)
+    }
 }
 
-private fun String.toMediaItem() = MediaItem(
-    id = MediaId(this),
-    uri = this,
-    title = this,
-    kind = MediaKind.STREAM,
-    mimeType = inferredStreamMimeType(this),
-)
+private fun String.toMediaItem(): MediaItem =
+    when (val validation = dev.vimivo.core.streaming.StreamValidator.validate(this)) {
+        is dev.vimivo.core.streaming.StreamValidationResult.Valid -> dev.vimivo.core.streaming.StreamValidator.toMediaItem(validation)
+        is dev.vimivo.core.streaming.StreamValidationResult.Invalid -> MediaItem(
+            id = MediaId(this),
+            uri = this,
+            title = this,
+            kind = MediaKind.STREAM,
+            mimeType = inferredStreamMimeType(this),
+        )
+    }
 
 internal fun inferredStreamMimeType(url: String): String? = when {
     url.substringBefore('?').endsWith(".m3u8", ignoreCase = true) -> "application/x-mpegURL"

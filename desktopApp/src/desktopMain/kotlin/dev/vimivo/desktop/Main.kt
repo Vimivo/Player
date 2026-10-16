@@ -102,6 +102,7 @@ fun main(args: Array<String>) = application {
         },
         title = "Vimivo",
     ) {
+        var openStreamRequested by remember { mutableStateOf(false) }
         LaunchedEffect(window) {
             window.dropTarget = java.awt.dnd.DropTarget(window, object : java.awt.dnd.DropTargetAdapter() {
                 override fun drop(dtde: java.awt.dnd.DropTargetDropEvent) {
@@ -125,6 +126,11 @@ fun main(args: Array<String>) = application {
                     "Open File…",
                     shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.O, ctrl = true),
                     onClick = { chooseMediaFiles().let(openFileHandler::submit) },
+                )
+                Item(
+                    "Open Network Stream…",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.U, ctrl = true),
+                    onClick = { openStreamRequested = true },
                 )
                 Item(
                     "Add Folder…",
@@ -190,7 +196,16 @@ fun main(args: Array<String>) = application {
                 )
             }
         }
-        DesktopPlayer(engine, queue, library, args.map(::File), openFileHandler, mpris)
+        DesktopPlayer(
+            engine,
+            queue,
+            library,
+            args.map(::File),
+            openFileHandler,
+            mpris,
+            openStreamRequested = openStreamRequested,
+            onOpenStreamHandled = { openStreamRequested = false },
+        )
     }
 }
 
@@ -219,6 +234,8 @@ private fun DesktopPlayer(
     initialFiles: List<File>,
     openFileHandler: MacOpenFileHandler,
     mpris: dev.vimivo.desktop.integration.mpris.MprisService,
+    openStreamRequested: Boolean = false,
+    onOpenStreamHandled: () -> Unit = {},
 ) {
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -239,7 +256,16 @@ private fun DesktopPlayer(
     var updateStatus by remember { mutableStateOf<String?>(null) }
     var showLyrics by remember { mutableStateOf(false) }
     var showFeedbackDialog by remember { mutableStateOf(false) }
+    var showOpenStreamDialog by remember { mutableStateOf(false) }
+    val streamHistoryRepository = remember { dev.vimivo.desktop.streaming.DesktopStreamHistoryRepository() }
     var lyricsDoc by remember(state.media?.uri) { mutableStateOf<dev.vimivo.core.lyrics.LyricsDocument?>(null) }
+
+    LaunchedEffect(openStreamRequested) {
+        if (openStreamRequested) {
+            showOpenStreamDialog = true
+            onOpenStreamHandled()
+        }
+    }
 
     LaunchedEffect(state.media?.uri) {
         val uri = state.media?.uri
@@ -512,6 +538,18 @@ private fun DesktopPlayer(
             if (destination == DesktopDestination.Automation) {
                 DesktopAutomationHealthPanel(state = libraryState, controller = library)
             }
+            if (destination == DesktopDestination.Network) {
+                dev.vimivo.desktop.streaming.DesktopNetworkStreamPanel(
+                    onOpenStreamDialog = { showOpenStreamDialog = true },
+                    onPlayStream = { mediaItem ->
+                        scope.launch { queue.play(listOf(mediaItem)) }
+                    },
+                    onAddToQueue = { mediaItem ->
+                        queue.addToQueue(listOf(mediaItem))
+                    },
+                    historyRepository = streamHistoryRepository,
+                )
+            }
             if (destination == DesktopDestination.Settings) {
                 DesktopSettingsPanel(
                     state = libraryState,
@@ -706,22 +744,42 @@ private fun DesktopPlayer(
                     Text(if (showDiagnostics) "Hide Stats" else "Stats")
                 }
             }
-            OutlinedTextField(
-                value = networkUrl,
-                onValueChange = { networkUrl = it },
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Authorized HTTP, HTTPS, or RTSP streaming address" },
-                label = { Text("Authorized HTTP, HTTPS, or RTSP URL") },
-                singleLine = true,
-            )
-            Button(
-                enabled = networkUrl.isNotBlank(),
-                onClick = {
-                    val url = networkUrl.trim()
-                    scope.launch { queue.play(listOf(url.toNetworkItem())) }
-                },
-                modifier = Modifier.semantics { contentDescription = "Open stream URL" },
-            ) { Text("Open stream") }
-            if (state.media == null && destination != DesktopDestination.Settings) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = networkUrl,
+                    onValueChange = { networkUrl = it },
+                    modifier = Modifier.weight(1f).semantics { contentDescription = "Authorized HTTP, HTTPS, or RTSP streaming address" },
+                    label = { Text("Authorized HTTP, HTTPS, or RTSP URL") },
+                    singleLine = true,
+                )
+                Button(
+                    enabled = networkUrl.isNotBlank(),
+                    onClick = {
+                        val url = networkUrl.trim()
+                        when (val validation = dev.vimivo.core.streaming.StreamValidator.validate(url)) {
+                            is dev.vimivo.core.streaming.StreamValidationResult.Valid -> {
+                                val item = dev.vimivo.core.streaming.StreamValidator.toMediaItem(validation)
+                                streamHistoryRepository.recordStream(validation.normalizedUrl)
+                                networkUrl = ""
+                                scope.launch { queue.play(listOf(item)) }
+                            }
+                            is dev.vimivo.core.streaming.StreamValidationResult.Invalid -> {
+                                showOpenStreamDialog = true
+                            }
+                        }
+                    },
+                    modifier = Modifier.semantics { contentDescription = "Open stream URL" },
+                ) { Text("Open stream") }
+                OutlinedButton(
+                    onClick = { showOpenStreamDialog = true },
+                    modifier = Modifier.semantics { contentDescription = "Open network stream dialog" },
+                ) { Text("Stream…") }
+            }
+            if (state.media == null && destination !in setOf(DesktopDestination.Settings, DesktopDestination.Network)) {
                 DesktopEmptyState(destination)
             }
             Spacer(Modifier.height(4.dp))
@@ -733,15 +791,42 @@ private fun DesktopPlayer(
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     state.media?.let { DesktopArtwork(it.artworkUri, it.title, 96.dp) }
-                    Text(state.media?.title ?: "Nothing playing", style = MaterialTheme.typography.titleLarge)
-                    Text(state.status.label(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(state.media?.title ?: "Nothing playing", style = MaterialTheme.typography.titleLarge)
+                        if (state.media?.kind == MediaKind.STREAM && state.durationMillis == null) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                                modifier = Modifier.padding(start = 8.dp),
+                            ) {
+                                Text(
+                                    text = "LIVE",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        if (state.status == PlaybackStatus.Buffering) "Buffering stream..." else state.status.label(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Slider(
                         value = state.positionMillis.toFloat().coerceAtMost((state.durationMillis ?: 1).toFloat()),
                         onValueChange = { engine.seekTo(it.toLong()) },
                         valueRange = 0f..(state.durationMillis ?: 1).coerceAtLeast(1).toFloat(),
-                        enabled = state.isSeekable,
+                        enabled = state.isSeekable && state.durationMillis != null,
                         modifier = Modifier.fillMaxWidth().semantics {
-                            contentDescription = "Playback seekbar: ${formatTime(state.positionMillis)} of ${formatTime(state.durationMillis ?: 0)}"
+                            contentDescription = if (state.durationMillis == null) {
+                                "Live stream: ${formatTime(state.positionMillis)}"
+                            } else {
+                                "Playback seekbar: ${formatTime(state.positionMillis)} of ${formatTime(state.durationMillis ?: 0)}"
+                            }
                         },
                     )
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -753,7 +838,7 @@ private fun DesktopPlayer(
                             }
                             Spacer(Modifier.width(8.dp))
                         }
-                        Text(formatTime(state.durationMillis ?: 0))
+                        Text(if (state.durationMillis == null && state.media?.kind == MediaKind.STREAM) "Live broadcast" else formatTime(state.durationMillis ?: 0))
                     }
                     if (showLyrics && state.media?.kind == MediaKind.AUDIO) {
                         DesktopLyricsCard(lyricsDoc = lyricsDoc, positionMillis = state.positionMillis)
@@ -830,6 +915,19 @@ private fun DesktopPlayer(
                     errorMessage = err.error.message,
                 )
             },
+        )
+    }
+
+    if (showOpenStreamDialog) {
+        dev.vimivo.desktop.streaming.DesktopOpenStreamDialog(
+            onDismissRequest = { showOpenStreamDialog = false },
+            onPlayStream = { mediaItem ->
+                scope.launch { queue.play(listOf(mediaItem)) }
+            },
+            onAddToQueue = { mediaItem ->
+                queue.addToQueue(listOf(mediaItem))
+            },
+            historyRepository = streamHistoryRepository,
         )
     }
 }
@@ -1030,8 +1128,6 @@ private fun File.toMediaItem() = MediaItem(
     kind = if (extension.lowercase() in VIDEO_EXTENSIONS) MediaKind.VIDEO else MediaKind.AUDIO,
     fileName = name,
 )
-
-private fun String.toNetworkItem() = MediaItem(MediaId(this), this, this, MediaKind.STREAM)
 
 private fun PlaybackStatus.label() = when (this) {
     PlaybackStatus.Idle -> "Idle"
