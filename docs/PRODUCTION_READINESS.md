@@ -27,7 +27,7 @@ Status overview across all five supported platform targets as of **2026-10-16** 
   - Added `PlaybackQueueRaceConditionTest` verifying queue stability during rapid next transitions with simultaneous track completion, protection against removal of active playing track, duplicate occurrence identity isolation, queue reordering during active playback, and paused session restoration without unexpected autoplay.
 ### Milestone 41-44 Smart Discovery, Advanced Library Management & Automation Summary
 
-- **Automated Tests**: 221 tests passing with 0 failures across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (143), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
+- **Automated Tests**: 223 tests passing with 0 failures across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (145), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
 - **Detekt Analysis**: 0 violations across all modules.
 - **Smart Media Discovery & Insights (M41 & M42)**:
   - 100% offline-first recommendation engine generating explainable, deterministic suggestions (`CONTINUE_WATCHING`, `CONTINUE_LISTENING`, `BECAUSE_YOU_LIKE_ARTIST`, `REDISCOVER_FAVORITES`, `RECENTLY_ADDED`, `UNPLAYED_GEMS`) with persistent dismissal support (`dismissed_recommendations`).
@@ -40,13 +40,15 @@ Status overview across all five supported platform targets as of **2026-10-16** 
   - Staged write pipeline with preflight checks, automatic backup, post-write validation, and rollback on error.
   - Batch file renaming with token expansion (`{artist}`, `{album}`, `{track}`, `{title}`, `{year}`), Windows reserved name protection, collision detection, and SQLite database reconciliation preserving playlists, history, favorites, and queue references.
   - Missing media reconciliation with candidate discovery (filename, title, file size) and atomic relinking.
+  - CSV metadata export and import with spreadsheet formula injection defense (`'` escape prefix), UTF-8 BOM encoding for Bengali/Unicode text, schema validation, and database override application.
   - Typed workflow automation rules, non-destructive dry-run preview engine, persistent operation journal (`batch_operation_journal`), and library health diagnostic scoring.
+  - Complete documentation suite published (`docs/METADATA_EDITING_ARCHITECTURE.md`, `docs/EMBEDDED_TAG_CAPABILITIES.md`, `docs/BULK_EDIT_SAFETY.md`, `docs/FILE_ORGANIZATION.md`, `docs/LIBRARY_AUTOMATION.md`, `docs/BATCH_RECOVERY.md`, `docs/LIBRARY_MANAGEMENT_TESTS.md`).
   - Upgraded SQLite schema to version 6 with non-destructive migrations from v1-v5.
 - **Release Decision**: **CONDITIONAL GO FOR CONTROLLED DISTRIBUTION (`1.0.0-rc.1`)**. Product feature set is functionally complete, all interactive controls are verified and persistent, and regression hardening gates pass 100%. General public store deployment remains blocked on owner signing credentials and explicit user authorization.
 
 ### Milestone 39 & 40 Final Product Consolidation & Release Readiness Summary
 
-- **Automated Tests**: 221 tests passing with 0 failures across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (143), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
+- **Automated Tests**: 223 tests passing with 0 failures across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (145), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
 - **Detekt Analysis**: 0 violations across all modules.
 - **Unified Quality Gate**: Added `./scripts/verify_all.sh` and `./gradlew verifyAll` running Detekt, shared tests, desktop compilation, desktop tests, and Android unit tests/assembly in one reproducible command.
 - **Documentation Relative Link Validation**: Added `./scripts/validate_docs.sh` validating 100% of relative markdown links across all architecture, development, and user guides.

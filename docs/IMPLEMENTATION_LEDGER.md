@@ -95,18 +95,19 @@ Status terms: **implemented** means code exists, **tested** means automated test
 
 - `docs(consolidation): update README, architecture, platform development, and user guides` — Root `README.md` canonical entry point, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`, PR & issue templates, `docs/development/` 5-platform guides (`ANDROID.md`, `IOS.md`, `MACOS.md`, `WINDOWS.md`, `LINUX.md`), `docs/ARCHITECTURE.md`, `docs/PLAYBACK_ARCHITECTURE.md`, `docs/DATABASE_ARCHITECTURE.md`, `docs/FORMAT_SUPPORT.md`, `docs/USER_GUIDE.md`, and `docs/INSTALLATION.md` (Milestone 39).
 - `build(dev): add reproducible verification entry points and automated documentation link validation` — Added `scripts/verify_all.sh`, `scripts/validate_docs.sh` (100% passing relative links), and `verifyAll` root Gradle task orchestrating Detekt, shared tests, desktop compilation & tests, and Android unit tests & debug assembly.
-- `docs(release): add maintenance handoff, hotfix runbook, and release quality report` — Completed `docs/MAINTENANCE_HANDOFF.md`, `docs/HOTFIX_RUNBOOK.md`, `docs/RELEASE_QUALITY_REPORT.md` (five-platform GO/NO-GO), `docs/release-manifest.json` (schema v6), and verified SHA256SUMS (Milestone 40).
+- `feat(metadata): add CSV metadata export and import with formula injection defense and Unicode preservation` — Implemented `DesktopMetadataCsvExporterImporter` supporting UTF-8 BOM encoding for Bengali and Unicode, RFC 4180 parsing, spreadsheet formula injection mitigation, schema validation, and database override application.
+- `docs(library): publish complete documentation suite for Milestones 43-44` — Published `docs/METADATA_EDITING_ARCHITECTURE.md`, `docs/EMBEDDED_TAG_CAPABILITIES.md`, `docs/BULK_EDIT_SAFETY.md`, `docs/FILE_ORGANIZATION.md`, `docs/LIBRARY_AUTOMATION.md`, `docs/BATCH_RECOVERY.md`, and `docs/LIBRARY_MANAGEMENT_TESTS.md`.
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (58 tests passed)
-- `./gradlew :desktopApp:desktopTest` (143 tests passed, +37 new tests)
+- `./gradlew :desktopApp:desktopTest` (145 tests passed, +39 new tests)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
 - `./scripts/validate_docs.sh` (100% of relative documentation links validated)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 221 tests passing, 0 failures (plus 7 native iOS XCTest tests).
+- Total automated tests: 223 tests passing, 0 failures (plus 7 native iOS XCTest tests).

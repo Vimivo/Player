@@ -36,6 +36,8 @@ Milestones 39 and 40 (Final Product Consolidation, Complete Developer & User Doc
 - Embedded tag write pipeline features preflight capability validation, automatic file backup before write, post-write audio header / tag verification, and automatic rollback on failure. Video files (MKV, MP4) and read-only media gracefully default to database overrides.
 - Batch file renaming expands tokens (`{artist}`, `{album}`, `{track}`, `{title}`, `{year}`), checks Windows reserved device names, sanitizes illegal path characters, detects batch and disk collisions, handles case-only renames, and reconciles SQLite `media_items` records so playlists, favorites, history, and queue references are 100% preserved.
 - Missing media reconciliation detects broken paths, discovers candidate files by filename, title, or size match, and atomic relinking in SQLite.
+- CSV metadata export and import with formula injection mitigation (escaping sensitive trigger characters with single quote `'`), UTF-8 BOM encoding for Unicode and Bengali text preservation, schema validation, and database override application.
+- Complete documentation suite published: `docs/METADATA_EDITING_ARCHITECTURE.md`, `docs/EMBEDDED_TAG_CAPABILITIES.md`, `docs/BULK_EDIT_SAFETY.md`, `docs/FILE_ORGANIZATION.md`, `docs/LIBRARY_AUTOMATION.md`, `docs/BATCH_RECOVERY.md`, and `docs/LIBRARY_MANAGEMENT_TESTS.md`.
 - Rule-based smart playlists evaluate field conditions (`EQUALS`, `CONTAINS`, `STARTS_WITH`, `GREATER_THAN`, `LESS_THAN`, `IS_TRUE`, `IS_FALSE`) with `ALL` or `ANY` match modes and limits.
 - Local recommendation engine provides 100% offline, explainable suggestions (Continue Watching, Continue Listening, Top Artists, Rediscover Favorites, Recently Added, Cold Start) with dismissal persistence.
 - Workflow automation engine executes non-destructive dry-runs, maintains a persistent batch operation journal (`batch_operation_journal`), and computes library health diagnostic scores.
@@ -43,9 +45,9 @@ Milestones 39 and 40 (Final Product Consolidation, Complete Developer & User Doc
 
 Test & Static Analysis Verification:
 - `:shared:desktopTest`: 58 passing tests.
-- `:desktopApp:desktopTest`: 143 passing tests (+7 comprehensive test suites).
+- `:desktopApp:desktopTest`: 145 passing tests (+8 comprehensive test suites).
 - `:androidApp:testDebugUnitTest`: 20 passing tests.
-- Total automated tests: 221 tests passing (0 failures), plus 7 native iOS XCTest tests.
+- Total automated tests: 223 tests passing (0 failures), plus 7 native iOS XCTest tests.
 - Detekt static analysis: 0 weighted violations across all modules.
 
 ## Next executable work
