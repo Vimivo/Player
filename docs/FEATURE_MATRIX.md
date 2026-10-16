@@ -137,4 +137,16 @@ Verified against source, automated test suites, and simulator runs on 2026-10-15
 - **Synchronized LRC Lyrics Rendering**: Added desktop lyrics viewer with sibling `.lrc` discovery and active line highlighting synchronized with playback position.
 - **Exhaustive Regression Hardening & Queue Concurrency**: Added automated suites for M3U round-trips, video control contracts, and playback queue race conditions (rapid next/completion events, track removal during playback, duplicate occurrence identities, and paused session restoration without autoplay). 100% test pass rate across all suites.
 
+### Milestones 55 & 56 Highlights:
+- **Live Latency Optimization**: Dynamic buffer tuning (`LiveLatencyMode.LOW_LATENCY`, `BALANCED`, `STABLE_PLAYBACK`) modifying demuxer readahead and buffer bytes in `MpvPlayerEngine` without surface destruction.
+- **Session Lifecycle Concurrency Isolation**: Atomic `sessionGeneration` counter isolating rapid source switching, eliminating race conditions, and discarding delayed stale callbacks.
+- **User Intent Preservation**: User explicit Stop cancels active reconnection; user explicit Pause preserves paused status across network buffer completions.
+- **Deterministic Test Server**: In-process `TestStreamServer` providing mock HTTP byte-ranges (206), HLS sliding windows, DASH manifests, and HTTP fault codes (401, 403, 404, 408, 429, 500, redirects).
+
+### Milestones 57 & 58 Highlights:
+- **Complete Local & Network Playback Verification**: Verified 24 requirement categories across audio, video, direct URLs, HLS, DASH, RTSP, radio, queue, history, resume, playlists, and foreign key safety.
+- **Deterministic Source Switching & Lifecycle**: Automated `PlaybackSourceSwitchingTest` verifying zero duplicate player sessions and automatic video surface detachment when switching from video to audio.
+- **Fault-Injection & Failure Recovery**: Automated `PlaybackFailureInjectionTest` verifying bounded exponential backoff with user cancellation, redirect loop defense, and missing file reconciliation.
+- **End-to-End User Journeys**: `EndToEndPlaybackUserJourneysTest` covering direct video URLs, live HLS reconnection, internet radio background controls, and local JSON backup export/restore integrity.
+- **Streaming Security & Five-Platform Audit**: Security threat model (`docs/STREAMING_SECURITY_AUDIT.md`), media parser audit (`docs/MEDIA_PARSER_SECURITY.md`), and independent five-platform GO/NO-GO reports (`docs/FINAL_GO_NO_GO.md`).
 

@@ -113,13 +113,15 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `feat(streaming): harden stream session lifecycle, latency modes, and track renditions` — Added `LiveLatencyMode` (`BALANCED`, `LOW_LATENCY`, `STABLE_PLAYBACK`) with dynamic demuxer readahead and buffer tuning, atomic `sessionGeneration` counter isolating rapid stream switching, `userStopped` and `userPaused` intent preservation, and enriched track rendition metadata (`demux-bitrate`, `demux-channel-count`, `demux-samplerate`, `demux-w`, `demux-h`, `demux-fps`) on `MpvPlayerEngine` and `PlayerEngine` (Milestones 55 & 56).
 - `test(streaming): add deterministic test server, session race tests, and fault recovery` — Created in-process `TestStreamServer` supporting byte-ranges (HTTP 206), HLS VOD and live sliding windows, DASH manifests, and HTTP fault codes (401, 403, 404, 408, 429, 500, 302 redirects), along with comprehensive `StreamSessionLifecycleTest` and enhanced `StreamValidatorTest` with CRLF injection defenses (Milestones 55 & 56).
 - `docs(streaming): publish streaming compatibility matrix, live latency, and lifecycle specs` — Published comprehensive specifications in `docs/STREAMING_COMPATIBILITY_MATRIX.md`, `docs/STREAM_SESSION_LIFECYCLE.md`, `docs/STREAM_RECOVERY.md`, `docs/STREAMING_TEST_FIXTURES.md`, `docs/STREAMING_LATENCY.md`, and `docs/STREAMING_RELEASE_READINESS.md`.
+- `test(playback): add comprehensive source switching, failure injection, and end-to-end user journeys` — Implemented `PlaybackSourceSwitchingTest`, `PlaybackFailureInjectionTest`, and `EndToEndPlaybackUserJourneysTest` in `desktopApp`, verifying seamless transitions between local audio/video and direct URL streams, fault injection (401, 403, 404, 408, 429, 500, redirect loops, CRLF injection), background audio controls, and JSON backup export and restore integrity preserving foreign keys (Milestone 57).
+- `docs(release): publish complete playback verification, security audit, and five-platform GO/NO-GO verdicts` — Published `docs/LOCAL_PLAYBACK_VERIFICATION.md`, `docs/URL_PLAYBACK_VERIFICATION.md`, `docs/FINAL_PLAYBACK_TEST_MATRIX.md`, `docs/PLAYBACK_STATE_REGRESSION.md`, `docs/NATIVE_LIFECYCLE_VERIFICATION.md`, `docs/STREAMING_SECURITY_AUDIT.md`, `docs/MEDIA_PARSER_SECURITY.md`, `docs/PRIVACY_VERIFICATION.md`, `docs/FINAL_PERFORMANCE_RESULTS.md`, `docs/INSTALLATION_VERIFICATION.md`, `docs/DISTRIBUTION_ARTIFACTS.md`, `docs/LICENSE_AND_DEPENDENCY_AUDIT.md`, `docs/FINAL_GO_NO_GO.md`, and updated `docs/DEVELOPMENT_CONTINUATION.md`, `docs/RELEASE_CANDIDATE_STATUS.md`, and `docs/PRODUCTION_READINESS.md` (Milestone 58).
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)
-- `./gradlew :desktopApp:desktopTest` (178 tests passed)
+- `./gradlew :desktopApp:desktopTest` (198 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (40 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
@@ -127,9 +129,6 @@ On 2026-10-16, these commands completed successfully:
 - `./gradlew :androidApp:bundleRelease` (BUILD SUCCESSFUL, Play App Bundle generated)
 - `./gradlew :desktopApp:packageDmg` (BUILD SUCCESSFUL, standalone DMG generated with 50 bundled dylibs)
 - `./gradlew detekt` (all modules passed, 0 violations)
+- `./scripts/validate_docs.sh` (100% relative documentation links verified)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 332 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
-
-
-
-
+- Total automated tests: 352 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).

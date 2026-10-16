@@ -1,12 +1,12 @@
 # Vimivo — Release Candidate Status
 
-Authoritative five-platform release readiness evaluation as of **2026-10-16** (Milestones 49 & 50 Complete).
+Authoritative five-platform release readiness evaluation as of **2026-10-16** (Milestones 57 & 58 Complete).
 
 - **Current Branch**: `main`
 - **Candidate Version**: `1.0.0-rc.1`
-- **Target Revision**: `3924266`
+- **Target Revision**: `0d7ecba`
 - **Target Platforms**: Android, iOS / iPadOS, macOS, Windows, Linux
-- **Technical Status**: **COMPREHENSIVE PRODUCT VERIFICATION & FIVE-PLATFORM RELEASE AUDIT COMPLETE**
+- **Technical Status**: **COMPLETE LOCAL AND URL PLAYBACK VERIFICATION & FIVE-PLATFORM RELEASE AUDIT COMPLETE**
 - **Closed Beta Cohort Status**: **AWAITING AUTHORIZED TESTERS** (Zero synthetic feedback, zero telemetry)
 - **Public Distribution Status**: **BLOCKED ON OWNER SIGNING CREDENTIALS & EXPLICIT USER AUTHORIZATION**
 
@@ -16,10 +16,10 @@ Authoritative five-platform release readiness evaluation as of **2026-10-16** (M
 
 | Platform | Functional & Runtime Status | Packaging Status | Signing & Distribution | Overall Release Gate Status |
 |---|---|---|---|---|
-| **Android** | **RUNTIME VERIFIED**<br>40 unit tests pass. Media3 foreground service, MediaSession, TalkBack, Android 13+ notifications, structured local diagnostics, and Google Play In-App Updates evaluated. Target SDK 36 compliant. | **RELEASE CANDIDATE READY**<br>Release APK (`androidApp-release-unsigned.apk`, 140.7 MB) & AAB (`androidApp-release.aab`, 72.6 MB) built fresh with R8 minification and resource shrinking. | **BLOCKED**<br>Unsigned build ready. Requires owner-managed Google Play upload keystore for Play Store submission. | **RELEASE CANDIDATE READY** (Internal / Sideload)<br>Public Play Store: **BLOCKED** |
-| **macOS** | **CLEAN INSTALL VERIFIED**<br>163 desktop tests pass. Standalone `Vimivo.app` and `Vimivo-1.0.0.dmg` (144.4 MB) built with bundled Temurin JDK, 50 relocatable native dylibs, bounded log file rotation, and secure update verification. Mounted, codesigned, and verified. | **RELEASE CANDIDATE READY**<br>Installable DMG with Applications symlink, VolumeIcon, and background. Zero Homebrew dependencies. | **BLOCKED**<br>Ad-hoc signed and Hardened Runtime compatible. Requires Apple Developer ID certificate and `xcrun notarytool` notarization for Gatekeeper bypass. | **RELEASE CANDIDATE READY** (Local / Closed Beta)<br>Public Distribution: **BLOCKED** |
+| **Android** | **RUNTIME VERIFIED**<br>40 unit tests pass. Media3 foreground service, MediaSession, TalkBack, Android 13+ notifications, structured local diagnostics, Google Play In-App Updates, and direct URL streaming evaluated. Target SDK 36 compliant. | **RELEASE CANDIDATE READY**<br>Release APK (`androidApp-release-unsigned.apk`, 147.5 MB) & AAB (`androidApp-release.aab`, 76.0 MB) built fresh with R8 minification and resource shrinking. | **BLOCKED**<br>Unsigned build ready. Requires owner-managed Google Play upload keystore for Play Store submission. | **RELEASE CANDIDATE READY** (Internal / Sideload)<br>Public Play Store: **BLOCKED** |
+| **macOS** | **CLEAN INSTALL VERIFIED**<br>198 desktop tests pass. Standalone `Vimivo.app` and `Vimivo-1.0.0.dmg` (151.4 MB) built with bundled Temurin JDK, 50 relocatable native dylibs, bounded log file rotation, and secure update verification. Mounted, codesigned, and verified. | **RELEASE CANDIDATE READY**<br>Installable DMG with Applications symlink, VolumeIcon, and background. Zero Homebrew dependencies. | **BLOCKED**<br>Ad-hoc signed and Hardened Runtime compatible. Requires Apple Developer ID certificate and `xcrun notarytool` notarization for Gatekeeper bypass. | **RELEASE CANDIDATE READY** (Local / Closed Beta)<br>Public Distribution: **BLOCKED** |
 | **iOS / iPadOS** | **AUTOMATED TESTED**<br>Native SwiftUI app with AVPlayer engine, AVAudioSession route/interruption handlers, Lock Screen `MPNowPlayingInfoCenter`, PiP, native SQLite3 in WAL mode, Keychain storage, and VoiceOver labels. Simulator tests verified. | **RELEASE CANDIDATE READY**<br>Unsigned Xcode archive workflow configured in `.github/workflows/ios.yml`. Xcode runner required for final IPA export. | **BLOCKED**<br>Requires Apple Developer Team certificate and provisioning profile for TestFlight or App Store distribution. | **TECHNICALLY READY**<br>Public Store: **BLOCKED** |
-| **Windows** | **AUTOMATED TESTED**<br>Embedded video renderer (`MpvWin32Renderer`), native libmpv bridge, Win32 Credential Manager (`Advapi32`), drag-and-drop, and MenuBar shortcuts verified. | **RELEASE CANDIDATE READY**<br>Compose Desktop EXE and MSI packaging configured in `.github/workflows/windows.yml` with stable upgrade UUID and native DLL bundler. | **BLOCKED**<br>Requires Windows Authenticode certificate for SignTool to prevent SmartScreen untrusted warnings. | **TECHNICALLY READY**<br>Public Distribution: **BLOCKED** |
+| **Windows** | **AUTOMATED TESTED**<br>Embedded video renderer (`MpvWin32Renderer`), native libmpv bridge, Win32 Credential Manager (`Advapi32`), drag-and-drop, and MenuBar shortcuts verified. Direct URL streaming via libmpv. | **RELEASE CANDIDATE READY**<br>Compose Desktop EXE and MSI packaging configured in `.github/workflows/windows.yml` with stable upgrade UUID and native DLL bundler. | **BLOCKED**<br>Requires Windows Authenticode certificate for SignTool to prevent SmartScreen untrusted warnings. | **TECHNICALLY READY**<br>Public Distribution: **BLOCKED** |
 | **Linux** | **AUTOMATED TESTED**<br>Embedded video renderer (`MpvX11Renderer`), MPRIS 2 D-Bus media integration, Freedesktop Secret Service (`LinuxCredentialStore`), AppStream metainfo, and multi-resolution icons verified. | **RELEASE CANDIDATE READY**<br>Compose Desktop DEB, RPM, and AppImage packaging configured in `.github/workflows/linux.yml` with native ELF bundler. | **RELEASE CANDIDATE READY**<br>Standard distribution packages do not require mandatory proprietary store signing. | **TECHNICALLY READY** (CI Runner required for binary generation) |
 
 ---
@@ -27,7 +27,7 @@ Authoritative five-platform release readiness evaluation as of **2026-10-16** (M
 ## 2. Release Readiness Gates Audit
 
 - **Gate A — Functional**: **PASSED**. Audio/video scanning, tagging, video rendering, albums, artists, search, playlists, favorites, history, bookmarks, queue, privacy-safe diagnostics, and software update verification.
-- **Gate B — Automated Tests**: **PASSED**. 301 total automated tests across `:shared:desktopTest` (98), `:desktopApp:desktopTest` (163), and `:androidApp:testDebugUnitTest` (40), plus native iOS XCTest suite (7 tests). 0 failures, 100% pass rate. Detekt static analysis 0 violations across all modules.
+- **Gate B — Automated Tests**: **PASSED**. 352 total automated tests across `:shared:desktopTest` (114), `:desktopApp:desktopTest` (198), and `:androidApp:testDebugUnitTest` (40), plus native iOS XCTest suite (7 tests). 0 failures, 100% pass rate. Detekt static analysis 0 violations across all modules.
 - **Gate C — Native Runtime**: **PASSED**. Real audio and video playback verified on macOS host (libmpv JNA + Cocoa bridge) and Android (Media3/ExoPlayer + LibVLC).
 - **Gate D — Distribution**: **PASSED**. Actual binary packages generated for Android (APK + AAB) and macOS (DMG + APP). Production CI pipelines implemented for all five platforms.
 - **Gate E — Installation**: **PASSED**. Mounted `Vimivo-1.0.0.dmg`, inspected bundle closure, verified `@rpath` dependencies, verified codesign seal, and executed standalone binary.
@@ -47,6 +47,8 @@ Authoritative five-platform release readiness evaluation as of **2026-10-16** (M
 - **Gate S — Product Feature Gap Audit & UI Traceability**: **PASSED**. Every user-facing UI screen and control inventoried and traced end-to-end to ViewModel, Domain, Engine, and SQLite persistence. Dead buttons and placeholder mock endpoints eliminated. Desktop video controls panel and lyrics viewer implemented.
 - **Gate T — Exhaustive Regression & Concurrency Hardening**: **PASSED**. Multi-platform automated regression coverage expanded with M3U export/import round-trips, video control contracts, and playback queue race conditions (rapid next/completion events, track removal during playback, duplicate occurrence identities, and paused session restoration without autoplay). Zero regressions detected.
 - **Gate U — Universal Design System & Accessibility**: **PASSED**. Tokenized Material 3 theme architecture, AMOLED and High-Contrast modes, non-drag queue reordering alternatives, and comprehensive keyboard navigation shortcuts across all playback screens.
+- **Gate V — Universal User-Provided URL Streaming**: **PASSED**. Shared `StreamValidator`, direct HTTP/HTTPS media streaming, HLS Live/VOD sliding windows, DASH MPD and RTSP camera streams, live latency tuning, bounded exponential reconnection, session token isolation, and zero-cloud boundary.
+- **Gate W — Complete Playback Verification & End-to-End User Journeys**: **PASSED**. Comprehensive local and URL playback test suites (`PlaybackSourceSwitchingTest`, `PlaybackFailureInjectionTest`, `EndToEndPlaybackUserJourneysTest`) verifying 24 playback requirement categories, session races, fault injection, and zero data loss.
 
 ---
 

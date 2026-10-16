@@ -32,56 +32,37 @@ Milestones completed:
 - **Milestone 52**: Evidence-Based Prioritization, Transparent Roadmap, Feedback-to-Fix & Maintenance
 - **Milestone 53**: Universal URL-Based Audio & Video Streaming, Direct URLs & Native Player Integration
 - **Milestone 54**: Streaming Reliability, Buffering State, Bounded Reconnection & Security
+- **Milestone 55**: Cross-Platform Streaming Compatibility & Direct Media URL Playback Hardening
+- **Milestone 56**: Live Latency Optimization, Session Concurrency & Track Rendition Extraction
+- **Milestone 57**: Complete Local & URL Playback Verification, E2E Testing & Source Switching
+- **Milestone 58**: Streaming Security Audit, Five-Platform Release Hardening & Independent GO/NO-GO
 
 ## Resume point
 
-Milestones 53 and 54 (Universal User-Provided URL-Based Audio & Video Streaming, Cross-Platform Network Media Playback, Direct Media URL Support, HLS / DASH / RTSP Capability Engineering, Live Video and Internet Radio Streaming, Native Streaming Player Integration, Adaptive Quality and Buffering, Stream Reconnection and Error Recovery, Secure URL Validation, and Streaming Performance QA) are complete and verified.
-- **Shared Streaming Domain Subsystem (`dev.vimivo.core.streaming`)**:
-  - `StreamModels.kt`: `StreamProtocol`, `StreamType` (LIVE/VOD), `StreamConnectionState`, `StreamFailureReason`, `StreamValidationResult`, `StreamRequest`, `StreamDiagnostics`.
-  - `StreamValidator.kt`: Validates schemes (`http`, `https`, `rtsp`, `rtsps`), rejects embedded credentials (`@`), rejects local/dangerous schemes (`file`, `data`, etc.), rejects portal webpages (`youtube.com`, `vimeo.com`, `tiktok.com`, `facebook.com`, `.html`, etc.) with user-actionable explanations, and infers protocol, display title, and mime type.
-  - `StreamReconnectionPolicy.kt`: Bounded exponential backoff policy (max 3 retries, 1s/2s/4s delays capped at 6s), immediate abort on user stop/switch, blocks retry on permanent HTTP/network errors.
-  - `StreamValidatorTest.kt`: Comprehensive test suite verifying VOD, Live, HLS, DASH, RTSP, radio, webpage rejections, and reconnection backoff.
-- **Desktop Implementation (`desktopApp`)**:
-  - `DesktopOpenStreamDialog`: Compose Desktop dialog with live validation, protocol badges (`[HLS]`, `[DASH]`, `[RTSP]`, `[LIVE]`), paste, recent streams list, "Play Now", and "Add to Queue".
-  - `DesktopNetworkStreamPanel`: Dedicated network stream management surface with protocol capabilities, privacy notice, and recent streams history.
-  - `DesktopStreamHistoryRepository`: Privacy-safe recent streams JSON storage with sensitive query parameter redaction.
-  - `MpvPlayerEngine`: Configured with `network-timeout=15`, `tls-verify=yes`, `user-agent`, real buffering status via `paused-for-cache`, and forward cache calculation via `demuxer-cache-time`.
-  - `DesktopPlayer` / `Main.kt`: Integrated File menu shortcut (`Cmd+U` / `Ctrl+U`), inline stream input, Now Playing `[LIVE]` badge, and disabled live seekbar.
-- **Android Implementation (`androidApp`)**:
-  - `NetworkViewModel.kt`: Updated `validateNetworkStreamUrl` and `toMediaItem` to use shared `StreamValidator`, protecting against invalid webpage URLs and embedded credentials.
-  - Media3 ExoPlayer integration: HLS (`media3-exoplayer-hls`), DASH (`media3-exoplayer-dash`), and RTSP (`media3-exoplayer-rtsp`).
-- **Documentation Suite Published**:
-  - `docs/URL_STREAMING_ARCHITECTURE.md`: Architecture, data flows, and single-player engine reuse.
-  - `docs/STREAMING_PROTOCOL_SUPPORT.md`: Protocol matrix across Android, macOS, Windows, Linux, and iOS.
-  - `docs/STREAM_URL_SECURITY.md`: Threat model, credential protection, and HTTP status classifications.
-  - `docs/STREAMING_PLAYER_UX.md`: Player entry points, modal dialog, and live vs VOD semantics.
-  - `docs/STREAMING_NETWORK_RECOVERY.md`: Bounded backoff policy and error recovery matrix.
-  - `docs/STREAMING_PERFORMANCE.md`: Buffer metrics, memory thresholds, and benchmark measurements.
-  - `docs/NATIVE_STREAMING_TESTS.md`: Native test matrix and automated test coverage.
-  - `docs/STREAMING_PRIVACY.md`: Zero-cloud guarantee, telemetry avoidance, and local storage rules.
-  - `docs/STREAMING_LIMITATIONS.md`: Honest scope, webpage vs media distinctions, and DRM boundaries.
-  - `docs/STREAMING_COMPATIBILITY_MATRIX.md`: Comprehensive 5-platform capability matrix for Milestones 55 & 56.
-  - `docs/STREAM_SESSION_LIFECYCLE.md`: Concurrency isolation, session tokens, and user intent preservation.
-  - `docs/STREAM_RECOVERY.md`: Network failure classification, backoff policies, and CRLF header injection defense.
-  - `docs/STREAMING_TEST_FIXTURES.md`: In-process deterministic test stream server and mock endpoints.
-  - `docs/STREAMING_LATENCY.md`: Live streaming latency modes, readahead tuning, and buffer optimization.
-  - `docs/STREAMING_RELEASE_READINESS.md`: Release readiness verdicts and quality gate verification.
+Milestones 57 and 58 (Complete Local and URL Playback Verification, End-to-End Multimedia Functional Testing, Five-Platform Native Media Quality Assurance, Streaming and Local Playback Regression Hardening, Data Integrity and Database Migration Safety, Network, Media Parser and Credential Security, Native Resource Lifecycle Verification, Installation, Upgrade and Release Artifact Audit, Final Release Candidate Quality Gates, and Independent Platform GO/NO-GO Assessment) are complete and verified.
 
-Milestones 55 & 56 Implementation & Verification:
-- **Live Latency Optimization**: Added `LiveLatencyMode` (`BALANCED`, `LOW_LATENCY`, `STABLE_PLAYBACK`) dynamically tuning `demuxer-readahead-secs` and `demuxer-max-bytes` in `MpvPlayerEngine` without surface recreation.
-- **Session Lifecycle Concurrency Isolation**: Added atomic `sessionGeneration` counter preventing stale callbacks, delayed errors, or race conditions across rapid source switching.
-- **User Intent Preservation**: User explicit `Stop` cancels reconnection and resets status to `PlaybackStatus.Idle`; user explicit `Pause` sets `userPaused` ensuring paused status persists across buffer completions.
-- **Rich Track Rendition Extraction**: Enriched `TrackInfo` with demuxer bitrate, channel count, sample rate, width, height, and FPS.
-- **Deterministic Test Infrastructure**: Built `TestStreamServer` serving direct audio with byte-ranges (206), HLS VOD and live sliding window manifests, DASH manifests, and HTTP fault codes (401, 403, 404, 408, 429, 500, redirects).
-- **Automated Test Coverage**: Added `StreamSessionLifecycleTest` and enhanced `StreamValidatorTest` verifying fault classification, header injection rejection, and session state transitions.
+- **Playback Verification & Source Switching (`desktopApp`)**:
+  - `PlaybackSourceSwitchingTest.kt`: Exhaustive verification of transitions between local audio, local video, direct URL audio, direct URL video, HLS live streams, and reconnecting sources. Confirmed zero duplicate sessions, proper video surface detachment, and user intent preservation.
+  - `PlaybackFailureInjectionTest.kt`: Bounded exponential backoff with user Stop cancellation, redirect loop handling, corrupt media handling, and missing file reconciliation.
+  - `EndToEndPlaybackUserJourneysTest.kt`: Covers user journeys for direct video URLs, live HLS disconnection and recovery, internet radio with background audio controls, and local JSON backup export and restore preserving SQLite foreign key integrity.
+- **Security & Privacy Hardening**:
+  - `docs/STREAMING_SECURITY_AUDIT.md`: Threat model, URL sanitization, TLS enforcement, and LAN boundary isolation.
+  - `docs/MEDIA_PARSER_SECURITY.md`: Buffer limits, tag parser defenses, and native library version audit.
+  - `docs/PRIVACY_VERIFICATION.md`: Zero-telemetry confirmation, no advertising IDs, no accounts, and no cloud catalog.
+- **Five-Platform Release Artifacts**:
+  - macOS DMG: `Vimivo-1.0.0.dmg` (151 MB, SHA-256: `e6ab2791a0a660dc75e726906df2dab506350a66e43dd9e97551faf19829146c`).
+  - Android APK: `androidApp-release-unsigned.apk` (147 MB, SHA-256: `7425f12d6a8bd450bfe88420c4ad2137f0820e0bcc0e35b1046efdcee65c92b3`).
+  - Android AAB: `androidApp-release.aab` (76 MB, SHA-256: `8d7f0060a9ec770bb5162d0f5d61ed90f5cd7226a67ef64216030c8710af7133`).
+  - Verification records published in `docs/INSTALLATION_VERIFICATION.md` and `docs/DISTRIBUTION_ARTIFACTS.md`.
 
 Test & Static Analysis Verification:
 - `:shared:desktopTest`: 114 passing tests (100% pass rate).
-- `:desktopApp:desktopTest`: 178 passing tests (100% pass rate).
+- `:desktopApp:desktopTest`: 198 passing tests (100% pass rate).
 - `:androidApp:testDebugUnitTest`: 40 passing tests (100% pass rate).
-- Total automated tests: 332 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
+- Total automated tests: 352 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
 - Detekt static analysis: 0 weighted violations across all modules.
 - Android debug build: `:androidApp:assembleDebug` SUCCESS.
+- Relative documentation links: 100% verified via `./scripts/validate_docs.sh`.
 
 ## Next executable work
 
