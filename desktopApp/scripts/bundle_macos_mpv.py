@@ -12,6 +12,10 @@ import sys
 import shutil
 import subprocess
 
+CLT_PATH = "/Library/Developer/CommandLineTools/usr/bin"
+OTOOL = os.path.join(CLT_PATH, "otool") if os.path.exists(os.path.join(CLT_PATH, "otool")) else "otool"
+INSTALL_NAME_TOOL = os.path.join(CLT_PATH, "install_name_tool") if os.path.exists(os.path.join(CLT_PATH, "install_name_tool")) else "install_name_tool"
+
 def run_cmd(cmd):
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if result.returncode != 0:
@@ -19,7 +23,7 @@ def run_cmd(cmd):
     return result.stdout
 
 def get_dependencies(dylib_path):
-    out = run_cmd(["otool", "-L", dylib_path])
+    out = run_cmd([OTOOL, "-L", dylib_path])
     deps = []
     for line in out.splitlines()[1:]:
         line = line.strip()
@@ -30,7 +34,7 @@ def get_dependencies(dylib_path):
     return deps
 
 def get_rpaths(binary_path):
-    out = run_cmd(["otool", "-l", binary_path])
+    out = run_cmd([OTOOL, "-l", binary_path])
     rpaths = []
     lines = out.splitlines()
     for i, line in enumerate(lines):
@@ -45,7 +49,7 @@ def get_rpaths(binary_path):
 def add_rpath_if_missing(binary_path, new_rpath):
     existing = get_rpaths(binary_path)
     if new_rpath not in existing:
-        subprocess.run(["install_name_tool", "-add_rpath", new_rpath, binary_path], check=False)
+        subprocess.run([INSTALL_NAME_TOOL, "-add_rpath", new_rpath, binary_path], check=False)
 
 def bundle(app_path, cocoa_bridge_dylib):
     if not os.path.exists(app_path):
@@ -123,7 +127,7 @@ def bundle(app_path, cocoa_bridge_dylib):
     # Fix install names and dependencies for all dylibs in Frameworks
     for name, dylib_path in bundled_files.items():
         # Set ID
-        subprocess.run(["install_name_tool", "-id", f"@rpath/{name}", dylib_path], check=False)
+        subprocess.run([INSTALL_NAME_TOOL, "-id", f"@rpath/{name}", dylib_path], check=False)
         add_rpath_if_missing(dylib_path, "@loader_path")
         add_rpath_if_missing(dylib_path, "@loader_path/../runtime/Contents/Home/lib")
 
@@ -136,9 +140,9 @@ def bundle(app_path, cocoa_bridge_dylib):
                 # Find matching bundled library
                 target_name = next((b for b in bundled_files.keys() if b.startswith(dep_basename.split(".")[0])), dep_basename)
                 new_dep = f"@rpath/{target_name}"
-                subprocess.run(["install_name_tool", "-change", dep, new_dep, dylib_path], check=False)
+                subprocess.run([INSTALL_NAME_TOOL, "-change", dep, new_dep, dylib_path], check=False)
             elif "libjawt.dylib" in dep:
-                subprocess.run(["install_name_tool", "-change", dep, "@rpath/libjawt.dylib", dylib_path], check=False)
+                subprocess.run([INSTALL_NAME_TOOL, "-change", dep, "@rpath/libjawt.dylib", dylib_path], check=False)
 
     # Configure main executable rpaths
     main_executable = os.path.join(app_path, "Contents", "MacOS", "Vimivo")
