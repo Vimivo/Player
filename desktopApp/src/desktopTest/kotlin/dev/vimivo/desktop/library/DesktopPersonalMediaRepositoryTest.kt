@@ -49,10 +49,11 @@ class DesktopPersonalMediaRepositoryTest {
             database.transaction { connection ->
                 val version = connection.createStatement().executeQuery("SELECT version FROM schema_version").use { rows -> rows.next(); rows.getInt(1) }
                 val theme = connection.createStatement().executeQuery("SELECT value FROM settings WHERE key='theme'").use { rows -> rows.next(); rows.getString(1) }
-                assertEquals(4, version)
+                assertEquals(5, version)
                 assertEquals("dark", theme)
                 assertTrue(connection.createStatement().executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='playlists'").next())
                 assertTrue(connection.createStatement().executeQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='playback_queue_items'").next())
+                assertTrue(connection.createStatement().executeQuery("SELECT name FROM sqlite_master WHERE type='index' AND name='media_items_kind_available'").next())
             }
         }
     }

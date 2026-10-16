@@ -1,4 +1,7 @@
-@file:Suppress("ArgumentListWrapping", "Indentation", "MaximumLineLength", "MaxLineLength", "ParameterListWrapping", "TooGenericExceptionCaught", "Wrapping")
+@file:Suppress(
+    "ArgumentListWrapping", "Indentation", "MaximumLineLength", "MaxLineLength", "MultiLineIfElse",
+    "ParameterListWrapping", "SpacingBetweenDeclarationsWithAnnotations", "TooGenericExceptionCaught", "Wrapping",
+)
 
 package dev.vimivo.desktop.library
 
@@ -54,17 +57,35 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         }.also { invalidate() }
     }
 
+    @Volatile private var cachedAlbumGeneration = -1L
+    @Volatile private var cachedAlbums: List<AlbumItem> = emptyList()
+    @Volatile private var cachedArtistGeneration = -1L
+    @Volatile private var cachedArtists: List<ArtistItem> = emptyList()
+
     fun media(kind: MediaKind, query: String = ""): List<MediaItem> = database.transaction { connection ->
-        connection.prepareStatement(
-            "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
-                "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
-                "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
-                "WHERE m.available=1 AND m.kind=? AND (COALESCE(NULLIF(x.title,''),m.title) LIKE ? OR m.file_name LIKE ? " +
-                "OR x.artist LIKE ? OR x.album LIKE ?) ORDER BY COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE LIMIT 500",
-        ).use { statement ->
-            statement.setString(1, kind.name)
-            repeat(4) { statement.setString(it + 2, "%$query%") }
-            statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            connection.prepareStatement(
+                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
+                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                    "WHERE m.available=1 AND m.kind=? ORDER BY COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE LIMIT 500",
+            ).use { statement ->
+                statement.setString(1, kind.name)
+                statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
+            }
+        } else {
+            connection.prepareStatement(
+                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
+                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                    "WHERE m.available=1 AND m.kind=? AND (COALESCE(NULLIF(x.title,''),m.title) LIKE ? OR m.file_name LIKE ? " +
+                    "OR x.artist LIKE ? OR x.album LIKE ?) ORDER BY COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE LIMIT 500",
+            ).use { statement ->
+                statement.setString(1, kind.name)
+                repeat(4) { statement.setString(it + 2, "%$trimmed%") }
+                statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
+            }
         }
     }
 
@@ -87,44 +108,57 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         }
     }
 
-    fun albums(query: String = ""): List<AlbumItem> = database.transaction { connection ->
-        connection.prepareStatement(
-            "SELECT COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album') AS album_title, " +
-                "COALESCE(NULLIF(TRIM(x.album_artist), ''), NULLIF(TRIM(x.artist), ''), 'Unknown Artist') AS album_artist, " +
-                "COUNT(m.id) AS track_count, " +
-                "COALESCE(SUM(COALESCE(x.duration_ms, 0)), 0) AS total_duration, " +
-                "MAX(x.artwork_uri) AS artwork_uri, " +
-                "MAX(x.release_year) AS release_year " +
-                "FROM media_items m " +
-                "LEFT JOIN media_metadata x ON x.media_id=m.id " +
-                "WHERE m.available=1 AND m.kind='AUDIO' " +
-                "GROUP BY 1, 2 " +
-                "HAVING album_title LIKE ? OR album_artist LIKE ? " +
-                "ORDER BY album_title COLLATE NOCASE",
-        ).use { statement ->
-            statement.setString(1, "%$query%")
-            statement.setString(2, "%$query%")
-            statement.executeQuery().use { rows ->
-                buildList {
-                    while (rows.next()) {
-                        val title = rows.getString(1)
-                        val artist = rows.getString(2)
-                        val id = UUID.nameUUIDFromBytes("$title::$artist".toByteArray(Charsets.UTF_8)).toString()
-                        add(
-                            AlbumItem(
-                                id = id,
-                                title = title,
-                                artist = artist.takeIf { it != "Unknown Artist" },
-                                albumArtist = artist.takeIf { it != "Unknown Artist" },
-                                trackCount = rows.getInt(3),
-                                totalDurationMillis = rows.getLong(4),
-                                artworkUri = rows.getString(5),
-                                releaseYear = rows.getInt(6).takeIf { !rows.wasNull() },
-                            ),
-                        )
+    @Synchronized
+    fun albums(query: String = ""): List<AlbumItem> {
+        val trimmed = query.trim()
+        val currentGen = mutableGeneration.value
+        val all = if (cachedAlbumGeneration == currentGen) {
+            cachedAlbums
+        } else {
+            val loaded = database.transaction { connection ->
+                connection.prepareStatement(
+                    "SELECT COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album') AS album_title, " +
+                        "COALESCE(NULLIF(TRIM(x.album_artist), ''), NULLIF(TRIM(x.artist), ''), 'Unknown Artist') AS album_artist, " +
+                        "COUNT(m.id) AS track_count, " +
+                        "COALESCE(SUM(COALESCE(x.duration_ms, 0)), 0) AS total_duration, " +
+                        "MAX(x.artwork_uri) AS artwork_uri, " +
+                        "MAX(x.release_year) AS release_year " +
+                        "FROM media_items m " +
+                        "LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                        "WHERE m.available=1 AND m.kind='AUDIO' " +
+                        "GROUP BY 1, 2 " +
+                        "ORDER BY album_title COLLATE NOCASE",
+                ).use { statement ->
+                    statement.executeQuery().use { rows ->
+                        buildList {
+                            while (rows.next()) {
+                                val title = rows.getString(1)
+                                val artist = rows.getString(2)
+                                val id = UUID.nameUUIDFromBytes("$title::$artist".toByteArray(Charsets.UTF_8)).toString()
+                                add(
+                                    AlbumItem(
+                                        id = id,
+                                        title = title,
+                                        artist = artist.takeIf { it != "Unknown Artist" },
+                                        albumArtist = artist.takeIf { it != "Unknown Artist" },
+                                        trackCount = rows.getInt(3),
+                                        totalDurationMillis = rows.getLong(4),
+                                        artworkUri = rows.getString(5),
+                                        releaseYear = rows.getInt(6).takeIf { !rows.wasNull() },
+                                    ),
+                                )
+                            }
+                        }
                     }
                 }
             }
+            cachedAlbums = loaded
+            cachedAlbumGeneration = currentGen
+            loaded
+        }
+        return if (trimmed.isEmpty()) all else all.filter {
+            it.title.contains(trimmed, ignoreCase = true) ||
+                (it.albumArtist ?: it.artist).orEmpty().contains(trimmed, ignoreCase = true)
         }
     }
 
@@ -147,37 +181,50 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         return AlbumDetails(album, tracks)
     }
 
-    fun artists(query: String = ""): List<ArtistItem> = database.transaction { connection ->
-        connection.prepareStatement(
-            "SELECT COALESCE(NULLIF(TRIM(x.artist), ''), NULLIF(TRIM(x.album_artist), ''), 'Unknown Artist') AS artist_name, " +
-                "COUNT(DISTINCT COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album')) AS album_count, " +
-                "COUNT(m.id) AS track_count, " +
-                "MAX(x.artwork_uri) AS artwork_uri " +
-                "FROM media_items m " +
-                "LEFT JOIN media_metadata x ON x.media_id=m.id " +
-                "WHERE m.available=1 AND m.kind='AUDIO' " +
-                "GROUP BY 1 " +
-                "HAVING artist_name LIKE ? " +
-                "ORDER BY artist_name COLLATE NOCASE",
-        ).use { statement ->
-            statement.setString(1, "%$query%")
-            statement.executeQuery().use { rows ->
-                buildList {
-                    while (rows.next()) {
-                        val name = rows.getString(1)
-                        val id = UUID.nameUUIDFromBytes(name.toByteArray(Charsets.UTF_8)).toString()
-                        add(
-                            ArtistItem(
-                                id = id,
-                                name = name,
-                                albumCount = rows.getInt(2),
-                                trackCount = rows.getInt(3),
-                                artworkUri = rows.getString(4),
-                            ),
-                        )
+    @Synchronized
+    fun artists(query: String = ""): List<ArtistItem> {
+        val trimmed = query.trim()
+        val currentGen = mutableGeneration.value
+        val all = if (cachedArtistGeneration == currentGen) {
+            cachedArtists
+        } else {
+            val loaded = database.transaction { connection ->
+                connection.prepareStatement(
+                    "SELECT COALESCE(NULLIF(TRIM(x.artist), ''), NULLIF(TRIM(x.album_artist), ''), 'Unknown Artist') AS artist_name, " +
+                        "COUNT(DISTINCT COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album')) AS album_count, " +
+                        "COUNT(m.id) AS track_count, " +
+                        "MAX(x.artwork_uri) AS artwork_uri " +
+                        "FROM media_items m " +
+                        "LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                        "WHERE m.available=1 AND m.kind='AUDIO' " +
+                        "GROUP BY 1 " +
+                        "ORDER BY artist_name COLLATE NOCASE",
+                ).use { statement ->
+                    statement.executeQuery().use { rows ->
+                        buildList {
+                            while (rows.next()) {
+                                val name = rows.getString(1)
+                                val id = UUID.nameUUIDFromBytes(name.toByteArray(Charsets.UTF_8)).toString()
+                                add(
+                                    ArtistItem(
+                                        id = id,
+                                        name = name,
+                                        albumCount = rows.getInt(2),
+                                        trackCount = rows.getInt(3),
+                                        artworkUri = rows.getString(4),
+                                    ),
+                                )
+                            }
+                        }
                     }
                 }
             }
+            cachedArtists = loaded
+            cachedArtistGeneration = currentGen
+            loaded
+        }
+        return if (trimmed.isEmpty()) all else all.filter {
+            it.name.contains(trimmed, ignoreCase = true)
         }
     }
 

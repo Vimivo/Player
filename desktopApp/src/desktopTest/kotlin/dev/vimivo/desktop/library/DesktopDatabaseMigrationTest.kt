@@ -24,7 +24,7 @@ class DesktopDatabaseMigrationTest {
             database.transaction { conn ->
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(4, rs.getInt(1), "Fresh database must initialize to schema version 4")
+                    assertEquals(5, rs.getInt(1), "Fresh database must initialize to schema version 5")
                 }
             }
         }
@@ -61,13 +61,13 @@ class DesktopDatabaseMigrationTest {
             }
         }
 
-        // Open with DesktopDatabase, triggering migration 1 -> 2 -> 3 -> 4
+        // Open with DesktopDatabase, triggering migration 1 -> 2 -> 3 -> 4 -> 5
         DesktopDatabase.open(dbPath).use { database ->
             database.transaction { conn ->
                 // Check schema version
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(4, rs.getInt(1))
+                    assertEquals(5, rs.getInt(1))
                 }
 
                 // Verify original data is intact
@@ -145,13 +145,13 @@ class DesktopDatabaseMigrationTest {
             }
         }
 
-        // Open with DesktopDatabase, migrating 2 -> 3 -> 4
+        // Open with DesktopDatabase, migrating 2 -> 3 -> 4 -> 5
         DesktopDatabase.open(dbPath).use { database ->
             database.transaction { conn ->
-                // Schema version should now be 4
+                // Schema version should now be 5
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(4, rs.getInt(1))
+                    assertEquals(5, rs.getInt(1))
                 }
 
                 // Verify metadata title column added by v3 migration exists
@@ -210,12 +210,12 @@ class DesktopDatabaseMigrationTest {
             }
         }
 
-        // Open with DesktopDatabase, migrating 3 -> 4
+        // Open with DesktopDatabase, migrating 3 -> 4 -> 5
         DesktopDatabase.open(dbPath).use { database ->
             database.transaction { conn ->
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(4, rs.getInt(1))
+                    assertEquals(5, rs.getInt(1))
                 }
 
                 // Verify queue tables exist and cascade delete when media is removed
@@ -233,6 +233,76 @@ class DesktopDatabaseMigrationTest {
     }
 
     @Test
+    fun upgradeFromSchemaVersion4AddsOptimizedIndexes() {
+        val tempDir = Files.createTempDirectory("vimivo-v4-upgrade")
+        val dbPath = tempDir.resolve("v4.sqlite")
+
+        // Build Schema Version 4 database
+        DriverManager.getConnection("jdbc:sqlite:${dbPath.toAbsolutePath()}").use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute("CREATE TABLE schema_version (version INTEGER NOT NULL)")
+                stmt.execute("INSERT INTO schema_version(version) VALUES (4)")
+                stmt.execute(
+                    "CREATE TABLE library_roots (id TEXT PRIMARY KEY, uri TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL, " +
+                        "added_at_ms INTEGER NOT NULL, last_scan_ms INTEGER, available INTEGER NOT NULL DEFAULT 1)",
+                )
+                stmt.execute(
+                    "CREATE TABLE media_items (id TEXT PRIMARY KEY, root_id TEXT NOT NULL, uri TEXT NOT NULL UNIQUE, " +
+                        "file_name TEXT NOT NULL, title TEXT NOT NULL, kind TEXT NOT NULL, mime_type TEXT, size_bytes INTEGER, " +
+                        "modified_ms INTEGER, indexed_ms INTEGER NOT NULL, available INTEGER NOT NULL DEFAULT 1, " +
+                        "FOREIGN KEY(root_id) REFERENCES library_roots(id))",
+                )
+                stmt.execute(
+                    "CREATE TABLE media_metadata (media_id TEXT PRIMARY KEY, artist TEXT, album TEXT, title TEXT, " +
+                        "album_artist TEXT, genre TEXT, track_number INTEGER, disc_number INTEGER, release_year INTEGER, " +
+                        "duration_ms INTEGER, bitrate INTEGER, sample_rate INTEGER, channels INTEGER, video_width INTEGER, " +
+                        "video_height INTEGER, frame_rate REAL, video_codec TEXT, audio_codec TEXT, container TEXT, " +
+                        "audio_track_count INTEGER, subtitle_track_count INTEGER, artwork_uri TEXT, thumbnail_uri TEXT, " +
+                        "extraction_version INTEGER NOT NULL DEFAULT 1, extraction_status TEXT NOT NULL DEFAULT 'PENDING', " +
+                        "extraction_error TEXT, extracted_size_bytes INTEGER, extracted_modified_ms INTEGER, updated_at_ms INTEGER NOT NULL, " +
+                        "FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE CASCADE)",
+                )
+                stmt.execute("CREATE TABLE playlists (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL)")
+                stmt.execute(
+                    "CREATE TABLE playlist_items (playlist_id TEXT NOT NULL, media_id TEXT NOT NULL, position INTEGER NOT NULL, " +
+                        "added_at_ms INTEGER NOT NULL, PRIMARY KEY(playlist_id, media_id))",
+                )
+                stmt.execute("INSERT INTO library_roots VALUES ('root-4', 'file:///music4', 'Music 4', 1000, 1000, 1)")
+                stmt.execute("INSERT INTO media_items VALUES ('song-4', 'root-4', 'file:///music4/s4.mp3', 's4.mp3', 'Song 4', 'AUDIO', 'audio/mpeg', 1024, 1000, 1000, 1)")
+                stmt.execute("INSERT INTO media_metadata(media_id, artist, album, album_artist, updated_at_ms) VALUES ('song-4', 'Artist Four', 'Album Four', 'Artist Four', 1500)")
+                stmt.execute("INSERT INTO playlists VALUES ('pl-4', 'Playlist Four', 1500, 1500)")
+                stmt.execute("INSERT INTO playlist_items VALUES ('pl-4', 'song-4', 0, 1500)")
+            }
+        }
+
+        // Open with DesktopDatabase, migrating 4 -> 5
+        DesktopDatabase.open(dbPath).use { database ->
+            database.transaction { conn ->
+                conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
+                    assertTrue(rs.next())
+                    assertEquals(5, rs.getInt(1), "Database must be migrated to schema version 5")
+                }
+
+                // Verify indexes created in v5
+                conn.createStatement().executeQuery(
+                    "SELECT name FROM sqlite_master WHERE type='index' AND name IN (" +
+                        "'media_items_kind_available', 'media_items_file_name', 'media_metadata_album_artist', " +
+                        "'media_metadata_lookup', 'playlist_items_media_id')",
+                ).use { rs ->
+                    val indexNames = buildList { while (rs.next()) add(rs.getString(1)) }
+                    assertEquals(5, indexNames.size, "All 5 performance indexes must exist")
+                }
+
+                // Verify data integrity
+                conn.createStatement().executeQuery("SELECT title FROM media_items WHERE id = 'song-4'").use { rs ->
+                    assertTrue(rs.next())
+                    assertEquals("Song 4", rs.getString(1))
+                }
+            }
+        }
+    }
+
+    @Test
     fun databaseWithNewerVersionFailsFastToProtectUserData() {
         val tempDir = Files.createTempDirectory("vimivo-future-db")
         val dbPath = tempDir.resolve("future.sqlite")
@@ -240,7 +310,7 @@ class DesktopDatabaseMigrationTest {
         DriverManager.getConnection("jdbc:sqlite:${dbPath.toAbsolutePath()}").use { conn ->
             conn.createStatement().use { stmt ->
                 stmt.execute("CREATE TABLE schema_version (version INTEGER NOT NULL)")
-                stmt.execute("INSERT INTO schema_version(version) VALUES (5)")
+                stmt.execute("INSERT INTO schema_version(version) VALUES (6)")
             }
         }
 

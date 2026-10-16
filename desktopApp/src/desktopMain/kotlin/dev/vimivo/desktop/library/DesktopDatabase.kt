@@ -59,6 +59,7 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             if (version < 2) migrateToVersion2(statement)
             if (version < 3) migrateToVersion3(statement)
             if (version < 4) migrateToVersion4(statement)
+            if (version < 5) migrateToVersion5(statement)
         }
     }
 
@@ -132,10 +133,23 @@ internal class DesktopDatabase private constructor(private val connection: Conne
         statement.execute("UPDATE schema_version SET version=4")
     }
 
+    private fun migrateToVersion5(statement: java.sql.Statement) {
+        statement.execute("CREATE INDEX IF NOT EXISTS media_items_kind_available ON media_items(kind, available)")
+        statement.execute("CREATE INDEX IF NOT EXISTS media_items_file_name ON media_items(file_name COLLATE NOCASE)")
+        statement.execute("CREATE INDEX IF NOT EXISTS media_metadata_album_artist ON media_metadata(album_artist COLLATE NOCASE)")
+        statement.execute("CREATE INDEX IF NOT EXISTS media_metadata_lookup ON media_metadata(album COLLATE NOCASE, artist COLLATE NOCASE)")
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS playlist_items (playlist_id TEXT NOT NULL, media_id TEXT NOT NULL, position INTEGER NOT NULL, " +
+                "added_at_ms INTEGER NOT NULL, PRIMARY KEY(playlist_id, media_id))",
+        )
+        statement.execute("CREATE INDEX IF NOT EXISTS playlist_items_media_id ON playlist_items(media_id)")
+        statement.execute("UPDATE schema_version SET version=5")
+    }
+
     override fun close() = connection.close()
 
     companion object {
-        private const val SCHEMA_VERSION = 4
+        private const val SCHEMA_VERSION = 5
 
         fun open(path: Path = defaultPath()): DesktopDatabase {
             Files.createDirectories(path.parent)

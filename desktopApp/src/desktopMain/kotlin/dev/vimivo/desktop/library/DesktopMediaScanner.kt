@@ -45,13 +45,15 @@ internal class DesktopMediaScanner(private val database: DesktopDatabase) {
                     "title=excluded.title,kind=excluded.kind,mime_type=excluded.mime_type,size_bytes=excluded.size_bytes," +
                     "modified_ms=excluded.modified_ms,indexed_ms=excluded.indexed_ms,available=1",
             ).use { statement ->
-                candidates.forEach { item ->
-                    statement.setString(1, item.id.value); statement.setString(2, rootId); statement.setString(3, item.uri)
-                    statement.setString(4, item.fileName); statement.setString(5, item.title); statement.setString(6, item.kind.name)
-                    statement.setString(7, item.mimeType); statement.setLong(8, item.sizeBytes ?: 0); statement.setLong(9, (item.dateModifiedEpochSeconds ?: 0) * 1000)
-                    statement.setLong(10, System.currentTimeMillis()); statement.addBatch()
+                candidates.chunked(BATCH_CHUNK_SIZE).forEach { chunk ->
+                    chunk.forEach { item ->
+                        statement.setString(1, item.id.value); statement.setString(2, rootId); statement.setString(3, item.uri)
+                        statement.setString(4, item.fileName); statement.setString(5, item.title); statement.setString(6, item.kind.name)
+                        statement.setString(7, item.mimeType); statement.setLong(8, item.sizeBytes ?: 0); statement.setLong(9, (item.dateModifiedEpochSeconds ?: 0) * 1000)
+                        statement.setLong(10, System.currentTimeMillis()); statement.addBatch()
+                    }
+                    statement.executeBatch()
                 }
-                statement.executeBatch()
             }
             connection.prepareStatement("UPDATE library_roots SET last_scan_ms=?, available=1 WHERE id=?").use { statement ->
                 statement.setLong(1, System.currentTimeMillis()); statement.setString(2, rootId); statement.executeUpdate()
@@ -76,6 +78,7 @@ internal class DesktopMediaScanner(private val database: DesktopDatabase) {
     private fun identity(rootId: String, uri: String) = MessageDigest.getInstance("SHA-256").digest("$rootId\u0000$uri".toByteArray()).joinToString("") { "%02x".format(it) }
 
     private companion object {
+        const val BATCH_CHUNK_SIZE = 500
         val AUDIO_EXTENSIONS = setOf("mp3", "aac", "m4a", "flac", "wav", "ogg", "opus", "alac", "aiff", "aif", "wma", "ape")
         val SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + setOf("mp4", "mkv", "mov", "avi", "webm", "m4v", "mpeg", "mpg", "ts", "m2ts", "flv", "wmv", "3gp")
     }
