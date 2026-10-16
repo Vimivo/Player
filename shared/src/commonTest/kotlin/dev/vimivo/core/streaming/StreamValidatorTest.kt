@@ -136,6 +136,72 @@ class StreamValidatorTest {
     }
 
     @Test
+    fun testToStreamSourceMapping() {
+        val hlsResult = StreamValidator.validate("https://example.com/live.m3u8")
+        assertIs<StreamValidationResult.Valid>(hlsResult)
+        val hlsSource = StreamValidator.toStreamSource(hlsResult)
+        assertIs<StreamSource.HlsStream>(hlsSource)
+        assertEquals("https://example.com/live.m3u8", hlsSource.url)
+        assertEquals(StreamProtocol.HLS, hlsSource.protocol)
+        assertTrue(hlsSource.isLive)
+
+        val directResult = StreamValidator.validate("https://example.com/video.mp4")
+        assertIs<StreamValidationResult.Valid>(directResult)
+        val directSource = StreamValidator.toStreamSource(directResult)
+        assertIs<StreamSource.DirectHttpMedia>(directSource)
+        assertEquals("https://example.com/video.mp4", directSource.url)
+        assertFalse(directSource.isLive)
+
+        val rtspResult = StreamValidator.validate("rtsp://10.0.0.1:554/stream")
+        assertIs<StreamValidationResult.Valid>(rtspResult)
+        val rtspSource = StreamValidator.toStreamSource(rtspResult)
+        assertIs<StreamSource.RtspStream>(rtspSource)
+        assertTrue(rtspSource.isLive)
+
+        val radioResult = StreamValidator.validate("http://stream.radio.org:8000/live")
+        assertIs<StreamValidationResult.Valid>(radioResult)
+        val radioSource = StreamValidator.toStreamSource(radioResult)
+        assertIs<StreamSource.InternetRadio>(radioSource)
+        assertTrue(radioSource.isLive)
+    }
+
+    @Test
+    fun testHttpStatusClassification() {
+        assertEquals(StreamFailureReason.HTTP_FORBIDDEN, StreamValidator.classifyHttpStatus(401))
+        assertEquals(StreamFailureReason.HTTP_FORBIDDEN, StreamValidator.classifyHttpStatus(403))
+        assertEquals(StreamFailureReason.NOT_FOUND, StreamValidator.classifyHttpStatus(404))
+        assertEquals(StreamFailureReason.TIMEOUT, StreamValidator.classifyHttpStatus(408))
+        assertEquals(StreamFailureReason.EXPIRED_URL, StreamValidator.classifyHttpStatus(410))
+        assertEquals(StreamFailureReason.CONNECTION_FAILED, StreamValidator.classifyHttpStatus(429))
+        assertEquals(StreamFailureReason.CONNECTION_FAILED, StreamValidator.classifyHttpStatus(500))
+        assertEquals(StreamFailureReason.CONNECTION_FAILED, StreamValidator.classifyHttpStatus(503))
+        assertEquals(StreamFailureReason.UNKNOWN, StreamValidator.classifyHttpStatus(200))
+    }
+
+    @Test
+    fun testHeaderValidation() {
+        val validHeaders = mapOf(
+            "User-Agent" to "Vimivo/1.0",
+            "Authorization" to "Bearer token123",
+            "Referer" to "https://example.com",
+        )
+        val validated = StreamValidator.validateHeaders(validHeaders)
+        assertTrue(validated.isSuccess)
+        assertEquals(3, validated.getOrNull()?.size)
+
+        // Blank header name rejected
+        assertTrue(StreamValidator.validateHeaders(mapOf("" to "value")).isFailure)
+
+        // Header name with illegal characters (colon, CRLF) rejected
+        assertTrue(StreamValidator.validateHeaders(mapOf("Header:Name" to "value")).isFailure)
+        assertTrue(StreamValidator.validateHeaders(mapOf("Header\r\nName" to "value")).isFailure)
+
+        // Header value with CRLF injection rejected
+        assertTrue(StreamValidator.validateHeaders(mapOf("Header" to "value\r\nInjected: true")).isFailure)
+        assertTrue(StreamValidator.validateHeaders(mapOf("Header" to "value\nInjected: true")).isFailure)
+    }
+
+    @Test
     fun testToMediaItemConversion() {
         val result = StreamValidator.validate("https://example.com/streams/live.m3u8")
         assertIs<StreamValidationResult.Valid>(result)
