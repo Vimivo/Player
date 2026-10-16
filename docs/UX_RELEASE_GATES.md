@@ -15,7 +15,8 @@ This document formalizes the release gating criteria for Milestones 47 and 48.
 
 ### Milestone 48: Accessibility & Hardening
 - [x] **Compose Semantics**: Every interactive icon, button, slider, and tab exposes descriptive contentDescription, role, and stateDescription.
-- [x] **Platform Screen Readers**: Verified with TalkBack (Android), VoiceOver (iOS/iPadOS/macOS), and Java Access Bridge (Windows).
+- [ ] **Platform Screen Readers**: Host source audit completed; TalkBack, VoiceOver, and Java Access Bridge require
+  physical-device/assistive-technology verification before release.
 - [x] **Honest Linux Reporting**: Linux Compose Desktop's lack of native AT-SPI bridge is truthfully disclosed without false claims.
 - [x] **Keyboard Navigation**: 100% of core actions and destinations accessible via Tab, Shift+Tab, Arrows, Space, and Enter with visible focus rings.
 - [x] **Non-Drag Alternatives**: Queue and playlist items feature accessible "Move Up" and "Move Down" controls.
