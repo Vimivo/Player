@@ -60,6 +60,7 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             if (version < 3) migrateToVersion3(statement)
             if (version < 4) migrateToVersion4(statement)
             if (version < 5) migrateToVersion5(statement)
+            if (version < 6) migrateToVersion6(statement)
         }
     }
 
@@ -146,10 +147,52 @@ internal class DesktopDatabase private constructor(private val connection: Conne
         statement.execute("UPDATE schema_version SET version=5")
     }
 
+    private fun migrateToVersion6(statement: java.sql.Statement) {
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS user_metadata_overrides (" +
+                "media_id TEXT PRIMARY KEY, title TEXT, artist TEXT, album TEXT, album_artist TEXT, genre TEXT, " +
+                "release_year INTEGER, track_number INTEGER, disc_number INTEGER, updated_at_ms INTEGER NOT NULL, " +
+                "FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE CASCADE)",
+        )
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS user_artwork_overrides (" +
+                "media_id TEXT PRIMARY KEY, artwork_uri TEXT NOT NULL, updated_at_ms INTEGER NOT NULL, " +
+                "FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE CASCADE)",
+        )
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS smart_playlists (" +
+                "id TEXT PRIMARY KEY, name TEXT NOT NULL, rules_json TEXT NOT NULL, sort_field TEXT NOT NULL DEFAULT 'TITLE', " +
+                "sort_descending INTEGER NOT NULL DEFAULT 0, item_limit INTEGER, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL)",
+        )
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS media_hashes (" +
+                "media_id TEXT PRIMARY KEY, content_hash TEXT NOT NULL, file_size_bytes INTEGER NOT NULL, modified_ms INTEGER NOT NULL, " +
+                "updated_at_ms INTEGER NOT NULL, FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE CASCADE)",
+        )
+        statement.execute("CREATE INDEX IF NOT EXISTS media_hashes_lookup ON media_hashes(content_hash, file_size_bytes)")
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS batch_operation_journal (" +
+                "job_id TEXT PRIMARY KEY, operation_type TEXT NOT NULL, stage TEXT NOT NULL, affected_count INTEGER NOT NULL DEFAULT 0, " +
+                "details TEXT NOT NULL, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL)",
+        )
+        statement.execute("CREATE INDEX IF NOT EXISTS batch_journal_created ON batch_operation_journal(created_at_ms DESC)")
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS workflow_rules (" +
+                "id TEXT PRIMARY KEY, name TEXT NOT NULL, trigger_type TEXT NOT NULL, action_type TEXT NOT NULL, " +
+                "enabled INTEGER NOT NULL DEFAULT 1, last_run_ms INTEGER, last_status TEXT)",
+        )
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS dismissed_recommendations (" +
+                "target_type TEXT NOT NULL, target_id TEXT NOT NULL, dismissed_at_ms INTEGER NOT NULL, PRIMARY KEY(target_type, target_id))",
+        )
+        statement.execute("CREATE TABLE IF NOT EXISTS personalization_preferences (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        statement.execute("UPDATE schema_version SET version=6")
+    }
+
     override fun close() = connection.close()
 
     companion object {
-        private const val SCHEMA_VERSION = 5
+        private const val SCHEMA_VERSION = 6
 
         fun open(path: Path = defaultPath()): DesktopDatabase {
             Files.createDirectories(path.parent)

@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -287,7 +289,15 @@ private fun DesktopPlayer(
                     ) {
                         Text(destination.title, style = MaterialTheme.typography.headlineLarge)
                         Text(destination.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (destination in setOf(DesktopDestination.Home, DesktopDestination.Music, DesktopDestination.Videos)) {
+            if (destination == DesktopDestination.Home) {
+                DesktopPersonalizedHomePanel(
+                    state = libraryState,
+                    onPlay = playMedia,
+                    onDismissRecommendation = library::dismissRecommendation,
+                    onTogglePersonalization = library::setPersonalizationEnabled,
+                )
+            }
+            if (destination in setOf(DesktopDestination.Music, DesktopDestination.Videos)) {
                 DesktopLibraryPanel(
                     destination = destination,
                     state = libraryState,
@@ -434,6 +444,35 @@ private fun DesktopPlayer(
                     onRemove = library::removeHistory,
                     onClear = library::clearHistory,
                 )
+            }
+            if (destination == DesktopDestination.SmartPlaylists) {
+                DesktopSmartPlaylistsPanel(
+                    state = libraryState,
+                    controller = library,
+                    onPlay = playMedia,
+                )
+            }
+            if (destination == DesktopDestination.Duplicates) {
+                DesktopDuplicatesPanel(
+                    state = libraryState,
+                    controller = library,
+                    onPlay = playMedia,
+                )
+            }
+            if (destination == DesktopDestination.Insights) {
+                DesktopInsightsPanel(state = libraryState)
+            }
+            if (destination == DesktopDestination.MetadataEditor) {
+                DesktopMetadataEditorPanel(state = libraryState, controller = library)
+            }
+            if (destination == DesktopDestination.BatchRename) {
+                DesktopBatchRenamePanel(state = libraryState, controller = library)
+            }
+            if (destination == DesktopDestination.MissingMedia) {
+                DesktopMissingMediaPanel(state = libraryState, controller = library)
+            }
+            if (destination == DesktopDestination.Automation) {
+                DesktopAutomationHealthPanel(state = libraryState, controller = library)
             }
             if (destination == DesktopDestination.Settings) {
                 DesktopSettingsPanel(
@@ -768,8 +807,9 @@ private fun DesktopSidebar(
     onDestinationSelected: (DesktopDestination) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scrollState = rememberScrollState()
     Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text("Vimivo", style = MaterialTheme.typography.titleLarge)
@@ -813,12 +853,19 @@ private enum class DesktopDestination(
     val emptyTitle: String,
     val emptyDetail: String,
 ) {
-    Home("Home", "Your listening and viewing space", "Open media to begin", "Vimivo keeps your media on this device."),
+    Home("Home", "Personalized offline dashboard", "Open media to begin", "Vimivo keeps your media on this device."),
     Music("Music", "Songs and tracks in your library", "Your music library is empty", "Add and scan a library folder from Home."),
     Albums("Albums", "Browse albums and complete discographies", "No albums yet", "Add and scan music folders with album metadata."),
     Artists("Artists", "Musicians, bands, and composers", "No artists yet", "Add and scan music folders with artist metadata."),
     Videos("Videos", "Local videos and resume points", "Your video library is empty", "Add and scan a library folder from Home, or open a video directly."),
     Playlists("Playlists", "Your local collections", "No playlists yet", "Create a playlist to organize your media."),
+    SmartPlaylists("Smart Playlists", "Dynamic rule-based collections", "No smart playlists yet", "Create a rule-based smart collection."),
+    Duplicates("Duplicates", "Safe duplicate review", "No duplicate groups found", "Scan your library to find duplicate content clusters."),
+    Insights("Insights", "Private listening and watching statistics", "No playback history", "Insights appear as you play media offline."),
+    MetadataEditor("Metadata", "Overrides and embedded tag editing", "No media selected", "Select items to view or edit metadata."),
+    BatchRename("Rename", "Pattern-based file renaming", "No files ready for renaming", "Select a pattern to preview renames."),
+    MissingMedia("Relink", "Reconcile moved or missing files", "All library media is available", "No missing files detected."),
+    Automation("Automation", "Maintenance jobs and health report", "Library is healthy", "Run maintenance jobs or configure rules."),
     Favorites("Favorites", "Media you marked for quick access", "No favorites yet", "Favorite controls are available on media cards."),
     History("History", "Recently played and watched", "No playback history", "Played library media appears here."),
     Network("Network", "Authorized streams and remote media", "Open an authorized stream", "Paste an HTTP, HTTPS, or RTSP address above."),

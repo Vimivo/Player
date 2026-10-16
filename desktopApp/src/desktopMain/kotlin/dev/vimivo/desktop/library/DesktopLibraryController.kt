@@ -1,6 +1,7 @@
 @file:Suppress(
     "ArgumentListWrapping", "CyclomaticComplexMethod", "ImportOrdering", "Indentation",
-    "MaximumLineLength", "MaxLineLength", "ParameterListWrapping", "TooGenericExceptionCaught", "TooManyFunctions", "Wrapping",
+    "LongParameterList", "MaximumLineLength", "MaxLineLength", "ParameterListWrapping",
+    "TooGenericExceptionCaught", "TooManyFunctions", "Wrapping",
 )
 
 package dev.vimivo.desktop.library
@@ -9,12 +10,27 @@ import dev.vimivo.core.model.AlbumDetails
 import dev.vimivo.core.model.AlbumItem
 import dev.vimivo.core.model.ArtistDetails
 import dev.vimivo.core.model.ArtistItem
+import dev.vimivo.core.model.AutomationActionType
+import dev.vimivo.core.model.AutomationTrigger
 import dev.vimivo.core.model.Bookmark
+import dev.vimivo.core.model.DuplicateGroup
+import dev.vimivo.core.model.JournalEntry
+import dev.vimivo.core.model.LibraryHealthReport
+import dev.vimivo.core.model.ListeningInsights
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.core.model.MetadataChangeset
+import dev.vimivo.core.model.MissingMediaCandidate
+import dev.vimivo.core.model.OrganizePlanItem
 import dev.vimivo.core.model.PlaybackHistory
 import dev.vimivo.core.model.Playlist
+import dev.vimivo.core.model.RecommendationItem
+import dev.vimivo.core.model.RenamePlanItem
+import dev.vimivo.core.model.SmartPlaylistDefinition
+import dev.vimivo.core.model.SmartRuleCondition
+import dev.vimivo.core.model.WatchingInsights
+import dev.vimivo.core.model.WorkflowRule
 import dev.vimivo.playback.PlaybackQueueSnapshot
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
@@ -22,6 +38,7 @@ import dev.vimivo.playback.QueueItem
 import dev.vimivo.settings.ThemeMode
 import java.io.File
 import java.net.URI
+import java.nio.file.Path
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,6 +59,16 @@ internal data class DesktopLibraryUiState(
     val albums: List<AlbumItem> = emptyList(),
     val artists: List<ArtistItem> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
+    val smartPlaylists: List<SmartPlaylistDefinition> = emptyList(),
+    val duplicateGroups: List<DuplicateGroup> = emptyList(),
+    val recommendations: List<RecommendationItem> = emptyList(),
+    val listeningInsights: ListeningInsights? = null,
+    val watchingInsights: WatchingInsights? = null,
+    val workflowRules: List<WorkflowRule> = emptyList(),
+    val journalEntries: List<JournalEntry> = emptyList(),
+    val healthReport: LibraryHealthReport? = null,
+    val selectedMediaIds: Set<MediaId> = emptySet(),
+    val personalizationEnabled: Boolean = true,
     val personalMedia: Map<MediaId, MediaItem> = emptyMap(),
     val favorites: List<MediaItem> = emptyList(),
     val history: List<DesktopHistoryItem> = emptyList(),
@@ -63,6 +90,14 @@ internal class DesktopLibraryController(
     private val repository = DesktopLibraryRepository(database)
     private val personalRepository = DesktopPersonalMediaRepository(database)
     private val queueRepository = DesktopPlaybackQueueRepository(database)
+    val metadataEditor = DesktopMetadataEditorService(database)
+    val renameOrganizer = DesktopBatchRenameOrganizer(database)
+    val missingMediaRelinker = DesktopMissingMediaRelinker(database)
+    val automationEngine = DesktopAutomationEngine(database)
+    val smartPlaylistRepo = DesktopSmartPlaylistRepository(database)
+    val duplicateService = DesktopDuplicateDetectionService(database)
+    val recommendationEngine = DesktopRecommendationEngine(database)
+    val insightsCalculator = DesktopInsightsCalculator()
     private val coordinator = LibraryScanCoordinator(
         repository,
         DesktopMediaScanner(database),
@@ -293,6 +328,21 @@ internal class DesktopLibraryController(
             val personalMedia = repository.media(
                 playlists.flatMap(Playlist::items) + favoriteIds + history.map(PlaybackHistory::mediaId),
             ).associateBy { it.id }
+
+            val allAudio = repository.allMedia(MediaKind.AUDIO).map { it.copy(isFavorite = it.id.value in favoriteIdSet) }
+            val allVideo = repository.allMedia(MediaKind.VIDEO).map { it.copy(isFavorite = it.id.value in favoriteIdSet) }
+            val allMediaList = allAudio + allVideo
+
+            val smartPlaylists = smartPlaylistRepo.smartPlaylists()
+            val workflowRules = automationEngine.rules()
+            val journalEntries = automationEngine.journalEntries(20)
+            val personalizationEnabled = recommendationEngine.isPersonalizationEnabled()
+            val positions = allMediaList.mapNotNull { personalRepository.position(it.id)?.let { p -> it.id.value to p } }.toMap()
+            val recommendations = recommendationEngine.generateRecommendations(allMediaList, history, positions)
+            val listeningInsights = insightsCalculator.calculateListeningInsights(allMediaList, history)
+            val watchingInsights = insightsCalculator.calculateWatchingInsights(allMediaList, history, positions)
+            val healthReport = automationEngine.generateHealthReport(allMediaList)
+
             roots.forEach(::observeScan)
             mutableState.value = mutableState.value.copy(
                 roots = roots,
@@ -301,6 +351,15 @@ internal class DesktopLibraryController(
                 albums = repository.albums(query),
                 artists = repository.artists(query),
                 playlists = playlists,
+                smartPlaylists = smartPlaylists,
+                duplicateGroups = mutableState.value.duplicateGroups,
+                recommendations = recommendations,
+                listeningInsights = listeningInsights,
+                watchingInsights = watchingInsights,
+                workflowRules = workflowRules,
+                journalEntries = journalEntries,
+                healthReport = healthReport,
+                personalizationEnabled = personalizationEnabled,
                 personalMedia = personalMedia,
                 favorites = favorites,
                 history = history.mapNotNull { entry -> personalMedia[entry.mediaId]?.let { DesktopHistoryItem(it, entry) } },
@@ -310,6 +369,128 @@ internal class DesktopLibraryController(
                 error = null,
             )
         }.onFailure(::report)
+    }
+
+    fun toggleMediaSelection(mediaId: MediaId) {
+        val current = mutableState.value.selectedMediaIds
+        mutableState.value = mutableState.value.copy(
+            selectedMediaIds = if (mediaId in current) current - mediaId else current + mediaId,
+        )
+    }
+
+    fun clearSelection() {
+        mutableState.value = mutableState.value.copy(selectedMediaIds = emptySet())
+    }
+
+    fun selectAll(mediaList: List<MediaItem>) {
+        mutableState.value = mutableState.value.copy(selectedMediaIds = mediaList.map(MediaItem::id).toSet())
+    }
+
+    fun createSmartPlaylist(name: String, conditions: List<SmartRuleCondition>) =
+        mutatePersonalData { smartPlaylistRepo.createSmartPlaylist(name, conditions) }
+
+    fun deleteSmartPlaylist(id: String) =
+        mutatePersonalData { smartPlaylistRepo.deleteSmartPlaylist(id) }
+
+    fun evaluateSmartPlaylist(definition: SmartPlaylistDefinition): List<MediaItem> =
+        smartPlaylistRepo.evaluate(definition, mutableState.value.audio + mutableState.value.video)
+
+    fun scanDuplicates() = scope.launch(Dispatchers.IO) {
+        runCatching {
+            val duplicates = duplicateService.findDuplicates(mutableState.value.audio + mutableState.value.video)
+            mutableState.value = mutableState.value.copy(duplicateGroups = duplicates)
+        }.onFailure(::report)
+    }
+
+    fun dismissRecommendation(targetType: String, targetId: String) =
+        mutatePersonalData { recommendationEngine.dismissRecommendation(targetType, targetId) }
+
+    fun clearDismissedRecommendations() =
+        mutatePersonalData { recommendationEngine.clearDismissed() }
+
+    fun setPersonalizationEnabled(enabled: Boolean) = mutatePersonalData {
+        recommendationEngine.setPersonalizationEnabled(enabled)
+    }
+
+    fun createWorkflowRule(name: String, trigger: AutomationTrigger, action: AutomationActionType) =
+        mutatePersonalData { automationEngine.createRule(name, trigger, action) }
+
+    fun deleteWorkflowRule(id: String) =
+        mutatePersonalData { automationEngine.deleteRule(id) }
+
+    fun dryRunRule(rule: WorkflowRule): DryRunResult =
+        automationEngine.dryRun(rule, mutableState.value.audio + mutableState.value.video)
+
+    fun saveMetadataOverride(
+        mediaId: MediaId,
+        title: String? = null,
+        artist: String? = null,
+        album: String? = null,
+        albumArtist: String? = null,
+        genre: String? = null,
+        releaseYear: Int? = null,
+        trackNumber: Int? = null,
+        discNumber: Int? = null,
+    ) = mutatePersonalData {
+        metadataEditor.saveOverride(mediaId, title, artist, album, albumArtist, genre, releaseYear, trackNumber, discNumber)
+        repository.invalidate()
+    }
+
+    fun clearMetadataOverride(mediaId: MediaId) = mutatePersonalData {
+        metadataEditor.clearOverride(mediaId)
+        repository.invalidate()
+    }
+
+    fun saveArtworkOverride(mediaId: MediaId, artworkUri: String) = mutatePersonalData {
+        metadataEditor.saveArtworkOverride(mediaId, artworkUri)
+        repository.invalidate()
+    }
+
+    fun clearArtworkOverride(mediaId: MediaId) = mutatePersonalData {
+        metadataEditor.clearArtworkOverride(mediaId)
+        repository.invalidate()
+    }
+
+    fun applyEmbeddedTagWrite(file: File, changeset: MetadataChangeset, backupDir: Path? = null): Result<Unit> {
+        val res = metadataEditor.applyEmbeddedTagWrite(file, changeset, backupDir)
+        if (res.isSuccess) repository.invalidate()
+        return res
+    }
+
+    fun applyEmbeddedArtworkWrite(file: File, artworkFile: File, backupDir: Path? = null): Result<Unit> {
+        val res = metadataEditor.applyEmbeddedArtworkWrite(file, artworkFile, backupDir)
+        if (res.isSuccess) repository.invalidate()
+        return res
+    }
+
+    fun evaluateRename(items: List<MediaItem>, template: String): List<RenamePlanItem> =
+        renameOrganizer.evaluateRename(items, template)
+
+    fun executeRename(plans: List<RenamePlanItem>): RenameExecutionResult {
+        val res = renameOrganizer.executeRename(plans)
+        repository.invalidate()
+        return res
+    }
+
+    fun evaluateOrganize(items: List<MediaItem>, targetRoot: Path, template: String): List<OrganizePlanItem> =
+        renameOrganizer.evaluateOrganize(items, targetRoot, template)
+
+    fun executeOrganize(plans: List<OrganizePlanItem>, isMove: Boolean): OrganizeExecutionResult {
+        val res = renameOrganizer.executeOrganize(plans, isMove)
+        repository.invalidate()
+        return res
+    }
+
+    fun findMissingMedia(): List<MediaItem> =
+        missingMediaRelinker.findMissingMedia(mutableState.value.audio + mutableState.value.video)
+
+    fun suggestRelinkCandidates(missing: MediaItem, searchRoots: List<File>): List<MissingMediaCandidate> =
+        missingMediaRelinker.findCandidates(missing, searchRoots)
+
+    fun relinkMedia(mediaId: MediaId, newFile: File): Result<Unit> {
+        val res = missingMediaRelinker.relink(mediaId, newFile)
+        if (res.isSuccess) repository.invalidate()
+        return res
     }
 
     private fun observeScan(root: LibraryRoot) {
