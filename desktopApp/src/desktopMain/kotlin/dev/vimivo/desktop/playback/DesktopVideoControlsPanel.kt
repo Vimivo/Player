@@ -23,6 +23,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.ExternalSubtitle
@@ -68,6 +72,10 @@ internal fun DesktopVideoControlsPanel(
                                 currentAdjustments = currentAdjustments.copy(aspectRatio = ratio)
                                 engine.applyVideoAdjustments(currentAdjustments)
                             },
+                            modifier = Modifier.semantics {
+                                role = Role.RadioButton
+                                contentDescription = "Aspect ratio ${ratio.label}, selected"
+                            },
                         ) { Text(ratio.label) }
                     } else {
                         OutlinedButton(
@@ -75,26 +83,42 @@ internal fun DesktopVideoControlsPanel(
                                 currentAdjustments = currentAdjustments.copy(aspectRatio = ratio)
                                 engine.applyVideoAdjustments(currentAdjustments)
                             },
+                            modifier = Modifier.semantics {
+                                role = Role.RadioButton
+                                contentDescription = "Aspect ratio ${ratio.label}"
+                            },
                         ) { Text(ratio.label) }
                     }
                 }
-                OutlinedButton(onClick = {
-                    val nextRotation = (currentAdjustments.rotationDegrees + 90) % 360
-                    currentAdjustments = currentAdjustments.copy(rotationDegrees = nextRotation)
-                    engine.applyVideoAdjustments(currentAdjustments)
-                }) {
+                OutlinedButton(
+                    onClick = {
+                        val nextRotation = (currentAdjustments.rotationDegrees + 90) % 360
+                        currentAdjustments = currentAdjustments.copy(rotationDegrees = nextRotation)
+                        engine.applyVideoAdjustments(currentAdjustments)
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Rotate video 90 degrees clockwise. Currently ${currentAdjustments.rotationDegrees} degrees"
+                    },
+                ) {
                     Text("Rotate 90° (${currentAdjustments.rotationDegrees}°)")
                 }
-                Button(onClick = {
-                    val userHome = System.getProperty("user.home")
-                    val desktop = File(userHome, "Desktop").takeIf { it.isDirectory } ?: File(userHome)
-                    val target = File(desktop, "vimivo_frame_${System.currentTimeMillis()}.png")
-                    engine.takeScreenshot(target.absolutePath).onSuccess {
-                        message = "Screenshot saved: ${target.name}"
-                    }.onFailure {
-                        message = "Screenshot failed: ${it.message}"
-                    }
-                }) {
+                Button(
+                    onClick = {
+                        val userHome = System.getProperty("user.home")
+                        val desktop = File(userHome, "Desktop").takeIf { it.isDirectory } ?: File(userHome)
+                        val target = File(desktop, "vimivo_frame_${System.currentTimeMillis()}.png")
+                        engine.takeScreenshot(target.absolutePath).onSuccess {
+                            message = "Screenshot saved: ${target.name}"
+                        }.onFailure {
+                            message = "Screenshot failed: ${it.message}"
+                        }
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Take frame screenshot and save to Desktop"
+                    },
+                ) {
                     Text("Screenshot")
                 }
             }
@@ -105,47 +129,95 @@ internal fun DesktopVideoControlsPanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedButton(onClick = {
-                    chooseSubtitleFile()?.let { file ->
-                        val sub = ExternalSubtitle(
-                            uri = file.toURI().toString(),
-                            label = file.name,
-                            language = null,
-                            mimeType = "application/x-subrip",
-                        )
-                        engine.addExternalSubtitle(sub).onSuccess {
-                            message = "Loaded subtitle: ${file.name}"
+                OutlinedButton(
+                    onClick = {
+                        chooseSubtitleFile()?.let { file ->
+                            val sub = ExternalSubtitle(
+                                uri = file.toURI().toString(),
+                                label = file.name,
+                                language = null,
+                                mimeType = "application/x-subrip",
+                            )
+                            engine.addExternalSubtitle(sub).onSuccess {
+                                message = "Loaded subtitle: ${file.name}"
+                            }
                         }
-                    }
-                }) {
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Load external subtitle file (.srt, .vtt, .ass)"
+                    },
+                ) {
                     Text("Add Subtitle")
                 }
                 Text("Sub Delay: ${subtitleDelayMs}ms", style = MaterialTheme.typography.labelSmall)
-                OutlinedButton(onClick = {
-                    subtitleDelayMs -= 250
-                    engine.setSubtitleDelay(subtitleDelayMs)
-                }) { Text("-250ms") }
-                OutlinedButton(onClick = {
-                    subtitleDelayMs += 250
-                    engine.setSubtitleDelay(subtitleDelayMs)
-                }) { Text("+250ms") }
-                OutlinedButton(onClick = {
-                    subtitleDelayMs = 0
-                    engine.setSubtitleDelay(0)
-                }) { Text("Reset") }
+                OutlinedButton(
+                    onClick = {
+                        subtitleDelayMs -= 250
+                        engine.setSubtitleDelay(subtitleDelayMs)
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Decrease subtitle delay by 250 milliseconds"
+                    },
+                ) { Text("-250ms") }
+                OutlinedButton(
+                    onClick = {
+                        subtitleDelayMs += 250
+                        engine.setSubtitleDelay(subtitleDelayMs)
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Increase subtitle delay by 250 milliseconds"
+                    },
+                ) { Text("+250ms") }
+                OutlinedButton(
+                    onClick = {
+                        subtitleDelayMs = 0
+                        engine.setSubtitleDelay(0)
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Reset subtitle delay to 0 milliseconds"
+                    },
+                ) { Text("Reset") }
 
                 Text("Audio Sync: ${audioDelayMs}ms", style = MaterialTheme.typography.labelSmall)
-                OutlinedButton(onClick = {
-                    audioDelayMs -= 100
-                    engine.setAudioDelay(audioDelayMs)
-                }) { Text("-100ms") }
-                OutlinedButton(onClick = {
-                    audioDelayMs += 100
-                    engine.setAudioDelay(audioDelayMs)
-                }) { Text("+100ms") }
+                OutlinedButton(
+                    onClick = {
+                        audioDelayMs -= 100
+                        engine.setAudioDelay(audioDelayMs)
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Decrease audio delay by 100 milliseconds"
+                    },
+                ) { Text("-100ms") }
+                OutlinedButton(
+                    onClick = {
+                        audioDelayMs += 100
+                        engine.setAudioDelay(audioDelayMs)
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Increase audio delay by 100 milliseconds"
+                    },
+                ) { Text("+100ms") }
 
-                OutlinedButton(onClick = { engine.previousChapter() }) { Text("◀ Chapter") }
-                OutlinedButton(onClick = { engine.nextChapter() }) { Text("Chapter ▶") }
+                OutlinedButton(
+                    onClick = { engine.previousChapter() },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Go to previous chapter"
+                    },
+                ) { Text("◀ Chapter") }
+                OutlinedButton(
+                    onClick = { engine.nextChapter() },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Go to next chapter"
+                    },
+                ) { Text("Chapter ▶") }
             }
 
             // Row 3: A-B Repeat
@@ -155,10 +227,16 @@ internal fun DesktopVideoControlsPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("A-B Repeat:", style = MaterialTheme.typography.labelMedium)
-                OutlinedButton(onClick = {
-                    abRepeatA = state.positionMillis
-                    message = "Loop point A set at ${formatMs(state.positionMillis)}"
-                }) {
+                OutlinedButton(
+                    onClick = {
+                        abRepeatA = state.positionMillis
+                        message = "Loop point A set at ${formatMs(state.positionMillis)}"
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Set loop start point A at current position"
+                    },
+                ) {
                     Text(if (abRepeatA != null) "A: ${formatMs(abRepeatA!!)}" else "Set A")
                 }
                 OutlinedButton(
@@ -170,16 +248,26 @@ internal fun DesktopVideoControlsPanel(
                         message = "Looping A (${formatMs(a)}) to B (${formatMs(b)})"
                     },
                     enabled = abRepeatA != null,
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Set loop end point B at current position and begin repeat loop"
+                    },
                 ) {
                     Text(if (abRepeatB != null) "B: ${formatMs(abRepeatB!!)}" else "Set B")
                 }
                 if (abRepeatA != null || abRepeatB != null) {
-                    OutlinedButton(onClick = {
-                        abRepeatA = null
-                        abRepeatB = null
-                        engine.setABRepeat(ABRepeatRange(null, null))
-                        message = "A-B Repeat cleared"
-                    }) {
+                    OutlinedButton(
+                        onClick = {
+                            abRepeatA = null
+                            abRepeatB = null
+                            engine.setABRepeat(ABRepeatRange(null, null))
+                            message = "A-B Repeat cleared"
+                        },
+                        modifier = Modifier.semantics {
+                            role = Role.Button
+                            contentDescription = "Clear A-B repeat loop"
+                        },
+                    ) {
                         Text("Clear Loop")
                     }
                 }

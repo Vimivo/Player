@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
@@ -113,9 +115,20 @@ internal fun DesktopPlaylistsPanel(
                             if (media != null && onAddMediaToQueue != null) {
                                 OutlinedButton(onClick = { onAddMediaToQueue(media) }) { Text("+ Queue") }
                             }
-                            OutlinedButton(onClick = { onMove(playlist.id, mediaId, index - 1) }, enabled = index > 0) { Text("↑") }
-                            OutlinedButton(onClick = { onMove(playlist.id, mediaId, index + 1) }, enabled = index < playlist.items.lastIndex) { Text("↓") }
-                            OutlinedButton(onClick = { onRemove(playlist.id, mediaId) }) { Text("Remove") }
+                            OutlinedButton(
+                                onClick = { onMove(playlist.id, mediaId, index - 1) },
+                                enabled = index > 0,
+                                modifier = Modifier.semantics { contentDescription = "Move ${media?.title ?: "track"} up in playlist" },
+                            ) { Text("↑") }
+                            OutlinedButton(
+                                onClick = { onMove(playlist.id, mediaId, index + 1) },
+                                enabled = index < playlist.items.lastIndex,
+                                modifier = Modifier.semantics { contentDescription = "Move ${media?.title ?: "track"} down in playlist" },
+                            ) { Text("↓") }
+                            OutlinedButton(
+                                onClick = { onRemove(playlist.id, mediaId) },
+                                modifier = Modifier.semantics { contentDescription = "Remove ${media?.title ?: "track"} from playlist" },
+                            ) { Text("Remove") }
                         }
                     }
                 }
@@ -277,9 +290,21 @@ internal fun DesktopQueuePanel(
                     if (onPlayAt != null && !isCurrent) {
                         OutlinedButton(onClick = { onPlayAt(index) }) { Text("Play") }
                     }
-                    OutlinedButton(onClick = { onMove(index, index - 1) }, enabled = index > 0) { Text("↑") }
-                    OutlinedButton(onClick = { onMove(index, index + 1) }, enabled = index < state.items.lastIndex) { Text("↓") }
-                    OutlinedButton(onClick = { onRemove(index) }, enabled = !isCurrent) { Text("Remove") }
+                    OutlinedButton(
+                        onClick = { onMove(index, index - 1) },
+                        enabled = index > 0,
+                        modifier = Modifier.semantics { contentDescription = "Move ${item.media.title} up in queue" },
+                    ) { Text("↑") }
+                    OutlinedButton(
+                        onClick = { onMove(index, index + 1) },
+                        enabled = index < state.items.lastIndex,
+                        modifier = Modifier.semantics { contentDescription = "Move ${item.media.title} down in queue" },
+                    ) { Text("↓") }
+                    OutlinedButton(
+                        onClick = { onRemove(index) },
+                        enabled = !isCurrent,
+                        modifier = Modifier.semantics { contentDescription = "Remove ${item.media.title} from queue" },
+                    ) { Text("Remove") }
                 }
             }
         }

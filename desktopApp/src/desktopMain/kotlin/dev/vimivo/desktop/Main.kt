@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.MenuBar
@@ -155,6 +156,38 @@ fun main(args: Array<String>) = application {
                     shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionRight),
                     onClick = { engine.seekTo(engine.state.value.positionMillis + 10_000) },
                 )
+                Separator()
+                Item(
+                    "Volume Up",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionUp, ctrl = true),
+                    onClick = { engine.setVolume((engine.state.value.volume + 0.1f).coerceAtMost(1f)) },
+                )
+                Item(
+                    "Volume Down",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionDown, ctrl = true),
+                    onClick = { engine.setVolume((engine.state.value.volume - 0.1f).coerceAtLeast(0f)) },
+                )
+                Item(
+                    "Mute / Unmute",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.M, ctrl = true),
+                    onClick = {
+                        val current = engine.state.value.volume
+                        if (current > 0f) engine.setVolume(0f) else engine.setVolume(1f)
+                    },
+                )
+                Separator()
+                Item(
+                    "Normal Speed (1.0x)",
+                    onClick = { engine.setPlaybackSpeed(1.0f) },
+                )
+                Item(
+                    "Faster Speed (+0.25x)",
+                    onClick = { engine.setPlaybackSpeed((engine.state.value.speed + 0.25f).coerceAtMost(3.0f)) },
+                )
+                Item(
+                    "Slower Speed (-0.25x)",
+                    onClick = { engine.setPlaybackSpeed((engine.state.value.speed - 0.25f).coerceAtLeast(0.25f)) },
+                )
             }
         }
         DesktopPlayer(engine, queue, library, args.map(::File), openFileHandler, mpris)
@@ -198,6 +231,8 @@ private fun DesktopPlayer(
     var activeProfile by remember { mutableStateOf(PlaybackProfile.DEFAULT) }
     var activePreset by remember { mutableStateOf(EqualizerPreset.FLAT) }
     var activeReplayGain by remember { mutableStateOf(ReplayGainMode.OFF) }
+    var previousVolume by remember { mutableStateOf(1f) }
+    var showDiagnostics by remember { mutableStateOf(false) }
     var sleepTimerJob by remember { mutableStateOf<Job?>(null) }
     var sleepTimerMinutesRemaining by remember { mutableStateOf<Int?>(null) }
     var diagnosticsStatus by remember { mutableStateOf<String?>(null) }
@@ -270,9 +305,11 @@ private fun DesktopPlayer(
     VimivoTheme(mode = libraryState.themeMode) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                val isCompact = maxWidth < 820.dp
-                val sidebarWidth = if (isCompact) 140.dp else 192.dp
-                val contentPadding = if (isCompact) 16.dp else 28.dp
+                val isVeryCompact = maxWidth < 640.dp
+                val isCompact = maxWidth < 840.dp
+                val sidebarWidth = if (isVeryCompact) 110.dp else if (isCompact) 140.dp else 192.dp
+                val contentPadding = if (isVeryCompact) 10.dp else if (isCompact) 16.dp else 24.dp
+                val contentScrollState = rememberScrollState()
                 Row(Modifier.fillMaxSize()) {
                     DesktopSidebar(
                         destination,
@@ -284,7 +321,7 @@ private fun DesktopPlayer(
                         modifier = Modifier.width(sidebarWidth),
                     )
                     Column(
-                        Modifier.fillMaxSize().padding(contentPadding),
+                        Modifier.fillMaxSize().verticalScroll(contentScrollState).padding(contentPadding),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Text(destination.title, style = MaterialTheme.typography.headlineLarge)
@@ -620,6 +657,53 @@ private fun DesktopPlayer(
                     Text("Repeat ${queueState.repeatMode.name.lowercase()}")
                 }
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                val isMuted = state.volume == 0f
+                OutlinedButton(
+                    onClick = {
+                        if (isMuted) {
+                            engine.setVolume(if (previousVolume > 0f) previousVolume else 1f)
+                        } else {
+                            previousVolume = state.volume
+                            engine.setVolume(0f)
+                        }
+                    },
+                    modifier = Modifier.semantics {
+                        contentDescription = if (isMuted) "Unmute audio" else "Mute audio"
+                    },
+                ) {
+                    Text(if (isMuted) "🔇 Muted" else "🔊 ${(state.volume * 100).toInt()}%")
+                }
+                Slider(
+                    value = state.volume,
+                    onValueChange = { engine.setVolume(it) },
+                    valueRange = 0f..1f,
+                    modifier = Modifier.width(110.dp).semantics {
+                        contentDescription = "Volume level"
+                        stateDescription = "${(state.volume * 100).toInt()}%"
+                    },
+                )
+                val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+                OutlinedButton(
+                    onClick = {
+                        val nextIndex = (speeds.indexOfFirst { kotlin.math.abs(it - state.speed) < 0.05f } + 1) % speeds.size
+                        engine.setPlaybackSpeed(speeds[nextIndex])
+                    },
+                    modifier = Modifier.semantics {
+                        contentDescription = "Playback speed ${state.speed}x. Click to change."
+                    },
+                ) {
+                    Text("${state.speed}x")
+                }
+                OutlinedButton(
+                    onClick = { showDiagnostics = !showDiagnostics },
+                    modifier = Modifier.semantics {
+                        contentDescription = if (showDiagnostics) "Hide technical diagnostics" else "Show technical diagnostics"
+                    },
+                ) {
+                    Text(if (showDiagnostics) "Hide Stats" else "Stats")
+                }
+            }
             OutlinedTextField(
                 value = networkUrl,
                 onValueChange = { networkUrl = it },
@@ -671,6 +755,34 @@ private fun DesktopPlayer(
                     }
                     if (showLyrics && state.media?.kind == MediaKind.AUDIO) {
                         DesktopLyricsCard(lyricsDoc = lyricsDoc, positionMillis = state.positionMillis)
+                    }
+                }
+            }
+            if (showDiagnostics) {
+                val diag = engine.getDiagnosticsSnapshot()
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Technical playback diagnostics" },
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Technical Playback Diagnostics", style = MaterialTheme.typography.titleSmall)
+                        if (diag != null) {
+                            Text(
+                                "Video: ${diag.activeVideoCodec ?: "none"} · Audio: ${diag.activeAudioCodec ?: "none"} · HWDEC: ${diag.activeDecoder ?: "none"} (${if (diag.hwdecActive) "Active" else "Inactive"})",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                "VO: ${diag.activeRenderer ?: "none"} · FPS: ${diag.estimatedFps} · Dropped Frames: ${diag.droppedFrames} / ${diag.totalFrames}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                "A/V Sync Drift: ${diag.avDriftMillis.toLong()} ms · Cache: ${formatBytes(diag.cacheBufferBytes)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Text("Diagnostics available during active playback.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -780,10 +892,24 @@ private fun DesktopLibraryPanel(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Button(onClick = { onPlay(item) }) { Text("Play") }
-                        OutlinedButton(onClick = { onPlayNext(item) }) { Text("Next") }
-                        OutlinedButton(onClick = { onAddToQueue(item) }) { Text("+ Queue") }
-                        OutlinedButton(onClick = { onToggleFavorite(item) }) { Text(if (item.isFavorite) "★" else "☆") }
+                        Button(
+                            onClick = { onPlay(item) },
+                            modifier = Modifier.semantics { contentDescription = "Play ${item.title}" },
+                        ) { Text("Play") }
+                        OutlinedButton(
+                            onClick = { onPlayNext(item) },
+                            modifier = Modifier.semantics { contentDescription = "Play ${item.title} next" },
+                        ) { Text("Next") }
+                        OutlinedButton(
+                            onClick = { onAddToQueue(item) },
+                            modifier = Modifier.semantics { contentDescription = "Add ${item.title} to queue" },
+                        ) { Text("+ Queue") }
+                        OutlinedButton(
+                            onClick = { onToggleFavorite(item) },
+                            modifier = Modifier.semantics {
+                                contentDescription = if (item.isFavorite) "Remove ${item.title} from favorites" else "Add ${item.title} to favorites"
+                            },
+                        ) { Text(if (item.isFavorite) "★" else "☆") }
                         AddToPlaylistButton(state.playlists, item, onAddToPlaylist)
                     }
                 }
