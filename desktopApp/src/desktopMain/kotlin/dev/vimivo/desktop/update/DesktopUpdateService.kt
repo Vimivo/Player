@@ -1,13 +1,27 @@
-@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength", "TooGenericExceptionCaught")
+@file:Suppress(
+    "ArgumentListWrapping",
+    "MaximumLineLength",
+    "MaxLineLength",
+    "TooGenericExceptionCaught",
+    "LongParameterList",
+)
 
 package dev.vimivo.desktop.update
 
+import dev.vimivo.core.update.ReleaseArtifact
 import dev.vimivo.core.update.UpdateCheckResult
 import dev.vimivo.core.update.UpdateChecker
+import dev.vimivo.desktop.library.DesktopDatabase
 import java.net.URI
 
 class DesktopUpdateService(
     val currentVersion: String = CURRENT_APP_VERSION,
+    val preventDowngrade: Boolean = false,
+    val strictArchitecture: Boolean = false,
+    val enforceSignature: Boolean = false,
+    val trustedKeyIds: Set<String> = emptySet(),
+    val signatureVerifier: ((artifact: ReleaseArtifact, signatureHex: String, keyId: String) -> Boolean)? = null,
+    val currentDatabaseVersion: Int? = DesktopDatabase.SCHEMA_VERSION,
 ) {
     val currentPlatform: String = detectPlatform()
     val currentArchitecture: String = detectArchitecture()
@@ -21,6 +35,12 @@ class DesktopUpdateService(
                     manifest = manifest,
                     platform = currentPlatform,
                     architecture = currentArchitecture,
+                    preventDowngrade = preventDowngrade,
+                    strictArchitecture = strictArchitecture,
+                    enforceSignature = enforceSignature,
+                    trustedKeyIds = trustedKeyIds,
+                    signatureVerifier = signatureVerifier,
+                    currentDatabaseVersion = currentDatabaseVersion,
                 )
             },
             onFailure = { error ->

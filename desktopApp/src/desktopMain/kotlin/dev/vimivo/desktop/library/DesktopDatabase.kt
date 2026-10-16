@@ -192,7 +192,7 @@ internal class DesktopDatabase private constructor(private val connection: Conne
     override fun close() = connection.close()
 
     companion object {
-        private const val SCHEMA_VERSION = 6
+        const val SCHEMA_VERSION = 6
 
         fun open(path: Path = defaultPath()): DesktopDatabase {
             Files.createDirectories(path.parent)

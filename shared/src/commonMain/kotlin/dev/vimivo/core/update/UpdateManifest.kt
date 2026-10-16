@@ -14,6 +14,8 @@ data class ReleaseArtifact(
     val sha256: String,
     val architecture: String? = null,
     val minOsVersion: String? = null,
+    val signature: String? = null,
+    val signingKeyId: String? = null,
 )
 
 @Serializable
@@ -25,12 +27,15 @@ data class UpdateManifest(
     val releaseNotesUrl: String? = null,
     val changelogSummary: String? = null,
     val minSupportedDatabaseVersion: Int = 1,
+    val signature: String? = null,
+    val signingKeyId: String? = null,
     val artifacts: List<ReleaseArtifact> = emptyList(),
 ) {
     fun findArtifactFor(
         platform: String,
         architecture: String? = null,
         preferredFormat: String? = null,
+        strictArchitecture: Boolean = false,
     ): ReleaseArtifact? {
         val platformMatches = artifacts.filter {
             it.platform.equals(platform, ignoreCase = true)
@@ -43,7 +48,13 @@ data class UpdateManifest(
                     it.architecture.equals("universal", ignoreCase = true) ||
                     it.architecture.equals(architecture, ignoreCase = true)
             }
-            if (matching.isNotEmpty()) matching else platformMatches
+            if (matching.isNotEmpty()) {
+                matching
+            } else if (strictArchitecture) {
+                emptyList()
+            } else {
+                platformMatches
+            }
         } else {
             platformMatches
         }
