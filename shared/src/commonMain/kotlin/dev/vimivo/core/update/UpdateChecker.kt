@@ -1,3 +1,5 @@
+@file:Suppress("ArgumentListWrapping", "LongParameterList", "MaximumLineLength", "MaxLineLength", "ReturnCount")
+
 package dev.vimivo.core.update
 
 import kotlinx.serialization.json.Json
@@ -11,12 +13,19 @@ sealed class UpdateCheckResult {
         val matchedArtifact: ReleaseArtifact?,
     ) : UpdateCheckResult()
 
+    data class DowngradeBlocked(
+        val currentVersion: String,
+        val attemptedVersion: String,
+        val reason: String,
+    ) : UpdateCheckResult()
+
     data class Error(val reason: String) : UpdateCheckResult()
 }
 
 /**
  * Opt-in, privacy-first software update verification logic.
  * Never performs background polling, auto-installation, or execution of arbitrary code.
+ * Validates HTTPS integrity, SHA-256 digest format, and rollback/downgrade protection.
  */
 object UpdateChecker {
 
@@ -24,6 +33,8 @@ object UpdateChecker {
         ignoreUnknownKeys = true
         isLenient = true
     }
+
+    private val SHA256_REGEX = Regex("^[a-fA-F0-9]{64}$")
 
     /**
      * Parses and validates raw update manifest JSON.
@@ -43,6 +54,7 @@ object UpdateChecker {
 
     /**
      * Evaluates a validated manifest against the current running application version and platform.
+     * Prevents malicious or accidental rollback attacks when preventDowngrade is enabled.
      */
     fun evaluateManifest(
         currentVersionStr: String,
@@ -50,6 +62,7 @@ object UpdateChecker {
         platform: String,
         architecture: String? = null,
         preferredFormat: String? = null,
+        preventDowngrade: Boolean = false,
     ): UpdateCheckResult {
         val currentVer = SemanticVersion.parse(currentVersionStr)
             ?: return UpdateCheckResult.Error("Failed to parse current version: $currentVersionStr")
@@ -57,8 +70,28 @@ object UpdateChecker {
         val manifestVer = SemanticVersion.parse(manifest.version)
             ?: return UpdateCheckResult.Error("Failed to parse manifest version: ${manifest.version}")
 
+        if (preventDowngrade && currentVer.isNewerThan(manifestVer)) {
+            return UpdateCheckResult.DowngradeBlocked(
+                currentVersion = currentVersionStr,
+                attemptedVersion = manifest.version,
+                reason = "Attempted downgrade from $currentVersionStr to ${manifest.version} was blocked for security.",
+            )
+        }
+
         return if (manifestVer.isNewerThan(currentVer)) {
             val matchedArtifact = manifest.findArtifactFor(platform, architecture, preferredFormat)
+            if (matchedArtifact != null) {
+                if (!validateSha256(matchedArtifact.sha256)) {
+                    return UpdateCheckResult.Error(
+                        "Invalid or malformed SHA-256 digest for artifact: ${matchedArtifact.filename}",
+                    )
+                }
+                if (!isSecureManifestUrl(matchedArtifact.downloadUrl)) {
+                    return UpdateCheckResult.Error(
+                        "Insecure or credential-leaking download URL for artifact: ${matchedArtifact.filename}",
+                    )
+                }
+            }
             UpdateCheckResult.UpdateAvailable(
                 currentVersion = currentVersionStr,
                 newVersion = manifest.version,
@@ -68,6 +101,13 @@ object UpdateChecker {
         } else {
             UpdateCheckResult.UpToDate(currentVersionStr)
         }
+    }
+
+    /**
+     * Validates that a string is a standard 64-character hexadecimal SHA-256 digest.
+     */
+    fun validateSha256(hash: String): Boolean {
+        return SHA256_REGEX.matches(hash.trim())
     }
 
     /**

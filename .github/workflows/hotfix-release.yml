@@ -1,0 +1,101 @@
+name: Protected Emergency Hotfix Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      hotfix_version:
+        description: 'Hotfix Semantic Version (e.g. 1.0.1)'
+        required: true
+        type: string
+      security_advisory_id:
+        description: 'Associated CVE or Incident Identifier (e.g. VIMIVO-SEC-2026-001 or NA)'
+        required: true
+        default: 'NA'
+      target_channel:
+        description: 'Distribution Channel'
+        required: true
+        default: 'stable'
+        type: choice
+        options:
+          - stable
+          - beta
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  validate-and-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hotfix branch
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Run Detekt Static Analysis
+        run: ./gradlew detekt --no-daemon
+
+      - name: Run Shared Unit Tests
+        run: ./gradlew :shared:desktopTest --no-daemon
+
+      - name: Record Hotfix Metadata
+        run: |
+          echo "HOTFIX_VERSION=${{ github.event.inputs.hotfix_version }}" >> $GITHUB_ENV
+          echo "INCIDENT_ID=${{ github.event.inputs.security_advisory_id }}" >> $GITHUB_ENV
+          echo "Target Version: ${{ github.event.inputs.hotfix_version }}"
+          echo "Advisory: ${{ github.event.inputs.security_advisory_id }}"
+
+  build-desktop-hotfix:
+    needs: validate-and-gate
+    runs-on: macos-14
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Run Desktop Verification & Tests
+        run: ./gradlew :desktopApp:desktopTest :desktopApp:compileKotlinDesktop --no-daemon
+
+  build-android-hotfix:
+    needs: validate-and-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Run Android Tests & Debug Build
+        run: ./gradlew :androidApp:testDebugUnitTest :androidApp:assembleDebug --no-daemon
+
+  require-release-authorization:
+    needs: [build-desktop-hotfix, build-android-hotfix]
+    runs-on: ubuntu-latest
+    environment: production-approvals
+    steps:
+      - name: Await Production Release Authorization
+        run: |
+          echo "Emergency hotfix build completed all quality and security gates."
+          echo "Version: ${{ github.event.inputs.hotfix_version }}"
+          echo "Security Advisory: ${{ github.event.inputs.security_advisory_id }}"
+          echo "Awaiting maintainer sign-off before publishing."

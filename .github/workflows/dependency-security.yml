@@ -1,0 +1,53 @@
+name: Dependency Security & Supply-Chain Audit
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Every Monday at 03:00 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'gradle/libs.versions.toml'
+      - 'gradle/verification-metadata.xml'
+      - '**/build.gradle.kts'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  audit-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Validate Gradle Wrapper checksum
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Run Detekt Static Analysis
+        run: ./gradlew detekt --no-daemon
+
+      - name: Run Core Verification Tests
+        run: ./gradlew :shared:desktopTest --no-daemon
+
+      - name: Audit Dependency Tree
+        run: |
+          ./gradlew :shared:dependencies --configuration desktopCompileClasspath > shared-deps.txt
+          ./gradlew :desktopApp:dependencies --configuration desktopCompileClasspath > desktop-deps.txt
+          echo "Dependency inventory generated successfully."
+
+      - name: Archive Dependency Inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-inventory
+          path: |
+            shared-deps.txt
+            desktop-deps.txt
+          retention-days: 30
