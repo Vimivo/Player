@@ -103,17 +103,23 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `feat(ui): implement adaptive responsive layouts, design system tokens, and accessible components` — Consolidated cross-platform design tokens (`VimivoSpacing`, `VimivoRadius`, `VimivoElevation`, `VimivoIconSize`, `VimivoColors`), `WindowSizeClass` (`COMPACT`, `MEDIUM`, `EXPANDED`), composition locals (`LocalReducedMotion`, `LocalHighContrast`, `LocalWindowSizeClass`), WCAG AA/AAA compliant color palettes (`VimivoLightColorScheme`, `VimivoDarkColorScheme`, `VimivoAmoledColorScheme`, `VimivoHighContrastLightColorScheme`, `VimivoHighContrastDarkColorScheme`), `VimivoTypography`, and accessible components (`VimivoAccessibleSlider`, `VimivoEmptyState`, `VimivoLoadingState`, `VimivoErrorBanner`, `VimivoQueueReorderControls`) (Milestone 47).
 - `feat(accessibility): implement full desktop and mobile accessibility semantics, non-drag alternatives, and high-contrast modes` — Wired accessible semantics across player controls, volume slider with percentage states, dedicated mute toggle, speed stepping, non-drag queue/playlist reorder alternatives, video overlay controls (aspect ratios, frame screenshots, rotation, subtitle delays, audio sync, A-B repeat), and honest Linux Compose Desktop accessibility capability reporting (Milestone 48).
 - `docs(ux): publish complete design system, responsive layouts, accessibility audit, keyboard shortcuts, and UX release gates suite` — Published comprehensive documentation in `docs/UI_UX_AUDIT.md`, `docs/DESIGN_SYSTEM.md`, `docs/RESPONSIVE_LAYOUTS.md`, `docs/MUSIC_PLAYER_UX.md`, `docs/VIDEO_PLAYER_UX.md`, `docs/ACCESSIBILITY_AUDIT.md`, `docs/ACCESSIBILITY_MATRIX.md`, `docs/KEYBOARD_SHORTCUTS.md`, `docs/LOCALIZATION_AUDIT.md`, `docs/UI_PERFORMANCE.md`, and `docs/UX_RELEASE_GATES.md`.
+- `build(macos): use command line tools path for native dylib bundling` — Updated `desktopApp/scripts/bundle_macos_mpv.py` to invoke Xcode Command Line Tools `otool` and `install_name_tool` directly, resolving license dialog blocks during standalone packaging.
+- `docs(release): publish product verification, release audit, distribution matrix, and five-platform GO/NO-GO verdicts` — Completed Milestones 49 & 50 comprehensive verification: requirements traceability (`docs/REQUIREMENTS_TRACEABILITY.md`), regression results (`docs/FINAL_REGRESSION_RESULTS.md`), native playback audit (`docs/NATIVE_PLAYBACK_VERIFICATION.md`), database migrations (`docs/DATABASE_MIGRATION_RESULTS.md`), accessibility verification (`docs/ACCESSIBILITY_VERIFICATION.md`), performance benchmarks (`docs/PERFORMANCE_VERIFICATION.md`), final release audit (`docs/FINAL_RELEASE_AUDIT.md`), distribution matrix (`docs/DISTRIBUTION_MATRIX.md`), artifact manifest (`docs/ARTIFACT_MANIFEST.md`), supply chain audit (`docs/SUPPLY_CHAIN_AUDIT.md`), update/recovery runbook (`docs/UPDATE_AND_RECOVERY.md`), and updated `docs/release-manifest.json` and `docs/SHA256SUMS.txt`.
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
-- `./gradlew :shared:desktopTest` (69 tests passed, +11 new tests in `VimivoDesignSystemTest`)
-- `./gradlew :desktopApp:desktopTest` (163 tests passed, +5 new tests in `DesktopUiAccessibilityTest`)
+- `./gradlew :shared:desktopTest` (98 tests passed)
+- `./gradlew :desktopApp:desktopTest` (163 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
-- `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
+- `./gradlew :androidApp:testDebugUnitTest` (40 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
+- `./gradlew :androidApp:assembleRelease` (BUILD SUCCESSFUL, R8 minified, shrinkResources enabled)
+- `./gradlew :androidApp:bundleRelease` (BUILD SUCCESSFUL, Play App Bundle generated)
+- `./gradlew :desktopApp:packageDmg` (BUILD SUCCESSFUL, standalone DMG generated with 50 bundled dylibs)
 - `./gradlew detekt` (all modules passed, 0 violations)
 - `./scripts/validate_docs.sh` (100% of relative documentation links validated)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 252 tests passing, 0 failures (plus 7 native iOS XCTest tests).
+- Total automated tests: 301 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
+
