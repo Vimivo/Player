@@ -38,6 +38,7 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.coroutines.core)
             implementation(libs.serialization.core)
+            implementation(libs.serialization.json)
             implementation(libs.navigation.compose)
             implementation(compose.runtime)
             implementation(compose.foundation)

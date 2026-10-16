@@ -149,7 +149,7 @@ internal fun DesktopSettingsPanel(
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("About Vimivo", style = MaterialTheme.typography.titleMedium)
-                    Text("Version 1.0.0", style = MaterialTheme.typography.bodyMedium)
+                    Text("Version 1.0.0-rc.1 (Release Candidate 1)", style = MaterialTheme.typography.bodyMedium)
                     Text(
                         "Tagline: Every Sound. Every Frame.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -157,6 +157,12 @@ internal fun DesktopSettingsPanel(
                     )
                     Text(
                         "Built with Kotlin Multiplatform, Compose, and native multimedia engines.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Software Updates: Vimivo never performs silent background code execution. Updates and cryptographic digests are published via official release manifests.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

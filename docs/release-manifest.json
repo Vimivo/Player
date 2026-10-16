@@ -1,10 +1,13 @@
 {
   "product": "Vimivo",
-  "version": "1.0.0",
+  "version": "1.0.0-rc.1",
   "tagline": "Every Sound. Every Frame.",
   "repository": "https://github.com/Vimivo/Player",
-  "commit": "a92d6da",
-  "buildDate": "2026-10-16T06:56:00Z",
+  "commit": "c2bf084",
+  "buildDate": "2026-10-16T07:15:00Z",
+  "releaseNotesUrl": "https://github.com/Vimivo/Player/blob/main/docs/RELEASE_NOTES.md",
+  "minSupportedDatabaseVersion": 1,
+  "currentDatabaseVersion": 4,
   "toolchain": {
     "jdk": "17 (Eclipse Temurin)",
     "kotlin": "2.3.20",
@@ -13,7 +16,8 @@
     "composeMultiplatform": "1.9.3",
     "targetAndroidSdk": 36,
     "minAndroidSdk": 26,
-    "minMacOsVersion": "12.0"
+    "minMacOsVersion": "12.0",
+    "minWindowsVersion": "10.0.19041"
   },
   "signingStatus": {
     "android": "unsigned_ready_for_play_upload_key",
@@ -31,6 +35,7 @@
       "platform": "android",
       "format": "apk",
       "filename": "androidApp-release-unsigned.apk",
+      "downloadUrl": "https://github.com/Vimivo/Player/releases/download/v1.0.0-rc.1/androidApp-release-unsigned.apk",
       "path": "androidApp/build/outputs/apk/release/androidApp-release-unsigned.apk",
       "sizeBytes": 147577927,
       "sha256": "3a123502d63bcff7cd46e52556ed01eb6048d2c1ed3214cd8160c9fcd2c0cf2b",
@@ -42,6 +47,7 @@
       "platform": "android",
       "format": "aab",
       "filename": "androidApp-release.aab",
+      "downloadUrl": "https://github.com/Vimivo/Player/releases/download/v1.0.0-rc.1/androidApp-release.aab",
       "path": "androidApp/build/outputs/bundle/release/androidApp-release.aab",
       "sizeBytes": 76079193,
       "sha256": "b769278a8ae22b5bbf7681a16e447115288972215c66be600b66c71a4ec0df7f",
@@ -53,35 +59,55 @@
       "platform": "macos",
       "format": "dmg",
       "filename": "Vimivo-1.0.0.dmg",
+      "downloadUrl": "https://github.com/Vimivo/Player/releases/download/v1.0.0-rc.1/Vimivo-1.0.0.dmg",
       "path": "desktopApp/build/compose/binaries/main/dmg/Vimivo-1.0.0.dmg",
       "sizeBytes": 150423483,
       "sha256": "42e7784c1850fd2d20c94366d4d19c8c25a24b1895ac566af3ddc225b9153cc8",
       "architecture": "arm64",
-      "minOs": "macOS 12.0+",
+      "minOsVersion": "macOS 12.0+",
       "embeddedJvm": "temurin-17",
       "nativeDependencies": "libmpv 2.0.0, FFmpeg, libplacebo, libass (50 relocatable dylibs bundled)",
       "verification": "Clean mount and standalone launch verified from DMG"
     },
     {
       "platform": "windows",
-      "format": "exe_msi",
-      "filename": "Vimivo-1.0.0.exe / Vimivo-1.0.0.msi",
+      "format": "exe",
+      "filename": "Vimivo-Setup-1.0.0.exe",
+      "downloadUrl": "https://github.com/Vimivo/Player/releases/download/v1.0.0-rc.1/Vimivo-Setup-1.0.0.exe",
       "path": "desktopApp/build/compose/binaries/main",
-      "verification": "Configuration and CI packaging pipeline implemented in .github/workflows/windows.yml; genuine binaries generated on Windows runner"
+      "architecture": "x64",
+      "minOsVersion": "Windows 10 Build 19041+",
+      "verification": "Configuration and CI packaging pipeline implemented in .github/workflows/windows.yml"
     },
     {
       "platform": "linux",
-      "format": "deb_rpm_appimage",
-      "filename": "Vimivo_1.0.0_amd64.deb / Vimivo-1.0.0.rpm / Vimivo-1.0.0.AppImage",
+      "format": "deb",
+      "filename": "vimivo_1.0.0_amd64.deb",
+      "downloadUrl": "https://github.com/Vimivo/Player/releases/download/v1.0.0-rc.1/vimivo_1.0.0_amd64.deb",
       "path": "desktopApp/build/compose/binaries/main",
-      "verification": "Configuration and CI packaging pipeline implemented in .github/workflows/linux.yml; genuine binaries generated on Linux runner"
+      "architecture": "x64",
+      "minOsVersion": "GLIBC 2.35+",
+      "verification": "Configuration and CI packaging pipeline implemented in .github/workflows/linux.yml"
+    },
+    {
+      "platform": "linux",
+      "format": "appimage",
+      "filename": "Vimivo-1.0.0.AppImage",
+      "downloadUrl": "https://github.com/Vimivo/Player/releases/download/v1.0.0-rc.1/Vimivo-1.0.0.AppImage",
+      "path": "desktopApp/build/compose/binaries/main/appimage",
+      "architecture": "x64",
+      "minOsVersion": "GLIBC 2.35+",
+      "verification": "Standalone single-file AppImage packaging configured"
     },
     {
       "platform": "ios",
       "format": "xcarchive",
-      "filename": "Vimivo.xcarchive",
-      "path": "build/artifacts/Vimivo.xcarchive",
-      "verification": "SwiftUI project and shared Kotlin framework integration implemented in .github/workflows/ios.yml; genuine archive generated on Xcode runner"
+      "filename": "Vimivo.xcarchive.zip",
+      "downloadUrl": "https://github.com/Vimivo/Player/releases/download/v1.0.0-rc.1/Vimivo.xcarchive.zip",
+      "path": "build/artifacts/Vimivo.xcarchive.zip",
+      "architecture": "arm64",
+      "minOsVersion": "iOS 16.0+",
+      "verification": "SwiftUI project and shared Kotlin framework integration implemented in .github/workflows/ios.yml"
     }
   ]
 }

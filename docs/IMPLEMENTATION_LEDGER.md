@@ -48,6 +48,9 @@ Status terms: **implemented** means code exists, **tested** means automated test
 | Privacy-safe diagnostics & export | Implemented, tested | `PrivacySafeDiagnostics` (bounded ring buffer, username & credential redaction, markdown/JSON reports) and `DesktopDiagnosticExporter` with protected system directory write blocking. Unit tests (`PrivacySafeDiagnosticsTest`, `DesktopDiagnosticExporterTest`) passing 100%. |
 | Closed beta feedback infrastructure | Implemented | GitHub Issue Forms (`bug_report.yml`, `feature_request.yml`), `config.yml`, `docs/BETA_TEST_PLAN.md`, `docs/BETA_TESTER_GUIDE.md`, `docs/BETA_SCENARIOS.md`, `docs/BETA_COMPATIBILITY_MATRIX.md`, and `docs/BETA_PRIVACY.md`. |
 | Defect remediation & triage | Implemented, tested | Defect register `docs/BUG_TRIAGE.md` covering VIM-BUG-001 through VIM-BUG-004. 100% root-cause analyzed and covered by automated regression tests. 0 open P0/P1 issues. |
+| Safe software update engine | Implemented, tested | `UpdateManifest`, `SemanticVersion`, `UpdateChecker` (HTTPS enforcement, credential stripping, SemVer ordering), and `DesktopUpdateService` with platform/arch detection. Unit tests (`UpdateCheckerTest`, `DesktopUpdateServiceTest`) passing 100%. |
+| Official distribution & launch readiness | Implemented | Five-platform launch documentation, system requirements, store listings (`docs/STORE_LISTINGS.md`), download experience portal (`docs/website/index.html`), and publication approval boundary (`docs/RELEASE_APPROVALS.md`). |
+| Protected release automation | Implemented | `.github/workflows/publish-release.yml` with manual confirmation token enforcement (`YES_I_CONFIRM_OFFICIAL_RELEASE`) and protected `production-release` environment. |
 
 ## Verified increments
 
@@ -69,20 +72,21 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `feat(ios): add complete iOS and iPadOS native application with AVPlayer, background playback, and SQLite persistence` — Native SwiftUI app, Kotlin shared framework integration (`iosArm64`, `iosSimulatorArm64`), AVPlayer engine, AVAudioSession handling, MPRemoteCommandCenter, MPNowPlayingInfoCenter, AVKit PiP, sandboxed Files importing with security-scoped bookmarks, native SQLite persistence, and Keychain credential storage (Milestone 22 iOS production completion).
 - `feat(app): complete Milestones 23 and 24 production hardening, UI/UX audit, design system, accessibility, and privacy logging` — SafeLogger redaction for paths and tokens, desktop settings panel, theme selection, responsive desktop layouts, Android TalkBack seekbar semantics, iOS VoiceOver accessibility labels, WCAG 2.2 AA audit, security threat model, and performance documentation.
 - `3d77bde` — `feat(qa): complete Milestone 25 and 26 five-platform quality assurance, database migration tests, user journeys, production packaging, and CI/CD` — DesktopDatabaseMigrationTest (v1/v2/v3->v4 upgrades, foreign keys, rollback), DesktopUserJourneysTest (7 E2E journeys, fault injection), zero-byte and Bengali/Unicode fixture tests, Android release APK & AAB, macOS standalone DMG with bundled JVM and 50 dylibs, CI workflows (`macos.yml`, `ios.yml`, `android.yml`, `shared.yml`, `release-candidate.yml`), CycloneDX SBOM, release manifest, and SHA-256 digests.
-- `feat(beta): implement closed beta infrastructure, privacy-safe diagnostics, bug triage, and RC stabilization` — Privacy-safe diagnostic subsystem, Desktop diagnostic exporter, SafeLogger credential redaction, GitHub Issue forms, beta test plan, tester guide, scenario matrix, compatibility matrix, defect triage register, upgrade verification, and RC go/no-go report (Milestones 27 & 28).
+- `c2bf084` — `feat(beta): implement closed beta infrastructure, privacy-safe diagnostics, bug triage, and RC stabilization` — Privacy-safe diagnostic subsystem, Desktop diagnostic exporter, SafeLogger credential redaction, GitHub Issue forms, beta test plan, tester guide, scenario matrix, compatibility matrix, defect triage register, upgrade verification, and RC go/no-go report (Milestones 27 & 28).
+- `feat(release): implement final launch readiness, safe update engine, official distribution architecture, and protected publishing` — In-app update checker and manifest model, DesktopUpdateService, website download portal (`docs/website/index.html`), store listings, publication approval boundary, system requirements, installation guide, privacy review, rollback plan, and protected publishing pipeline (Milestones 29 & 30).
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
-- `./gradlew :shared:desktopTest` (23 tests passed)
-- `./gradlew :desktopApp:desktopTest` (82 tests passed)
+- `./gradlew :shared:desktopTest` (28 tests passed)
+- `./gradlew :desktopApp:desktopTest` (81 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleRelease :androidApp:bundleRelease` (BUILD SUCCESSFUL, generated `androidApp-release-unsigned.apk` [141 MB] and `androidApp-release.aab` [73 MB])
 - `./gradlew :desktopApp:packageDmg` (BUILD SUCCESSFUL, generated `Vimivo-1.0.0.dmg` [143 MB])
 - `./gradlew detekt` (all modules passed, 0 violations)
 - Standalone execution verified from mounted `Vimivo-1.0.0.dmg` with zero `/opt/homebrew` dependencies.
-- Total automated tests: 125 tests passing, 0 failures.
+- Total automated tests: 129 tests passing, 0 failures.
 
 

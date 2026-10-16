@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vimivo — Every Sound. Every Frame. | Universal Media Player</title>
+  <meta name="description" content="Vimivo is a free, login-free, ad-free, and privacy-first universal music and video player for Android, iOS, macOS, Windows, and Linux.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: #111827;
+      --bg-card-hover: #1e293b;
+      --border-color: #1f293d;
+      --primary: #38bdf8;
+      --primary-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      --accent: #a855f7;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .logo-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--primary-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: #000;
+    }
+
+    .brand-name {
+      font-weight: 800;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-link:hover {
+      color: var(--primary);
+    }
+
+    .btn-github {
+      background: #1f293d;
+      color: #fff;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: 1px solid #334155;
+      transition: background 0.2s;
+    }
+
+    .btn-github:hover {
+      background: #334155;
+    }
+
+    .hero {
+      max-width: 1000px;
+      margin: 4rem auto 2rem;
+      text-align: center;
+      padding: 0 1.5rem;
+    }
+
+    .tag-badge {
+      display: inline-block;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: var(--primary);
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+    }
+
+    h1 {
+      font-size: 3.25rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1.25rem;
+      background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .tagline {
+      font-size: 1.35rem;
+      color: var(--text-muted);
+      max-width: 650px;
+      margin: 0 auto 2.5rem;
+    }
+
+    .pill-group {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 3.5rem;
+    }
+
+    .pill-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: #cbd5e1;
+    }
+
+    .pill-item span {
+      color: #10b981;
+    }
+
+    .container {
+      max-width: 1150px;
+      margin: 0 auto 5rem;
+      padding: 0 1.5rem;
+    }
+
+    .section-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .download-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 4rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: #334155;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .platform-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .platform-status {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+
+    .status-rc {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .status-preview {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .card-meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .card-meta div {
+      margin-bottom: 0.25rem;
+    }
+
+    .checksum-box {
+      background: #090d16;
+      border: 1px solid #1e293b;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #94a3b8;
+      word-break: break-all;
+      margin-bottom: 1.25rem;
+    }
+
+    .checksum-label {
+      font-size: 0.7rem;
+      font-family: var(--font-sans);
+      color: #64748b;
+      margin-bottom: 0.2rem;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .btn-download {
+      display: block;
+      width: 100%;
+      text-align: center;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: var(--primary);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .btn-download:hover {
+      opacity: 0.9;
+    }
+
+    .btn-disabled {
+      background: #1e293b;
+      color: #64748b;
+      cursor: not-allowed;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 4rem;
+    }
+
+    .feature-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 1.25rem;
+      border-radius: 10px;
+    }
+
+    .feature-item h3 {
+      font-size: 1.05rem;
+      margin-bottom: 0.4rem;
+      color: #f1f5f9;
+    }
+
+    .feature-item p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="#" class="brand">
+      <div class="logo-badge">V</div>
+      <span class="brand-name">Vimivo</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#downloads" class="nav-link">Downloads</a>
+      <a href="#features" class="nav-link">Features</a>
+      <a href="https://github.com/Vimivo/Player" class="btn-github" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="tag-badge">Milestone 29 & 30 Release Candidate</div>
+      <h1>Every Sound. Every Frame.</h1>
+      <p class="tagline">The universal, free, ad-free, and privacy-first music and video player designed for authentic media ownership.</p>
+      
+      <div class="pill-group">
+        <div class="pill-item"><span>✓</span> 100% Offline-First</div>
+        <div class="pill-item"><span>✓</span> Zero Accounts or Sign-Ups</div>
+        <div class="pill-item"><span>✓</span> Zero Analytics or Telemetry</div>
+        <div class="pill-item"><span>✓</span> High-Fidelity Audio & 4K Video</div>
+      </div>
+    </section>
+
+    <div class="container" id="downloads">
+      <h2 class="section-title">Verified Release Candidate Packages (1.0.0-rc.1)</h2>
+      <div class="download-grid">
+
+        <!-- macOS -->
+        <div class="card">
+          <div>
+            <div class="card-header">
+              <span class="platform-title">macOS Desktop</span>
+              <span class="platform-status status-rc">RC Verified</span>
+            </div>
+            <div class="card-meta">
+              <div><strong>Architecture:</strong> Apple Silicon (arm64)</div>
+              <div><strong>Requires:</strong> macOS 12.0 Monterey or higher</div>
+              <div><strong>Format:</strong> Standalone DMG (143 MB, Bundled JVM & libmpv)</div>
+            </div>
+            <div class="checksum-box">
+              <div class="checksum-label">SHA-256 Checksum</div>
+              42e7784c1850fd2d20c94366d4d19c8c25a24b1895ac566af3ddc225b9153cc8
+            </div>
+          </div>
+          <a href="https://github.com/Vimivo/Player/releases" class="btn-download" target="_blank" rel="noopener">Get macOS DMG</a>
+        </div>
+
+        <!-- Android -->
+        <div class="card">
+          <div>
+            <div class="card-header">
+              <span class="platform-title">Android</span>
+              <span class="platform-status status-rc">RC Verified</span>
+            </div>
+            <div class="card-meta">
+              <div><strong>Formats:</strong> APK (141 MB) & AAB (73 MB)</div>
+              <div><strong>Requires:</strong> Android 9.0 (API 28) or higher</div>
+              <div><strong>Features:</strong> Media3 ExoPlayer, Background Audio, PiP</div>
+            </div>
+            <div class="checksum-box">
+              <div class="checksum-label">SHA-256 (APK)</div>
+              3a123502d63bcff7cd46e52556ed01eb6048d2c1ed3214cd8160c9fcd2c0cf2b
+            </div>
+          </div>
+          <a href="https://github.com/Vimivo/Player/releases" class="btn-download" target="_blank" rel="noopener">Get Android APK</a>
+        </div>
+
+        <!-- Windows -->
+        <div class="card">
+          <div>
+            <div class="card-header">
+              <span class="platform-title">Windows 11 / 10</span>
+              <span class="platform-status status-rc">CI Configured</span>
+            </div>
+            <div class="card-meta">
+              <div><strong>Architecture:</strong> x64 (64-bit Intel/AMD)</div>
+              <div><strong>Formats:</strong> NSIS Setup (.exe) & MSI (.msi)</div>
+              <div><strong>Engine:</strong> Embedded Win32 libmpv Renderer (D3D11)</div>
+            </div>
+            <div class="checksum-box">
+              <div class="checksum-label">Build Target</div>
+              Vimivo-Setup-1.0.0.exe / Vimivo-1.0.0.msi
+            </div>
+          </div>
+          <a href="https://github.com/Vimivo/Player/actions/workflows/release-candidate.yml" class="btn-download" target="_blank" rel="noopener">View CI Pipeline</a>
+        </div>
+
+        <!-- Linux -->
+        <div class="card">
+          <div>
+            <div class="card-header">
+              <span class="platform-title">Linux Desktop</span>
+              <span class="platform-status status-rc">CI Configured</span>
+            </div>
+            <div class="card-meta">
+              <div><strong>Distros:</strong> Ubuntu, Debian, Fedora, Arch</div>
+              <div><strong>Formats:</strong> DEB, RPM, AppImage, Flatpak</div>
+              <div><strong>Integration:</strong> MPRIS 2 D-Bus, Secret Service, X11/XWayland</div>
+            </div>
+            <div class="checksum-box">
+              <div class="checksum-label">Build Target</div>
+              vimivo_1.0.0_amd64.deb / Vimivo-1.0.0.AppImage
+            </div>
+          </div>
+          <a href="https://github.com/Vimivo/Player/actions/workflows/release-candidate.yml" class="btn-download" target="_blank" rel="noopener">View CI Pipeline</a>
+        </div>
+
+        <!-- iOS -->
+        <div class="card">
+          <div>
+            <div class="card-header">
+              <span class="platform-title">iOS / iPadOS</span>
+              <span class="platform-status status-preview">In Staging</span>
+            </div>
+            <div class="card-meta">
+              <div><strong>Architecture:</strong> iPhone & iPad (iOS 16+)</div>
+              <div><strong>Format:</strong> Xcode Archive (.xcarchive) / TestFlight</div>
+              <div><strong>Status:</strong> Native SwiftUI Shell built; awaiting Apple Team ID</div>
+            </div>
+            <div class="checksum-box">
+              <div class="checksum-label">Distribution Status</div>
+              Awaiting Authorized TestFlight Team Deployment
+            </div>
+          </div>
+          <a href="#" class="btn-download btn-disabled" onclick="return false;">Coming to App Store</a>
+        </div>
+
+      </div>
+
+      <h2 class="section-title" id="features">Engineered for Ownership & Performance</h2>
+      <div class="features-grid">
+        <div class="feature-item">
+          <h3>Lossless Audio Fidelity</h3>
+          <p>Native bit-perfect playback for FLAC, ALAC, WAV, and high-bitrate MP3/AAC up to 24-bit 192kHz.</p>
+        </div>
+        <div class="feature-item">
+          <h3>Hardware Video Acceleration</h3>
+          <p>Direct surface attachment via libmpv, MediaCodec, and VideoToolbox for silky 4K/60fps playback.</p>
+        </div>
+        <div class="feature-item">
+          <h3>Continuous Unified Queue</h3>
+          <p>A smart playback queue that remembers its place across application restarts with zero data loss.</p>
+        </div>
+        <div class="feature-item">
+          <h3>Privacy-Safe Diagnostics</h3>
+          <p>Built-in diagnostic exporter redacts all username paths and URL tokens before saving locally.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>Vimivo — Universal Music & Video Player. Released under the Apache 2.0 & LGPL v2.1/v3 Licenses.</p>
+    <p>Documentation and source code hosted at <a href="https://github.com/Vimivo/Player" target="_blank" rel="noopener">github.com/Vimivo/Player</a>.</p>
+  </footer>
+
+</body>
+</html>

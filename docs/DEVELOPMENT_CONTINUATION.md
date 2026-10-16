@@ -6,62 +6,58 @@ Milestones completed:
 - **Milestone 26**: Production Build Engineering & CI/CD
 - **Milestone 27**: Closed Beta Infrastructure & Privacy-Safe Diagnostics
 - **Milestone 28**: Defect Remediation & Release Candidate Stabilization
+- **Milestone 29**: Final Launch Readiness & Five-Platform Audit
+- **Milestone 30**: Official Distribution Engineering & Stable Release Preparation
 
 ## Resume point
 
-Implementation, quality gates, and closed-beta infrastructure are verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
+Implementation, quality gates, closed-beta infrastructure, safe update services, and official distribution engineering are complete and verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
 
 The latest completed increments are:
 
-1. **Privacy-Safe Crash & Runtime Diagnostics**:
-   - `shared/src/commonMain/kotlin/dev/vimivo/core/diagnostics/PrivacySafeDiagnostics.kt`: Thread-safe bounded in-memory buffer (`DiagnosticBuffer`) and markdown/JSON report generator (`DiagnosticReport`) that redacts usernames (`~/user/...`), URLs, and credentials (`token=[REDACTED]`).
-   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/diagnostics/DesktopDiagnosticExporter.kt`: Desktop diagnostic export manager with security checks blocking writes to protected root system directories (`/System`, `/etc`, `/private/etc`, `C:\Windows`).
-   - `shared/src/commonMain/kotlin/dev/vimivo/core/util/SafeLogger.kt`: Extended with key-value credential pair sanitization (`SENSITIVE_KEY_VALUE_REGEX`).
-   - Unit tests: `PrivacySafeDiagnosticsTest.kt` (8 tests) and `DesktopDiagnosticExporterTest.kt` (3 tests) passing 100%.
+1. **Safe Application Update Architecture & Verification**:
+   - `shared/src/commonMain/kotlin/dev/vimivo/core/update/UpdateManifest.kt`: Data models for `ReleaseArtifact`, `UpdateManifest`, and `SemanticVersion` comparator adhering to SemVer 2.0 (handling prereleases, major/minor/patch, and platform/arch matching).
+   - `shared/src/commonMain/kotlin/dev/vimivo/core/update/UpdateChecker.kt`: Opt-in update verification engine enforcing HTTPS, stripping credential query tokens, and preventing silent code execution.
+   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/update/DesktopUpdateService.kt`: Desktop update check service detecting OS and architecture.
+   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/DesktopSettingsPanel.kt`: Updated with Version 1.0.0-rc.1 and software update policy notice.
+   - Unit tests: `UpdateCheckerTest` (5 tests) and `DesktopUpdateServiceTest` (4 tests) passing 100%.
 
-2. **Closed Beta Feedback Infrastructure**:
-   - `.github/ISSUE_TEMPLATE/bug_report.yml`: Structured bug report form with platform dropdown, severity (P0-P3), reproducibility, format details, and privacy check.
-   - `.github/ISSUE_TEMPLATE/feature_request.yml`: Separate feature suggestions form.
-   - `.github/ISSUE_TEMPLATE/config.yml`: Blank issues disabled, linking directly to documentation.
+2. **Official Launch Readiness & Store Metadata**:
+   - `docs/LAUNCH_READINESS.md`: Definitive five-platform launch readiness audit across all core features and release blockers.
+   - `docs/STORE_LISTINGS.md`: Complete store listings, descriptions, keywords, and content rating specifications for Google Play Store and Apple App Store.
+   - `docs/PRIVACY_REVIEW.md`: Google Play Data Safety declaration and Apple App Store Privacy Nutrition Labels verifying zero data collection.
+   - `docs/SYSTEM_REQUIREMENTS.md`: Detailed hardware, OS, and display requirements for all five platforms.
+   - `docs/INSTALLATION_GUIDE.md`: Step-by-step installation and clean upgrade instructions for Android, macOS, Windows, and Linux.
 
-3. **Beta Testing & Defect Remediation Documentation Suite**:
-   - `docs/BETA_TEST_PLAN.md`: Cohort design, hardware coverage matrix, and 3-level readiness gates.
-   - `docs/BETA_TESTER_GUIDE.md`: Professional onboarding guide, SHA-256 verification, safe installation, and data safety guarantee.
-   - `docs/BETA_SCENARIOS.md`: Repeatable scenarios covering first launch, music, video, playlists, queue, personal data, and fault tolerance.
-   - `docs/BETA_COMPATIBILITY_MATRIX.md`: Real-world audio, video, codec, container, and subtitle compatibility across all five platform backends.
-   - `docs/BETA_FEEDBACK_PROCESS.md`: Triage lifecycle, deduplication criteria, and 14-step Root-Cause Analysis protocol.
-   - `docs/BETA_PRIVACY.md`: Tester data safety pledge (zero telemetry, zero trackers, local-only media, unconsented diagnostic prevention).
-   - `docs/BETA_DIAGNOSTICS.md`: Diagnostic subsystem technical architecture and redaction guide.
-   - `docs/BUG_TRIAGE.md`: Investigated defects register (VIM-BUG-001 through 004, 0 unresolved P0/P1 issues).
-   - `docs/UPGRADE_VERIFICATION.md`: Beta-to-RC upgrade testing, non-destructive SQLite migrations (v0->v4), and rollback limitations.
-   - `docs/RC_GO_NO_GO.md`: Independent platform release decisions (Gates A through M) recommending CONDITIONAL GO for closed beta.
-   - `docs/KNOWN_ISSUES.md`: Technical limitations register (Gatekeeper, SmartScreen, Wayland, and Google Play policies).
+3. **Official Distribution Portal & Release Automation**:
+   - `docs/website/index.html`: Responsive, aesthetic official download experience showcasing authentic SHA-256 digests and system requirements.
+   - `docs/DISTRIBUTION_PLAN.md`: Staged distribution architecture for mobile app stores and desktop standalone packages.
+   - `docs/UPDATE_STRATEGY.md`: Safe update policies across store-managed mobile channels and user-controlled desktop channels.
+   - `docs/ROLLBACK_PLAN.md`: Emergency recovery procedures, incident escalation triggers, and database preservation protocols.
+   - `docs/RELEASE_APPROVALS.md`: Publication approval boundary enforcing explicit owner sign-off prior to public deployment.
+   - `.github/workflows/publish-release.yml`: Protected release publishing workflow requiring explicit confirmation token (`YES_I_CONFIRM_OFFICIAL_RELEASE`).
+   - `docs/RELEASE_NOTES.md`: Official release announcement and highlights for `1.0.0-rc.1`.
+   - `docs/RELEASE_MANIFEST.md` and `docs/release-manifest.json`: Machine-readable artifact records.
 
-4. **Production Build Engineering & Artifacts**:
-   - Android: `androidApp-release-unsigned.apk` (147,577,927 bytes) & `androidApp-release.aab` (76,079,193 bytes).
-   - macOS: `Vimivo-1.0.0.dmg` (150,423,483 bytes) and standalone `Vimivo.app`.
-   - CI workflows: `.github/workflows/macos.yml`, `.github/workflows/ios.yml`, `.github/workflows/android.yml`, `.github/workflows/shared.yml`, `.github/workflows/release-candidate.yml`.
-   - Artifact checksums in `docs/SHA256SUMS.txt`, CycloneDX SBOM in `docs/sbom.json`, and `docs/release-manifest.json`.
-
-5. **Test & Static Analysis Verification**:
-   - `:shared:desktopTest`: 23 passing tests.
-   - `:desktopApp:desktopTest`: 82 passing tests.
+4. **Test & Static Analysis Verification**:
+   - `:shared:desktopTest`: 28 passing tests.
+   - `:desktopApp:desktopTest`: 81 passing tests.
    - `:androidApp:testDebugUnitTest`: 20 passing tests.
-   - Total automated tests: 125 tests passing (0 failures).
-   - Detekt static analysis: 0 violations across all modules.
+   - Total automated tests: 129 tests passing (0 failures).
+   - Detekt static analysis: 0 weighted violations across all modules.
 
 ## Next executable work
 
-1. Invite authorized testers into the private beta cohort under the established opt-in agreement.
-2. Evaluate genuine field feedback received from real beta testers (Status currently: **AWAITING AUTHORIZED TESTERS**).
-3. Execute `.github/workflows/release-candidate.yml` on an authorized tag/dispatch to build Windows (EXE/MSI) and Linux (DEB/RPM/AppImage) binaries on native CI runners.
-4. When authorized by owner, supply Apple Developer ID and Google Play upload credentials to sign production packages.
+1. Invite authorized testers into the private beta cohort under the established opt-in agreement (`docs/BETA_TEST_PLAN.md`).
+2. Execute remote Windows and Linux native binary generation via GitHub Actions workflow `.github/workflows/release-candidate.yml`.
+3. Provide owner-managed Google Play upload keystore and Apple Developer Team provisioning profile in protected secrets when ready for store submissions.
+4. Obtain explicit owner authorization before triggering `.github/workflows/publish-release.yml`.
 
 ## External or hardware blockers
 
-- Public Google Play store submission requires owner-managed upload keystore. Never commit signing keys.
+- Public Google Play store submission requires owner-managed upload keystore and 14-day 12-tester closed testing period if mandated by account policy.
 - iOS physical device installation and TestFlight / App Store submission require owner-managed Apple Developer Team signing certificate and provisioning profile.
-- Windows Authenticode certificate required for SignTool to establish SmartScreen reputation.
+- Windows Authenticode certificate required for SignTool to establish Microsoft Defender SmartScreen reputation.
 - macOS Gatekeeper bypass for public DMG distribution requires Apple Developer ID certificate and `xcrun notarytool` notarization.
 - Linux and Windows packaging execution requires corresponding OS runners.
 

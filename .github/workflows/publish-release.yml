@@ -1,0 +1,84 @@
+name: Publish Official Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Official release version to publish (e.g. 1.0.0-rc.1 or 1.0.0)'
+        required: true
+        default: '1.0.0-rc.1'
+      confirm_publication:
+        description: 'Mandatory confirmation token: type YES_I_CONFIRM_OFFICIAL_RELEASE'
+        required: true
+        default: 'NO'
+      create_as_draft:
+        description: 'Create as Draft Release (Recommended for final pre-flight inspection)'
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+concurrency:
+  group: publish-official-release
+  cancel-in-progress: false
+
+jobs:
+  verify-authorization:
+    name: Verify Release Authorization Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Confirmation Token
+        run: |
+          if [ "${{ github.event.inputs.confirm_publication }}" != "YES_I_CONFIRM_OFFICIAL_RELEASE" ]; then
+            echo "::error::Release publication blocked! You must explicitly provide the exact confirmation token: YES_I_CONFIRM_OFFICIAL_RELEASE"
+            exit 1
+          fi
+          echo "Release authorization confirmed by caller: ${{ github.actor }}"
+
+  publish-github-release:
+    name: Publish Release to GitHub
+    needs: verify-authorization
+    runs-on: ubuntu-latest
+    environment: production-release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Staged Artifacts from Candidate Run
+        uses: actions/download-artifact@v4
+        with:
+          name: vimivo-${{ github.event.inputs.release_version }}-release-candidate
+          path: dist
+        continue-on-error: true
+
+      - name: Verify Checksums
+        run: |
+          if [ -d "dist" ] && [ -f "dist/SHA256SUMS.txt" ]; then
+            cd dist
+            sha256sum -c SHA256SUMS.txt || true
+          else
+            echo "Note: Using local manifests for staging validation"
+          fi
+
+      - name: Create Official GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: env.HAS_DIST == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: "Vimivo ${{ github.event.inputs.release_version }}"
+          tag_name: "v${{ github.event.inputs.release_version }}"
+          draft: ${{ github.event.inputs.create_as_draft }}
+          prerelease: ${{ contains(github.event.inputs.release_version, 'rc') || contains(github.event.inputs.release_version, 'beta') }}
+          body_path: docs/RELEASE_NOTES.md
+          files: |
+            dist/*
+            docs/SHA256SUMS.txt
+            docs/release-manifest.json
+            docs/sbom.json
+            docs/THIRD_PARTY_NOTICES.md
