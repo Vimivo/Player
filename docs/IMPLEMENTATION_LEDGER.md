@@ -74,19 +74,19 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `3d77bde` — `feat(qa): complete Milestone 25 and 26 five-platform quality assurance, database migration tests, user journeys, production packaging, and CI/CD` — DesktopDatabaseMigrationTest (v1/v2/v3->v4 upgrades, foreign keys, rollback), DesktopUserJourneysTest (7 E2E journeys, fault injection), zero-byte and Bengali/Unicode fixture tests, Android release APK & AAB, macOS standalone DMG with bundled JVM and 50 dylibs, CI workflows (`macos.yml`, `ios.yml`, `android.yml`, `shared.yml`, `release-candidate.yml`), CycloneDX SBOM, release manifest, and SHA-256 digests.
 - `c2bf084` — `feat(beta): implement closed beta infrastructure, privacy-safe diagnostics, bug triage, and RC stabilization` — Privacy-safe diagnostic subsystem, Desktop diagnostic exporter, SafeLogger credential redaction, GitHub Issue forms, beta test plan, tester guide, scenario matrix, compatibility matrix, defect triage register, upgrade verification, and RC go/no-go report (Milestones 27 & 28).
 - `feat(release): implement final launch readiness, safe update engine, official distribution architecture, and protected publishing` — In-app update checker and manifest model, DesktopUpdateService, website download portal (`docs/website/index.html`), store listings, publication approval boundary, system requirements, installation guide, privacy review, rollback plan, and protected publishing pipeline (Milestones 29 & 30).
+- `feat(reliability): implement post-launch reliability engineering, structured local logging, crash diagnostics, secure update security, and maintenance CI` — Standardized 20-category error model (`VimivoError`), bounded circular logging (`StructuredLogger`), local disk log rotation (`DesktopLogFileAppender`), fault-injection reliability test suite (`FaultInjectionReliabilityTest`, `DesktopReliabilityTest`), update security with rollback/downgrade attack prevention and SHA-256 validation (`UpdateSecurityTest`), Dependabot automation, supply-chain security workflow, emergency hotfix pipeline, and reliability/maintenance documentation suite (Milestones 31 & 32).
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
-- `./gradlew :shared:desktopTest` (28 tests passed)
-- `./gradlew :desktopApp:desktopTest` (81 tests passed)
+- `./gradlew :shared:desktopTest` (45 tests passed)
+- `./gradlew :desktopApp:desktopTest` (70 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
-- `./gradlew :androidApp:assembleRelease :androidApp:bundleRelease` (BUILD SUCCESSFUL, generated `androidApp-release-unsigned.apk` [141 MB] and `androidApp-release.aab` [73 MB])
-- `./gradlew :desktopApp:packageDmg` (BUILD SUCCESSFUL, generated `Vimivo-1.0.0.dmg` [143 MB])
+- `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
-- Standalone execution verified from mounted `Vimivo-1.0.0.dmg` with zero `/opt/homebrew` dependencies.
-- Total automated tests: 129 tests passing, 0 failures.
+- Total automated tests: 135 tests passing, 0 failures.
+
 
 
