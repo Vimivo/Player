@@ -160,6 +160,13 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Enriched the existing iOS Now Playing publication with queue, identity, media-kind, and live-stream metadata while retaining the single AVPlayer engine.
 - Recorded WidgetKit target/provisioning, Xcode-license, macOS command-center, and Windows SMTC limitations explicitly. See `NATIVE_WIDGETS_PHASE_6.md`.
 
+### Final premium audit Phase 7 checkpoint (2026-10-16)
+
+- Reconciled source capability with actual host/device evidence and corrected the feature matrix so it cannot imply five-platform runtime verification.
+- Reran the 10,000-item SQLite/library benchmark and recorded the measured results without extending them into unmeasured GPU, jank, battery, or playback claims.
+- Removed the macOS native bridge's avoidable `xcrun` dependency by selecting the executable Command Line Tools compiler directly; documented remaining OpenGL and native-host risks.
+- Published prioritized P0/P1/P2 gaps and a truthful NO-GO for “all platforms/all features complete.” See `FINAL_PREMIUM_AUDIT_PHASE_7.md`.
+
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)

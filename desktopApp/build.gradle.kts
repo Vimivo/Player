@@ -11,8 +11,10 @@ val macosMpvBridge by tasks.registering(Exec::class) {
     val output = layout.buildDirectory.file("native/libvimivo_mpv_cocoa.dylib")
     inputs.file("src/desktopMain/native/macos/MpvCocoaRenderer.mm")
     outputs.file(output)
+    val commandLineToolsCompiler = file("/Library/Developer/CommandLineTools/usr/bin/clang++")
+    val compiler = if (commandLineToolsCompiler.canExecute()) commandLineToolsCompiler.absolutePath else "clang++"
     val cmd = mutableListOf(
-        "xcrun", "clang++", "-dynamiclib", "-std=c++17",
+        compiler, "-dynamiclib", "-std=c++17",
         "-I${javaHome.get()}/include", "-I${javaHome.get()}/include/darwin", "-I/opt/homebrew/include",
         "src/desktopMain/native/macos/MpvCocoaRenderer.mm", "-o", output.get().asFile.absolutePath,
         "-L/opt/homebrew/lib", "-L${javaHome.get()}/lib", "-lmpv", "-ljawt", "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "QuartzCore",

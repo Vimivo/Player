@@ -1,6 +1,13 @@
 # Cross-platform feature matrix
 
-Verified against source, automated test suites, and simulator runs on 2026-10-15. “Verified” below indicates automated verification and/or simulator verification unless physical runtime is explicitly stated.
+> Phase 7 audit correction (2026-10-16): the legacy table below is a source-capability inventory, not proof that
+> every platform was run. The authoritative current verification status is in
+> [FINAL_PREMIUM_AUDIT_PHASE_7.md](FINAL_PREMIUM_AUDIT_PHASE_7.md). In particular, macOS media command-center,
+> Windows SMTC, Apple WidgetKit, Windows/Linux packages, and physical Android/iOS accessibility or playback are not
+> verified complete. “Implemented, tested” entries below mean repository tests unless physical runtime is named.
+
+Verified against source and repository test suites on 2026-10-16. Physical-device and cross-host evidence is
+reported separately and must not be inferred from this inventory.
 
 | Feature | Android | macOS | Windows | Linux | iOS / iPadOS |
 |---|---|---|---|---|---|
