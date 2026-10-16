@@ -24,7 +24,7 @@ class DesktopDatabaseMigrationTest {
             database.transaction { conn ->
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(5, rs.getInt(1), "Fresh database must initialize to schema version 5")
+                    assertEquals(6, rs.getInt(1), "Fresh database must initialize to schema version 6")
                 }
             }
         }
@@ -67,7 +67,7 @@ class DesktopDatabaseMigrationTest {
                 // Check schema version
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(5, rs.getInt(1))
+                    assertEquals(6, rs.getInt(1))
                 }
 
                 // Verify original data is intact
@@ -148,10 +148,10 @@ class DesktopDatabaseMigrationTest {
         // Open with DesktopDatabase, migrating 2 -> 3 -> 4 -> 5
         DesktopDatabase.open(dbPath).use { database ->
             database.transaction { conn ->
-                // Schema version should now be 5
+                // Schema version should now be 6
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(5, rs.getInt(1))
+                    assertEquals(6, rs.getInt(1))
                 }
 
                 // Verify metadata title column added by v3 migration exists
@@ -215,7 +215,7 @@ class DesktopDatabaseMigrationTest {
             database.transaction { conn ->
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(5, rs.getInt(1))
+                    assertEquals(6, rs.getInt(1))
                 }
 
                 // Verify queue tables exist and cascade delete when media is removed
@@ -280,7 +280,7 @@ class DesktopDatabaseMigrationTest {
             database.transaction { conn ->
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(5, rs.getInt(1), "Database must be migrated to schema version 5")
+                    assertEquals(6, rs.getInt(1), "Database must be migrated to schema version 6")
                 }
 
                 // Verify indexes created in v5
@@ -303,6 +303,78 @@ class DesktopDatabaseMigrationTest {
     }
 
     @Test
+    fun upgradeFromSchemaVersion5PreservesDataAndEnforcesForeignKeys() {
+        val tempDir = Files.createTempDirectory("vimivo-v5-upgrade")
+        val dbPath = tempDir.resolve("v5.sqlite")
+
+        // Build a Schema Version 5 database
+        DriverManager.getConnection("jdbc:sqlite:${dbPath.toAbsolutePath()}").use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute("CREATE TABLE schema_version (version INTEGER NOT NULL)")
+                stmt.execute("INSERT INTO schema_version(version) VALUES (5)")
+                stmt.execute(
+                    "CREATE TABLE library_roots (id TEXT PRIMARY KEY, uri TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL, " +
+                        "added_at_ms INTEGER NOT NULL, last_scan_ms INTEGER, available INTEGER NOT NULL DEFAULT 1)",
+                )
+                stmt.execute(
+                    "CREATE TABLE media_items (id TEXT PRIMARY KEY, root_id TEXT NOT NULL, uri TEXT NOT NULL UNIQUE, " +
+                        "file_name TEXT NOT NULL, title TEXT NOT NULL, kind TEXT NOT NULL, mime_type TEXT, size_bytes INTEGER, " +
+                        "modified_ms INTEGER, indexed_ms INTEGER NOT NULL, available INTEGER NOT NULL DEFAULT 1, " +
+                        "FOREIGN KEY(root_id) REFERENCES library_roots(id))",
+                )
+                stmt.execute(
+                    "CREATE TABLE media_metadata (media_id TEXT PRIMARY KEY, title TEXT, artist TEXT, album TEXT, " +
+                        "album_artist TEXT, genre TEXT, track_number INTEGER, disc_number INTEGER, release_year INTEGER, " +
+                        "duration_ms INTEGER, bitrate INTEGER, sample_rate INTEGER, channels INTEGER, video_width INTEGER, " +
+                        "video_height INTEGER, frame_rate REAL, video_codec TEXT, audio_codec TEXT, container TEXT, " +
+                        "audio_track_count INTEGER, subtitle_track_count INTEGER, artwork_uri TEXT, thumbnail_uri TEXT, " +
+                        "extraction_version INTEGER NOT NULL DEFAULT 1, extraction_status TEXT NOT NULL DEFAULT 'PENDING', " +
+                        "extraction_error TEXT, extracted_size_bytes INTEGER, extracted_modified_ms INTEGER, updated_at_ms INTEGER NOT NULL, " +
+                        "FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE CASCADE)",
+                )
+                stmt.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+                stmt.execute("CREATE TABLE playlists (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL)")
+                stmt.execute("CREATE TABLE playlist_items (playlist_id TEXT NOT NULL, media_id TEXT NOT NULL, position INTEGER NOT NULL, added_at_ms INTEGER NOT NULL, PRIMARY KEY(playlist_id, media_id))")
+
+                stmt.execute("INSERT INTO library_roots VALUES ('root-5', 'file:///music5', 'Music 5', 1000, 1000, 1)")
+                stmt.execute("INSERT INTO media_items VALUES ('song-5', 'root-5', 'file:///music5/s5.mp3', 's5.mp3', 'Song 5', 'AUDIO', 'audio/mpeg', 4096, 1000, 1000, 1)")
+                stmt.execute("INSERT INTO media_metadata(media_id, title, artist, album, updated_at_ms) VALUES ('song-5', 'Song 5', 'Artist Five', 'Album Five', 1500)")
+            }
+        }
+
+        // Migrate from v5 -> v6
+        DesktopDatabase.open(dbPath).use { database ->
+            database.transaction { conn ->
+                conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
+                    assertTrue(rs.next())
+                    assertEquals(6, rs.getInt(1), "Schema version must be 6 after migration")
+                }
+
+                // Verify original data intact
+                conn.createStatement().executeQuery("SELECT title FROM media_items WHERE id = 'song-5'").use { rs ->
+                    assertTrue(rs.next())
+                    assertEquals("Song 5", rs.getString(1))
+                }
+
+                // Verify v6 tables exist and functional
+                conn.createStatement().execute("INSERT INTO user_metadata_overrides(media_id, title, artist, updated_at_ms) VALUES ('song-5', 'Custom Title', 'Custom Artist', 2000)")
+                conn.createStatement().execute("INSERT INTO user_artwork_overrides(media_id, artwork_uri, updated_at_ms) VALUES ('song-5', 'file:///art.jpg', 2000)")
+                conn.createStatement().execute("INSERT INTO smart_playlists(id, name, rules_json, created_at_ms, updated_at_ms) VALUES ('sp-1', 'My Smart Mix', '[]', 2000, 2000)")
+                conn.createStatement().execute("INSERT INTO media_hashes(media_id, content_hash, file_size_bytes, modified_ms, updated_at_ms) VALUES ('song-5', 'hash123', 4096, 1000, 2000)")
+                conn.createStatement().execute("INSERT INTO batch_operation_journal(job_id, operation_type, stage, details, created_at_ms, updated_at_ms) VALUES ('job-1', 'RENAME', 'COMMITTED', '{}', 2000, 2000)")
+                conn.createStatement().execute("INSERT INTO workflow_rules(id, name, trigger_type, action_type, enabled) VALUES ('wr-1', 'Health Check Rule', 'MANUAL', 'HEALTH_CHECK', 1)")
+                conn.createStatement().execute("INSERT INTO dismissed_recommendations(target_type, target_id, dismissed_at_ms) VALUES ('MEDIA', 'song-5', 2000)")
+                conn.createStatement().execute("INSERT INTO personalization_preferences(key, value) VALUES ('enabled', 'true')")
+
+                // Verify foreign key enforcement
+                assertFailsWith<SQLException> {
+                    conn.createStatement().execute("INSERT INTO user_metadata_overrides(media_id, title, updated_at_ms) VALUES ('invalid-media', 'Title', 2000)")
+                }
+            }
+        }
+    }
+
+    @Test
     fun databaseWithNewerVersionFailsFastToProtectUserData() {
         val tempDir = Files.createTempDirectory("vimivo-future-db")
         val dbPath = tempDir.resolve("future.sqlite")
@@ -310,7 +382,7 @@ class DesktopDatabaseMigrationTest {
         DriverManager.getConnection("jdbc:sqlite:${dbPath.toAbsolutePath()}").use { conn ->
             conn.createStatement().use { stmt ->
                 stmt.execute("CREATE TABLE schema_version (version INTEGER NOT NULL)")
-                stmt.execute("INSERT INTO schema_version(version) VALUES (6)")
+                stmt.execute("INSERT INTO schema_version(version) VALUES (7)")
             }
         }
 
