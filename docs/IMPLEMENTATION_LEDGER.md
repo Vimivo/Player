@@ -93,6 +93,10 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `feat(database): upgrade SQLite schema to version 6 with non-destructive migrations` — Added tables `user_metadata_overrides`, `user_artwork_overrides`, `smart_playlists`, `media_hashes`, `batch_operation_journal`, `workflow_rules`, `dismissed_recommendations`, and `personalization_preferences` with foreign key enforcement and passing migration test suites.
 - `test(library): add comprehensive test suites for metadata editing, batch renaming, missing media, automation, smart playlists, unicode search, and recommendations` — Added 7 new test suites covering all edge cases, collisions, Windows reserved names, DB reconciliation, Bengali text search, and health diagnostics.
 
+- `docs(consolidation): update README, architecture, platform development, and user guides` — Root `README.md` canonical entry point, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`, PR & issue templates, `docs/development/` 5-platform guides (`ANDROID.md`, `IOS.md`, `MACOS.md`, `WINDOWS.md`, `LINUX.md`), `docs/ARCHITECTURE.md`, `docs/PLAYBACK_ARCHITECTURE.md`, `docs/DATABASE_ARCHITECTURE.md`, `docs/FORMAT_SUPPORT.md`, `docs/USER_GUIDE.md`, and `docs/INSTALLATION.md` (Milestone 39).
+- `build(dev): add reproducible verification entry points and automated documentation link validation` — Added `scripts/verify_all.sh`, `scripts/validate_docs.sh` (100% passing relative links), and `verifyAll` root Gradle task orchestrating Detekt, shared tests, desktop compilation & tests, and Android unit tests & debug assembly.
+- `docs(release): add maintenance handoff, hotfix runbook, and release quality report` — Completed `docs/MAINTENANCE_HANDOFF.md`, `docs/HOTFIX_RUNBOOK.md`, `docs/RELEASE_QUALITY_REPORT.md` (five-platform GO/NO-GO), `docs/release-manifest.json` (schema v6), and verified SHA256SUMS (Milestone 40).
+
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
@@ -103,8 +107,6 @@ On 2026-10-16, these commands completed successfully:
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
+- `./scripts/validate_docs.sh` (100% of relative documentation links validated)
+- `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
 - Total automated tests: 221 tests passing, 0 failures (plus 7 native iOS XCTest tests).
-
-
-
-

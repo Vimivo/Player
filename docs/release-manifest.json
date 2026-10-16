@@ -3,11 +3,11 @@
   "version": "1.0.0-rc.1",
   "tagline": "Every Sound. Every Frame.",
   "repository": "https://github.com/Vimivo/Player",
-  "commit": "c2bf084",
+  "commit": "67267eb",
   "buildDate": "2026-10-16T07:15:00Z",
   "releaseNotesUrl": "https://github.com/Vimivo/Player/blob/main/docs/RELEASE_NOTES.md",
   "minSupportedDatabaseVersion": 1,
-  "currentDatabaseVersion": 4,
+  "currentDatabaseVersion": 6,
   "toolchain": {
     "jdk": "17 (Eclipse Temurin)",
     "kotlin": "2.3.20",
