@@ -16,6 +16,7 @@
     <string name="dynamic_color">Dynamic color</string>
     <string name="artwork_accents">Artwork-based accents</string>
     <string name="reduce_animations">Reduce animations</string>
+    <string name="reduce_transparency">Reduce transparency</string>
     <string name="high_contrast">High contrast</string>
     <string name="larger_targets">Larger touch targets</string>
     <string name="shuffle_behavior">Shuffle behavior</string>

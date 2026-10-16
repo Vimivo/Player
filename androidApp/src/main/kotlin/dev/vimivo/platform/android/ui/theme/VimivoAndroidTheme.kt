@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import dev.vimivo.settings.ThemeMode
+import dev.vimivo.ui.theme.LocalReducedTransparency
 import dev.vimivo.settings.AppSettings
 import dev.vimivo.settings.AccentColor
 
@@ -103,6 +104,7 @@ fun VimivoAndroidTheme(
     }
     CompositionLocalProvider(
         LocalReducedMotion provides (settings.reduceAnimations || !ValueAnimator.areAnimatorsEnabled()),
+        LocalReducedTransparency provides (settings.reduceTransparency || settings.highContrast),
         LocalLargeTouchTargets provides settings.largerTouchTargets,
     ) {
         MaterialTheme(colorScheme = contrasted, typography = VimivoTypography, content = content)

@@ -48,6 +48,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             accentColor = preferences.enum(Keys.accentColor, AccentColor.VIOLET),
             artworkBasedAccents = preferences[Keys.artworkBasedAccents] ?: true,
             reduceAnimations = preferences[Keys.reduceAnimations] ?: false,
+            reduceTransparency = preferences[Keys.reduceTransparency] ?: false,
             highContrast = preferences[Keys.highContrast] ?: false,
             largerTouchTargets = preferences[Keys.largerTouchTargets] ?: false,
             shuffleBehavior = preferences.enum(Keys.shuffleBehavior, ShuffleBehavior.REMEMBER),
@@ -106,6 +107,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             preferences[Keys.accentColor] = updated.accentColor.name
             preferences[Keys.artworkBasedAccents] = updated.artworkBasedAccents
             preferences[Keys.reduceAnimations] = updated.reduceAnimations
+            preferences[Keys.reduceTransparency] = updated.reduceTransparency
             preferences[Keys.highContrast] = updated.highContrast
             preferences[Keys.largerTouchTargets] = updated.largerTouchTargets
             preferences[Keys.shuffleBehavior] = updated.shuffleBehavior.name
@@ -154,6 +156,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
         val accentColor = stringPreferencesKey("accent_color")
         val artworkBasedAccents = booleanPreferencesKey("artwork_based_accents")
         val reduceAnimations = booleanPreferencesKey("reduce_animations")
+        val reduceTransparency = booleanPreferencesKey("reduce_transparency")
         val highContrast = booleanPreferencesKey("high_contrast")
         val largerTouchTargets = booleanPreferencesKey("larger_touch_targets")
         val shuffleBehavior = stringPreferencesKey("shuffle_behavior")

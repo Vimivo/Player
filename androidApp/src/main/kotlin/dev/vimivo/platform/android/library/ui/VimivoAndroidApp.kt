@@ -1062,6 +1062,7 @@ private fun SettingsScreen(
         item { SettingsRow(Icons.Outlined.DarkMode, stringResource(R.string.dynamic_color), checked = settings.dynamicColor) { viewModel.setDynamicColor(!settings.dynamicColor) } }
         item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.artwork_accents), checked = settings.artworkBasedAccents) { viewModel.setArtworkAccents(!settings.artworkBasedAccents) } }
         item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.reduce_animations), checked = settings.reduceAnimations) { viewModel.setReduceAnimations(!settings.reduceAnimations) } }
+        item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.reduce_transparency), checked = settings.reduceTransparency) { viewModel.setReduceTransparency(!settings.reduceTransparency) } }
         item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.high_contrast), checked = settings.highContrast) { viewModel.setHighContrast(!settings.highContrast) } }
         item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.larger_targets), checked = settings.largerTouchTargets) { viewModel.setLargerTouchTargets(!settings.largerTouchTargets) } }
 

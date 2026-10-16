@@ -66,6 +66,8 @@ Test & Static Analysis Verification:
 
 ## Next executable work
 
+Aurora Glass Phase 1 is now active at Git base `bd06079be0aec363c037447d84256eaa2a0f5a6f`. Shared tokens/materials and the Android floating mini-player integration are implemented and verified. The next exact UI task is to replace the non-scrollable generic Android bottom-sheet container with separate lazy queue and scrollable settings-sheet primitives, then add process-restorable navigation state. Desktop shell restructuring and iOS queue invariants follow; neither is complete yet.
+
 1. Continue expanding platform-native file provider integrations for Android SAF and iOS FileProvider for external SD/OTG storage.
 2. Invite authorized testers into the private beta cohort under the established opt-in agreement (`docs/BETA_TEST_PLAN.md`).
 3. Execute remote Windows and Linux native binary generation via GitHub Actions workflow `.github/workflows/release-candidate.yml`.

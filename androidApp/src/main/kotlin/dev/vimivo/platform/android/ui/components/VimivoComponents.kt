@@ -37,12 +37,12 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Forward10
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Replay10
+import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.Card
@@ -79,6 +79,8 @@ import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.ui.theme.LocalReducedMotion
+import dev.vimivo.ui.components.VimivoGlassSurface
+import dev.vimivo.ui.theme.VimivoGlassVariant
 
 @Composable
 fun MediaArtwork(
@@ -136,7 +138,14 @@ fun SongRow(
         supportingContent = { Text(listOfNotNull(media.artist, media.album).joinToString(" · "), maxLines = 1) },
         trailingContent = if (onFavorite != null || onMore != null) ({
             Row {
-                onFavorite?.let { action -> IconButton(action) { Icon(if (media.isFavorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, "Favorite") } }
+                onFavorite?.let { action ->
+                    IconButton(action) {
+                        Icon(
+                            if (media.isFavorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
+                            if (media.isFavorite) "Remove ${media.title} from favorites" else "Add ${media.title} to favorites",
+                        )
+                    }
+                }
                 onMore?.let { action -> IconButton(action) { Icon(Icons.Outlined.MoreVert, "More actions for ${media.title}") } }
             }
         }) else null,
@@ -201,13 +210,13 @@ fun PlayerControls(
             Text(formatTime(duration), style = MaterialTheme.typography.labelSmall)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPrevious) { Icon(Icons.Outlined.Replay10, "Previous") }
+            IconButton(onClick = onPrevious) { Icon(Icons.Outlined.SkipPrevious, "Previous track") }
             IconButton(onClick = onToggle, Modifier.size(64.dp)) {
                 AnimatedContent(isPlaying, label = "play pause") { playing ->
                     Icon(if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (playing) "Pause" else "Play", Modifier.size(42.dp))
                 }
             }
-            IconButton(onClick = onNext) { Icon(Icons.Outlined.Forward10, "Next") }
+            IconButton(onClick = onNext) { Icon(Icons.Outlined.SkipNext, "Next track") }
         }
     }
 }
@@ -220,9 +229,9 @@ fun MiniPlayer(media: MediaItem, thumbnails: AndroidThumbnailRepository, isPlayi
         animationSpec = if (reducedMotion) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(),
         label = "playback progress",
     )
-    Card(
+    VimivoGlassSurface(
+        variant = VimivoGlassVariant.FLOATING_PLAYER,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clickable(onClick = onOpen),
-        shape = RoundedCornerShape(18.dp),
     ) {
         Column {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {

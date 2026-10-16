@@ -118,6 +118,15 @@ Status terms: **implemented** means code exists, **tested** means automated test
 
 ## Quality record
 
+### Aurora Glass Phase 1 checkpoint (2026-10-16)
+
+- Added Aurora teal semantic colors, shared motion timings, `LocalReducedTransparency`, and six `VimivoGlassSurface` variants with opaque high-contrast/reduced-transparency fallback.
+- Applied the real floating-player material to the Android mini-player without changing its playback controller.
+- Persisted Android reduced-transparency preference through DataStore and local backup/restore, including English and Bengali labels.
+- Corrected Android Previous/Next glyph semantics and state-aware favorite announcements.
+- Published the truthful redesign, glass, and motion blueprints. No WidgetKit, Android widget, macOS/Windows media-control, visual-regression, or performance-runtime claim is marked complete.
+- Verification: `:shared:desktopTest`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`, and repository `detekt` completed successfully.
+
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)

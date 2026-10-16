@@ -42,6 +42,7 @@ data class AppSettings(
     val accentColor: AccentColor = AccentColor.VIOLET,
     val artworkBasedAccents: Boolean = true,
     val reduceAnimations: Boolean = false,
+    val reduceTransparency: Boolean = false,
     val highContrast: Boolean = false,
     val largerTouchTargets: Boolean = false,
     val shuffleBehavior: ShuffleBehavior = ShuffleBehavior.REMEMBER,

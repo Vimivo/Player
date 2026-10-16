@@ -226,6 +226,7 @@ private fun AppSettings.toJson() = JSONObject()
     .put("accentColor", accentColor.name)
     .put("artworkBasedAccents", artworkBasedAccents)
     .put("reduceAnimations", reduceAnimations)
+    .put("reduceTransparency", reduceTransparency)
     .put("highContrast", highContrast)
     .put("largerTouchTargets", largerTouchTargets)
     .put("shuffleBehavior", shuffleBehavior.name)
@@ -274,6 +275,7 @@ private fun JSONObject.toSettings(): AppSettings {
         accentColor = enum("accentColor", defaults.accentColor),
         artworkBasedAccents = optBoolean("artworkBasedAccents", defaults.artworkBasedAccents),
         reduceAnimations = optBoolean("reduceAnimations", defaults.reduceAnimations),
+        reduceTransparency = optBoolean("reduceTransparency", defaults.reduceTransparency),
         highContrast = optBoolean("highContrast", defaults.highContrast),
         largerTouchTargets = optBoolean("largerTouchTargets", defaults.largerTouchTargets),
         shuffleBehavior = enum("shuffleBehavior", defaults.shuffleBehavior),

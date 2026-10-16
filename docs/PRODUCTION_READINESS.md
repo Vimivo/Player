@@ -2,6 +2,8 @@
 
 Status overview across all five supported platform targets as of **2026-10-16** (Milestones 57 & 58 Complete Local and URL Playback Verification, Streaming Security Audit, and Five-Platform Release Hardening Complete).
 
+> UI transformation note: the Aurora Glass redesign is in Phase 1. Shared material tokens and the Android floating mini-player are verified, but the requested desktop shell, adaptive iOS queue/player, native widgets, macOS/Windows system controls, visual regression, and measured UI-performance evidence are not complete. Earlier broad UI-completeness statements must not be interpreted as verification of those new requirements.
+
 | Platform | Technical & Quality Status | Distribution & Launch Readiness |
 |---|---|---|
 | **Android** | **RELEASE CANDIDATE READY** (100% Tests Passing, 40/40) | Fully functional release APK (`androidApp-release-unsigned.apk`, 147.5 MB, SHA-256: `7425f12d...`) and release App Bundle (`androidApp-release.aab`, 76.0 MB, SHA-256: `8d7f0060...`). All unit tests and Detekt static analysis pass. Media3 foreground service, MediaSession, TalkBack accessibility, Android 13+ notification permissions, privacy diagnostics, and direct URL streaming verified. Target SDK 36 compliant. Store submission requires owner-managed upload keystore. |

@@ -45,6 +45,25 @@ object VimivoElevation {
     val level4: Dp = 8.dp
 }
 
+/** Shared motion timings. Callers must bypass decorative transitions when [LocalReducedMotion] is true. */
+object VimivoMotion {
+    const val instantMillis: Int = 0
+    const val feedbackMillis: Int = 120
+    const val fastMillis: Int = 160
+    const val navigationMillis: Int = 240
+    const val sheetMillis: Int = 300
+    const val playerMillis: Int = 360
+}
+
+enum class VimivoGlassVariant {
+    NAVIGATION,
+    FLOATING_PLAYER,
+    CONTROL,
+    SHEET,
+    POPOVER,
+    SOLID_FALLBACK,
+}
+
 object VimivoIconSize {
     val small: Dp = 16.dp
     val medium: Dp = 24.dp
@@ -69,14 +88,16 @@ enum class WindowSizeClass {
 }
 
 val LocalReducedMotion = staticCompositionLocalOf { false }
+val LocalReducedTransparency = staticCompositionLocalOf { false }
 val LocalHighContrast = staticCompositionLocalOf { false }
 val LocalWindowSizeClass = staticCompositionLocalOf { WindowSizeClass.MEDIUM }
 val LocalTouchTargetScale = staticCompositionLocalOf { 1.0f }
 
 object VimivoColors {
-    // Brand Accent
-    val BrandViolet = Color(0xFF6C5CE7)
-    val BrandVioletLight = Color(0xFFC9C2FF)
+    // Aurora brand accents: calm teal with a restrained warm counterpoint.
+    val AuroraTeal = Color(0xFF007F78)
+    val AuroraTealLight = Color(0xFF71DBD2)
+    val AuroraWarm = Color(0xFFC97852)
 
     // Semantic Status
     val Success = Color(0xFF087F5B)
@@ -94,20 +115,20 @@ object VimivoColors {
 }
 
 val VimivoLightColorScheme = lightColorScheme(
-    primary = Color(0xFF4D56C7),
+    primary = Color(0xFF006B66),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFE0E0FF),
-    onPrimaryContainer = Color(0xFF030865),
+    primaryContainer = Color(0xFFA0F2E9),
+    onPrimaryContainer = Color(0xFF00201E),
     secondary = Color(0xFF536471),
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFD7E3EC),
     onSecondaryContainer = Color(0xFF101C27),
-    tertiary = Color(0xFF78536B),
+    tertiary = Color(0xFF8B4F35),
     onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFFAF9FD),
-    onBackground = Color(0xFF1B1B1F),
-    surface = Color(0xFFFAF9FD),
-    onSurface = Color(0xFF1B1B1F),
+    background = Color(0xFFF6FAF9),
+    onBackground = Color(0xFF171D1C),
+    surface = Color(0xFFF6FAF9),
+    onSurface = Color(0xFF171D1C),
     surfaceVariant = Color(0xFFE4E1EC),
     onSurfaceVariant = Color(0xFF46464F),
     surfaceContainerLowest = Color(0xFFFFFFFF),
@@ -123,20 +144,20 @@ val VimivoLightColorScheme = lightColorScheme(
 )
 
 val VimivoDarkColorScheme = darkColorScheme(
-    primary = Color(0xFFBEC2FF),
-    onPrimary = Color(0xFF1A2188),
-    primaryContainer = Color(0xFF353DAB),
-    onPrimaryContainer = Color(0xFFE0E0FF),
+    primary = Color(0xFF71DBD2),
+    onPrimary = Color(0xFF003735),
+    primaryContainer = Color(0xFF00504C),
+    onPrimaryContainer = Color(0xFFA0F2E9),
     secondary = Color(0xFFBBC7D1),
     onSecondary = Color(0xFF25313A),
     secondaryContainer = Color(0xFF3B4852),
     onSecondaryContainer = Color(0xFFD7E3EC),
     tertiary = Color(0xFFE8B9D4),
     onTertiary = Color(0xFF45263B),
-    background = Color(0xFF131316),
-    onBackground = Color(0xFFE4E2E6),
-    surface = Color(0xFF131316),
-    onSurface = Color(0xFFE4E2E6),
+    background = Color(0xFF0D1212),
+    onBackground = Color(0xFFDDE4E2),
+    surface = Color(0xFF0D1212),
+    onSurface = Color(0xFFDDE4E2),
     surfaceVariant = Color(0xFF46464F),
     onSurfaceVariant = Color(0xFFC7C5D0),
     surfaceContainerLowest = Color(0xFF0E0E11),
@@ -152,10 +173,10 @@ val VimivoDarkColorScheme = darkColorScheme(
 )
 
 val VimivoAmoledColorScheme = darkColorScheme(
-    primary = Color(0xFFBEC2FF),
-    onPrimary = Color(0xFF1A2188),
-    primaryContainer = Color(0xFF353DAB),
-    onPrimaryContainer = Color(0xFFE0E0FF),
+    primary = Color(0xFF71DBD2),
+    onPrimary = Color(0xFF003735),
+    primaryContainer = Color(0xFF00504C),
+    onPrimaryContainer = Color(0xFFA0F2E9),
     secondary = Color(0xFFBBC7D1),
     onSecondary = Color(0xFF25313A),
     background = Color.Black,

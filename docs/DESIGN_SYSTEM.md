@@ -1,4 +1,4 @@
-# Vimivo Design System
+# Vimivo Aurora Glass Design System
 
 This document specifies the design tokens, color architecture, component standards, typography, and responsive layouts for Vimivo across Android, iOS, macOS, Windows, and Linux.
 
@@ -6,7 +6,8 @@ This document specifies the design tokens, color architecture, component standar
 
 - **Tagline**: Every Sound. Every Frame.
 - **Philosophy**: Privacy-first, offline-first, minimal, media-centric, accessible, and elegant.
-- **Visual Tone**: Premium dark-mode prioritized, modern sans-serif typography, subtle elevation, generous touch and click targets, clear visual hierarchy.
+- **Visual Tone**: Midnight graphite and frosted pearl surfaces, aurora-teal focus, system sans-serif typography, restrained warm accents, generous targets, and media-first hierarchy.
+- **Material Rule**: Glass is chrome, not content. Lists and grids remain solid; navigation, player docks, queue sheets, and compact overlays may use the lightweight glass primitive.
 
 ---
 
@@ -22,15 +23,15 @@ Vimivo supports four theme modes across all platforms:
 
 | Token | Light Theme | Dark Theme | AMOLED Theme |
 |---|---|---|---|
-| `primary` | `#0066CC` | `#66B2FF` | `#66B2FF` |
+| `primary` | `#006B66` | `#71DBD2` | `#71DBD2` |
 | `onPrimary` | `#FFFFFF` | `#003366` | `#000000` |
-| `surface` | `#FFFFFF` | `#121212` | `#000000` |
+| `surface` | `#F6FAF9` | `#0D1212` | `#000000` |
 | `surfaceContainer` | `#F2F4F7` | `#1E1E1E` | `#121212` |
 | `surfaceContainerHigh` | `#E8EDF2` | `#282828` | `#1C1C1C` |
 | `onSurface` | `#1A1C1E` | `#E2E2E6` | `#FFFFFF` |
 | `onSurfaceVariant` | `#535A62` | `#A0A5AA` | `#A0A5AA` |
 | `error` | `#BA1A1A` | `#FFB4AB` | `#FFB4AB` |
-| `accent` | `#3388FF` | `#4D94FF` | `#4D94FF` |
+| `accent` | `#007F78` | `#71DBD2` | `#71DBD2` |
 
 Contrast ratios between `onSurface` / `onSurfaceVariant` and their corresponding surfaces strictly exceed the 4.5:1 standard for body text and 3:1 for large headers and interactive components.
 
@@ -82,3 +83,14 @@ Platform-native font stacks are used to respect user system settings, accessibil
    - Informative messaging with contextual icons, clear problem explanations, and actionable recovery buttons (e.g., "Add Folder", "Try Again").
 4. **`DesktopSettingsPanel` / `SettingsScreen`**:
    - Comprehensive user preferences: Theme mode selection, library statistics, folder management, privacy commitments, and cache tools.
+
+5. **`VimivoGlassSurface`**:
+   - Shared lightweight material for navigation, floating player, controls, sheets, and popovers.
+   - Uses stable alpha and elevation rather than live backdrop blur.
+   - Resolves to an opaque, stronger-border surface for reduced transparency and high contrast.
+
+## 6. Motion
+
+`VimivoMotion` defines 120 ms feedback, 160 ms small transitions, 240 ms navigation, 300 ms sheets, and 360 ms player expansion. Decorative motion is bypassed under `LocalReducedMotion`; playback actions are never delayed by animation.
+
+See [Glass material system](GLASS_MATERIAL_SYSTEM.md), [Motion system](MOTION_DESIGN_SYSTEM.md), and [UI redesign blueprint](UI_REDESIGN_BLUEPRINT.md).

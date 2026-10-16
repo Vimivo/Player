@@ -16,6 +16,7 @@
     <string name="dynamic_color">ডায়নামিক রং</string>
     <string name="artwork_accents">আর্টওয়ার্ক-ভিত্তিক রং</string>
     <string name="reduce_animations">অ্যানিমেশন কমান</string>
+    <string name="reduce_transparency">স্বচ্ছতা কমান</string>
     <string name="high_contrast">উচ্চ কনট্রাস্ট</string>
     <string name="larger_targets">বড় টাচ লক্ষ্য</string>
     <string name="shuffle_behavior">শাফল আচরণ</string>

@@ -11,6 +11,7 @@ fun VimivoTheme(
     mode: ThemeMode = ThemeMode.SYSTEM,
     highContrast: Boolean = false,
     reduceMotion: Boolean = false,
+    reduceTransparency: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val isDark = when (mode) {
@@ -30,6 +31,7 @@ fun VimivoTheme(
     CompositionLocalProvider(
         LocalHighContrast provides highContrast,
         LocalReducedMotion provides reduceMotion,
+        LocalReducedTransparency provides (reduceTransparency || highContrast),
     ) {
         MaterialTheme(
             colorScheme = scheme,

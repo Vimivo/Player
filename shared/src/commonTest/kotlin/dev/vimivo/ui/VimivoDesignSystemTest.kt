@@ -9,6 +9,7 @@ import dev.vimivo.ui.theme.VimivoHighContrastDarkColorScheme
 import dev.vimivo.ui.theme.VimivoHighContrastLightColorScheme
 import dev.vimivo.ui.theme.VimivoIconSize
 import dev.vimivo.ui.theme.VimivoLightColorScheme
+import dev.vimivo.ui.theme.VimivoMotion
 import dev.vimivo.ui.theme.VimivoRadius
 import dev.vimivo.ui.theme.VimivoSpacing
 import dev.vimivo.ui.theme.WindowSizeClass
@@ -131,6 +132,16 @@ class VimivoDesignSystemTest {
         assertTrue(VimivoIconSize.small < VimivoIconSize.medium)
         assertTrue(VimivoIconSize.medium < VimivoIconSize.large)
         assertTrue(VimivoIconSize.large < VimivoIconSize.hero)
+    }
+
+    @Test
+    fun testMotionHierarchyRemainsResponsive() {
+        assertEquals(0, VimivoMotion.instantMillis)
+        assertTrue(VimivoMotion.feedbackMillis < VimivoMotion.fastMillis)
+        assertTrue(VimivoMotion.fastMillis < VimivoMotion.navigationMillis)
+        assertTrue(VimivoMotion.navigationMillis < VimivoMotion.sheetMillis)
+        assertTrue(VimivoMotion.sheetMillis < VimivoMotion.playerMillis)
+        assertTrue(VimivoMotion.playerMillis <= 400)
     }
 
     @Test

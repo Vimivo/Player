@@ -2,12 +2,14 @@
 
 package dev.vimivo.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -15,6 +17,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,7 +30,62 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.dp
+import dev.vimivo.ui.theme.LocalReducedTransparency
+import dev.vimivo.ui.theme.VimivoGlassVariant
+import dev.vimivo.ui.theme.VimivoRadius
 import dev.vimivo.ui.theme.VimivoSpacing
+
+/**
+ * Lightweight Aurora Glass material. It deliberately avoids live backdrop blur so scrolling and
+ * native video rendering keep a predictable GPU budget. Reduced-transparency and high-contrast
+ * modes resolve to an opaque surface.
+ */
+@Composable
+fun VimivoGlassSurface(
+    variant: VimivoGlassVariant,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val reducedTransparency = LocalReducedTransparency.current
+    val colors = MaterialTheme.colorScheme
+    val solid = reducedTransparency || variant == VimivoGlassVariant.SOLID_FALLBACK
+    val containerColor = when {
+        solid -> colors.surfaceContainerHigh
+        else -> when (variant) {
+            VimivoGlassVariant.FLOATING_PLAYER -> colors.surfaceContainerHigh.copy(alpha = 0.94f)
+            VimivoGlassVariant.SHEET -> colors.surfaceContainer.copy(alpha = 0.96f)
+            VimivoGlassVariant.CONTROL -> colors.surfaceContainerHighest.copy(alpha = 0.88f)
+            else -> colors.surfaceContainer.copy(alpha = 0.90f)
+        }
+    }
+    val radius = glassRadius(variant)
+    val elevation = glassElevation(variant)
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(radius),
+        color = containerColor,
+        contentColor = colors.onSurface,
+        border = BorderStroke(1.dp, colors.outline.copy(alpha = if (solid) 0.72f else 0.32f)),
+        tonalElevation = elevation,
+        shadowElevation = if (solid) 0.dp else elevation,
+        content = content,
+    )
+}
+
+private fun glassRadius(variant: VimivoGlassVariant) = when (variant) {
+    VimivoGlassVariant.FLOATING_PLAYER, VimivoGlassVariant.SHEET -> VimivoRadius.xl
+    VimivoGlassVariant.CONTROL -> VimivoRadius.pill
+    VimivoGlassVariant.POPOVER, VimivoGlassVariant.NAVIGATION -> VimivoRadius.lg
+    VimivoGlassVariant.SOLID_FALLBACK -> VimivoRadius.md
+}
+
+private fun glassElevation(variant: VimivoGlassVariant) = when (variant) {
+    VimivoGlassVariant.FLOATING_PLAYER, VimivoGlassVariant.SHEET -> 8.dp
+    VimivoGlassVariant.POPOVER -> 6.dp
+    VimivoGlassVariant.NAVIGATION -> 3.dp
+    else -> 1.dp
+}
 
 @Composable
 fun VimivoAccessibleSlider(

@@ -61,6 +61,7 @@ class SettingsViewModel(
     fun setAccentColor(value: AccentColor) = update { it.copy(accentColor = value) }
     fun setArtworkAccents(enabled: Boolean) = update { it.copy(artworkBasedAccents = enabled) }
     fun setReduceAnimations(enabled: Boolean) = update { it.copy(reduceAnimations = enabled) }
+    fun setReduceTransparency(enabled: Boolean) = update { it.copy(reduceTransparency = enabled) }
     fun setHighContrast(enabled: Boolean) = update { it.copy(highContrast = enabled) }
     fun setLargerTouchTargets(enabled: Boolean) = update { it.copy(largerTouchTargets = enabled) }
     fun setResume(enabled: Boolean) = update { it.copy(resumePlayback = enabled) }
