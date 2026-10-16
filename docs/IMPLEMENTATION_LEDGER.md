@@ -172,6 +172,8 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Replaced JVM-only synchronization in shared diagnostics/logging with a platform-neutral lock and NSLock-backed iOS implementation.
 - Built the native app with Xcode for iPhone 17 Pro / iOS 26.5 and passed all seven XCTest cases.
 - Launched the built app and captured `docs/screenshots/ios-iphone17pro-home.png`; physical-device media controls, VoiceOver, Dynamic Island, and WidgetKit remain open gates.
+- Added local-only App Group snapshot publishing and iOS 17+ `AudioPlaybackIntent` definitions for future WidgetKit
+  controls. The extension target is intentionally still unclaimed until provisioning is configured.
 
 ### Android widget synchronization follow-up (2026-10-16)
 

@@ -36,10 +36,13 @@
 		1027 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2027 /* AVKit.framework */; };
 		1028 /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2028 /* MediaPlayer.framework */; };
 		1029 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2029 /* Security.framework */; };
+		1030 /* WidgetPlaybackSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2031 /* WidgetPlaybackSnapshotStore.swift */; };
+		1031 /* WidgetPlaybackIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2032 /* WidgetPlaybackIntents.swift */; };
 		1101 /* MediaModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2101 /* MediaModelsTests.swift */; };
 		1102 /* IOSDatabaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2102 /* IOSDatabaseTests.swift */; };
 		1103 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2025 /* libsqlite3.tbd */; };
 /* End PBXBuildFile section */
+
 
 /* Begin PBXContainerItemProxy section */
 		5201 /* PBXContainerItemProxy */ = {
@@ -48,6 +51,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 5001;
 			remoteInfo = iosApp;
+		};
+		5202 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5003;
+			remoteInfo = VimivoWidgets;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -84,6 +94,9 @@
 		2029 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		2030 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0002 /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2031 /* WidgetPlaybackSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPlaybackSnapshotStore.swift; sourceTree = "<group>"; };
+		2032 /* WidgetPlaybackIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPlaybackIntents.swift; sourceTree = "<group>"; };
+		2033 /* Vimivo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Vimivo.entitlements; sourceTree = "<group>"; };
 		2101 /* MediaModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModelsTests.swift; sourceTree = "<group>"; };
 		2102 /* IOSDatabaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDatabaseTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -170,6 +183,8 @@
 				2008 /* NowPlayingManager.swift */,
 				2009 /* RemoteCommandController.swift */,
 				2010 /* AVPlayerPlaybackEngine.swift */,
+				2031 /* WidgetPlaybackSnapshotStore.swift */,
+				2032 /* WidgetPlaybackIntents.swift */,
 			);
 			path = Playback;
 			sourceTree = "<group>";
@@ -237,6 +252,7 @@
 			children = (
 				2023 /* Assets.xcassets */,
 				2030 /* Info.plist */,
+				2033 /* Vimivo.entitlements */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -375,6 +391,8 @@
 				1020 /* HomeView.swift in Sources */,
 				1021 /* SettingsView.swift in Sources */,
 				1022 /* MainTabView.swift in Sources */,
+				1030 /* WidgetPlaybackSnapshotStore.swift in Sources */,
+				1031 /* WidgetPlaybackIntents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -461,6 +479,7 @@
 				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = iosApp/Vimivo.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -490,6 +509,7 @@
 				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = iosApp/Vimivo.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

@@ -16,6 +16,7 @@ public final class NowPlayingManager {
     ) {
         guard let item = item else {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            WidgetPlaybackSnapshotStore.shared.clear()
             return
         }
 
@@ -50,9 +51,16 @@ public final class NowPlayingManager {
         }
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        WidgetPlaybackSnapshotStore.shared.publish(
+            item: item,
+            isPlaying: isPlaying,
+            positionSeconds: positionSeconds,
+            durationSeconds: durationSeconds
+        )
     }
 
     public func clear() {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        WidgetPlaybackSnapshotStore.shared.clear()
     }
 }
