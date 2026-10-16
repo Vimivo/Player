@@ -1,57 +1,70 @@
 # Development continuation
 
-Last verified on 2026-10-15 on macOS, branch `main`.
-Milestones completed: **Milestone 23 (UI/UX & Accessibility) & Milestone 24 (Performance, Stability, Security, and Production Hardening)**.
+Last verified on 2026-10-16 on macOS, branch `main`.
+Milestones completed: **Milestone 25 (Final Five-Platform Quality Assurance) & Milestone 26 (Production Build Engineering & Release Candidate Preparation)**.
 
 ## Resume point
 
-Implementation is verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
+Implementation and quality gates are verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
 
 The latest completed increments are:
 
-1. `SafeLogger`: privacy-conscious diagnostic logging in `commonMain` redacting sensitive user filesystem paths (`/Users/...`, `/home/...`, `C:\Users\...`) and URL query tokens across platforms;
-2. `DesktopSettingsPanel`: fully realized Compose desktop settings screen with theme mode selection, live library statistics, folder management, and privacy pledge;
-3. `VimivoTheme`: unified theme propagation (System, Light, Dark, AMOLED) connected to desktop and persisted via SQLite settings repository;
-4. Responsive desktop layout: `BoxWithConstraints` adaptive sidebar (compact `< 820dp` / standard `>= 820dp`) and padding adjustments;
-5. Desktop accessibility semantics: full `contentDescription` on seekbars, playback buttons, stream URL fields, and sidebar navigation tabs;
-6. Android TalkBack accessibility: `contentDescription` and `stateDescription` added to playback seekbars and control icons in `VimivoComponents.kt`;
-7. iOS VoiceOver accessibility: `.accessibilityLabel` and `.accessibilityValue` added to seekbar slider, play/pause, next, previous, shuffle, repeat, playback speed menu, queue, and favorite buttons in `NowPlayingBar.swift`, `NowPlayingView.swift`, and `MediaRow.swift`;
-8. Production Quality documentation suite: `UI_UX_AUDIT.md`, `DESIGN_SYSTEM.md`, `ACCESSIBILITY_AUDIT.md`, `PERFORMANCE_AUDIT.md`, `SECURITY_AUDIT.md`, `PRIVACY_AUDIT.md`, `DEPENDENCY_AUDIT.md`, `FEATURE_MATRIX.md`, and `PRODUCTION_READINESS.md`.
+1. **Database Migration & Integrity Test Suite**: `DesktopDatabaseMigrationTest` verifies fresh database initialization (v0 -> v4), upgrade from older schemas (v1 -> v4, v2 -> v4, v3 -> v4), non-destructive migration of user data (playlists, favorites, history, bookmarks, queue, settings), strict foreign key constraint enforcement, and atomic transaction rollback on failure.
+2. **End-to-End User Journeys**: `DesktopUserJourneysTest` covers all 7 production user scenarios:
+   - Journey 1: Fresh install, media indexing, and recursive scanner discovery;
+   - Journey 2: Music library operations, metadata search, favorites, playlists, and reordering;
+   - Journey 3: Video playback lifecycle, duration tracking, resume positions, and bookmarks;
+   - Journey 4: Continuous playback queue, next-track scheduling, shuffle, repeat, and paused restoration;
+   - Journey 5: User data integrity, theme settings persistence, and `SafeLogger` path/token redaction;
+   - Journey 6: Authorized network streaming and URL sanitization;
+   - Journey 7: Fault recovery, graceful unavailable file reconciliation, and non-destructive deletions.
+3. **Media Fixtures Suite**: Expanded `DesktopMediaMetadataExtractorTest` with zero-byte audio file handling, Bengali (`আমার গান`) and Unicode filename extraction, embedded artwork, and corrupted file resilience.
+4. **Production Build Engineering**:
+   - Android: Release APK (`androidApp-release-unsigned.apk`, 141 MB) and release App Bundle (`androidApp-release.aab`, 73 MB) built with R8 minification and resource shrinking against Android 16 (API 36).
+   - macOS: Standalone `Vimivo.app` and DMG installer (`Vimivo-1.0.0.dmg`, 143 MB) built with self-contained Temurin JDK and 50 relocatable native dylibs (zero `/opt/homebrew` references). Mounted and clean-install launched.
+5. **Cross-Platform CI/CD Workflows**:
+   - `.github/workflows/macos.yml`: Automated macOS quality, native dylib bundling, DMG packaging, and SHA-256 verification.
+   - `.github/workflows/ios.yml`: Automated iOS / iPadOS quality, Kotlin Multiplatform framework linking, and unsigned Xcode archive generation.
+   - `.github/workflows/android.yml`: Enhanced with release APK and App Bundle generation and SHA-256 digests.
+   - `.github/workflows/shared.yml`: PR validation and shared cross-platform tests.
+   - `.github/workflows/release-candidate.yml`: Unified release candidate pipeline aggregating 5-platform artifacts, `SHA256SUMS.txt`, CycloneDX SBOM, and `release-manifest.json`.
+6. **Supply-Chain Security & Manifest**:
+   - `docs/SHA256SUMS.txt`: Cryptographic SHA-256 digests of built artifacts.
+   - `docs/release-manifest.json`: Machine-readable build manifest with toolchain and artifact metadata.
+   - `docs/sbom.json`: CycloneDX 1.5 Software Bill of Materials.
+   - `docs/RELEASE_CANDIDATE_STATUS.md`: Authoritative release readiness assessment.
 
-Do not rebuild these components. Continue from the first executable item in the backlog below.
+Do not rebuild these components. Continue from the backlog below.
 
 ## Next executable work
 
-1. Physical device testing on real Android and iOS devices (audio output, lock-screen controls, bluetooth audio disconnect).
-2. Configure Apple Developer signing certificate and provisioning profile in Xcode for App Store / TestFlight archive distribution.
-3. Configure Google Play upload keystore for signing release Android App Bundle (`androidApp-release.aab`).
-4. Execute Linux GitHub Actions CI pipeline on an Ubuntu runner to generate genuine DEB, RPM, and AppImage packages.
-5. Execute Windows GitHub Actions CI pipeline on a Windows runner to generate genuine EXE/MSI binaries.
-6. Run clean-machine Linux and Windows runtime playback verification.
+1. Execute `.github/workflows/release-candidate.yml` in GitHub Actions on an authorized tag/dispatch to generate remote Windows and Linux native binaries.
+2. Configure Apple Developer signing certificate and provisioning profile in Xcode for App Store / TestFlight archive distribution when authorized.
+3. Configure Google Play upload keystore for signing release Android App Bundle (`androidApp-release.aab`) when authorized.
+4. Run clean-machine Linux and Windows runtime playback verification in physical or VM environments.
 
 ## External or hardware blockers
 
 - Public Google Play store submission requires owner-managed upload keystore. Never commit signing keys.
 - iOS physical device installation and TestFlight / App Store submission require owner-managed Apple Developer Team signing certificate and provisioning profile.
-- Linux packaging (`jpackage` creating DEB/RPM and AppImage) requires a Linux host/runner.
-- Windows packaging (`jpackage` creating EXE/MSI) requires a Windows host/runner.
+- Windows Authenticode certificate required for SignTool to establish SmartScreen reputation.
+- macOS Gatekeeper bypass for public DMG distribution requires Apple Developer ID certificate and `xcrun notarytool` notarization.
+- Linux and Windows packaging execution requires corresponding OS runners.
 
 ## Required verification
-
-For mobile and cross-platform verification run:
 
 ```shell
 # Android
 ./gradlew :androidApp:testDebugUnitTest
 ./gradlew :androidApp:detekt
-./gradlew :androidApp:assembleDebug
+./gradlew :androidApp:assembleRelease :androidApp:bundleRelease
 
-# iOS
-xcodebuild test -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO
-
-# Desktop & Shared
+# macOS Desktop
 ./gradlew :desktopApp:desktopTest
 ./gradlew :desktopApp:compileKotlinDesktop
+./gradlew :desktopApp:packageDmg
+
+# Shared & Static Analysis
 ./gradlew :shared:desktopTest
 ./gradlew detekt
 ```

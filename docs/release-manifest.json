@@ -1,0 +1,87 @@
+{
+  "product": "Vimivo",
+  "version": "1.0.0",
+  "tagline": "Every Sound. Every Frame.",
+  "repository": "https://github.com/Vimivo/Player",
+  "commit": "a92d6da",
+  "buildDate": "2026-10-16T06:56:00Z",
+  "toolchain": {
+    "jdk": "17 (Eclipse Temurin)",
+    "kotlin": "2.3.20",
+    "gradle": "8.13",
+    "agp": "8.13.2",
+    "composeMultiplatform": "1.9.3",
+    "targetAndroidSdk": 36,
+    "minAndroidSdk": 26,
+    "minMacOsVersion": "12.0"
+  },
+  "signingStatus": {
+    "android": "unsigned_ready_for_play_upload_key",
+    "ios": "unsigned_ready_for_apple_developer_identity",
+    "macos": "adhoc_signed_hardened_runtime_ready_for_developer_id",
+    "windows": "unsigned_ready_for_authenticode_signtool",
+    "linux": "standard_unsigned_distro_packaging"
+  },
+  "notarizationStatus": {
+    "macos": "ready_for_notarytool_submission",
+    "windowsSmartScreen": "pending_ev_or_authenticode_reputation"
+  },
+  "artifacts": [
+    {
+      "platform": "android",
+      "format": "apk",
+      "filename": "androidApp-release-unsigned.apk",
+      "path": "androidApp/build/outputs/apk/release/androidApp-release-unsigned.apk",
+      "sizeBytes": 147577927,
+      "sha256": "3a123502d63bcff7cd46e52556ed01eb6048d2c1ed3214cd8160c9fcd2c0cf2b",
+      "minSdk": 26,
+      "targetSdk": 36,
+      "verification": "R8 minified, shrinkResources enabled, assembleRelease verified"
+    },
+    {
+      "platform": "android",
+      "format": "aab",
+      "filename": "androidApp-release.aab",
+      "path": "androidApp/build/outputs/bundle/release/androidApp-release.aab",
+      "sizeBytes": 76079193,
+      "sha256": "b769278a8ae22b5bbf7681a16e447115288972215c66be600b66c71a4ec0df7f",
+      "minSdk": 26,
+      "targetSdk": 36,
+      "verification": "App Bundle packaged, Play App Signing compatible, bundleRelease verified"
+    },
+    {
+      "platform": "macos",
+      "format": "dmg",
+      "filename": "Vimivo-1.0.0.dmg",
+      "path": "desktopApp/build/compose/binaries/main/dmg/Vimivo-1.0.0.dmg",
+      "sizeBytes": 150423483,
+      "sha256": "42e7784c1850fd2d20c94366d4d19c8c25a24b1895ac566af3ddc225b9153cc8",
+      "architecture": "arm64",
+      "minOs": "macOS 12.0+",
+      "embeddedJvm": "temurin-17",
+      "nativeDependencies": "libmpv 2.0.0, FFmpeg, libplacebo, libass (50 relocatable dylibs bundled)",
+      "verification": "Clean mount and standalone launch verified from DMG"
+    },
+    {
+      "platform": "windows",
+      "format": "exe_msi",
+      "filename": "Vimivo-1.0.0.exe / Vimivo-1.0.0.msi",
+      "path": "desktopApp/build/compose/binaries/main",
+      "verification": "Configuration and CI packaging pipeline implemented in .github/workflows/windows.yml; genuine binaries generated on Windows runner"
+    },
+    {
+      "platform": "linux",
+      "format": "deb_rpm_appimage",
+      "filename": "Vimivo_1.0.0_amd64.deb / Vimivo-1.0.0.rpm / Vimivo-1.0.0.AppImage",
+      "path": "desktopApp/build/compose/binaries/main",
+      "verification": "Configuration and CI packaging pipeline implemented in .github/workflows/linux.yml; genuine binaries generated on Linux runner"
+    },
+    {
+      "platform": "ios",
+      "format": "xcarchive",
+      "filename": "Vimivo.xcarchive",
+      "path": "build/artifacts/Vimivo.xcarchive",
+      "verification": "SwiftUI project and shared Kotlin framework integration implemented in .github/workflows/ios.yml; genuine archive generated on Xcode runner"
+    }
+  ]
+}

@@ -184,6 +184,33 @@ class DesktopMediaMetadataExtractorTest {
         assertTrue(result.isFailure, "Corrupted file extraction should return failure result rather than crashing JVM")
     }
 
+    @Test
+    fun handlesZeroByteAudioFileGracefully() = runTest {
+        val emptyFile = Files.createTempFile("vimivo-zero-", ".mp3").toFile()
+        emptyFile.deleteOnExit()
+        val result = DesktopMediaMetadataExtractor().extract(
+            MediaItem(MediaId("zero"), emptyFile.toURI().toString(), "Zero Byte", MediaKind.AUDIO, sizeBytes = 0L),
+        )
+
+        assertTrue(result.isFailure, "Zero-byte file extraction should return failure result gracefully")
+    }
+
+    @Test
+    fun extractsMetadataFromUnicodeAndBengaliFilenames() = runTest {
+        val original = fixture("tagged.mp3")
+        val unicodeDir = Files.createTempDirectory("vimivo-বাংলা-test")
+        val unicodeFile = unicodeDir.resolve("আমার বাংলা গান — রবীন্দ্রনাথ.mp3").toFile()
+        original.copyTo(unicodeFile, overwrite = true)
+        unicodeFile.deleteOnExit()
+
+        val metadata = DesktopMediaMetadataExtractor().extract(
+            MediaItem(MediaId("bengali-file"), unicodeFile.toURI().toString(), unicodeFile.nameWithoutExtension, MediaKind.AUDIO, sizeBytes = unicodeFile.length()),
+        ).getOrThrow()
+
+        assertEquals("আমার গান - Bengali Song", metadata.title)
+        assertEquals("শিল্পী - Bengali Artist", metadata.artist)
+    }
+
     private fun fixture(name: String): File {
         val stream = javaClass.classLoader.getResourceAsStream("fixtures/audio/$name")
             ?: error("Fixture not found in resources: fixtures/audio/$name")

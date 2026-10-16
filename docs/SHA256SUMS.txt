@@ -1,0 +1,7 @@
+# SHA-256 Checksums for Vimivo 1.0.0 Candidate Artifacts
+# Generated on macOS Darwin arm64 at 2026-10-16T06:56:00Z
+# Verified from actual clean production builds
+
+3a123502d63bcff7cd46e52556ed01eb6048d2c1ed3214cd8160c9fcd2c0cf2b  androidApp-release-unsigned.apk
+b769278a8ae22b5bbf7681a16e447115288972215c66be600b66c71a4ec0df7f  androidApp-release.aab
+42e7784c1850fd2d20c94366d4d19c8c25a24b1895ac566af3ddc225b9153cc8  Vimivo-1.0.0.dmg

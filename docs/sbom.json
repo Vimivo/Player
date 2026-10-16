@@ -1,0 +1,144 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.5.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:65f7c320-bf70-4f38-a892-d9f78330d241",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-16T06:56:00Z",
+    "tools": [
+      {
+        "vendor": "Vimivo",
+        "name": "Vimivo Release Engineering Toolchain",
+        "version": "1.0.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "name": "Vimivo",
+      "version": "1.0.0",
+      "description": "Universal Privacy-First Music & Video Player",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "framework",
+      "name": "kotlin-stdlib",
+      "version": "2.3.20",
+      "purl": "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.3.20",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "framework",
+      "name": "compose-multiplatform",
+      "version": "1.9.3",
+      "purl": "pkg:maven/org.jetbrains.compose/compose-runtime@1.9.3",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "name": "kotlinx-coroutines-core",
+      "version": "1.10.2",
+      "purl": "pkg:maven/org.jetbrains.kotlinx/kotlinx-coroutines-core@1.10.2",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "name": "kotlinx-serialization-core",
+      "version": "1.9.0",
+      "purl": "pkg:maven/org.jetbrains.kotlinx/kotlinx-serialization-core@1.9.0",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "name": "androidx-media3-exoplayer",
+      "version": "1.11.1",
+      "purl": "pkg:maven/androidx.media3/media3-exoplayer@1.11.1",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "name": "androidx-media3-session",
+      "version": "1.11.1",
+      "purl": "pkg:maven/androidx.media3/media3-session@1.11.1",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "name": "libvlc-all",
+      "version": "3.7.7",
+      "purl": "pkg:maven/org.videolan.android/libvlc-all@3.7.7",
+      "licenses": [{ "license": { "id": "LGPL-2.1-only" } }]
+    },
+    {
+      "type": "library",
+      "name": "sqlite-jdbc",
+      "version": "3.53.4.0",
+      "purl": "pkg:maven/org.xerial/sqlite-jdbc@3.53.4.0",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "name": "jaudiotagger",
+      "version": "3.0.1",
+      "purl": "pkg:maven/net.jthink/jaudiotagger@3.0.1",
+      "licenses": [{ "license": { "id": "LGPL-2.1-or-later" } }]
+    },
+    {
+      "type": "library",
+      "name": "jna",
+      "version": "5.19.1",
+      "purl": "pkg:maven/net.java.dev.jna/jna@5.19.1",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "name": "coil-compose",
+      "version": "3.4.0",
+      "purl": "pkg:maven/io.coil-kt.coil3/coil-compose@3.4.0",
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    },
+    {
+      "type": "library",
+      "name": "libmpv",
+      "version": "2.0.0",
+      "purl": "pkg:generic/libmpv@2.0.0",
+      "licenses": [{ "license": { "id": "LGPL-2.1-or-later" } }]
+    },
+    {
+      "type": "library",
+      "name": "ffmpeg-avcodec",
+      "version": "61.1.102",
+      "purl": "pkg:generic/ffmpeg-avcodec@61.1.102",
+      "licenses": [{ "license": { "id": "LGPL-2.1-or-later" } }]
+    },
+    {
+      "type": "library",
+      "name": "libplacebo",
+      "version": "360.0.0",
+      "purl": "pkg:generic/libplacebo@360.0.0",
+      "licenses": [{ "license": { "id": "LGPL-2.1-or-later" } }]
+    },
+    {
+      "type": "library",
+      "name": "libass",
+      "version": "9.0.0",
+      "purl": "pkg:generic/libass@9.0.0",
+      "licenses": [{ "license": { "id": "ISC" } }]
+    },
+    {
+      "type": "library",
+      "name": "dav1d",
+      "version": "7.0.0",
+      "purl": "pkg:generic/dav1d@7.0.0",
+      "licenses": [{ "license": { "id": "BSD-2-Clause" } }]
+    }
+  ]
+}

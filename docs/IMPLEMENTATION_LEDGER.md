@@ -46,15 +46,18 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `d7bfe63` — `feat(android): enhance notification permissions for Android 13+ background media controls` (Milestone 21 Android production hardening).
 - `feat(ios): add complete iOS and iPadOS native application with AVPlayer, background playback, and SQLite persistence` — Native SwiftUI app, Kotlin shared framework integration (`iosArm64`, `iosSimulatorArm64`), AVPlayer engine, AVAudioSession handling, MPRemoteCommandCenter, MPNowPlayingInfoCenter, AVKit PiP, sandboxed Files importing with security-scoped bookmarks, native SQLite persistence, and Keychain credential storage (Milestone 22 iOS production completion).
 - `feat(app): complete Milestones 23 and 24 production hardening, UI/UX audit, design system, accessibility, and privacy logging` — SafeLogger redaction for paths and tokens, desktop settings panel, theme selection, responsive desktop layouts, Android TalkBack seekbar semantics, iOS VoiceOver accessibility labels, WCAG 2.2 AA audit, security threat model, and performance documentation.
+- `feat(qa): complete Milestone 25 and 26 five-platform quality assurance, database migration tests, user journeys, production packaging, and CI/CD` — DesktopDatabaseMigrationTest (v1/v2/v3->v4 upgrades, foreign keys, rollback), DesktopUserJourneysTest (7 E2E journeys, fault injection), zero-byte and Bengali/Unicode fixture tests, Android release APK & AAB, macOS standalone DMG with bundled JVM and 50 dylibs, CI workflows (`macos.yml`, `ios.yml`, `android.yml`, `shared.yml`, `release-candidate.yml`), CycloneDX SBOM, release manifest, and SHA-256 digests.
 
 ## Quality record
 
-On 2026-10-15, these commands completed successfully:
+On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (15 tests passed)
-- `./gradlew :desktopApp:desktopTest` (64 tests passed)
+- `./gradlew :desktopApp:desktopTest` (79 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
-- `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
+- `./gradlew :androidApp:assembleRelease :androidApp:bundleRelease` (BUILD SUCCESSFUL, generated `androidApp-release-unsigned.apk` [141 MB] and `androidApp-release.aab` [73 MB])
+- `./gradlew :desktopApp:packageDmg` (BUILD SUCCESSFUL, generated `Vimivo-1.0.0.dmg` [143 MB])
 - `./gradlew detekt` (all modules passed, 0 violations)
-- `xcodebuild test -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' CODE_SIGNING_ALLOWED=NO` (7 tests passed, 0 failures, TEST SUCCEEDED)
+- Standalone execution verified from mounted `Vimivo-1.0.0.dmg` with zero `/opt/homebrew` dependencies.
+

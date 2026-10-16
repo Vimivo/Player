@@ -1,0 +1,258 @@
+name: Release Candidate Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_version:
+        description: 'Candidate release version (e.g. 1.0.0 or 0.1.0-beta.1)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-android:
+    name: Build Android Packages (APK & AAB)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build Android Release APK and AAB
+        run: ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease
+      - name: Stage Android Artifacts
+        run: |
+          mkdir -p staging
+          apk=$(find androidApp/build/outputs/apk/release -name "*.apk" | head -n 1)
+          aab=$(find androidApp/build/outputs/bundle/release -name "*.aab" | head -n 1)
+          [ -f "$apk" ] && cp "$apk" staging/
+          [ -f "$aab" ] && cp "$aab" staging/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc-android
+          path: staging/*
+
+  build-macos:
+    name: Build macOS DMG (Standalone)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install libmpv
+        run: |
+          brew update
+          brew install mpv
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Package macOS DMG
+        run: ./gradlew :desktopApp:packageDmg
+      - name: Stage macOS Artifacts
+        run: |
+          mkdir -p staging
+          cp desktopApp/build/compose/binaries/main/dmg/Vimivo-*.dmg staging/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc-macos
+          path: staging/*
+
+  build-ios:
+    name: Build iOS Archive (Unsigned)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+      - name: Build shared framework
+        run: ./gradlew :shared:linkReleaseFrameworkIosSimulatorArm64
+      - name: Build Xcode Archive
+        run: |
+          mkdir -p staging
+          xcodebuild archive \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -archivePath staging/Vimivo.xcarchive \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+          (cd staging && zip -r Vimivo.xcarchive.zip Vimivo.xcarchive && rm -rf Vimivo.xcarchive)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc-ios
+          path: staging/*
+
+  build-linux:
+    name: Build Linux Packages (DEB, RPM, AppImage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build Linux packages
+        run: |
+          ./gradlew :desktopApp:createDistributable
+          python3 desktopApp/scripts/bundle_linux_mpv.py desktopApp/build/compose/binaries/main/app/Vimivo /usr/lib/x86_64-linux-gnu
+          ./gradlew :desktopApp:packageDeb :desktopApp:packageRpm
+          if ! command -v appimagetool >/dev/null 2>&1; then
+            wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool
+            chmod +x /tmp/appimagetool
+            (cd /tmp && /tmp/appimagetool --appimage-extract)
+            export PATH="/tmp/squashfs-root/usr/bin:${PATH}"
+          fi
+          bash desktopApp/scripts/build_appimage.sh desktopApp/build/compose/binaries/main/app/Vimivo desktopApp/build/compose/binaries/main/appimage
+      - name: Stage Linux Artifacts
+        run: |
+          mkdir -p staging
+          find desktopApp/build/compose/binaries/main -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) ! -path "*/temp/*" -exec cp {} staging/ \;
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc-linux
+          path: staging/*
+
+  build-windows:
+    name: Build Windows Installers (EXE & MSI)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Fetch pinned libmpv
+        shell: pwsh
+        run: |
+          $mpvUrl = "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20240407-git-1f9db50.7z/download"
+          Invoke-WebRequest -Uri $mpvUrl -OutFile "mpv-dev.7z" -UserAgent "Mozilla/5.0"
+          7z x mpv-dev.7z -o"windows-mpv"
+      - name: Build Windows packages
+        shell: pwsh
+        env:
+          VIMIVO_WINDOWS_MPV_DIR: "${{ github.workspace }}\\windows-mpv"
+        run: |
+          ./gradlew :desktopApp:createDistributable
+          python desktopApp/scripts/bundle_windows_mpv.py build/compose/binaries/main/app/Vimivo "${{ github.workspace }}\\windows-mpv"
+          ./gradlew :desktopApp:packageExe :desktopApp:packageMsi
+      - name: Stage Windows Artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "staging"
+          Get-ChildItem -Path "desktopApp/build/compose/binaries/main" -Recurse -Include *.exe, *.msi | Where-Object { $_.FullName -notmatch "temp" } | ForEach-Object {
+            Copy-Item $_.FullName -Destination "staging"
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rc-windows
+          path: staging/*
+
+  manifest-and-provenance:
+    name: Generate Manifest, SHA-256 & SBOM
+    needs: [build-android, build-macos, build-ios, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+      - name: Flatten and Checksum Artifacts
+        run: |
+          mkdir -p dist
+          find release-artifacts -type f -exec cp {} dist/ \;
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Generate Release Manifest & SBOM
+        run: |
+          python3 -c "
+          import os, json, hashlib, time
+
+          dist_dir = 'dist'
+          artifacts = []
+          for fname in sorted(os.listdir(dist_dir)):
+              if fname in ['SHA256SUMS.txt', 'release-manifest.json', 'sbom.json']:
+                  continue
+              fpath = os.path.join(dist_dir, fname)
+              if os.path.isfile(fpath):
+                  size = os.path.getsize(fpath)
+                  with open(fpath, 'rb') as f:
+                      sha256 = hashlib.sha256(f.read()).hexdigest()
+                  artifacts.append({
+                      'filename': fname,
+                      'sizeBytes': size,
+                      'sha256': sha256
+                  })
+
+          manifest = {
+              'product': 'Vimivo',
+              'version': '${{ github.event.inputs.candidate_version }}',
+              'commit': '${{ github.sha }}',
+              'buildDate': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+              'artifacts': artifacts,
+              'signingStatus': 'unsigned_candidate',
+              'publicationStatus': 'staged_internal_only'
+          }
+          with open(os.path.join(dist_dir, 'release-manifest.json'), 'w') as f:
+              json.dump(manifest, f, indent=2)
+
+          sbom = {
+              'bomFormat': 'CycloneDX',
+              'specVersion': '1.5',
+              'metadata': {
+                  'component': {
+                      'name': 'Vimivo',
+                      'version': '${{ github.event.inputs.candidate_version }}',
+                      'type': 'application'
+                  }
+              },
+              'components': [
+                  {'name': 'libmpv', 'version': '2.0.0', 'purl': 'pkg:generic/libmpv@2.0.0'},
+                  {'name': 'androidx.media3', 'version': '1.11.1', 'purl': 'pkg:maven/androidx.media3/media3-exoplayer@1.11.1'},
+                  {'name': 'sqlite-jdbc', 'version': '3.53.4.0', 'purl': 'pkg:maven/org.xerial/sqlite-jdbc@3.53.4.0'},
+                  {'name': 'jaudiotagger', 'version': '3.0.1', 'purl': 'pkg:maven/net.jthink/jaudiotagger@3.0.1'},
+                  {'name': 'jna', 'version': '5.19.1', 'purl': 'pkg:maven/net.java.dev.jna/jna@5.19.1'}
+              ]
+          }
+          with open(os.path.join(dist_dir, 'sbom.json'), 'w') as f:
+              json.dump(sbom, f, indent=2)
+          "
+      - name: Upload Complete Release Candidate Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: vimivo-${{ github.event.inputs.candidate_version }}-release-candidate
+          path: dist/*
+          if-no-files-found: error
