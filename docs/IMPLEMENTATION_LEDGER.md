@@ -173,8 +173,8 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Built the native app with Xcode for iPhone 17 Pro / iOS 26.5 and passed all seven XCTest cases.
 - Launched the built app and captured `docs/screenshots/ios-iphone17pro-home.png`; physical-device media controls, VoiceOver, Dynamic Island, and WidgetKit remain open gates.
 - Added a real `VimivoWidgets` WidgetKit extension target with local-only App Group snapshot publishing and iOS 17+
-  `AudioPlaybackIntent` controls. The extension builds in the iPhone 17 Pro simulator; provisioning and physical
-  widget installation remain open verification gates.
+  `AudioPlaybackIntent` controls. The extension builds and is embedded/installed in the iPhone 17 Pro simulator;
+  provisioning, widget interaction, and physical device installation remain open verification gates.
 
 ### Android widget synchronization follow-up (2026-10-16)
 

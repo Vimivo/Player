@@ -25,7 +25,7 @@ several physical-device/accessibility/performance gates remain open.
 | Cinematic video controls | Implemented, capability-gated | libmpv controls implemented | Shared desktop controls | Shared desktop controls | AVKit/PiP source compiled; physical-device run pending |
 | Persistent list/grid library | Implemented (DataStore + backup) | Implemented (SQLite) | Same desktop source | Same desktop source | Not audited as equivalent |
 | System media surface | Media3 notification/session | MediaPlayer bridge compiled; interaction unverified | Not implemented | MPRIS implemented | MPNowPlayingInfoCenter/RemoteCommandCenter implemented |
-| Native widget | Resizable RemoteViews widget | No | No | No | WidgetKit target embedded; simulator build passes; device install pending |
+| Native widget | Resizable RemoteViews widget | No | No | No | WidgetKit target embedded and simulator-installed; widget interaction/device install pending |
 | Dynamic Island | Not applicable; no overlay | — | — | — | System Now Playing only; no fake overlay/Live Activity |
 | Runtime accessibility evidence | Device run required | Manual/AT run required | Not run | AT-SPI limitation | VoiceOver run required |
 

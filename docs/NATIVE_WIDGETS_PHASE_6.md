@@ -33,8 +33,10 @@ Date: 2026-10-16
 - The Xcode project now contains a real `VimivoWidgets` WidgetKit extension target with small/medium/large and
   accessory-rectangular families. It consumes the throttled local-only App Group snapshot and uses iOS 17+
   `AudioPlaybackIntent` actions routed to the same `AVPlayerPlaybackEngine` in the app process.
-- The extension builds and is embedded in the iOS app bundle for the iPhone 17 Pro simulator. Distribution/device signing, widget installation, refresh
-  budgets, and Lock Screen rendering still require a configured App Group capability and provisioning profile.
+- The extension builds, is embedded, and was installed inside the iOS app bundle on the iPhone 17 Pro simulator.
+  Its installed `VimivoWidgets.appex` has the WidgetKit extension point and executable metadata. Widget rendering,
+  control interaction, refresh budgets, Lock Screen presentation, and physical-device signing still require further
+  device/provisioning verification.
 - The iOS application now builds and its seven XCTest cases pass on the iPhone 17 Pro / iOS 26.5 simulator. The
   native home screen was launched and captured at `docs/screenshots/ios-iphone17pro-home.png`. Physical-device
   VoiceOver, Lock Screen, Control Center, Dynamic Island, and WidgetKit refresh results are not claimed.
