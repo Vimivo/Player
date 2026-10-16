@@ -77,7 +77,7 @@ Status overview across all five supported platform targets as of **2026-10-16** 
 
 ### Milestone 51 & 52 Community Feedback & Product Evolution Summary
 
-- **Automated Tests**: 313 tests passing with 0 failures across `:shared:desktopTest` (106), `:desktopApp:desktopTest` (167), and `:androidApp:testDebugUnitTest` (40).
+- **Automated Tests**: 324 tests passing with 0 failures across `:shared:desktopTest` (114), `:desktopApp:desktopTest` (170), and `:androidApp:testDebugUnitTest` (40).
 - **Detekt Analysis**: 0 violations across all modules (`:shared`, `:desktopApp`, `:androidApp`).
 - **Community Feedback Subsystem**:
   - In-app feedback composers on Desktop (`DesktopFeedbackDialog`) and Android (`AndroidFeedbackDialog`).
@@ -90,6 +90,27 @@ Status overview across all five supported platform targets as of **2026-10-16** 
   - High-signal reproduction standards and privacy pledges.
   - Structured NOW / NEXT / LATER roadmap and 30% maintenance bandwidth reserve.
   - Published comprehensive guides: `docs/FEEDBACK_ARCHITECTURE.md`, `docs/BUG_REPORTING.md`, `docs/PLAYBACK_ISSUE_REPORTING.md`, `docs/DIAGNOSTIC_PRIVACY.md`, `docs/COMMUNITY_GUIDELINES.md`, `docs/ISSUE_TRIAGE.md`, `docs/PRODUCT_PRIORITIZATION.md`, `docs/USER_FEEDBACK_ROADMAP.md`, `docs/FEEDBACK_TO_FIX_WORKFLOW.md`, `docs/USER_RESEARCH_POLICY.md`, `docs/MAINTENANCE_BACKLOG.md`, `docs/FEEDBACK_TEST_RESULTS.md`, and `docs/RELEASE_NOTES_PROCESS.md`.
+
+### Milestones 53 & 54 Universal URL Streaming & Reliability Hardening Summary
+
+- **Automated Tests**: 324 tests passing with 0 failures across `:shared:desktopTest` (114), `:desktopApp:desktopTest` (170), and `:androidApp:testDebugUnitTest` (40).
+- **Detekt Analysis**: 0 violations across all modules.
+- **Universal URL Streaming Subsystem (`dev.vimivo.core.streaming`)**:
+  - Implemented domain models: `StreamProtocol` (HTTP, HTTPS, HLS, DASH, RTSP, Radio), `StreamType` (LIVE/VOD), `StreamConnectionState`, `StreamFailureReason`, `StreamValidationResult`, `StreamRequest`.
+  - Implemented `StreamValidator`: Strict scheme filtering, prohibited embedded credentials detection (`@`), portal webpage explanation engine (YouTube, Vimeo, TikTok, Facebook, HTML documents), and display title generation.
+  - Implemented `StreamReconnectionPolicy`: Bounded exponential backoff (max 3 retries, delays 1s, 2s, 4s, capped at 6s), immediate abort on user stop/switch, blocks retry on permanent HTTP/network errors.
+- **Desktop Player & Native libmpv Integration**:
+  - Built `DesktopOpenStreamDialog`: Compose modal dialog with real-time validation badges (`[HLS]`, `[DASH]`, `[RTSP]`, `[LIVE]`), paste button, and recent streams list.
+  - Built `DesktopNetworkStreamPanel`: Full network management surface with protocol capabilities, privacy notice, and recent streams history.
+  - Integrated `DesktopStreamHistoryRepository`: Privacy-safe recent streams store under Application Support data with sensitive parameter redaction.
+  - Hardened `MpvPlayerEngine`: Set `network-timeout=15`, `tls-verify=yes`, `user-agent`, and active buffer observation (`paused-for-cache`, `demuxer-cache-time`).
+  - Integrated into Desktop UI: Menu shortcut `Cmd+U` / `Ctrl+U`, Now Playing `[LIVE]` badge, and disabled seekbars on live streams.
+- **Android Media3 Network Integration**:
+  - Updated `NetworkViewModel.kt` to delegate validation and item generation to `StreamValidator`, preventing invalid webpage playback errors and protecting credentials.
+  - Media3 ExoPlayer modules: `media3-exoplayer-hls`, `media3-exoplayer-dash`, `media3-exoplayer-rtsp`.
+- **Published Documentation**:
+  - `docs/URL_STREAMING_ARCHITECTURE.md`, `docs/STREAMING_PROTOCOL_SUPPORT.md`, `docs/STREAM_URL_SECURITY.md`, `docs/STREAMING_PLAYER_UX.md`, `docs/STREAMING_NETWORK_RECOVERY.md`, `docs/STREAMING_PERFORMANCE.md`, `docs/NATIVE_STREAMING_TESTS.md`, `docs/STREAMING_PRIVACY.md`, and `docs/STREAMING_LIMITATIONS.md`.
+
 
 
 

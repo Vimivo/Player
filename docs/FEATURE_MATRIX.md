@@ -78,6 +78,14 @@ Verified against source, automated test suites, and simulator runs on 2026-10-15
 - **Truthful Five-Platform Accessibility Reporting**: Truthfully documented Compose Desktop's lack of out-of-the-box AT-SPI bridge on Linux, while validating 100% keyboard traversal, focus visibility, high-contrast modes, dynamic text scaling, and accessible descriptions across all platforms.
 - **Published Documentation**: `docs/UI_UX_AUDIT.md`, `docs/DESIGN_SYSTEM.md`, `docs/RESPONSIVE_LAYOUTS.md`, `docs/MUSIC_PLAYER_UX.md`, `docs/VIDEO_PLAYER_UX.md`, `docs/ACCESSIBILITY_AUDIT.md`, `docs/ACCESSIBILITY_MATRIX.md`, `docs/KEYBOARD_SHORTCUTS.md`, `docs/LOCALIZATION_AUDIT.md`, `docs/UI_PERFORMANCE.md`, and `docs/UX_RELEASE_GATES.md`.
 
+### Milestones 53 & 54 Highlights:
+- **Universal User-Provided URL Streaming**: Support for direct progressive audio (MP3, AAC, FLAC, Opus, WAV) and video (MP4, MKV, WebM), HLS (`.m3u8` live & VOD), MPEG-DASH (`.mpd`), RTSP (`rtsp://`, `rtsps://`), and internet radio streams (Icecast / SHOUTcast).
+- **Decoupled URL Validation Pipeline (`StreamValidator`)**: Distinguishes direct stream endpoints from generic portal webpages (YouTube, Vimeo, TikTok, Facebook, HTML pages) with clear, actionable user messages, blocks prohibited schemes (`file:`, `data:`, `javascript:`), and detects embedded credentials (`@`).
+- **Bounded Reconnection Engine (`StreamReconnectionPolicy`)**: Exponential backoff reconnection policy (max 3 retries, delays 1s, 2s, 4s, capped at 6s) with immediate user cancellation abort and permanent HTTP/network error filtering.
+- **Desktop Streaming UI & History**: `DesktopOpenStreamDialog` with live validation badges (`[HLS]`, `[DASH]`, `[RTSP]`, `[LIVE]`), paste button, and `DesktopNetworkStreamPanel` with recent streams history in privacy-safe JSON with sensitive parameter redaction.
+- **Live Stream Semantics & Buffering**: Native libmpv buffer detection (`paused-for-cache`), forward buffer readahead calculation (`demuxer-cache-time`), Now Playing `[LIVE]` badge, and disabled seekbar constraints on unbounded broadcasts.
+- **Zero-Cloud & Zero-Scraper Guarantee**: Vimivo includes no online music catalogs, video directories, or web scrapers. All playback routes directly from the user-provided URL to the native decoder without cloud intermediaries.
+
 ### Milestones 51 & 52 Highlights:
 - **Privacy-Safe In-App Community Feedback Subsystem**: Structured feedback composers for Bug Reports, Feature Requests, Playback / Codec Issues, and Accessibility Barriers on Desktop (`DesktopFeedbackDialog`) and Android (`AndroidFeedbackDialog`).
 - **Offline Draft Persistence**: Local JSON-based draft storage in `<appData>/feedback_drafts/<id>.json` enabling full offline creation, editing, deletion, and file export without altering SQLite database schema v6.

@@ -30,47 +30,44 @@ Milestones completed:
 - **Milestone 50**: Five-Platform Release Audit, Candidate Stabilization, Security/License Gates & Maintenance Handoff
 - **Milestone 51**: Community Feedback Infrastructure, Privacy-Safe Bug Reporting & Offline Drafts
 - **Milestone 52**: Evidence-Based Prioritization, Transparent Roadmap, Feedback-to-Fix & Maintenance
+- **Milestone 53**: Universal URL-Based Audio & Video Streaming, Direct URLs & Native Player Integration
+- **Milestone 54**: Streaming Reliability, Buffering State, Bounded Reconnection & Security
 
 ## Resume point
 
-Milestones 51 and 52 (Community Feedback Infrastructure, Privacy-Safe In-App Bug Reporting, Reproducible Playback Compatibility Reports, GitHub Issue Form Integration, Evidence-Based Feature Prioritization, User-Driven Product Roadmap, Feedback-to-Fix Development Lifecycle, and Sustainable Maintenance Evolution) are complete and verified.
-- **Shared Feedback Domain Subsystem (`dev.vimivo.core.feedback`)**:
-  - `FeedbackType`: `BUG_REPORT`, `FEATURE_REQUEST`, `PLAYBACK_ISSUE`, `ACCESSIBILITY_ISSUE`.
-  - `FeedbackCategory`: 10 standardized functional categories.
-  - `MediaPlaybackContext`: Privacy-safe container, codec, resolution, and engine descriptors excluding file paths.
-  - `FeedbackValidator`: Enforces required lengths and prevents empty or vague submissions.
-  - `FeedbackReportFormatter`: Local Markdown generation, `SafeLogger` sanitization, and pre-filled GitHub issue URLs.
-  - `FeedbackDraftRepository`: Offline draft persistence model.
+Milestones 53 and 54 (Universal User-Provided URL-Based Audio & Video Streaming, Cross-Platform Network Media Playback, Direct Media URL Support, HLS / DASH / RTSP Capability Engineering, Live Video and Internet Radio Streaming, Native Streaming Player Integration, Adaptive Quality and Buffering, Stream Reconnection and Error Recovery, Secure URL Validation, and Streaming Performance QA) are complete and verified.
+- **Shared Streaming Domain Subsystem (`dev.vimivo.core.streaming`)**:
+  - `StreamModels.kt`: `StreamProtocol`, `StreamType` (LIVE/VOD), `StreamConnectionState`, `StreamFailureReason`, `StreamValidationResult`, `StreamRequest`, `StreamDiagnostics`.
+  - `StreamValidator.kt`: Validates schemes (`http`, `https`, `rtsp`, `rtsps`), rejects embedded credentials (`@`), rejects local/dangerous schemes (`file`, `data`, etc.), rejects portal webpages (`youtube.com`, `vimeo.com`, `tiktok.com`, `facebook.com`, `.html`, etc.) with user-actionable explanations, and infers protocol, display title, and mime type.
+  - `StreamReconnectionPolicy.kt`: Bounded exponential backoff policy (max 3 retries, 1s/2s/4s delays capped at 6s), immediate abort on user stop/switch, blocks retry on permanent HTTP/network errors.
+  - `StreamValidatorTest.kt`: Comprehensive test suite verifying VOD, Live, HLS, DASH, RTSP, radio, webpage rejections, and reconnection backoff.
 - **Desktop Implementation (`desktopApp`)**:
-  - `DesktopFeedbackDialog`: 4-tab Compose Desktop dialog with live Markdown preview, clipboard copy, file export, and browser launch.
-  - `DesktopFeedbackDraftRepository`: JSON-based offline persistence under `<appData>/feedback_drafts/`.
-  - Integrated into `DesktopSettingsPanel` ("Help & Feedback") and playback error banners.
+  - `DesktopOpenStreamDialog`: Compose Desktop dialog with live validation, protocol badges (`[HLS]`, `[DASH]`, `[RTSP]`, `[LIVE]`), paste, recent streams list, "Play Now", and "Add to Queue".
+  - `DesktopNetworkStreamPanel`: Dedicated network stream management surface with protocol capabilities, privacy notice, and recent streams history.
+  - `DesktopStreamHistoryRepository`: Privacy-safe recent streams JSON storage with sensitive query parameter redaction.
+  - `MpvPlayerEngine`: Configured with `network-timeout=15`, `tls-verify=yes`, `user-agent`, real buffering status via `paused-for-cache`, and forward cache calculation via `demuxer-cache-time`.
+  - `DesktopPlayer` / `Main.kt`: Integrated File menu shortcut (`Cmd+U` / `Ctrl+U`), inline stream input, Now Playing `[LIVE]` badge, and disabled live seekbar.
 - **Android Implementation (`androidApp`)**:
-  - `AndroidFeedbackDialog`: Compose Material 3 dialog with tabbed feedback selection, clipboard copy, share sheet intent, and browser launch.
-  - Integrated into `VimivoAndroidApp` Settings under About/Help.
-- **GitHub Issue Forms & Community Infrastructure**:
-  - Validated templates: `bug_report.yml`, `feature_request.yml`, `playback_issue.yml`, `accessibility_issue.yml`, `installation_problem.yml`, and `config.yml`.
+  - `NetworkViewModel.kt`: Updated `validateNetworkStreamUrl` and `toMediaItem` to use shared `StreamValidator`, protecting against invalid webpage URLs and embedded credentials.
+  - Media3 ExoPlayer integration: HLS (`media3-exoplayer-hls`), DASH (`media3-exoplayer-dash`), and RTSP (`media3-exoplayer-rtsp`).
 - **Documentation Suite Published**:
-  - `docs/FEEDBACK_ARCHITECTURE.md`: Subsystem architecture, data flows, and privacy boundaries.
-  - `docs/BUG_REPORTING.md`: High-signal reproduction guide and privacy pledge.
-  - `docs/PLAYBACK_ISSUE_REPORTING.md`: Safe media technical descriptors and sample generation.
-  - `docs/DIAGNOSTIC_PRIVACY.md`: In-memory sanitization rules and data safety.
-  - `docs/COMMUNITY_GUIDELINES.md`: Community standards and support expectations.
-  - `docs/ISSUE_TRIAGE.md`: Label taxonomy, status transitions, and deduplication rules.
-  - `docs/PRODUCT_PRIORITIZATION.md`: Weighted prioritization scoring (WPS) and confidence levels.
-  - `docs/USER_FEEDBACK_ROADMAP.md`: NOW / NEXT / LATER transparent roadmap.
-  - `docs/FEEDBACK_TO_FIX_WORKFLOW.md`: Feedback-to-fix traceability and regression policy.
-  - `docs/USER_RESEARCH_POLICY.md`: Ethical opt-in research and consent guidelines.
-  - `docs/MAINTENANCE_BACKLOG.md`: Technical debt register and maintenance bandwidth reserve.
-  - `docs/FEEDBACK_TEST_RESULTS.md`: Complete automated test results (313 tests, 100% pass rate).
-  - `docs/RELEASE_NOTES_PROCESS.md`: Standard changelog structure and community response templates.
+  - `docs/URL_STREAMING_ARCHITECTURE.md`: Architecture, data flows, and single-player engine reuse.
+  - `docs/STREAMING_PROTOCOL_SUPPORT.md`: Protocol matrix across Android, macOS, Windows, Linux, and iOS.
+  - `docs/STREAM_URL_SECURITY.md`: Threat model, credential protection, and HTTP status classifications.
+  - `docs/STREAMING_PLAYER_UX.md`: Player entry points, modal dialog, and live vs VOD semantics.
+  - `docs/STREAMING_NETWORK_RECOVERY.md`: Bounded backoff policy and error recovery matrix.
+  - `docs/STREAMING_PERFORMANCE.md`: Buffer metrics, memory thresholds, and benchmark measurements.
+  - `docs/NATIVE_STREAMING_TESTS.md`: Native test matrix and automated test coverage.
+  - `docs/STREAMING_PRIVACY.md`: Zero-cloud guarantee, telemetry avoidance, and local storage rules.
+  - `docs/STREAMING_LIMITATIONS.md`: Honest scope, webpage vs media distinctions, and DRM boundaries.
 
 Test & Static Analysis Verification:
-- `:shared:desktopTest`: 106 passing tests (including 8 new feedback tests).
-- `:desktopApp:desktopTest`: 167 passing tests (including 4 new desktop feedback tests).
-- `:androidApp:testDebugUnitTest`: 40 passing tests.
-- Total automated tests: 313 tests passing (0 failures, 0 errors, 0 skipped, 100% pass rate).
+- `:shared:desktopTest`: 114 passing tests (100% pass rate).
+- `:desktopApp:desktopTest`: 170 passing tests (100% pass rate).
+- `:androidApp:testDebugUnitTest`: 40 passing tests (100% pass rate).
+- Total automated tests: 324 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
 - Detekt static analysis: 0 weighted violations across all modules.
+- Android debug build: `:androidApp:assembleDebug` SUCCESS.
 
 ## Next executable work
 
