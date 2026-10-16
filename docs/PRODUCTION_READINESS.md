@@ -73,6 +73,23 @@ Status overview across all five supported platform targets as of **2026-10-16** 
 - **Platform Development Guides**: Completed dedicated guides for all 5 platforms in `docs/development/` (`ANDROID.md`, `IOS.md`, `MACOS.md`, `WINDOWS.md`, `LINUX.md`) and overall `docs/DEVELOPMENT.md`.
 - **System Architecture & Specifications**: Published deep architectural breakdowns in `docs/ARCHITECTURE.md`, `docs/PLAYBACK_ARCHITECTURE.md`, `docs/DATABASE_ARCHITECTURE.md`, `docs/FORMAT_SUPPORT.md`, `docs/USER_GUIDE.md`, and `docs/INSTALLATION.md`.
 - **Operations & Maintenance Readiness**: Complete emergency runbooks in `docs/HOTFIX_RUNBOOK.md`, engineering transition guidance in `docs/MAINTENANCE_HANDOFF.md`, and evidence-based five-platform GO/NO-GO assessment in `docs/RELEASE_QUALITY_REPORT.md`.
-- **Release Manifest & Integrity**: Updated `docs/release-manifest.json` with SQLite schema v6 and latest commit `0c847a8`.
+- **Release Manifest & Integrity**: Updated `docs/release-manifest.json` with SQLite schema v6 and latest commit `49f80f5`.
+
+### Milestone 51 & 52 Community Feedback & Product Evolution Summary
+
+- **Automated Tests**: 313 tests passing with 0 failures across `:shared:desktopTest` (106), `:desktopApp:desktopTest` (167), and `:androidApp:testDebugUnitTest` (40).
+- **Detekt Analysis**: 0 violations across all modules (`:shared`, `:desktopApp`, `:androidApp`).
+- **Community Feedback Subsystem**:
+  - In-app feedback composers on Desktop (`DesktopFeedbackDialog`) and Android (`AndroidFeedbackDialog`).
+  - Offline JSON draft persistence under `<appData>/feedback_drafts/` with zero schema regression risk.
+  - Safe sanitization pipeline via `SafeLogger` redacting tokens, passwords, and user filesystem paths.
+  - Pre-populated GitHub Issue URLs with RFC 3986 percent-encoding for zero-barrier submission.
+  - GitHub issue forms: `bug_report.yml`, `feature_request.yml`, `playback_issue.yml`, `accessibility_issue.yml`, `installation_problem.yml`, and `config.yml`.
+- **Product Evolution & Prioritization**:
+  - Transparent Weighted Prioritization Scoring (WPS) model based on impact, reach, confidence, and accessibility.
+  - High-signal reproduction standards and privacy pledges.
+  - Structured NOW / NEXT / LATER roadmap and 30% maintenance bandwidth reserve.
+  - Published comprehensive guides: `docs/FEEDBACK_ARCHITECTURE.md`, `docs/BUG_REPORTING.md`, `docs/PLAYBACK_ISSUE_REPORTING.md`, `docs/DIAGNOSTIC_PRIVACY.md`, `docs/COMMUNITY_GUIDELINES.md`, `docs/ISSUE_TRIAGE.md`, `docs/PRODUCT_PRIORITIZATION.md`, `docs/USER_FEEDBACK_ROADMAP.md`, `docs/FEEDBACK_TO_FIX_WORKFLOW.md`, `docs/USER_RESEARCH_POLICY.md`, `docs/MAINTENANCE_BACKLOG.md`, `docs/FEEDBACK_TEST_RESULTS.md`, and `docs/RELEASE_NOTES_PROCESS.md`.
+
 
 

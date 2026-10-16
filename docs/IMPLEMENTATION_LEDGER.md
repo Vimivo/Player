@@ -105,13 +105,15 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `docs(ux): publish complete design system, responsive layouts, accessibility audit, keyboard shortcuts, and UX release gates suite` — Published comprehensive documentation in `docs/UI_UX_AUDIT.md`, `docs/DESIGN_SYSTEM.md`, `docs/RESPONSIVE_LAYOUTS.md`, `docs/MUSIC_PLAYER_UX.md`, `docs/VIDEO_PLAYER_UX.md`, `docs/ACCESSIBILITY_AUDIT.md`, `docs/ACCESSIBILITY_MATRIX.md`, `docs/KEYBOARD_SHORTCUTS.md`, `docs/LOCALIZATION_AUDIT.md`, `docs/UI_PERFORMANCE.md`, and `docs/UX_RELEASE_GATES.md`.
 - `build(macos): use command line tools path for native dylib bundling` — Updated `desktopApp/scripts/bundle_macos_mpv.py` to invoke Xcode Command Line Tools `otool` and `install_name_tool` directly, resolving license dialog blocks during standalone packaging.
 - `docs(release): publish product verification, release audit, distribution matrix, and five-platform GO/NO-GO verdicts` — Completed Milestones 49 & 50 comprehensive verification: requirements traceability (`docs/REQUIREMENTS_TRACEABILITY.md`), regression results (`docs/FINAL_REGRESSION_RESULTS.md`), native playback audit (`docs/NATIVE_PLAYBACK_VERIFICATION.md`), database migrations (`docs/DATABASE_MIGRATION_RESULTS.md`), accessibility verification (`docs/ACCESSIBILITY_VERIFICATION.md`), performance benchmarks (`docs/PERFORMANCE_VERIFICATION.md`), final release audit (`docs/FINAL_RELEASE_AUDIT.md`), distribution matrix (`docs/DISTRIBUTION_MATRIX.md`), artifact manifest (`docs/ARTIFACT_MANIFEST.md`), supply chain audit (`docs/SUPPLY_CHAIN_AUDIT.md`), update/recovery runbook (`docs/UPDATE_AND_RECOVERY.md`), and updated `docs/release-manifest.json` and `docs/SHA256SUMS.txt`.
+- `feat(feedback): implement privacy-safe in-app feedback, offline drafts, and issue composers` — Built cross-platform feedback models (`FeedbackType`, `FeedbackCategory`, `MediaPlaybackContext`, `FeedbackDraft`, `FeedbackReport`, `FeedbackValidator`, `FeedbackReportFormatter`), in-app feedback dialogs on Desktop (`DesktopFeedbackDialog`) and Android (`AndroidFeedbackDialog`), offline JSON draft persistence (`DesktopFeedbackDraftRepository`), diagnostic redaction via `SafeLogger`, GitHub Issue form pre-population with RFC 3986 percent-encoding, and automated test coverage (Milestone 51).
+- `docs(feedback): publish feedback-to-fix workflow, prioritization framework, and transparent roadmap` — Formulated evidence-based Weighted Prioritization Scoring (WPS), high-signal bug reproduction protocols, transparent NOW / NEXT / LATER product roadmap, feedback-to-fix traceability lifecycle, ethical user research policies, maintenance backlog register, and community response templates (Milestone 52).
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
-- `./gradlew :shared:desktopTest` (98 tests passed)
-- `./gradlew :desktopApp:desktopTest` (163 tests passed)
+- `./gradlew :shared:desktopTest` (106 tests passed)
+- `./gradlew :desktopApp:desktopTest` (167 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (40 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
@@ -119,7 +121,7 @@ On 2026-10-16, these commands completed successfully:
 - `./gradlew :androidApp:bundleRelease` (BUILD SUCCESSFUL, Play App Bundle generated)
 - `./gradlew :desktopApp:packageDmg` (BUILD SUCCESSFUL, standalone DMG generated with 50 bundled dylibs)
 - `./gradlew detekt` (all modules passed, 0 violations)
-- `./scripts/validate_docs.sh` (100% of relative documentation links validated)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 301 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
+- Total automated tests: 313 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
+
 
