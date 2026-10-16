@@ -1,5 +1,6 @@
 package dev.vimivo.core.diagnostics
 
+import dev.vimivo.core.concurrency.PlatformLock
 import dev.vimivo.core.util.SafeLogger
 import kotlinx.serialization.Serializable
 
@@ -109,6 +110,7 @@ data class DiagnosticReport(
 class DiagnosticBuffer(private val maxCapacity: Int = 100) {
     private val events = mutableListOf<DiagnosticEvent>()
     private val errors = mutableListOf<DiagnosticError>()
+    private val lock = PlatformLock()
 
     fun recordEvent(category: String, message: String, timestampEpochMs: Long = 0L) {
         val sanitized = SafeLogger.sanitize(message)
@@ -117,7 +119,7 @@ class DiagnosticBuffer(private val maxCapacity: Int = 100) {
             category = category,
             message = sanitized,
         )
-        synchronized(this) {
+        lock.withLock {
             if (events.size >= maxCapacity) {
                 events.removeAt(0)
             }
@@ -139,7 +141,7 @@ class DiagnosticBuffer(private val maxCapacity: Int = 100) {
             message = sanitizedMessage,
             sanitizedStackTrace = sanitizedStack,
         )
-        synchronized(this) {
+        lock.withLock {
             if (errors.size >= maxCapacity) {
                 errors.removeAt(0)
             }
@@ -147,9 +149,9 @@ class DiagnosticBuffer(private val maxCapacity: Int = 100) {
         }
     }
 
-    fun snapshotEvents(): List<DiagnosticEvent> = synchronized(this) { events.toList() }
-    fun snapshotErrors(): List<DiagnosticError> = synchronized(this) { errors.toList() }
-    fun clear() = synchronized(this) {
+    fun snapshotEvents(): List<DiagnosticEvent> = lock.withLock { events.toList() }
+    fun snapshotErrors(): List<DiagnosticError> = lock.withLock { errors.toList() }
+    fun clear() = lock.withLock {
         events.clear()
         errors.clear()
     }

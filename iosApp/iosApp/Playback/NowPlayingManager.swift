@@ -41,11 +41,12 @@ public final class NowPlayingManager {
             info[MPMediaItemPropertyAlbumTitle] = album
         }
 
-        if let artUri = item.artworkUri,
-           let url = URL(string: artUri) ?? URL(fileURLWithPath: artUri),
-           let image = UIImage(contentsOfFile: url.path) {
-            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-            info[MPMediaItemPropertyArtwork] = artwork
+        if let artUri = item.artworkUri {
+            let url = URL(string: artUri) ?? URL(fileURLWithPath: artUri)
+            if let image = UIImage(contentsOfFile: url.path) {
+                let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                info[MPMediaItemPropertyArtwork] = artwork
+            }
         }
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info

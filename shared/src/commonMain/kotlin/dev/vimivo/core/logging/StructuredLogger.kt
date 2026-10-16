@@ -2,6 +2,7 @@
 
 package dev.vimivo.core.logging
 
+import dev.vimivo.core.concurrency.PlatformLock
 import dev.vimivo.core.error.VimivoError
 import dev.vimivo.core.error.VimivoErrorCategory
 import dev.vimivo.core.util.SafeLogger
@@ -48,16 +49,16 @@ class StructuredLogger(
     var minLogLevel: LogLevel = LogLevel.INFO
     private val buffer = mutableListOf<StructuredLogEntry>()
     private val appenders = mutableListOf<LogAppender>()
-    private val lock = Any()
+    private val lock = PlatformLock()
 
     fun addAppender(appender: LogAppender) {
-        synchronized(lock) {
+        lock.withLock {
             appenders.add(appender)
         }
     }
 
     fun removeAppender(appender: LogAppender) {
-        synchronized(lock) {
+        lock.withLock {
             appenders.remove(appender)
         }
     }
@@ -84,13 +85,12 @@ class StructuredLogger(
             metadata = sanitizedMetadata,
         )
 
-        val currentAppenders: List<LogAppender>
-        synchronized(lock) {
+        val currentAppenders = lock.withLock {
             if (buffer.size >= maxBufferSize) {
                 buffer.removeAt(0)
             }
             buffer.add(entry)
-            currentAppenders = appenders.toList()
+            appenders.toList()
         }
 
         currentAppenders.forEach { appender ->
@@ -128,11 +128,11 @@ class StructuredLogger(
         )
     }
 
-    fun snapshotEntries(): List<StructuredLogEntry> = synchronized(lock) {
+    fun snapshotEntries(): List<StructuredLogEntry> = lock.withLock {
         buffer.toList()
     }
 
-    fun clear() = synchronized(lock) {
+    fun clear() = lock.withLock {
         buffer.clear()
     }
 

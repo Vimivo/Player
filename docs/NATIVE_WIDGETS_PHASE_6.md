@@ -33,16 +33,16 @@ Date: 2026-10-16
 - The Xcode project currently has application and test targets only; it has no WidgetKit extension or shared App
   Group. Adding nonfunctional widget source without a signed extension target would be misleading, so WidgetKit
   widgets remain blocked pending project provisioning.
-- Local Xcode/Swift verification is also blocked because the installed Xcode license has not been accepted. No iOS
-  build, simulator run, device run, WidgetKit refresh, VoiceOver, Lock Screen, Control Center, or Dynamic Island
-  result is claimed.
+- The iOS application now builds and its seven XCTest cases pass on the iPhone 17 Pro / iOS 26.5 simulator. The
+  native home screen was launched and captured at `docs/screenshots/ios-iphone17pro-home.png`. Physical-device
+  VoiceOver, Lock Screen, Control Center, Dynamic Island, and WidgetKit refresh results are not claimed.
 
 ## Verification scope
 
 - Android compilation, JVM tests, APK assembly, Detekt, shared tests, and desktop tests are required for this
   checkpoint. Widget interaction still requires a launcher/device and is not claimed from host-side compilation.
-- Apple changes received source review only because `xcodebuild` and `swiftc` both terminate with Xcode license
-  status 69 on this machine.
+- Apple source was compiled with Xcode and exercised by seven simulator XCTest cases. A platform-neutral lock was
+  introduced for shared diagnostics/logging so Kotlin/Native does not depend on JVM-only `synchronized`.
 - The macOS JNI/MediaPlayer bridge compiled and the desktop application launched without initialization failure on
   this host. A real Control Center/media-key playback interaction was not performed, so that runtime behavior is not
   claimed as device-verified.

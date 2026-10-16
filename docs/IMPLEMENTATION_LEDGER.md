@@ -158,7 +158,7 @@ Status terms: **implemented** means code exists, **tested** means automated test
 
 - Added a resizable Android RemoteViews playback widget whose commands connect to the existing Media3 library session; no second player or overlay permission was introduced.
 - Enriched the existing iOS Now Playing publication with queue, identity, media-kind, and live-stream metadata while retaining the single AVPlayer engine.
-- Recorded WidgetKit target/provisioning, Xcode-license, macOS command-center, and Windows SMTC limitations explicitly. See `NATIVE_WIDGETS_PHASE_6.md`.
+- Recorded WidgetKit target/provisioning, physical Apple system-surface, macOS command-center, and Windows SMTC limitations explicitly. See `NATIVE_WIDGETS_PHASE_6.md`.
 
 ### Final premium audit Phase 7 checkpoint (2026-10-16)
 
@@ -166,6 +166,12 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Reran the 10,000-item SQLite/library benchmark and recorded the measured results without extending them into unmeasured GPU, jank, battery, or playback claims.
 - Removed the macOS native bridge's avoidable `xcrun` dependency by selecting the executable Command Line Tools compiler directly; documented remaining OpenGL and native-host risks.
 - Published prioritized P0/P1/P2 gaps and a truthful NO-GO for “all platforms/all features complete.” See `FINAL_PREMIUM_AUDIT_PHASE_7.md`.
+
+### iOS simulator verification follow-up (2026-10-16)
+
+- Replaced JVM-only synchronization in shared diagnostics/logging with a platform-neutral lock and NSLock-backed iOS implementation.
+- Built the native app with Xcode for iPhone 17 Pro / iOS 26.5 and passed all seven XCTest cases.
+- Launched the built app and captured `docs/screenshots/ios-iphone17pro-home.png`; physical-device media controls, VoiceOver, Dynamic Island, and WidgetKit remain open gates.
 
 ### Android widget synchronization follow-up (2026-10-16)
 

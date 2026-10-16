@@ -19,10 +19,10 @@ several physical-device/accessibility/performance gates remain open.
 
 | Area | Android | macOS desktop | Windows desktop | Linux desktop | iOS/iPadOS |
 |---|---|---|---|---|---|
-| Local library and playback architecture | Implemented; host tests/build pass | Implemented; host tests/build pass | Source present; not run here | Source present; not run here | Source present; build blocked |
+| Local library and playback architecture | Implemented; host tests/build pass | Implemented; host tests/build pass | Source present; not run here | Source present; not run here | Implemented; simulator build and 7 tests pass |
 | Adaptive premium shell | Implemented | Implemented | Shared desktop source | Shared desktop source | Native SwiftUI exists; Phase 1–5 parity incomplete |
 | Audio Now Playing/queue/lyrics | Implemented | Implemented | Shared desktop source | Shared desktop source | Basic native player; premium parity incomplete |
-| Cinematic video controls | Implemented, capability-gated | libmpv controls implemented | Shared desktop controls | Shared desktop controls | AVKit/PiP source present; not run |
+| Cinematic video controls | Implemented, capability-gated | libmpv controls implemented | Shared desktop controls | Shared desktop controls | AVKit/PiP source compiled; physical-device run pending |
 | Persistent list/grid library | Implemented (DataStore + backup) | Implemented (SQLite) | Same desktop source | Same desktop source | Not audited as equivalent |
 | System media surface | Media3 notification/session | MediaPlayer bridge compiled; interaction unverified | Not implemented | MPRIS implemented | MPNowPlayingInfoCenter/RemoteCommandCenter implemented |
 | Native widget | Resizable RemoteViews widget | No | No | No | WidgetKit target absent |
@@ -67,7 +67,7 @@ smoothness. The previously published numeric runtime claims require independent 
 
 ### P0 — required before claiming all-platform completion
 
-1. Accept the local Xcode license, build/test the iOS target, and run it on supported iPhone/iPad hardware.
+1. Run the built/tested iOS target on supported physical iPhone/iPad hardware and verify playback/system surfaces.
 2. Add a real WidgetKit extension plus App Group data contract and provisioning; implement small/medium/large and
    lock-screen widgets with refresh-budget-aware timelines and App Intents only on supported OS versions.
 3. Implement Windows SMTC against the existing desktop engine and run real macOS Control Center/media-key
@@ -98,10 +98,11 @@ smoothness. The previously published numeric runtime claims require independent 
 - The native macOS bridge originally failed after a clean rerun because Gradle invoked `xcrun` while the Xcode
   license was unaccepted. Phase 7 selects the executable Command Line Tools compiler directly; the native bridge and
   benchmark then built successfully. OpenGL deprecation and host/libmpv deployment-version warnings remain.
-- Blocked: `xcodebuild` and `swiftc` exit 69 until the machine owner accepts Apple's license. This checkpoint does not
-  claim iOS compilation, simulator/device execution, WidgetKit, Dynamic Island, or VoiceOver verification.
-- No Windows/Linux host, Android emulator/device, iPhone, or iPad was available. No new visual screenshot set was
-  captured, and no unrun screenshot test is reported as passing.
+- Passed: iOS simulator build and seven XCTest cases on iPhone 17 Pro / iOS 26.5. The native home screen launched and
+  an actual simulator image was captured at `docs/screenshots/ios-iphone17pro-home.png`. This is runtime evidence,
+  not a screenshot-test pass or proof of media playback/system-surface behavior.
+- No Windows/Linux host, Android emulator/device, physical iPhone, or physical iPad was available. WidgetKit,
+  Dynamic Island, VoiceOver, and physical Lock Screen/Control Center behavior remain unverified.
 - The macOS distributable rebuilt successfully and started with a local tagged MP3 fixture. Control Center was not
   addressable through the available UI automation surface, so system media-control interaction remains unverified.
 
