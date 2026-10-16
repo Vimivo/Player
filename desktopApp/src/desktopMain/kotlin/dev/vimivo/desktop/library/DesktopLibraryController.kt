@@ -21,6 +21,7 @@ import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.model.MetadataChangeset
+import dev.vimivo.core.model.MetadataWriteMode
 import dev.vimivo.core.model.MissingMediaCandidate
 import dev.vimivo.core.model.OrganizePlanItem
 import dev.vimivo.core.model.PlaybackHistory
@@ -98,6 +99,7 @@ internal class DesktopLibraryController(
     val duplicateService = DesktopDuplicateDetectionService(database)
     val recommendationEngine = DesktopRecommendationEngine(database)
     val insightsCalculator = DesktopInsightsCalculator()
+    val csvExporterImporter = DesktopMetadataCsvExporterImporter(metadataEditor)
     private val coordinator = LibraryScanCoordinator(
         repository,
         DesktopMediaScanner(database),
@@ -490,6 +492,22 @@ internal class DesktopLibraryController(
     fun relinkMedia(mediaId: MediaId, newFile: File): Result<Unit> {
         val res = missingMediaRelinker.relink(mediaId, newFile)
         if (res.isSuccess) repository.invalidate()
+        return res
+    }
+
+    fun exportMetadataCsv(items: List<MediaItem>, targetFile: File, includePaths: Boolean = false): Result<Unit> =
+        csvExporterImporter.exportCsv(items, targetFile, includePaths)
+
+    fun previewImportCsv(csvFile: File, existingItems: List<MediaItem>): Result<CsvImportPlan> =
+        csvExporterImporter.previewImportCsv(csvFile, existingItems)
+
+    fun applyImportCsv(
+        plan: CsvImportPlan,
+        mode: MetadataWriteMode,
+        backupDir: Path? = null,
+    ): CsvImportExecutionResult {
+        val res = csvExporterImporter.applyImport(plan, mode, backupDir)
+        repository.invalidate()
         return res
     }
 
