@@ -33,4 +33,20 @@ final class MediaModelsTests: XCTestCase {
         state.durationMillis = 0
         XCTAssertEqual(state.progress, 0.0, accuracy: 0.001)
     }
+
+    func testWidgetPlaybackSnapshotRoundTripsUnicodeMetadata() throws {
+        let snapshot = WidgetPlaybackSnapshot(
+            mediaID: "song-1",
+            title: "বাংলা গান — Aurora",
+            artist: "Vimivo Artist",
+            artworkPath: "/tmp/artwork.jpg",
+            isPlaying: true,
+            positionSeconds: 12.5,
+            durationSeconds: 180,
+            updatedAt: Date(timeIntervalSince1970: 1234)
+        )
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(WidgetPlaybackSnapshot.self, from: data)
+        XCTAssertEqual(decoded, snapshot)
+    }
 }
