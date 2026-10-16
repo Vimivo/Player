@@ -108,6 +108,22 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         }
     }
 
+    fun findMediaByUriOrFileName(value: String): MediaItem? = database.transaction { connection ->
+        connection.prepareStatement(
+            "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+                "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
+                "x.bitrate,x.track_number,x.disc_number,x.release_year,m.available FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                "WHERE m.available=1 AND (m.uri=? OR m.file_name=? OR m.uri LIKE ?) LIMIT 1",
+        ).use { statement ->
+            statement.setString(1, value)
+            statement.setString(2, value)
+            statement.setString(3, "%$value%")
+            statement.executeQuery().use { rows ->
+                if (rows.next()) rows.toMedia().copy(isAvailable = rows.getInt(22) != 0) else null
+            }
+        }
+    }
+
     @Synchronized
     fun albums(query: String = ""): List<AlbumItem> {
         val trimmed = query.trim()

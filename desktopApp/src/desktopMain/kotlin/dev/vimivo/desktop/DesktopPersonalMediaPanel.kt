@@ -1,6 +1,6 @@
 @file:Suppress(
-    "ArgumentListWrapping", "LongMethod", "LongParameterList", "MaximumLineLength", "MaxLineLength",
-    "ParameterListWrapping", "TooManyFunctions", "Wrapping",
+    "ArgumentListWrapping", "CyclomaticComplexMethod", "LongMethod", "LongParameterList", "MaximumLineLength", "MaxLineLength",
+    "NoConsecutiveBlankLines", "ParameterListWrapping", "TooManyFunctions", "Wrapping",
 )
 
 package dev.vimivo.desktop
@@ -55,16 +55,21 @@ internal fun DesktopPlaylistsPanel(
     onPlayMedia: ((MediaItem) -> Unit)? = null,
     onPlayMediaNext: ((MediaItem) -> Unit)? = null,
     onAddMediaToQueue: ((MediaItem) -> Unit)? = null,
+    onExportM3u: ((String, java.io.File) -> Unit)? = null,
+    onImportM3u: ((java.io.File) -> Unit)? = null,
 ) {
     var newName by remember { mutableStateOf("") }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
     val mediaById = state.personalMedia
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(newName, { newName = it }, label = { Text("Playlist name") }, singleLine = true)
         Button(
             enabled = newName.isNotBlank(),
             onClick = { onCreate(newName); newName = "" },
         ) { Text("Create") }
+        if (onImportM3u != null) {
+            OutlinedButton(onClick = { chooseM3uFile()?.let(onImportM3u) }) { Text("Import M3U") }
+        }
     }
     if (state.playlists.isEmpty()) Text("No playlists yet. Create one, then add media from Music or Videos.")
     LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -86,6 +91,11 @@ internal fun DesktopPlaylistsPanel(
                         }
                         if (onAddToQueue != null) {
                             OutlinedButton(onClick = { onAddToQueue(playlist.id) }, enabled = playlist.items.isNotEmpty()) { Text("+ Queue") }
+                        }
+                        if (onExportM3u != null) {
+                            OutlinedButton(onClick = { saveM3uFile(playlist.name)?.let { file -> onExportM3u(playlist.id, file) } }) {
+                                Text("Export M3U")
+                            }
                         }
                         OutlinedButton(onClick = { onDuplicate(playlist.id) }) { Text("Duplicate") }
                         OutlinedButton(onClick = { pendingDelete = playlist.id }) { Text("Delete") }
@@ -306,4 +316,20 @@ private fun MediaActionList(
 private fun formatPersonalTime(milliseconds: Long): String {
     val seconds = milliseconds.coerceAtLeast(0) / 1_000
     return "%d:%02d".format(seconds / 60, seconds % 60)
+}
+
+private fun chooseM3uFile(): java.io.File? {
+    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Import M3U Playlist", java.awt.FileDialog.LOAD)
+    dialog.setFilenameFilter { _, name -> name.endsWith(".m3u", true) || name.endsWith(".m3u8", true) }
+    dialog.isVisible = true
+    return dialog.files?.firstOrNull() ?: dialog.file?.let { java.io.File(dialog.directory, it) }
+}
+
+private fun saveM3uFile(defaultName: String): java.io.File? {
+    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Export M3U Playlist", java.awt.FileDialog.SAVE)
+    dialog.file = "$defaultName.m3u8"
+    dialog.isVisible = true
+    val fileName = dialog.file ?: return null
+    val dir = dialog.directory ?: return null
+    return java.io.File(dir, if (fileName.endsWith(".m3u8", true) || fileName.endsWith(".m3u", true)) fileName else "$fileName.m3u8")
 }

@@ -1,6 +1,6 @@
 @file:Suppress(
     "ArgumentListWrapping", "CyclomaticComplexMethod", "FunctionNaming", "ImportOrdering", "Indentation",
-    "LongMethod", "LongParameterList", "MagicNumber", "MaximumLineLength", "MaxLineLength", "TooManyFunctions", "Wrapping",
+    "LongMethod", "LongParameterList", "MagicNumber", "MaximumLineLength", "MaxLineLength", "NoConsecutiveBlankLines", "TooManyFunctions", "Wrapping",
 )
 
 package dev.vimivo.desktop
@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.semantics.contentDescription
@@ -56,8 +57,14 @@ import dev.vimivo.desktop.platform.MacOpenFileHandler
 import dev.vimivo.desktop.library.DesktopLibraryController
 import dev.vimivo.desktop.library.DesktopLibraryUiState
 import dev.vimivo.desktop.library.LibraryScanState
+import dev.vimivo.playback.AudioEnhancementSettings
+import dev.vimivo.playback.EqualizerPreset
+import dev.vimivo.playback.PlaybackProfile
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlaybackQueueController
+import dev.vimivo.playback.ReplayGainMode
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.awt.Canvas
@@ -186,6 +193,37 @@ private fun DesktopPlayer(
     var destination by remember { mutableStateOf(DesktopDestination.Home) }
     var selectedAlbum by remember { mutableStateOf<AlbumItem?>(null) }
     var selectedArtist by remember { mutableStateOf<ArtistItem?>(null) }
+    var activeProfile by remember { mutableStateOf(PlaybackProfile.DEFAULT) }
+    var activePreset by remember { mutableStateOf(EqualizerPreset.FLAT) }
+    var activeReplayGain by remember { mutableStateOf(ReplayGainMode.OFF) }
+    var sleepTimerJob by remember { mutableStateOf<Job?>(null) }
+    var sleepTimerMinutesRemaining by remember { mutableStateOf<Int?>(null) }
+    var diagnosticsStatus by remember { mutableStateOf<String?>(null) }
+    var updateStatus by remember { mutableStateOf<String?>(null) }
+    var showLyrics by remember { mutableStateOf(false) }
+    var lyricsDoc by remember(state.media?.uri) { mutableStateOf<dev.vimivo.core.lyrics.LyricsDocument?>(null) }
+
+    LaunchedEffect(state.media?.uri) {
+        val uri = state.media?.uri
+        if (uri != null && uri.startsWith("file:")) {
+            runCatching {
+                val mediaFile = File(java.net.URI(uri))
+                val base = mediaFile.nameWithoutExtension
+                val candidate = mediaFile.parentFile?.listFiles()?.firstOrNull { file ->
+                    file.isFile && file.extension.equals("lrc", true) &&
+                        (file.nameWithoutExtension.equals(base, true) || file.nameWithoutExtension.startsWith("$base.", true))
+                }
+                if (candidate != null && candidate.canRead()) {
+                    lyricsDoc = dev.vimivo.core.lyrics.LrcLyricsParser.parse(candidate.readText(Charsets.UTF_8), candidate.toURI().toString())
+                } else {
+                    lyricsDoc = null
+                }
+            }.onFailure { lyricsDoc = null }
+        } else {
+            lyricsDoc = null
+        }
+    }
+
     val videoCanvas = remember { Canvas() }
     val playMedia: (MediaItem) -> Unit = { media ->
         scope.launch {
@@ -374,6 +412,8 @@ private fun DesktopPlayer(
                     onPlayMedia = playMedia,
                     onPlayMediaNext = { queue.playNext(listOf(it)) },
                     onAddMediaToQueue = { queue.addToQueue(listOf(it)) },
+                    onExportM3u = { playlistId, file -> library.exportPlaylistM3u(playlistId, file) },
+                    onImportM3u = { file -> library.importPlaylistM3u(file) },
                 )
             }
             if (destination == DesktopDestination.Favorites) {
@@ -401,12 +441,94 @@ private fun DesktopPlayer(
                     onThemeSelected = library::setThemeMode,
                     onAddFolder = library::addFolder,
                     onRefreshAvailability = library::refreshAvailability,
+                    onPlaybackProfileSelected = { profile ->
+                        activeProfile = profile
+                        activePreset = profile.equalizerPreset
+                        activeReplayGain = profile.replayGainMode
+                        profile.applyTo(engine)
+                    },
+                    onEqualizerPresetSelected = { preset ->
+                        activePreset = preset
+                        engine.applyAudioEnhancements(
+                            AudioEnhancementSettings(
+                                enabled = preset != EqualizerPreset.FLAT || activeReplayGain != ReplayGainMode.OFF,
+                                preset = preset,
+                                replayGainMode = activeReplayGain,
+                            ),
+                        )
+                    },
+                    onReplayGainModeSelected = { mode ->
+                        activeReplayGain = mode
+                        engine.applyAudioEnhancements(
+                            AudioEnhancementSettings(
+                                enabled = activePreset != EqualizerPreset.FLAT || mode != ReplayGainMode.OFF,
+                                preset = activePreset,
+                                replayGainMode = mode,
+                            ),
+                        )
+                    },
+                    onSleepTimerSet = { mins ->
+                        sleepTimerJob?.cancel()
+                        if (mins == null) {
+                            sleepTimerMinutesRemaining = null
+                            sleepTimerJob = null
+                        } else {
+                            sleepTimerMinutesRemaining = mins
+                            sleepTimerJob = scope.launch {
+                                var rem = mins
+                                while (rem > 0) {
+                                    delay(60_000L)
+                                    rem--
+                                    sleepTimerMinutesRemaining = rem
+                                }
+                                engine.pause()
+                                sleepTimerMinutesRemaining = null
+                            }
+                        }
+                    },
+                    onExportDiagnostics = {
+                        val exporter = dev.vimivo.desktop.diagnostics.DesktopDiagnosticExporter()
+                        val userHome = System.getProperty("user.home")
+                        val desktop = File(userHome, "Desktop").takeIf { it.isDirectory } ?: File(userHome)
+                        val target = File(desktop, "vimivo_diagnostics_${System.currentTimeMillis()}.json")
+                        exporter.exportToPath(target.toPath()).onSuccess {
+                            diagnosticsStatus = "Diagnostics exported to Desktop: ${target.name}"
+                        }.onFailure {
+                            diagnosticsStatus = "Export failed: ${it.message}"
+                        }
+                    },
+                    onCheckForUpdates = {
+                        val updateService = dev.vimivo.desktop.update.DesktopUpdateService()
+                        scope.launch {
+                            updateStatus = "Checking for updates..."
+                            updateService.checkFromUrl().onSuccess { result ->
+                                updateStatus = when (result) {
+                                    is dev.vimivo.core.update.UpdateCheckResult.UpdateAvailable -> "Update available: v${result.newVersion}"
+                                    is dev.vimivo.core.update.UpdateCheckResult.UpToDate -> "Vimivo is up to date (v${result.currentVersion})"
+                                    is dev.vimivo.core.update.UpdateCheckResult.DowngradeBlocked -> "Version is newer than release manifest"
+                                    is dev.vimivo.core.update.UpdateCheckResult.Error -> "Check failed: ${result.reason}"
+                                }
+                            }.onFailure {
+                                updateStatus = "Could not reach update server (offline or local-only network)"
+                            }
+                        }
+                    },
+                    activeProfile = activeProfile,
+                    activePreset = activePreset,
+                    activeReplayGain = activeReplayGain,
+                    sleepTimerMinutesRemaining = sleepTimerMinutesRemaining,
+                    diagnosticsStatus = diagnosticsStatus,
+                    updateStatus = updateStatus,
                 )
             }
             if (destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
                 SwingPanel(
                     factory = { videoCanvas },
                     modifier = Modifier.fillMaxWidth().height(360.dp),
+                )
+                dev.vimivo.desktop.playback.DesktopVideoControlsPanel(
+                    engine = engine,
+                    state = state,
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -500,7 +622,16 @@ private fun DesktopPlayer(
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(formatTime(state.positionMillis))
                         Spacer(Modifier.weight(1f))
+                        if (state.media?.kind == MediaKind.AUDIO) {
+                            OutlinedButton(onClick = { showLyrics = !showLyrics }) {
+                                Text(if (showLyrics) "Hide Lyrics" else "Lyrics")
+                            }
+                            Spacer(Modifier.width(8.dp))
+                        }
                         Text(formatTime(state.durationMillis ?: 0))
+                    }
+                    if (showLyrics && state.media?.kind == MediaKind.AUDIO) {
+                        DesktopLyricsCard(lyricsDoc = lyricsDoc, positionMillis = state.positionMillis)
                     }
                 }
             }
@@ -728,3 +859,35 @@ private fun formatTime(milliseconds: Long): String {
 }
 
 private val VIDEO_EXTENSIONS = setOf("mp4", "mkv", "mov", "avi", "webm", "m4v", "ts", "m2ts")
+
+@Composable
+private fun DesktopLyricsCard(lyricsDoc: dev.vimivo.core.lyrics.LyricsDocument?, positionMillis: Long) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Lyrics", style = MaterialTheme.typography.titleSmall)
+            if (lyricsDoc == null || lyricsDoc.lines.isEmpty()) {
+                Text(
+                    "No synchronized .lrc lyrics found for this track. Place a .lrc file in the same directory.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                val activeIdx = lyricsDoc.findActiveLineIndex(positionMillis)
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 160.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    items(lyricsDoc.lines.size) { idx ->
+                        val line = lyricsDoc.lines[idx]
+                        val isActive = idx == activeIdx
+                        Text(
+                            text = line.text,
+                            style = if (isActive) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

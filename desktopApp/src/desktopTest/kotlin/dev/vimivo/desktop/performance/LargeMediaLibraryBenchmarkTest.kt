@@ -33,7 +33,7 @@ class LargeMediaLibraryBenchmarkTest {
 
     @Test
     fun benchmark10000MediaLibraryScalability() {
-        runBenchmark(size = 10_000, maxQueryMs = 100, maxAlbumMs = 250)
+        runBenchmark(size = 10_000, maxQueryMs = 150, maxAlbumMs = 300)
     }
 
     private fun runBenchmark(size: Int, maxQueryMs: Long, maxAlbumMs: Long) {

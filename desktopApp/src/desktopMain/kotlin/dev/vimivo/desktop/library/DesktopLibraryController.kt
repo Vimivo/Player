@@ -114,6 +114,33 @@ internal class DesktopLibraryController(
         mutatePersonalData { personalRepository.removeFromPlaylist(playlistId, mediaId) }
     fun movePlaylistItem(playlistId: String, mediaId: MediaId, position: Int) =
         mutatePersonalData { personalRepository.movePlaylistItem(playlistId, mediaId, position) }
+    fun exportPlaylistM3u(playlistId: String, targetFile: File): Result<Unit> = runCatching {
+        val playlist = personalRepository.playlists().firstOrNull { it.id == playlistId }
+            ?: error("Playlist was not found")
+        val items = repository.media(playlist.items)
+        val entries = items.map { item ->
+            dev.vimivo.core.playlist.PlaylistItemEntry(
+                uri = item.uri,
+                title = listOfNotNull(item.artist, item.title).joinToString(" - "),
+                durationSeconds = item.durationMillis?.let { (it / 1000).toInt() },
+            )
+        }
+        val content = dev.vimivo.core.playlist.PlaylistM3uHandler.exportM3u8(playlist.name, entries)
+        targetFile.writeText(content, Charsets.UTF_8)
+    }
+    fun importPlaylistM3u(file: File) = mutatePersonalData {
+        require(file.isFile && file.canRead()) { "Selected file cannot be read" }
+        val content = file.readText(Charsets.UTF_8)
+        val parsed = dev.vimivo.core.playlist.PlaylistM3uHandler.parseM3u(content, file.nameWithoutExtension)
+        val playlist = personalRepository.createPlaylist(parsed.name)
+        parsed.entries.forEach { entry ->
+            val candidate = repository.findMediaByUriOrFileName(entry.uri)
+                ?: repository.findMediaByUriOrFileName(entry.uri.substringAfterLast('/').substringAfterLast('\\'))
+            if (candidate != null) {
+                personalRepository.addToPlaylist(playlist.id, candidate.id)
+            }
+        }
+    }
     fun toggleFavorite(media: MediaItem) = mutatePersonalData {
         personalRepository.setFavorite(FavoriteTarget.MEDIA, media.id.value, !media.isFavorite)
     }

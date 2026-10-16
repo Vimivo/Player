@@ -84,18 +84,21 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `test(architecture): enforce multiplatform boundaries and zero platform leaks` — Automated static architecture tests verifying commonMain platform neutrality, native isolation, and UI decoupling.
 - `perf(benchmarks): add large media library scalability benchmarks for 10k items` — Validated reproducible benchmarks for 100, 1,000, and 10,000 items measuring insert, query, search, grouping, and persistence.
 - `docs(architecture): record adrs, performance benchmarks, and release candidate checkpoints` — Published ADR-001, ADR-002, ADR-003, performance benchmark report, and updated release readiness matrix.
+- `feat(desktop): complete video controls, m3u import-export, audio dsp, and lyrics` — Connected end-to-end user actions across desktop UI: DesktopVideoControlsPanel (aspect ratio, screenshot, rotation, subtitle/audio delay offsets, chapters, A-B repeat), M3U/M3U8 playlist import/export with native file dialogs and SQLite item matching, synchronized LRC lyrics rendering card, and real backing settings for playback profiles, EQ presets, ReplayGain, sleep timer, diagnostics export, and update check (Milestone 37).
+- `test(regression): add m3u roundtrip, video controls, and queue race condition tests` — Added regression test suites for M3U playlist export/import with Unicode/Bengali preservation, desktop video controls and engine contracts, and playback queue concurrency / race conditions (rapid next/completion events, active track protection, duplicate occurrences, and paused restoration without autoplay) (Milestone 38).
+- `docs(readiness): update product completeness, feature matrix, and release checkpoints` — Updated FEATURE_MATRIX.md, RELEASE_CANDIDATE_STATUS.md, PRODUCTION_READINESS.md, IMPLEMENTATION_LEDGER.md, and DEVELOPMENT_CONTINUATION.md for Milestones 37 & 38.
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (58 tests passed)
-- `./gradlew :desktopApp:desktopTest` (103 tests passed)
+- `./gradlew :desktopApp:desktopTest` (106 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
-- Total automated tests: 181 tests passing, 0 failures (plus 7 native iOS XCTest tests).
+- Total automated tests: 184 tests passing, 0 failures (plus 7 native iOS XCTest tests).
 
 
 

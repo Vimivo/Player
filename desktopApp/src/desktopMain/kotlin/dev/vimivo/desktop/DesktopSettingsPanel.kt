@@ -1,4 +1,7 @@
-@file:Suppress("ArgumentListWrapping", "FunctionNaming", "LongMethod", "MaximumLineLength", "MaxLineLength")
+@file:Suppress(
+    "ArgumentListWrapping", "CyclomaticComplexMethod", "FunctionNaming", "LongMethod",
+    "LongParameterList", "MaximumLineLength", "MaxLineLength",
+)
 
 package dev.vimivo.desktop
 
@@ -23,6 +26,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.vimivo.desktop.library.DesktopLibraryUiState
+import dev.vimivo.playback.EqualizerPreset
+import dev.vimivo.playback.PlaybackProfile
+import dev.vimivo.playback.ReplayGainMode
 import dev.vimivo.settings.ThemeMode
 
 @Composable
@@ -31,6 +37,18 @@ internal fun DesktopSettingsPanel(
     onThemeSelected: (ThemeMode) -> Unit,
     onAddFolder: () -> Unit,
     onRefreshAvailability: () -> Unit,
+    onPlaybackProfileSelected: ((PlaybackProfile) -> Unit)? = null,
+    onEqualizerPresetSelected: ((EqualizerPreset) -> Unit)? = null,
+    onReplayGainModeSelected: ((ReplayGainMode) -> Unit)? = null,
+    onSleepTimerSet: ((Int?) -> Unit)? = null,
+    onExportDiagnostics: (() -> Unit)? = null,
+    onCheckForUpdates: (() -> Unit)? = null,
+    activeProfile: PlaybackProfile = PlaybackProfile.DEFAULT,
+    activePreset: EqualizerPreset = EqualizerPreset.FLAT,
+    activeReplayGain: ReplayGainMode = ReplayGainMode.OFF,
+    sleepTimerMinutesRemaining: Int? = null,
+    diagnosticsStatus: String? = null,
+    updateStatus: String? = null,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -81,6 +99,152 @@ internal fun DesktopSettingsPanel(
             }
         }
 
+        if (onPlaybackProfileSelected != null) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+                        contentDescription = "Playback profiles"
+                    },
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Playback Profiles", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Instant configuration presets optimizing speed, equalizer curves, ReplayGain, and aspect ratios.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            PlaybackProfile.BUILTIN_PROFILES.forEach { profile ->
+                                val isSelected = activeProfile == profile
+                                if (isSelected) {
+                                    Button(onClick = { onPlaybackProfileSelected(profile) }) {
+                                        Text(profile.name)
+                                    }
+                                } else {
+                                    OutlinedButton(onClick = { onPlaybackProfileSelected(profile) }) {
+                                        Text(profile.name)
+                                    }
+                                }
+                            }
+                        }
+                        Text(activeProfile.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        }
+
+        if (onEqualizerPresetSelected != null || onReplayGainModeSelected != null) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+                        contentDescription = "Audio Equalizer and ReplayGain settings"
+                    },
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Audio DSP: Equalizer & ReplayGain", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "10-band graphic equalizer with auto-attenuating preamp safety headroom (0 to -12 dB) preventing digital clipping.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (onEqualizerPresetSelected != null) {
+                            Text("Equalizer Preset:", style = MaterialTheme.typography.labelMedium)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                EqualizerPreset.entries.take(5).forEach { preset ->
+                                    val isSelected = activePreset == preset
+                                    val label = preset.name.lowercase().replaceFirstChar { it.uppercase() }
+                                    if (isSelected) {
+                                        Button(onClick = { onEqualizerPresetSelected(preset) }) { Text(label) }
+                                    } else {
+                                        OutlinedButton(onClick = { onEqualizerPresetSelected(preset) }) { Text(label) }
+                                    }
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                EqualizerPreset.entries.drop(5).forEach { preset ->
+                                    val isSelected = activePreset == preset
+                                    val label = preset.name.lowercase().replaceFirstChar { it.uppercase() }
+                                    if (isSelected) {
+                                        Button(onClick = { onEqualizerPresetSelected(preset) }) { Text(label) }
+                                    } else {
+                                        OutlinedButton(onClick = { onEqualizerPresetSelected(preset) }) { Text(label) }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (onReplayGainModeSelected != null) {
+                            Text("ReplayGain Loudness Normalization:", style = MaterialTheme.typography.labelMedium)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                ReplayGainMode.entries.forEach { mode ->
+                                    val isSelected = activeReplayGain == mode
+                                    val label = mode.name.lowercase().replaceFirstChar { it.uppercase() }
+                                    if (isSelected) {
+                                        Button(onClick = { onReplayGainModeSelected(mode) }) { Text(label) }
+                                    } else {
+                                        OutlinedButton(onClick = { onReplayGainModeSelected(mode) }) { Text(label) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (onSleepTimerSet != null) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+                        contentDescription = "Sleep timer settings"
+                    },
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Sleep Timer", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (sleepTimerMinutesRemaining != null && sleepTimerMinutesRemaining > 0) {
+                                "Active: playback will gently stop in $sleepTimerMinutesRemaining minute(s)."
+                            } else {
+                                "Set a timer to automatically pause playback."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (sleepTimerMinutesRemaining != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(15, 30, 45, 60).forEach { mins ->
+                                OutlinedButton(onClick = { onSleepTimerSet(mins) }) {
+                                    Text("${mins}m")
+                                }
+                            }
+                            if (sleepTimerMinutesRemaining != null) {
+                                Button(onClick = { onSleepTimerSet(null) }) {
+                                    Text("Cancel")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -113,6 +277,42 @@ internal fun DesktopSettingsPanel(
                         ) {
                             Text("Refresh Availability")
                         }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+                    contentDescription = "Diagnostics and software updates"
+                },
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Diagnostics & Updates", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Export a privacy-safe diagnostic report (user paths and credentials are fully redacted) or check for verified updates.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (onExportDiagnostics != null) {
+                            OutlinedButton(onClick = onExportDiagnostics) {
+                                Text("Export Diagnostics")
+                            }
+                        }
+                        if (onCheckForUpdates != null) {
+                            OutlinedButton(onClick = onCheckForUpdates) {
+                                Text("Check for Updates")
+                            }
+                        }
+                    }
+                    diagnosticsStatus?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    updateStatus?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
             }
