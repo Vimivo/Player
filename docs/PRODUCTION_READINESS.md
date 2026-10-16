@@ -25,5 +25,22 @@ Status overview across all five supported platform targets as of **2026-10-16** 
   - Added `DesktopPlaylistM3uTest` verifying M3U export/import round-trips, Unicode/Bengali preservation, and missing file tolerance.
   - Added `DesktopVideoControlsTest` verifying aspect ratio cycling, subtitle file filter extensions, delay arithmetic, rotation math, and screenshot capture.
   - Added `PlaybackQueueRaceConditionTest` verifying queue stability during rapid next transitions with simultaneous track completion, protection against removal of active playing track, duplicate occurrence identity isolation, queue reordering during active playback, and paused session restoration without unexpected autoplay.
+### Milestone 41-44 Smart Discovery, Advanced Library Management & Automation Summary
+
+- **Automated Tests**: 221 tests passing with 0 failures across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (143), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
+- **Detekt Analysis**: 0 violations across all modules.
+- **Smart Media Discovery & Insights (M41 & M42)**:
+  - 100% offline-first recommendation engine generating explainable, deterministic suggestions (`CONTINUE_WATCHING`, `CONTINUE_LISTENING`, `BECAUSE_YOU_LIKE_ARTIST`, `REDISCOVER_FAVORITES`, `RECENTLY_ADDED`, `UNPLAYED_GEMS`) with persistent dismissal support (`dismissed_recommendations`).
+  - Rule-based smart playlists with typed AST conditions (`EQUALS`, `CONTAINS`, `STARTS_WITH`, `GREATER_THAN`, `LESS_THAN`, `IS_TRUE`, `IS_FALSE`), match modes (`ALL`/`ANY`), limits, and persistence in `smart_playlists`.
+  - Non-destructive SHA-256 content hashing duplicate detection with zero automated deletion.
+  - Unicode NFC normalized search with multi-tier scoring (exact match, prefix, substring, artist, album) verified on Bengali and accented media.
+  - Real-time listening and watching insights calculator.
+- **Advanced Media Library Management & Automation (M43 & M44)**:
+  - Strict separation of Mode A (database-only metadata/artwork overrides) and Mode B (embedded tag writing for verified audio containers: MP3, FLAC, OGG, M4A, WAV).
+  - Staged write pipeline with preflight checks, automatic backup, post-write validation, and rollback on error.
+  - Batch file renaming with token expansion (`{artist}`, `{album}`, `{track}`, `{title}`, `{year}`), Windows reserved name protection, collision detection, and SQLite database reconciliation preserving playlists, history, favorites, and queue references.
+  - Missing media reconciliation with candidate discovery (filename, title, file size) and atomic relinking.
+  - Typed workflow automation rules, non-destructive dry-run preview engine, persistent operation journal (`batch_operation_journal`), and library health diagnostic scoring.
+  - Upgraded SQLite schema to version 6 with non-destructive migrations from v1-v5.
 - **Release Decision**: **CONDITIONAL GO FOR CONTROLLED DISTRIBUTION (`1.0.0-rc.1`)**. Product feature set is functionally complete, all interactive controls are verified and persistent, and regression hardening gates pass 100%. General public store deployment remains blocked on owner signing credentials and explicit user authorization.
 

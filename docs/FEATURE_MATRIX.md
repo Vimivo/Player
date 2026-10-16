@@ -40,6 +40,34 @@ Verified against source, automated test suites, and simulator runs on 2026-10-15
 | Large Media Library Scalability | Implemented, tested | Implemented, benchmarked | Implemented, tested | Implemented, tested | Implemented, tested |
 | SQLite Schema v5 Indexes | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Implemented, tested |
 | Static Architecture Guards | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Single-Item Metadata Editing | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented (Overrides) |
+| Bulk Metadata Tag Editing | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented (Overrides) |
+| Database Metadata Overrides | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Embedded Tag Writing (MP3/FLAC/OGG/M4A/WAV) | Partial (MediaStore) | Implemented, verified | Implemented, tested | Implemented, tested | Blocked (Sandbox) |
+| Artwork Management & Overrides | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Batch File Renaming & Templates | Partial (SAF) | Implemented, tested | Implemented, tested | Implemented, tested | Blocked (Sandbox) |
+| Missing Media Reconciliation | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Non-Destructive Duplicate Review | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Rule-Based Smart Playlists | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Local Offline Recommendations | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Listening & Watching Insights | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Workflow Automation & Dry-Run Engine | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Batch Operation Journal | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| Library Health Dashboard | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+| SQLite Schema v6 Migration | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
+
+### Milestones 41 & 42 Highlights:
+- **Intelligent Media Discovery & Offline Home**: 100% offline-first, explainable, and deterministic recommendation engine (Continue Watching, Continue Listening, Top Artists, Rediscover Favorites, Recently Added, Cold Start) with dismissal persistence (`dismissed_recommendations`).
+- **Rule-Based Smart Playlists**: Fully typed AST evaluator supporting field comparisons (`TITLE`, `ARTIST`, `ALBUM`, `GENRE`, `RELEASE_YEAR`, `DURATION_MS`, `PLAY_COUNT`, `IS_FAVORITE`, `MEDIA_KIND`), operators (`EQUALS`, `CONTAINS`, `STARTS_WITH`, `GREATER_THAN`, `LESS_THAN`, `IS_TRUE`, `IS_FALSE`), match modes (`ALL`/`ANY`), and customizable limits.
+- **Listening & Watching Insights**: Real-time aggregation of listening duration, play counts, top artists, top albums, unplayed tracks, video completion counts, and in-progress watch queues.
+- **Unicode & Bengali Ranked Search**: Unicode NFC normalization with multi-tier scoring (exact title match = 100, prefix = 80, substring = 60, artist match = 50, album match = 35) tested and verified against composed, decomposed, and Bengali script media items.
+
+### Milestones 43 & 44 Highlights:
+- **Advanced Media Library Management**: Strict separation between Mode A (non-destructive SQLite database overrides in `user_metadata_overrides` and `user_artwork_overrides`) and Mode B (embedded file tag writing via jaudiotagger for supported audio formats: MP3, FLAC, OGG, M4A, WAV).
+- **Safe Staged File Writing & Verification**: Full preflight validation, automatic file backup before mutation, post-write header and tag verification, and automatic rollback on error. Non-writable formats (video containers like MKV/MP4) are cleanly guided to database overrides.
+- **Batch File Renaming & DB Reconciliation**: Token expansion (`{artist}`, `{album}`, `{track}`, `{title}`, `{year}`), Windows reserved device name validation (`CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9`), forbidden path character sanitization, batch and on-disk collision detection, case-only rename handling, and atomic SQLite reference reconciliation preserving playlist memberships, favorites, history, and queue references.
+- **Missing Media Reconciliation**: Detection of unavailable media with multi-criteria candidate discovery (exact filename, title match, file size match) and atomic relinking in SQLite.
+- **Privacy-First Workflow Automation**: User-controlled automation rules, non-destructive dry-run preview engine, persistent batch operation journal (`batch_operation_journal`) tracking job lifecycles (`PLANNED`, `RUNNING`, `COMMITTED`, `VERIFIED`, `FAILED`), and library health diagnostic scoring.
 
 ### Milestones 33 & 34 Highlights:
 - **Advanced Audio Engineering**: 10-band equalizer with 10 presets (Flat, Bass Boost, Treble Boost, Vocal, Classical, Rock, Jazz, Pop, Acoustic, Custom) and auto-attenuating safety preamp headroom (0 to -12 dB). Native ReplayGain (Track & Album mode) with peak clipping protection. Verified gapless playback transitions (`gapless-audio=yes`) and pitch-invariant real-time time-stretching (`audio-pitch-correction=yes`). Safe cross-platform output device routing.

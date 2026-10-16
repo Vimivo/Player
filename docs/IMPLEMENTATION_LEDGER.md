@@ -87,18 +87,23 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `feat(desktop): complete video controls, m3u import-export, audio dsp, and lyrics` — Connected end-to-end user actions across desktop UI: DesktopVideoControlsPanel (aspect ratio, screenshot, rotation, subtitle/audio delay offsets, chapters, A-B repeat), M3U/M3U8 playlist import/export with native file dialogs and SQLite item matching, synchronized LRC lyrics rendering card, and real backing settings for playback profiles, EQ presets, ReplayGain, sleep timer, diagnostics export, and update check (Milestone 37).
 - `test(regression): add m3u roundtrip, video controls, and queue race condition tests` — Added regression test suites for M3U playlist export/import with Unicode/Bengali preservation, desktop video controls and engine contracts, and playback queue concurrency / race conditions (rapid next/completion events, active track protection, duplicate occurrences, and paused restoration without autoplay) (Milestone 38).
 - `docs(readiness): update product completeness, feature matrix, and release checkpoints` — Updated FEATURE_MATRIX.md, RELEASE_CANDIDATE_STATUS.md, PRODUCTION_READINESS.md, IMPLEMENTATION_LEDGER.md, and DEVELOPMENT_CONTINUATION.md for Milestones 37 & 38.
+- `feat(discovery): implement smart discovery, rule-based smart playlists, offline recommendations, and insights` — Implemented 100% offline recommendation engine with dismissal persistence, typed smart playlist AST rule engine, listening & watching insights calculator, SHA-256 duplicate detection service, and Unicode/Bengali script ranked search in SQLite (Milestones 41 & 42).
+- `feat(metadata): implement safe metadata editor, embedded tag writing, batch rename, and missing media relinker` — Strict separation between Mode A (SQLite metadata/artwork overrides) and Mode B (embedded tag writing with preflight validation, automatic file backup, and post-write verification), batch rename planner with token expansion and collision safety, missing media candidate finder and atomic relinker, and non-destructive duplicate review (Milestone 43).
+- `feat(automation): implement privacy-first workflow automation, dry-runs, batch operation journal, and health dashboard` — Typed workflow rule engine, non-destructive dry-run planner, persistent batch operation journal (`batch_operation_journal`) tracking job stages (`PLANNED`, `RUNNING`, `COMMITTED`, `VERIFIED`, `FAILED`), and comprehensive library health report generator (Milestone 44).
+- `feat(database): upgrade SQLite schema to version 6 with non-destructive migrations` — Added tables `user_metadata_overrides`, `user_artwork_overrides`, `smart_playlists`, `media_hashes`, `batch_operation_journal`, `workflow_rules`, `dismissed_recommendations`, and `personalization_preferences` with foreign key enforcement and passing migration test suites.
+- `test(library): add comprehensive test suites for metadata editing, batch renaming, missing media, automation, smart playlists, unicode search, and recommendations` — Added 7 new test suites covering all edge cases, collisions, Windows reserved names, DB reconciliation, Bengali text search, and health diagnostics.
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (58 tests passed)
-- `./gradlew :desktopApp:desktopTest` (106 tests passed)
+- `./gradlew :desktopApp:desktopTest` (143 tests passed, +37 new tests)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
-- Total automated tests: 184 tests passing, 0 failures (plus 7 native iOS XCTest tests).
+- Total automated tests: 221 tests passing, 0 failures (plus 7 native iOS XCTest tests).
 
 
 

@@ -16,30 +16,35 @@ Milestones completed:
 - **Milestone 36**: Large-Library Scalability, SQLite Schema v5 & Performance Benchmarks
 - **Milestone 37**: Complete Product Feature Gap Audit & End-to-End Functional Traceability
 - **Milestone 38**: Exhaustive Regression Hardening, Concurrency & Release Readiness
+- **Milestone 41**: Smart Media Discovery, Intelligent Library Organization & Smart Playlists
+- **Milestone 42**: Privacy-First Personalization, Offline Recommendations & Insights
+- **Milestone 43**: Advanced Media Library Management, Bulk Metadata Editing & Safe Renaming
+- **Milestone 44**: Privacy-First Workflow Automation, Dry-Runs, Journaling & Health Dashboard
 
 ## Resume point
 
-Milestones 37 & 38 are complete and verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
-All user-facing screens and controls have been audited and traced directly to their underlying domain, engine, and persistent storage layers with zero dead controls or placeholder mocks.
-Desktop video controls (aspect ratio overrides, screenshot capture to Desktop, 90-degree step rotation, external subtitle loading, subtitle delay offsets, audio delay offsets, chapters, and A-B repeat) are fully implemented.
-M3U/M3U8 playlist export and native file-dialog import with robust URI and filename matching against indexed SQLite media items and full Unicode/Bengali script preservation are implemented and verified.
-Synchronized LRC lyrics rendering with sibling `.lrc` auto-discovery and millisecond-accurate active line highlighting is verified.
-Exhaustive regression hardening suites have been implemented and pass 100%:
-- `DesktopPlaylistM3uTest`: M3U export/import round-trips, Unicode/Bengali metadata, and missing file tolerance.
-- `DesktopVideoControlsTest`: Aspect ratio cycling, subtitle file filter extensions, delay arithmetic, rotation math, and screenshot capture.
-- `PlaybackQueueRaceConditionTest`: Rapid next transitions during completion events, active track protection, duplicate occurrence identity isolation, queue reordering during active playback, and paused session restoration without unexpected autoplay.
+Milestones 41, 42, 43, and 44 are complete and verified across all target platforms.
+- Metadata editing architecture strictly separates Mode A (Database Overrides in SQLite `user_metadata_overrides` and `user_artwork_overrides`) and Mode B (Embedded Audio Tag Writing via jaudiotagger for MP3, FLAC, OGG, M4A, WAV).
+- Embedded tag write pipeline features preflight capability validation, automatic file backup before write, post-write audio header / tag verification, and automatic rollback on failure. Video files (MKV, MP4) and read-only media gracefully default to database overrides.
+- Batch file renaming expands tokens (`{artist}`, `{album}`, `{track}`, `{title}`, `{year}`), checks Windows reserved device names, sanitizes illegal path characters, detects batch and disk collisions, handles case-only renames, and reconciles SQLite `media_items` records so playlists, favorites, history, and queue references are 100% preserved.
+- Missing media reconciliation detects broken paths, discovers candidate files by filename, title, or size match, and atomic relinking in SQLite.
+- Rule-based smart playlists evaluate field conditions (`EQUALS`, `CONTAINS`, `STARTS_WITH`, `GREATER_THAN`, `LESS_THAN`, `IS_TRUE`, `IS_FALSE`) with `ALL` or `ANY` match modes and limits.
+- Local recommendation engine provides 100% offline, explainable suggestions (Continue Watching, Continue Listening, Top Artists, Rediscover Favorites, Recently Added, Cold Start) with dismissal persistence.
+- Workflow automation engine executes non-destructive dry-runs, maintains a persistent batch operation journal (`batch_operation_journal`), and computes library health diagnostic scores.
+- SQLite schema upgraded to version 6 with non-destructive migrations from v1, v2, v3, v4, and v5.
 
 Test & Static Analysis Verification:
 - `:shared:desktopTest`: 58 passing tests.
-- `:desktopApp:desktopTest`: 106 passing tests (+3 suites).
+- `:desktopApp:desktopTest`: 143 passing tests (+7 comprehensive test suites).
 - `:androidApp:testDebugUnitTest`: 20 passing tests.
-- Total automated tests: 184 tests passing (0 failures), plus 7 native iOS XCTest tests.
+- Total automated tests: 221 tests passing (0 failures), plus 7 native iOS XCTest tests.
 - Detekt static analysis: 0 weighted violations across all modules.
 
 ## Next executable work
 
-1. Invite authorized testers into the private beta cohort under the established opt-in agreement (`docs/BETA_TEST_PLAN.md`).
-2. Execute remote Windows and Linux native binary generation via GitHub Actions workflow `.github/workflows/release-candidate.yml`.
+1. Continue expanding platform-native file provider integrations for Android SAF and iOS FileProvider for external SD/OTG storage.
+2. Invite authorized testers into the private beta cohort under the established opt-in agreement (`docs/BETA_TEST_PLAN.md`).
+3. Execute remote Windows and Linux native binary generation via GitHub Actions workflow `.github/workflows/release-candidate.yml`.
 3. Provide owner-managed Google Play upload keystore and Apple Developer Team provisioning profile in protected secrets when ready for store submissions.
 4. Obtain explicit owner authorization before triggering `.github/workflows/publish-release.yml`.
 
