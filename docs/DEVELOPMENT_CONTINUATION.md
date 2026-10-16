@@ -10,48 +10,41 @@ Milestones completed:
 - **Milestone 30**: Official Distribution Engineering & Stable Release Preparation
 - **Milestone 31**: Post-Launch Reliability Engineering & Crash Diagnostics
 - **Milestone 32**: Secure Software Update Infrastructure & Long-Term Maintenance
+- **Milestone 33**: Advanced Audio Engineering & Premium Music Experience
+- **Milestone 34**: Professional Video Playback & Power-User Experience
 
 ## Resume point
 
-Implementation, quality gates, closed-beta infrastructure, safe update services, post-launch reliability engineering, and long-term maintenance workflows are complete and verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
+Implementation, quality gates, advanced audio DSP (10-band graphic EQ, ReplayGain, gapless, pitch preservation, synced LRC lyrics, sleep timer), professional video playback (A-B repeat looping, chapters, external subtitles, aspect ratio overrides, zoom/pan/rotation, GPU video adjustments, screenshots), and playback profiles & playlists are complete and verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
 
 The latest completed increments are:
 
-1. **Standardized Cross-Platform Error Model**:
-   - `shared/src/commonMain/kotlin/dev/vimivo/core/error/VimivoError.kt`: Standardized 20-category error model with platform-neutral error taxonomy (`APPLICATION_STARTUP`, `MEDIA_NOT_FOUND`, `MEDIA_UNSUPPORTED`, `MEDIA_CORRUPT`, `PLAYBACK_INITIALIZATION`, `AUDIO_OUTPUT`, `VIDEO_RENDERING`, `PLAYBACK_INTERRUPTED`, `DATABASE`, `DATABASE_MIGRATION`, `QUEUE_PERSISTENCE`, `FILE_PERMISSION`, `NETWORK_TIMEOUT`, `NETWORK_AUTHENTICATION`, `NATIVE_DEPENDENCY`, `UPDATE_CHECK`, `UPDATE_VERIFICATION`, `UPDATE_INSTALLATION`, `BACKUP_RESTORE`, `UNKNOWN`), safe error codes, recoverability flags, and user-facing messages.
-   - `shared/src/commonTest/kotlin/dev/vimivo/core/error/VimivoErrorTest.kt`: Unit tests verifying all 20 categories, path/URL redaction, and error formatting.
+1. **Advanced Audio Engineering (Milestone 33)**:
+   - `shared/src/commonMain/kotlin/dev/vimivo/playback/AudioEnhancement.kt`: Extended 10-band equalizer presets (`TREBLE_BOOST`, `ACOUSTIC`, plus existing `FLAT`, `BASS_BOOST`, `VOCAL`, `CLASSICAL`, `ROCK`, `JAZZ`, `POP`, `CUSTOM`) and `ReplayGainMode` (`OFF`, `TRACK`, `ALBUM`).
+   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/playback/DesktopAudioEffects.kt`: Precise 10-band gain maps (31Hz–16kHz) and auto-attenuating safety preamp headroom calculation (`min(0.0, -maxGain)`) preventing digital clipping.
+   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/playback/MpvPlayerEngine.kt`: Real-time native libmpv bindings for ReplayGain (`replaygain`, `replaygain-clip`), gapless audio (`gapless-audio=yes`), pitch preservation (`audio-pitch-correction=yes`), and audio output routing (`audio-device`, `audio-device-list`).
+   - `androidApp/src/main/kotlin/dev/vimivo/platform/android/playback/AndroidAudioEnhancementController.kt`: Updated with full support for new presets.
 
-2. **Structured Local Logging & Redaction Engine**:
-   - `shared/src/commonMain/kotlin/dev/vimivo/core/logging/StructuredLogger.kt`: Thread-safe, bounded circular logging engine (250 entries maximum) with severity levels (`VERBOSE`, `DEBUG`, `INFO`, `WARN`, `ERROR`), sensitive metadata key redaction, and `SafeLogger` path/token sanitization.
-   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/logging/DesktopLogFileAppender.kt`: Local disk log appender with bounded file size (1 MB default) and circular file rotation (`vimivo.log`, `vimivo.log.1`, `vimivo.log.2`).
-   - Unit tests: `StructuredLoggerTest` (5 tests) and `DesktopLogFileAppenderTest` (2 tests).
+2. **Synchronized LRC Lyrics & Sleep Timer**:
+   - `shared/src/commonMain/kotlin/dev/vimivo/core/lyrics/LrcLyricsParser.kt`: Fast, zero-allocation line parser with multi-timestamp support (`[mm:ss.xx]`), metadata headers (`[ti:]`, `[offset:]`), offset adjustments, Bengali/Unicode support, and binary search active line indexing (`findActiveLineIndex`).
+   - `shared/src/commonMain/kotlin/dev/vimivo/playback/SleepTimer.kt`: Platform-neutral sleep timer with duration countdown (1-1440m), stop-after-current-track, and gentle volume fade-out.
 
-3. **Fault-Injection & Lifecycle Reliability Test Suites**:
-   - `shared/src/commonTest/kotlin/dev/vimivo/core/reliability/FaultInjectionReliabilityTest.kt`: Deterministic fault-injection coverage testing missing files, corrupted codecs, network stream timeouts, SQLite migration faults, and graceful engine fallbacks.
-   - `desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/reliability/DesktopReliabilityTest.kt`: Repeated native player engine lifecycle verification (15x sequential instantiate, capabilities evaluation, and safe close without resource leaks or deadlocks), high-concurrency multi-threaded logging safety, and desktop error redaction.
+3. **Professional Video Controls (Milestone 34)**:
+   - `shared/src/commonMain/kotlin/dev/vimivo/playback/PlayerEngine.kt`: Capability contracts and data models for `ABRepeatRange`, `ChapterInfo`, `VideoAspectRatio`, `VideoAdjustments`, `SubtitleStyle`, and `AudioOutputDevice`.
+   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/playback/MpvPlayerEngine.kt`: Native libmpv bindings for A-B repeat looping (`ab-loop-a`, `ab-loop-b`), chapter discovery and stepping (`chapter-list`, `chapter`), external subtitle styling and delay (`sub-font-size`, `sub-color`, `sub-delay`), audio delay offset (`audio-delay`), video aspect ratio override (`video-aspect-override`), hardware zoom/pan (`video-zoom`, `video-pan-x/y`), rotation (`video-rotate`), GPU video adjustments (brightness, contrast, saturation, gamma), and native frame screenshots (`screenshot-to-file`).
 
-4. **Update Security Model & Failure Handling**:
-   - `shared/src/commonMain/kotlin/dev/vimivo/core/update/UpdateChecker.kt`: Hardened with rollback/downgrade attack prevention (`DowngradeBlocked`), 64-character hex SHA-256 validation, credential stripping, and HTTPS enforcement.
-   - `shared/src/commonTest/kotlin/dev/vimivo/core/update/UpdateSecurityTest.kt`: Rejection of downgrade attacks, invalid/tampered SHA-256 hashes, and insecure URLs.
+4. **Playback Profiles & Playlist Portability**:
+   - `shared/src/commonMain/kotlin/dev/vimivo/playback/PlaybackProfile.kt`: Defined `DEFAULT`, `MUSIC_FOCUS`, `CINEMA`, and `PODCAST_LECTURE` profiles managing speed, EQ preset, aspect ratio, and ReplayGain.
+   - `shared/src/commonMain/kotlin/dev/vimivo/core/playlist/PlaylistM3uHandler.kt`: Robust M3U and M3U8 playlist parser and generator with `#EXTINF` metadata extraction and HLS stream tag filtering.
 
-5. **Automated Dependency Maintenance & Hotfix CI**:
-   - `.github/dependabot.yml`: Weekly automated scans for Gradle (`libs.versions.toml`) and GitHub Actions.
-   - `.github/workflows/dependency-security.yml`: Automated supply-chain audit and dependency inventory generation.
-   - `.github/workflows/hotfix-release.yml`: Protected emergency hotfix pipeline with security advisory tracking, multi-platform gating, and `production-approvals` environment sign-off.
+5. **Audio & Video Capability Matrix**:
+   - `docs/AUDIO_VIDEO_CAPABILITIES.md`: Authoritative matrix across Android, macOS, Windows, Linux, and iOS/iPadOS documenting exact mechanisms, tests, and zero-fake-control constraints.
 
-6. **Reliability & Maintenance Documentation Suite**:
-   - `docs/RELIABILITY_ARCHITECTURE.md`: Complete error taxonomy, bounded logging, and crash boundaries.
-   - `docs/INCIDENT_RESPONSE.md`: 9-step incident response runbook, severity classification, and post-incident review.
-   - `docs/UPDATE_SECURITY.md`: Update security threat matrix, platform architectures, and database migration safety.
-   - `docs/DEPENDENCY_MAINTENANCE.md`: Native multimedia library inventory and vulnerability triage protocol.
-   - `docs/COMPATIBILITY_POLICY.md`: OS support matrix, hardware capabilities, and deprecation policy.
-   - `docs/HOTFIX_PROCEDURE.md`: Step-by-step hotfix engineering and verification guide.
-
-7. **Test & Static Analysis Verification**:
-   - `:shared:desktopTest`: 45 passing tests.
-   - `:desktopApp:desktopTest`: 70 passing tests.
+6. **Test & Static Analysis Verification**:
+   - `:shared:desktopTest`: 58 passing tests (+13 tests).
+   - `:desktopApp:desktopTest`: 94 passing tests (+24 tests).
    - `:androidApp:testDebugUnitTest`: 20 passing tests.
-   - Total automated tests: 135 tests passing (0 failures).
+   - Total automated tests: 172 tests passing (0 failures).
    - Detekt static analysis: 0 weighted violations across all modules.
 
 ## Next executable work

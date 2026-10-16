@@ -51,6 +51,8 @@ Status terms: **implemented** means code exists, **tested** means automated test
 | Safe software update engine | Implemented, tested | `UpdateManifest`, `SemanticVersion`, `UpdateChecker` (HTTPS enforcement, credential stripping, SemVer ordering), and `DesktopUpdateService` with platform/arch detection. Unit tests (`UpdateCheckerTest`, `DesktopUpdateServiceTest`) passing 100%. |
 | Official distribution & launch readiness | Implemented | Five-platform launch documentation, system requirements, store listings (`docs/STORE_LISTINGS.md`), download experience portal (`docs/website/index.html`), and publication approval boundary (`docs/RELEASE_APPROVALS.md`). |
 | Protected release automation | Implemented | `.github/workflows/publish-release.yml` with manual confirmation token enforcement (`YES_I_CONFIRM_OFFICIAL_RELEASE`) and protected `production-release` environment. |
+| Advanced audio engineering (M33) | Implemented, tested, runtime verified | 10-band equalizer with 10 presets and auto-attenuating safety preamp headroom (0 to -12 dB), native libmpv ReplayGain (Track & Album mode) with peak clipping safety, gapless audio transitions (`gapless-audio=yes`), pitch preservation (`audio-pitch-correction=yes`), synchronized LRC lyrics with Bengali/Unicode support, platform-neutral sleep timer, and audio output routing. |
+| Professional video controls (M34) | Implemented, tested, runtime verified | Native A-B repeat looping, MKV/MP4 chapter navigation, external subtitle demuxing with real-time delay (±5000ms) and appearance customization, A/V sync clock offset, aspect ratio overrides (Fit, Fill, 16:9, 4:3, 21:9), hardware zoom/pan, 90° step rotation, GPU video adjustments (brightness, contrast, saturation, gamma), native frame screenshots, playback profiles, and M3U/M3U8 playlist import/export. |
 
 ## Verified increments
 
@@ -75,18 +77,20 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `c2bf084` — `feat(beta): implement closed beta infrastructure, privacy-safe diagnostics, bug triage, and RC stabilization` — Privacy-safe diagnostic subsystem, Desktop diagnostic exporter, SafeLogger credential redaction, GitHub Issue forms, beta test plan, tester guide, scenario matrix, compatibility matrix, defect triage register, upgrade verification, and RC go/no-go report (Milestones 27 & 28).
 - `feat(release): implement final launch readiness, safe update engine, official distribution architecture, and protected publishing` — In-app update checker and manifest model, DesktopUpdateService, website download portal (`docs/website/index.html`), store listings, publication approval boundary, system requirements, installation guide, privacy review, rollback plan, and protected publishing pipeline (Milestones 29 & 30).
 - `feat(reliability): implement post-launch reliability engineering, structured local logging, crash diagnostics, secure update security, and maintenance CI` — Standardized 20-category error model (`VimivoError`), bounded circular logging (`StructuredLogger`), local disk log rotation (`DesktopLogFileAppender`), fault-injection reliability test suite (`FaultInjectionReliabilityTest`, `DesktopReliabilityTest`), update security with rollback/downgrade attack prevention and SHA-256 validation (`UpdateSecurityTest`), Dependabot automation, supply-chain security workflow, emergency hotfix pipeline, and reliability/maintenance documentation suite (Milestones 31 & 32).
+- `feat(media): implement Milestone 33 advanced audio engineering and Milestone 34 professional video playback` — 10-band equalizer presets with auto-attenuating safety preamp, native ReplayGain, gapless playback, pitch preservation, output routing, synchronized LRC parser with Bengali/Unicode support, platform-neutral sleep timer, A-B repeat looping, chapter navigation, subtitle timing/styling, aspect ratio, zoom/pan/rotation, GPU video adjustments, frame screenshots, playback profiles, and M3U/M3U8 playlist import/export.
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
-- `./gradlew :shared:desktopTest` (45 tests passed)
-- `./gradlew :desktopApp:desktopTest` (70 tests passed)
+- `./gradlew :shared:desktopTest` (58 tests passed)
+- `./gradlew :desktopApp:desktopTest` (94 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
-- Total automated tests: 135 tests passing, 0 failures.
+- Total automated tests: 172 tests passing, 0 failures (plus 7 native iOS XCTest tests).
+
 
 
 

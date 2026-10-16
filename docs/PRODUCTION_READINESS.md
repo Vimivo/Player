@@ -10,14 +10,14 @@ Status overview across all five supported platform targets as of **2026-10-16** 
 | **Windows** | **IMPLEMENTED & PACKAGING READY** (Windows CI Pipeline Implemented) | Embedded video renderer (`MpvWin32Renderer`), secure DLL loading, Windows Credential Manager, desktop shortcuts/drag-and-drop, and standalone packaging (EXE/MSI) configuration are implemented and test-verified. Packaging execution pipeline implemented in `.github/workflows/windows.yml`. Authenticode signing remains blocked on signing credentials. |
 | **Linux** | **IMPLEMENTED & PACKAGING READY** (Linux CI Pipeline Implemented) | Embedded video renderer (`MpvX11Renderer`), MPRIS 2 D-Bus media integration, Freedesktop Secret Service credential store, desktop shortcuts/drag-and-drop, and DEB/RPM/AppImage packaging pipeline implemented in `.github/workflows/linux.yml`. Self-contained packages ready for direct distribution. |
 
-### Milestone 31 & 32 Reliability, Diagnostics, and Update Engineering Summary
+### Milestone 33 & 34 Advanced Audio & Professional Video Engineering Summary
 
-- **Automated Tests**: 135 tests passing with 0 failures across `:shared:desktopTest` (45), `:desktopApp:desktopTest` (70), and `:androidApp:testDebugUnitTest` (20).
+- **Automated Tests**: 172 tests passing with 0 failures across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (94), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
 - **Detekt Analysis**: 0 violations across all modules.
-- **Standardized Error Taxonomy**: `VimivoError` featuring 20 distinct platform-neutral error categories, safe codes, recoverability flags, and user-facing messages.
-- **Bounded Structured Local Logging**: `StructuredLogger` featuring circular memory buffering (250 items max), redaction of user paths/credentials, and `DesktopLogFileAppender` with 1MB size limit and circular 3-file rotation.
-- **Fault-Injection Reliability Suite**: `FaultInjectionReliabilityTest` and `DesktopReliabilityTest` testing missing files, corrupted media decoders, network timeouts, SQLite migration faults, and repeated native player engine lifecycles.
-- **Secure Update Infrastructure**: `UpdateChecker` and `UpdateSecurityTest` implementing SemVer 2.0 comparison, rollback/downgrade attack rejection (`DowngradeBlocked`), 64-character hex SHA-256 validation, and credential-stripping HTTPS enforcement.
-- **Maintenance & Supply-Chain CI**: Dependabot weekly scans (`.github/dependabot.yml`), automated supply-chain audit workflow (`.github/workflows/dependency-security.yml`), and emergency patch pipeline (`.github/workflows/hotfix-release.yml`).
-- **Reliability Documentation Suite**: Published `docs/RELIABILITY_ARCHITECTURE.md`, `docs/INCIDENT_RESPONSE.md`, `docs/UPDATE_SECURITY.md`, `docs/DEPENDENCY_MAINTENANCE.md`, `docs/COMPATIBILITY_POLICY.md`, and `docs/HOTFIX_PROCEDURE.md`.
+- **Advanced Audio Processing (M33)**: 10-band graphic equalizer with auto-attenuating safety preamp headroom (0 to -12 dB), native ReplayGain (Track & Album mode) with peak clipping safety, gapless audio transitions (`gapless-audio=yes`), pitch preservation (`audio-pitch-correction=yes`), and safe audio output device routing.
+- **Synchronized LRC Lyrics & Sleep Timer (M33)**: Multi-timestamp LRC parser with offset adjustment, Bengali/Unicode support, and binary search active line indexing. Platform-neutral sleep timer with duration countdown, stop-after-current, and gentle volume fade-out.
+- **Professional Video Controls (M34)**: Native A-B repeat looping, MKV/MP4 container chapter discovery and stepping, external subtitle demuxing with real-time delay (±5000ms) and appearance styling, A/V synchronization clock offset, aspect ratio overrides (Fit, Fill, 16:9, 4:3, 21:9), hardware zoom/pan, 90-degree step rotation, GPU video adjustments (brightness, contrast, saturation, gamma), and native frame screenshots.
+- **Playback Profiles & Playlist Portability (M34)**: Reusable profiles (Default, Music Focus, Cinema, Podcast/Lecture) and M3U/M3U8 playlist import/export with `#EXTINF` metadata parsing and HLS stream tag filtering.
+- **Authoritative Capability Matrix**: Published `docs/AUDIO_VIDEO_CAPABILITIES.md` documenting exact native mechanisms across Android, macOS, Windows, Linux, and iOS/iPadOS without fabricated completion claims.
 - **Release Decision**: **CONDITIONAL GO FOR CONTROLLED DISTRIBUTION (`1.0.0-rc.1`)**. General public deployment blocked on owner signing credentials and explicit user authorization.
+
