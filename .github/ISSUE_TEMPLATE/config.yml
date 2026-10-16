@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Vimivo Beta Tester Guide
+    url: https://github.com/Vimivo/Player/blob/main/docs/BETA_TESTER_GUIDE.md
+    about: Read onboarding, testing instructions, and safe diagnostic export procedures before submitting.
+  - name: Vimivo Privacy Policy & Data Pledge
+    url: https://github.com/Vimivo/Player/blob/main/docs/BETA_PRIVACY.md
+    about: Understand how Vimivo guarantees local data safety with zero analytics, zero trackers, and zero telemetry.

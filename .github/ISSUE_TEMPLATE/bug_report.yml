@@ -1,0 +1,139 @@
+name: "Bug Report"
+description: "Report a bug or unexpected behavior in Vimivo"
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping test Vimivo!
+        **Privacy Notice**: Vimivo is 100% offline-first and privacy-focused.
+        *Never* share personal media files, passwords, private keys, or unredacted personal directory paths in public issues.
+        Use Vimivo's built-in **Diagnostic Export** tool to produce sanitized, privacy-safe logs.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: A concise summary of the issue.
+      placeholder: "e.g., Audio playback stutters when switching tracks in background on Android"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Affected Platform
+      description: Select the platform where this defect occurred.
+      options:
+        - Android
+        - iOS / iPadOS
+        - macOS (Apple Silicon - arm64)
+        - macOS (Intel - x86_64)
+        - Windows 11 (x64)
+        - Linux (Ubuntu / Debian / Fedora)
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: Operating System Version
+      description: Exact OS release or build.
+      placeholder: "e.g., Android 15 (API 35), macOS Sonoma 14.6, Windows 11 23H2, Ubuntu 24.04 LTS"
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: Application Version & Build Number
+      description: Application version and Git commit hash if known.
+      placeholder: "e.g., 1.0.0-rc.1 (commit 3d77bde)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity Assessment
+      description: Assess the operational severity of this issue.
+      options:
+        - "P0 — Critical (Data loss, security flaw, crash on launch, core playback completely broken, unsafe migration)"
+        - "P1 — High (Frequent playback interruption, playlist persistence failure, queue corruption, major accessibility barrier)"
+        - "P2 — Medium (Optional feature malfunction, non-critical format issue, UI layout defect)"
+        - "P3 — Low (Cosmetic UI issue, minor tooltip defect, animation glitch)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Reproducibility
+      description: How consistently does this defect happen?
+      options:
+        - "Always (100% of attempts)"
+        - "Frequently (~50% to 90% of attempts)"
+        - "Intermittently (<50% of attempts)"
+        - "Happened once"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed, numbered steps to reproduce the behavior.
+      placeholder: |
+        1. Open Vimivo and scan local music folder.
+        2. Add 5 FLAC tracks to the queue.
+        3. Press Play, then rapidly press Next track 3 times.
+        4. Observe player behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+      placeholder: "Queue should advance smoothly to track 4 and resume playback without latency or stutter."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually occurred?
+      placeholder: "Playback paused unexpectedly and UI showed buffer timeout error."
+    validations:
+      required: true
+
+  - type: textarea
+    id: media_details
+    attributes:
+      label: Media Format Details (Optional)
+      description: If playback-related, specify container, codec, resolution, or audio output if known.
+      placeholder: "Container: MKV, Video: H.264 1080p, Audio: FLAC 24-bit 96kHz, Subtitles: ASS embedded"
+    validations:
+      required: false
+
+  - type: textarea
+    id: sanitized_logs
+    attributes:
+      label: Sanitized Diagnostics / Stack Trace (Optional)
+      description: Paste redacted output from Vimivo Diagnostic Exporter or crash logs. (Ensure no user names or tokens are present).
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Privacy & Verification Check
+      options:
+        - label: "I have confirmed that no passwords, auth tokens, personal file paths, or private media files are included in this report."
+          required: true
+        - label: "I am testing an official or self-compiled Vimivo build without third-party modifications."
+          required: true

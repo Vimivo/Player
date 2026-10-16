@@ -1,0 +1,69 @@
+name: "Feature Request"
+description: "Suggest a feature or improvement for Vimivo"
+title: "[Feature]: "
+labels: ["enhancement", "feature-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting improvements to Vimivo!
+        *Note*: During active Release Candidate stabilization phases, new feature requests are triaged for post-release milestones to prioritize stability, playback correctness, and bug fixes.
+
+  - type: textarea
+    id: user_problem
+    attributes:
+      label: User Problem
+      description: What problem or limitation are you experiencing?
+      placeholder: "I am unable to quickly sort my 2,000 video files by duration or aspect ratio."
+    validations:
+      required: true
+
+  - type: textarea
+    id: requested_behavior
+    attributes:
+      label: Requested Behavior
+      description: Describe the behavior or functionality you would like added.
+      placeholder: "Add a sort dropdown in the Video Library view to sort by 'Duration (Ascending/Descending)'."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Applicable Platform(s)
+      description: Which platforms would benefit from this feature?
+      options:
+        - All Platforms (Cross-Platform)
+        - Android
+        - iOS / iPadOS
+        - macOS Desktop
+        - Windows Desktop
+        - Linux Desktop
+    validations:
+      required: true
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Example Workflow
+      description: Step-by-step example of how a user would interact with this feature.
+      placeholder: "1. Open Videos tab -> 2. Click Filter/Sort icon -> 3. Select 'Longest First' -> 4. View re-ordered list."
+    validations:
+      required: false
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Existing Workaround
+      description: Is there an existing way to achieve this today?
+      placeholder: "Currently, I have to search by title or browse files manually in Finder/Explorer."
+    validations:
+      required: false
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution or Technical Thoughts (Optional)
+      description: Any architectural or design considerations that align with Vimivo's offline-first architecture.
+    validations:
+      required: false

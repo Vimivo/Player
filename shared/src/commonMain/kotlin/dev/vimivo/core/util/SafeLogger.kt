@@ -8,7 +8,10 @@ package dev.vimivo.core.util
 object SafeLogger {
     private val USER_PATH_REGEX = Regex("""(?i)(?:/Users/|/home/|[A-Z]:\\Users\\)([^/\\]+)[/\\]?""")
     private val SENSITIVE_QUERY_PARAM_REGEX = Regex(
-        """(?i)([?&](?:token|auth|key|secret|password|sig|signature|access_token|api_key)=)([^&#]+)""",
+        """(?i)([?&](?:token|auth|key|secret|password|sig|signature|access_token|api_key)=)([^&#\s]+)""",
+    )
+    private val SENSITIVE_KEY_VALUE_REGEX = Regex(
+        """(?i)\b((?:token|auth|key|secret|password|sig|signature|access_token|api_key)=)([^\s&#]+)""",
     )
     private val AUTH_HEADER_REGEX = Regex("""(?i)(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*""")
 
@@ -41,5 +44,6 @@ object SafeLogger {
      */
     fun sanitize(message: String): String {
         return redactUrl(redactPath(message))
+            .replace(SENSITIVE_KEY_VALUE_REGEX, "$1[REDACTED]")
     }
 }

@@ -1,47 +1,61 @@
 # Development continuation
 
 Last verified on 2026-10-16 on macOS, branch `main`.
-Milestones completed: **Milestone 25 (Final Five-Platform Quality Assurance) & Milestone 26 (Production Build Engineering & Release Candidate Preparation)**.
+Milestones completed:
+- **Milestone 25**: Final Five-Platform Quality Assurance
+- **Milestone 26**: Production Build Engineering & CI/CD
+- **Milestone 27**: Closed Beta Infrastructure & Privacy-Safe Diagnostics
+- **Milestone 28**: Defect Remediation & Release Candidate Stabilization
 
 ## Resume point
 
-Implementation and quality gates are verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
+Implementation, quality gates, and closed-beta infrastructure are verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
 
 The latest completed increments are:
 
-1. **Database Migration & Integrity Test Suite**: `DesktopDatabaseMigrationTest` verifies fresh database initialization (v0 -> v4), upgrade from older schemas (v1 -> v4, v2 -> v4, v3 -> v4), non-destructive migration of user data (playlists, favorites, history, bookmarks, queue, settings), strict foreign key constraint enforcement, and atomic transaction rollback on failure.
-2. **End-to-End User Journeys**: `DesktopUserJourneysTest` covers all 7 production user scenarios:
-   - Journey 1: Fresh install, media indexing, and recursive scanner discovery;
-   - Journey 2: Music library operations, metadata search, favorites, playlists, and reordering;
-   - Journey 3: Video playback lifecycle, duration tracking, resume positions, and bookmarks;
-   - Journey 4: Continuous playback queue, next-track scheduling, shuffle, repeat, and paused restoration;
-   - Journey 5: User data integrity, theme settings persistence, and `SafeLogger` path/token redaction;
-   - Journey 6: Authorized network streaming and URL sanitization;
-   - Journey 7: Fault recovery, graceful unavailable file reconciliation, and non-destructive deletions.
-3. **Media Fixtures Suite**: Expanded `DesktopMediaMetadataExtractorTest` with zero-byte audio file handling, Bengali (`আমার গান`) and Unicode filename extraction, embedded artwork, and corrupted file resilience.
-4. **Production Build Engineering**:
-   - Android: Release APK (`androidApp-release-unsigned.apk`, 141 MB) and release App Bundle (`androidApp-release.aab`, 73 MB) built with R8 minification and resource shrinking against Android 16 (API 36).
-   - macOS: Standalone `Vimivo.app` and DMG installer (`Vimivo-1.0.0.dmg`, 143 MB) built with self-contained Temurin JDK and 50 relocatable native dylibs (zero `/opt/homebrew` references). Mounted and clean-install launched.
-5. **Cross-Platform CI/CD Workflows**:
-   - `.github/workflows/macos.yml`: Automated macOS quality, native dylib bundling, DMG packaging, and SHA-256 verification.
-   - `.github/workflows/ios.yml`: Automated iOS / iPadOS quality, Kotlin Multiplatform framework linking, and unsigned Xcode archive generation.
-   - `.github/workflows/android.yml`: Enhanced with release APK and App Bundle generation and SHA-256 digests.
-   - `.github/workflows/shared.yml`: PR validation and shared cross-platform tests.
-   - `.github/workflows/release-candidate.yml`: Unified release candidate pipeline aggregating 5-platform artifacts, `SHA256SUMS.txt`, CycloneDX SBOM, and `release-manifest.json`.
-6. **Supply-Chain Security & Manifest**:
-   - `docs/SHA256SUMS.txt`: Cryptographic SHA-256 digests of built artifacts.
-   - `docs/release-manifest.json`: Machine-readable build manifest with toolchain and artifact metadata.
-   - `docs/sbom.json`: CycloneDX 1.5 Software Bill of Materials.
-   - `docs/RELEASE_CANDIDATE_STATUS.md`: Authoritative release readiness assessment.
+1. **Privacy-Safe Crash & Runtime Diagnostics**:
+   - `shared/src/commonMain/kotlin/dev/vimivo/core/diagnostics/PrivacySafeDiagnostics.kt`: Thread-safe bounded in-memory buffer (`DiagnosticBuffer`) and markdown/JSON report generator (`DiagnosticReport`) that redacts usernames (`~/user/...`), URLs, and credentials (`token=[REDACTED]`).
+   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/diagnostics/DesktopDiagnosticExporter.kt`: Desktop diagnostic export manager with security checks blocking writes to protected root system directories (`/System`, `/etc`, `/private/etc`, `C:\Windows`).
+   - `shared/src/commonMain/kotlin/dev/vimivo/core/util/SafeLogger.kt`: Extended with key-value credential pair sanitization (`SENSITIVE_KEY_VALUE_REGEX`).
+   - Unit tests: `PrivacySafeDiagnosticsTest.kt` (8 tests) and `DesktopDiagnosticExporterTest.kt` (3 tests) passing 100%.
 
-Do not rebuild these components. Continue from the backlog below.
+2. **Closed Beta Feedback Infrastructure**:
+   - `.github/ISSUE_TEMPLATE/bug_report.yml`: Structured bug report form with platform dropdown, severity (P0-P3), reproducibility, format details, and privacy check.
+   - `.github/ISSUE_TEMPLATE/feature_request.yml`: Separate feature suggestions form.
+   - `.github/ISSUE_TEMPLATE/config.yml`: Blank issues disabled, linking directly to documentation.
+
+3. **Beta Testing & Defect Remediation Documentation Suite**:
+   - `docs/BETA_TEST_PLAN.md`: Cohort design, hardware coverage matrix, and 3-level readiness gates.
+   - `docs/BETA_TESTER_GUIDE.md`: Professional onboarding guide, SHA-256 verification, safe installation, and data safety guarantee.
+   - `docs/BETA_SCENARIOS.md`: Repeatable scenarios covering first launch, music, video, playlists, queue, personal data, and fault tolerance.
+   - `docs/BETA_COMPATIBILITY_MATRIX.md`: Real-world audio, video, codec, container, and subtitle compatibility across all five platform backends.
+   - `docs/BETA_FEEDBACK_PROCESS.md`: Triage lifecycle, deduplication criteria, and 14-step Root-Cause Analysis protocol.
+   - `docs/BETA_PRIVACY.md`: Tester data safety pledge (zero telemetry, zero trackers, local-only media, unconsented diagnostic prevention).
+   - `docs/BETA_DIAGNOSTICS.md`: Diagnostic subsystem technical architecture and redaction guide.
+   - `docs/BUG_TRIAGE.md`: Investigated defects register (VIM-BUG-001 through 004, 0 unresolved P0/P1 issues).
+   - `docs/UPGRADE_VERIFICATION.md`: Beta-to-RC upgrade testing, non-destructive SQLite migrations (v0->v4), and rollback limitations.
+   - `docs/RC_GO_NO_GO.md`: Independent platform release decisions (Gates A through M) recommending CONDITIONAL GO for closed beta.
+   - `docs/KNOWN_ISSUES.md`: Technical limitations register (Gatekeeper, SmartScreen, Wayland, and Google Play policies).
+
+4. **Production Build Engineering & Artifacts**:
+   - Android: `androidApp-release-unsigned.apk` (147,577,927 bytes) & `androidApp-release.aab` (76,079,193 bytes).
+   - macOS: `Vimivo-1.0.0.dmg` (150,423,483 bytes) and standalone `Vimivo.app`.
+   - CI workflows: `.github/workflows/macos.yml`, `.github/workflows/ios.yml`, `.github/workflows/android.yml`, `.github/workflows/shared.yml`, `.github/workflows/release-candidate.yml`.
+   - Artifact checksums in `docs/SHA256SUMS.txt`, CycloneDX SBOM in `docs/sbom.json`, and `docs/release-manifest.json`.
+
+5. **Test & Static Analysis Verification**:
+   - `:shared:desktopTest`: 23 passing tests.
+   - `:desktopApp:desktopTest`: 82 passing tests.
+   - `:androidApp:testDebugUnitTest`: 20 passing tests.
+   - Total automated tests: 125 tests passing (0 failures).
+   - Detekt static analysis: 0 violations across all modules.
 
 ## Next executable work
 
-1. Execute `.github/workflows/release-candidate.yml` in GitHub Actions on an authorized tag/dispatch to generate remote Windows and Linux native binaries.
-2. Configure Apple Developer signing certificate and provisioning profile in Xcode for App Store / TestFlight archive distribution when authorized.
-3. Configure Google Play upload keystore for signing release Android App Bundle (`androidApp-release.aab`) when authorized.
-4. Run clean-machine Linux and Windows runtime playback verification in physical or VM environments.
+1. Invite authorized testers into the private beta cohort under the established opt-in agreement.
+2. Evaluate genuine field feedback received from real beta testers (Status currently: **AWAITING AUTHORIZED TESTERS**).
+3. Execute `.github/workflows/release-candidate.yml` on an authorized tag/dispatch to build Windows (EXE/MSI) and Linux (DEB/RPM/AppImage) binaries on native CI runners.
+4. When authorized by owner, supply Apple Developer ID and Google Play upload credentials to sign production packages.
 
 ## External or hardware blockers
 

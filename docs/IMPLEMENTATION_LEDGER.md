@@ -45,19 +45,44 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `feat(linux): embedded video renderer, MPRIS media controls, secure credentials, and distribution packaging` — MpvX11Renderer XID attachment, MPRIS 2 D-Bus media integration, LinuxCredentialStore Secret Service binding, multi-resolution icons, desktop entry, AppStream metainfo, Flatpak manifest, AppImage script, native ELF bundler, and Linux CI pipeline.
 - `d7bfe63` — `feat(android): enhance notification permissions for Android 13+ background media controls` (Milestone 21 Android production hardening).
 - `feat(ios): add complete iOS and iPadOS native application with AVPlayer, background playback, and SQLite persistence` — Native SwiftUI app, Kotlin shared framework integration (`iosArm64`, `iosSimulatorArm64`), AVPlayer engine, AVAudioSession handling, MPRemoteCommandCenter, MPNowPlayingInfoCenter, AVKit PiP, sandboxed Files importing with security-scoped bookmarks, native SQLite persistence, and Keychain credential storage (Milestone 22 iOS production completion).
+| Privacy-safe diagnostics & export | Implemented, tested | `PrivacySafeDiagnostics` (bounded ring buffer, username & credential redaction, markdown/JSON reports) and `DesktopDiagnosticExporter` with protected system directory write blocking. Unit tests (`PrivacySafeDiagnosticsTest`, `DesktopDiagnosticExporterTest`) passing 100%. |
+| Closed beta feedback infrastructure | Implemented | GitHub Issue Forms (`bug_report.yml`, `feature_request.yml`), `config.yml`, `docs/BETA_TEST_PLAN.md`, `docs/BETA_TESTER_GUIDE.md`, `docs/BETA_SCENARIOS.md`, `docs/BETA_COMPATIBILITY_MATRIX.md`, and `docs/BETA_PRIVACY.md`. |
+| Defect remediation & triage | Implemented, tested | Defect register `docs/BUG_TRIAGE.md` covering VIM-BUG-001 through VIM-BUG-004. 100% root-cause analyzed and covered by automated regression tests. 0 open P0/P1 issues. |
+
+## Verified increments
+
+- `fd44a6e` — bounded desktop audio metadata extraction.
+- `8b50e77` — extracted metadata exposed through SQLite library queries and search.
+- `e2f6369` — playback history and resume integrated with the desktop playback lifecycle.
+- `8fd548f` — persistent playlists, favorites, history, and bookmarks connected to desktop UI state.
+- `90a6d4a` — arbitrary playlist selection, bookmark renaming, and destructive-action confirmations.
+- `0a95609` — rich tagged audio metadata and bounded embedded-artwork cache.
+- `bc7d3fb` — unified continuous desktop playback queue.
+- `372cd28` — cached artwork connected to desktop media UI.
+- `0bae65d` — schema v4 queue persistence, snapshot restoration without autoplay, and queue actions.
+- `656e744` — video metadata extraction, video frame thumbnail caching, Opus metadata parser, album/artist projections & UI, and queue action integration.
+- `fc83ff5` — play all submitted Finder files in unified continuous queue.
+- `300a76c` — bundle native libmpv dependencies and generate standalone macOS DMG.
+- `8d6593b` — embedded video renderer, secure credentials, and standalone distribution packaging for Windows.
+- `feat(linux): embedded video renderer, MPRIS media controls, secure credentials, and distribution packaging` — MpvX11Renderer XID attachment, MPRIS 2 D-Bus media integration, LinuxCredentialStore Secret Service binding, multi-resolution icons, desktop entry, AppStream metainfo, Flatpak manifest, AppImage script, native ELF bundler, and Linux CI pipeline.
+- `d7bfe63` — `feat(android): enhance notification permissions for Android 13+ background media controls` (Milestone 21 Android production hardening).
+- `feat(ios): add complete iOS and iPadOS native application with AVPlayer, background playback, and SQLite persistence` — Native SwiftUI app, Kotlin shared framework integration (`iosArm64`, `iosSimulatorArm64`), AVPlayer engine, AVAudioSession handling, MPRemoteCommandCenter, MPNowPlayingInfoCenter, AVKit PiP, sandboxed Files importing with security-scoped bookmarks, native SQLite persistence, and Keychain credential storage (Milestone 22 iOS production completion).
 - `feat(app): complete Milestones 23 and 24 production hardening, UI/UX audit, design system, accessibility, and privacy logging` — SafeLogger redaction for paths and tokens, desktop settings panel, theme selection, responsive desktop layouts, Android TalkBack seekbar semantics, iOS VoiceOver accessibility labels, WCAG 2.2 AA audit, security threat model, and performance documentation.
-- `feat(qa): complete Milestone 25 and 26 five-platform quality assurance, database migration tests, user journeys, production packaging, and CI/CD` — DesktopDatabaseMigrationTest (v1/v2/v3->v4 upgrades, foreign keys, rollback), DesktopUserJourneysTest (7 E2E journeys, fault injection), zero-byte and Bengali/Unicode fixture tests, Android release APK & AAB, macOS standalone DMG with bundled JVM and 50 dylibs, CI workflows (`macos.yml`, `ios.yml`, `android.yml`, `shared.yml`, `release-candidate.yml`), CycloneDX SBOM, release manifest, and SHA-256 digests.
+- `3d77bde` — `feat(qa): complete Milestone 25 and 26 five-platform quality assurance, database migration tests, user journeys, production packaging, and CI/CD` — DesktopDatabaseMigrationTest (v1/v2/v3->v4 upgrades, foreign keys, rollback), DesktopUserJourneysTest (7 E2E journeys, fault injection), zero-byte and Bengali/Unicode fixture tests, Android release APK & AAB, macOS standalone DMG with bundled JVM and 50 dylibs, CI workflows (`macos.yml`, `ios.yml`, `android.yml`, `shared.yml`, `release-candidate.yml`), CycloneDX SBOM, release manifest, and SHA-256 digests.
+- `feat(beta): implement closed beta infrastructure, privacy-safe diagnostics, bug triage, and RC stabilization` — Privacy-safe diagnostic subsystem, Desktop diagnostic exporter, SafeLogger credential redaction, GitHub Issue forms, beta test plan, tester guide, scenario matrix, compatibility matrix, defect triage register, upgrade verification, and RC go/no-go report (Milestones 27 & 28).
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
-- `./gradlew :shared:desktopTest` (15 tests passed)
-- `./gradlew :desktopApp:desktopTest` (79 tests passed)
+- `./gradlew :shared:desktopTest` (23 tests passed)
+- `./gradlew :desktopApp:desktopTest` (82 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleRelease :androidApp:bundleRelease` (BUILD SUCCESSFUL, generated `androidApp-release-unsigned.apk` [141 MB] and `androidApp-release.aab` [73 MB])
 - `./gradlew :desktopApp:packageDmg` (BUILD SUCCESSFUL, generated `Vimivo-1.0.0.dmg` [143 MB])
 - `./gradlew detekt` (all modules passed, 0 violations)
 - Standalone execution verified from mounted `Vimivo-1.0.0.dmg` with zero `/opt/homebrew` dependencies.
+- Total automated tests: 125 tests passing, 0 failures.
+
 
