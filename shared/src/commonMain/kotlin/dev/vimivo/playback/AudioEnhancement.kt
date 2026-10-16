@@ -1,6 +1,24 @@
 package dev.vimivo.playback
 
-enum class EqualizerPreset { FLAT, ROCK, POP, CLASSICAL, JAZZ, VOCAL, BASS_BOOST, CUSTOM }
+enum class EqualizerPreset {
+    FLAT,
+    ROCK,
+    POP,
+    CLASSICAL,
+    JAZZ,
+    VOCAL,
+    BASS_BOOST,
+    TREBLE_BOOST,
+    ACOUSTIC,
+    CUSTOM,
+}
+
+enum class ReplayGainMode {
+    OFF,
+    TRACK,
+    ALBUM,
+}
+
 enum class AudioRouteType { SPEAKER, WIRED_HEADSET, BLUETOOTH, USB, HDMI, UNKNOWN }
 
 data class EqualizerBand(
@@ -16,6 +34,7 @@ data class AudioEnhancementSettings(
     val trebleGainDb: Float = 0f,
     /** Attenuation only. Positive digital preamp is deliberately unsupported to reduce clipping. */
     val preampDb: Float = 0f,
+    val replayGainMode: ReplayGainMode = ReplayGainMode.OFF,
 )
 
 data class AudioEnhancementCapabilities(

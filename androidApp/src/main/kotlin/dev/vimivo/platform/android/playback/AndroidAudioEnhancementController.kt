@@ -178,6 +178,8 @@ private fun AudioEnhancementSettings.resolvedGains(frequencies: List<Int>): List
         dev.vimivo.playback.EqualizerPreset.JAZZ -> listOf(3f, 1f, 1f, 3f, 4f)
         dev.vimivo.playback.EqualizerPreset.VOCAL -> listOf(-2f, 0f, 4f, 3f, 0f)
         dev.vimivo.playback.EqualizerPreset.BASS_BOOST -> listOf(6f, 4f, 0f, -1f, -2f)
+        dev.vimivo.playback.EqualizerPreset.TREBLE_BOOST -> listOf(-2f, 0f, 2f, 4f, 6f)
+        dev.vimivo.playback.EqualizerPreset.ACOUSTIC -> listOf(3f, 1f, 2f, 3f, 2f)
         dev.vimivo.playback.EqualizerPreset.CUSTOM -> emptyList()
     }
     return frequencies.mapIndexed { index, frequency ->

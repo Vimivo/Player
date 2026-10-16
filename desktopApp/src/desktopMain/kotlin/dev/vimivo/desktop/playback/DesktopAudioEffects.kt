@@ -46,5 +46,7 @@ internal object DesktopAudioEffects {
         EqualizerPreset.JAZZ to listOf(3f, 2f, 1f, 2f, -1f, -1f, 0f, 1f, 2f, 3f),
         EqualizerPreset.VOCAL to listOf(-3f, -2f, -1f, 1f, 3f, 4f, 4f, 3f, 1f, 0f),
         EqualizerPreset.BASS_BOOST to listOf(6f, 5f, 4f, 2f, 0f, -1f, -2f, -2f, -2f, -2f),
+        EqualizerPreset.TREBLE_BOOST to listOf(-2f, -2f, -1f, 0f, 1f, 2f, 3f, 4f, 5f, 6f),
+        EqualizerPreset.ACOUSTIC to listOf(3f, 2f, 1f, 1f, 2f, 2f, 3f, 3f, 2f, 1f),
     )
 }
