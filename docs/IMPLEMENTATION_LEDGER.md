@@ -148,6 +148,12 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Removed application brightness mutation from touch gestures; right-side vertical volume and non-gesture accessibility controls remain.
 - Added a real desktop full-screen native menu action while preserving keyboard seeking and libmpv advanced controls. See `CINEMATIC_VIDEO_PLAYER_PHASE_4.md`.
 
+### Premium media library Phase 5 checkpoint (2026-10-16)
+
+- Added persistent, accessible list/grid selection to Android music/video libraries using the existing settings repository and local backup format.
+- Persisted the desktop library presentation in the existing per-user SQLite settings store.
+- Retained real local repositories, stable lazy collection keys, bounded artwork loading, Unicode metadata, and honest device-test limitations. See `PREMIUM_MEDIA_LIBRARY_PHASE_5.md`.
+
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)

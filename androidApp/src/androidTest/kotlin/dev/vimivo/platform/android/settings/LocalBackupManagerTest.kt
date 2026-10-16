@@ -15,6 +15,7 @@ import dev.vimivo.platform.android.network.NetworkHistory
 import dev.vimivo.platform.android.network.NetworkHistoryStore
 import dev.vimivo.settings.AccentColor
 import dev.vimivo.settings.AppSettings
+import dev.vimivo.settings.LibraryViewMode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -59,7 +60,13 @@ class LocalBackupManagerTest {
         database.playlistDao().upsertItems(listOf(PlaylistItemEntity("playlist", media.id, 0)))
         database.organizationDao().upsertBookmark(BookmarkEntity("bookmark", media.id, "Chapter", 500, 1))
         database.libraryDao().upsertHistory(PlaybackHistoryEntity(media.id, 500, 2, 3, false))
-        settings.update { it.copy(accentColor = AccentColor.GREEN, reduceAnimations = true) }
+        settings.update {
+            it.copy(
+                accentColor = AccentColor.GREEN,
+                reduceAnimations = true,
+                libraryViewMode = LibraryViewMode.GRID,
+            )
+        }
         network.save(NetworkHistory(emptyList(), setOf("https://example.test/radio.mp3")))
         val file = java.io.File(context.cacheDir, "backup-test.json")
         backup.export(Uri.fromFile(file)).getOrThrow()
@@ -79,6 +86,7 @@ class LocalBackupManagerTest {
         assertEquals("Study", database.playlistDao().get("playlist")?.playlist?.name)
         assertEquals(AccentColor.GREEN, settings.settings.first().accentColor)
         assertTrue(settings.settings.first().reduceAnimations)
+        assertEquals(LibraryViewMode.GRID, settings.settings.first().libraryViewMode)
         assertTrue("https://example.test/radio.mp3" in network.load().favorites)
         file.delete()
     }

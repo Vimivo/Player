@@ -15,6 +15,7 @@ enum class VideoRotationBehavior { FOLLOW_SYSTEM, SENSOR, LOCK_CURRENT }
 enum class VideoAspectPreference { FIT, FILL, ORIGINAL, RATIO_16_9, RATIO_4_3, CROP }
 enum class DecoderPreference { AUTOMATIC, HARDWARE, SOFTWARE }
 enum class HiddenMediaBehavior { HIDE, SHOW }
+enum class LibraryViewMode { LIST, GRID }
 
 data class SubtitleAppearance(
     val textSizeSp: Float = 20f,
@@ -49,6 +50,7 @@ data class AppSettings(
     val repeatBehavior: RepeatBehavior = RepeatBehavior.REMEMBER,
     val musicResumeBehavior: ResumeBehavior = ResumeBehavior.ALWAYS,
     val defaultLibrarySort: LibrarySort = LibrarySort.TITLE,
+    val libraryViewMode: LibraryViewMode = LibraryViewMode.LIST,
     val restoreQueue: Boolean = true,
     val defaultVideoSpeed: Float = 1f,
     val doubleTapSeekSeconds: Int = 10,

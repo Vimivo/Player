@@ -233,6 +233,7 @@ private fun AppSettings.toJson() = JSONObject()
     .put("repeatBehavior", repeatBehavior.name)
     .put("musicResumeBehavior", musicResumeBehavior.name)
     .put("defaultLibrarySort", defaultLibrarySort.name)
+    .put("libraryViewMode", libraryViewMode.name)
     .put("restoreQueue", restoreQueue)
     .put("defaultVideoSpeed", defaultVideoSpeed)
     .put("doubleTapSeekSeconds", doubleTapSeekSeconds)
@@ -282,6 +283,7 @@ private fun JSONObject.toSettings(): AppSettings {
         repeatBehavior = enum("repeatBehavior", defaults.repeatBehavior),
         musicResumeBehavior = enum("musicResumeBehavior", defaults.musicResumeBehavior),
         defaultLibrarySort = enum("defaultLibrarySort", defaults.defaultLibrarySort),
+        libraryViewMode = enum("libraryViewMode", defaults.libraryViewMode),
         restoreQueue = optBoolean("restoreQueue", defaults.restoreQueue),
         defaultVideoSpeed = optDouble("defaultVideoSpeed", defaults.defaultVideoSpeed.toDouble()).toFloat(),
         doubleTapSeekSeconds = optInt("doubleTapSeekSeconds", defaults.doubleTapSeekSeconds),

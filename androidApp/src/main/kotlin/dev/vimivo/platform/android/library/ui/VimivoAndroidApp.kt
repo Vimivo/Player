@@ -89,6 +89,7 @@ import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.VideoLibrary
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -173,6 +174,7 @@ import dev.vimivo.platform.android.ui.theme.VimivoAndroidTheme
 import dev.vimivo.platform.android.ui.theme.LocalReducedMotion
 import dev.vimivo.settings.HomeSection
 import dev.vimivo.settings.ThemeMode
+import dev.vimivo.settings.LibraryViewMode
 import dev.vimivo.ui.components.VimivoGlassSurface
 import dev.vimivo.ui.theme.ShellNavigationMode
 import dev.vimivo.ui.theme.VimivoGlassVariant
@@ -547,6 +549,7 @@ private fun MusicScreen(
             item { AssistChip({ selectedPlaylist = null; viewModel.favorites() }, { Text("Favorites") }, leadingIcon = { Icon(Icons.Outlined.Favorite, null) }) }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
+            LibraryViewToggle(state.viewMode, viewModel::setViewMode)
             OutlinedButton({ sortVisible = true }) { Icon(Icons.AutoMirrored.Outlined.List, null); Text(" Sort") }
         }
         when {
@@ -596,8 +599,26 @@ private fun VideoScreen(
             item { AssistChip(viewModel::favoriteVideos, { Text("Favorites") }) }
             item { AssistChip(viewModel::continueWatching, { Text("Continue watching") }) }
         }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
+            LibraryViewToggle(state.viewMode, viewModel::setViewMode)
+        }
         if (state.categories != null) CategoryOrMediaList(state, viewModel, thumbnails, playback)
-        else VideoGrid(state, thumbnails, playback, viewModel, openPlayer)
+        else if (state.viewMode == LibraryViewMode.GRID) VideoGrid(state, thumbnails, playback, viewModel, openPlayer)
+        else VideoList(state, thumbnails, playback, viewModel, openPlayer)
+    }
+}
+
+@Composable
+private fun LibraryViewToggle(viewMode: LibraryViewMode, onChange: (LibraryViewMode) -> Unit) {
+    Row {
+        IconButton(
+            onClick = { onChange(LibraryViewMode.LIST) },
+            enabled = viewMode != LibraryViewMode.LIST,
+        ) { Icon(Icons.AutoMirrored.Outlined.List, "List view") }
+        IconButton(
+            onClick = { onChange(LibraryViewMode.GRID) },
+            enabled = viewMode != LibraryViewMode.GRID,
+        ) { Icon(Icons.Outlined.GridView, "Grid view") }
     }
 }
 
@@ -666,6 +687,21 @@ private fun CategoryOrMediaList(
             }
         }
         state.items.isEmpty() -> EmptyState(title = "No music found", detail = "Add a folder, open a file, or grant library access.", action = "Rescan", onAction = viewModel::rescan)
+        state.viewMode == LibraryViewMode.GRID -> LazyVerticalGrid(
+            columns = GridCells.Adaptive(168.dp),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            items(state.items, key = { it.id.value }) { item ->
+                MediaCard(item, thumbnails) {
+                    viewModel.resolveCurrentItems { all ->
+                        playback.playQueue(all, all.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
+                    }
+                }
+            }
+            if (state.hasMore) item { OutlinedButton(viewModel::loadMore, Modifier.fillMaxWidth()) { Text("Load more") } }
+        }
         else -> LazyColumn {
             items(state.items, key = { it.id.value }) { item ->
                 SongRow(
@@ -678,6 +714,37 @@ private fun CategoryOrMediaList(
                     },
                     onFavorite = { viewModel.toggleFavorite(item) },
                     onMore = { onMore(item) },
+                )
+                HorizontalDivider(Modifier.padding(start = 76.dp))
+            }
+            if (state.hasMore) item { OutlinedButton(viewModel::loadMore, Modifier.fillMaxWidth().padding(16.dp)) { Text("Load more") } }
+        }
+    }
+}
+
+@Composable
+private fun VideoList(
+    state: LibraryUiState,
+    thumbnails: AndroidThumbnailRepository,
+    playback: PlaybackController,
+    viewModel: LibraryViewModel,
+    openPlayer: () -> Unit,
+) {
+    when {
+        state.isLoading && state.items.isEmpty() -> LoadingIndicator("Loading videos")
+        state.items.isEmpty() -> EmptyState(Icons.Outlined.VideoLibrary, "No videos found", "Add a folder, open a video, or grant library access.", "Rescan", viewModel::rescan)
+        else -> LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+            items(state.items, key = { it.id.value }) { item ->
+                SongRow(
+                    media = item,
+                    thumbnails = thumbnails,
+                    onClick = {
+                        viewModel.resolveCurrentItems { videos ->
+                            playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
+                            openPlayer()
+                        }
+                    },
+                    onFavorite = { viewModel.toggleFavorite(item) },
                 )
                 HorizontalDivider(Modifier.padding(start = 76.dp))
             }

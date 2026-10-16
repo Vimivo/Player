@@ -187,6 +187,10 @@ internal class DesktopLibraryController(
         mutableState.value = mutableState.value.copy(themeMode = mode)
         mutatePersonalData { personalRepository.putSetting("theme_mode", mode.name) }
     }
+    fun uiSetting(key: String): String? = personalRepository.setting(key)
+    fun setUiSetting(key: String, value: String) = mutatePersonalData {
+        personalRepository.putSetting(key, value)
+    }
     fun addBookmark(mediaId: MediaId, positionMillis: Long, label: String?) =
         mutatePersonalData { personalRepository.addBookmark(mediaId, positionMillis, label) }
     fun renameBookmark(id: String, label: String) = mutatePersonalData { personalRepository.renameBookmark(id, label) }

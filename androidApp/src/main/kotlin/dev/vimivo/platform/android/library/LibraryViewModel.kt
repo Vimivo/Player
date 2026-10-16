@@ -15,6 +15,7 @@ import dev.vimivo.core.model.MediaPermissionAccess
 import dev.vimivo.core.model.MediaPermissionState
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.settings.SettingsRepository
+import dev.vimivo.settings.LibraryViewMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,11 +37,12 @@ data class LibraryUiState(
         MediaPermissionAccess.DENIED,
     ),
     val errorMessage: String? = null,
+    val viewMode: LibraryViewMode = LibraryViewMode.LIST,
 )
 
 class LibraryViewModel(
     private val repository: MediaRepository,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(LibraryUiState())
     private var loadJob: Job? = null
@@ -51,6 +53,7 @@ class LibraryViewModel(
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
                 defaultSort = settings.defaultLibrarySort
+                mutableState.update { it.copy(viewMode = settings.libraryViewMode) }
                 if (state.value.query.sort != defaultSort && state.value.query.text.isBlank()) {
                     mutableState.update { it.copy(query = it.query.copy(sort = defaultSort, offset = 0)) }
                     load(reset = true)
@@ -193,6 +196,10 @@ class LibraryViewModel(
     fun sort(sort: LibrarySort, descending: Boolean = false) {
         mutableState.update { it.copy(query = it.query.copy(sort = sort, descending = descending, offset = 0)) }
         load(reset = true)
+    }
+
+    fun setViewMode(viewMode: LibraryViewMode) = viewModelScope.launch {
+        settingsRepository.update { it.copy(libraryViewMode = viewMode) }
     }
 
     fun resolveCurrentItems(onResult: (List<MediaItem>) -> Unit) = viewModelScope.launch {

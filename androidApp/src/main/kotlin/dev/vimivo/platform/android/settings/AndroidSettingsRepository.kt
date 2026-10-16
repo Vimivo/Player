@@ -18,6 +18,7 @@ import dev.vimivo.settings.AccentColor
 import dev.vimivo.settings.DecoderPreference
 import dev.vimivo.settings.HiddenMediaBehavior
 import dev.vimivo.settings.HomeSection
+import dev.vimivo.settings.LibraryViewMode
 import dev.vimivo.settings.PreferredEngine
 import dev.vimivo.settings.RepeatBehavior
 import dev.vimivo.settings.ResumeBehavior
@@ -55,6 +56,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             repeatBehavior = preferences.enum(Keys.repeatBehavior, RepeatBehavior.REMEMBER),
             musicResumeBehavior = preferences.enum(Keys.musicResumeBehavior, ResumeBehavior.ALWAYS),
             defaultLibrarySort = preferences.enum(Keys.defaultLibrarySort, LibrarySort.TITLE),
+            libraryViewMode = preferences.enum(Keys.libraryViewMode, LibraryViewMode.LIST),
             restoreQueue = preferences[Keys.restoreQueue] ?: true,
             defaultVideoSpeed = preferences[Keys.defaultVideoSpeed] ?: 1f,
             doubleTapSeekSeconds = preferences[Keys.doubleTapSeekSeconds] ?: 10,
@@ -114,6 +116,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             preferences[Keys.repeatBehavior] = updated.repeatBehavior.name
             preferences[Keys.musicResumeBehavior] = updated.musicResumeBehavior.name
             preferences[Keys.defaultLibrarySort] = updated.defaultLibrarySort.name
+            preferences[Keys.libraryViewMode] = updated.libraryViewMode.name
             preferences[Keys.restoreQueue] = updated.restoreQueue
             preferences[Keys.defaultVideoSpeed] = updated.defaultVideoSpeed
             preferences[Keys.doubleTapSeekSeconds] = updated.doubleTapSeekSeconds
@@ -163,6 +166,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
         val repeatBehavior = stringPreferencesKey("repeat_behavior")
         val musicResumeBehavior = stringPreferencesKey("music_resume_behavior")
         val defaultLibrarySort = stringPreferencesKey("default_library_sort")
+        val libraryViewMode = stringPreferencesKey("library_view_mode")
         val restoreQueue = booleanPreferencesKey("restore_queue")
         val defaultVideoSpeed = floatPreferencesKey("default_video_speed")
         val doubleTapSeekSeconds = intPreferencesKey("double_tap_seek_seconds")

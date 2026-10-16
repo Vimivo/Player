@@ -280,7 +280,7 @@ private fun DesktopPlayer(
     var showOpenStreamDialog by remember { mutableStateOf(false) }
     var sidebarCollapsed by remember { mutableStateOf(false) }
     var queuePanelVisible by remember { mutableStateOf(false) }
-    var gridView by remember { mutableStateOf(false) }
+    var gridView by remember { mutableStateOf(library.uiSetting("library_view_mode") == "GRID") }
     var descendingSort by remember { mutableStateOf(false) }
     val streamHistoryRepository = remember { dev.vimivo.desktop.streaming.DesktopStreamHistoryRepository() }
     var lyricsDoc by remember(state.media?.uri) { mutableStateOf<dev.vimivo.core.lyrics.LyricsDocument?>(null) }
@@ -396,7 +396,10 @@ private fun DesktopPlayer(
                             queueVisible = queuePanelVisible,
                             onToggleSidebar = { sidebarCollapsed = !sidebarCollapsed },
                             onSearch = library::setSearch,
-                            onToggleView = { gridView = !gridView },
+                            onToggleView = {
+                                gridView = !gridView
+                                library.setUiSetting("library_view_mode", if (gridView) "GRID" else "LIST")
+                            },
                             onToggleSort = { descendingSort = !descendingSort },
                             onToggleQueue = { queuePanelVisible = !queuePanelVisible },
                         )
