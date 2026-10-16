@@ -1,0 +1,77 @@
+name: "Accessibility Issue"
+description: "Report an accessibility barrier (screen reader, keyboard navigation, contrast, focus)"
+title: "[A11y]: "
+labels: ["accessibility", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Vimivo is committed to universal accessibility across Android, iOS, macOS, Windows, and Linux.
+        Please report any issues regarding TalkBack, VoiceOver, NVDA/JAWS, Orca, keyboard focus navigation, touch target sizing, or high contrast themes.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Concise summary of the accessibility barrier.
+      placeholder: "e.g., Miniplayer controls cannot be focused using Tab key on desktop"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: assistive_tech
+    attributes:
+      label: Assistive Technology or Input Mode
+      description: What assistive technology or interaction modality is affected?
+      options:
+        - Keyboard Navigation (Tab / Arrow keys / Shortcuts)
+        - Screen Reader: TalkBack (Android)
+        - Screen Reader: VoiceOver (macOS / iOS)
+        - Screen Reader: NVDA / JAWS / Windows Narrator
+        - Screen Reader: Orca (Linux)
+        - Touch / Target Sizing (<48dp)
+        - High Contrast / Visual Clarity / Color Blindness
+        - Text Scaling / Dynamic Type
+        - Reduced Motion
+        - Other Assistive Device
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Affected Platform
+      options:
+        - Android
+        - iOS / iPadOS
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: Operating System Version
+      placeholder: "e.g., Android 15, macOS Sonoma 14.6, Windows 11 23H2, Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: textarea
+    id: barrier_description
+    attributes:
+      label: Barrier Description
+      description: Explain the barrier encountered and why it prevents or impedes interaction.
+      placeholder: "When navigating to the queue view, the screen reader does not announce item positions or title labels."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Accessible Behavior
+      description: What should the assistive technology announce or how should navigation work?
+      placeholder: "Each queue item should have semantic role 'Button' and content description 'Track Title by Artist'."
+    validations:
+      required: true

@@ -43,6 +43,7 @@ internal fun DesktopSettingsPanel(
     onSleepTimerSet: ((Int?) -> Unit)? = null,
     onExportDiagnostics: (() -> Unit)? = null,
     onCheckForUpdates: (() -> Unit)? = null,
+    onOpenFeedback: (() -> Unit)? = null,
     activeProfile: PlaybackProfile = PlaybackProfile.DEFAULT,
     activePreset: EqualizerPreset = EqualizerPreset.FLAT,
     activeReplayGain: ReplayGainMode = ReplayGainMode.OFF,
@@ -305,6 +306,11 @@ internal fun DesktopSettingsPanel(
                         if (onCheckForUpdates != null) {
                             OutlinedButton(onClick = onCheckForUpdates) {
                                 Text("Check for Updates")
+                            }
+                        }
+                        if (onOpenFeedback != null) {
+                            Button(onClick = onOpenFeedback) {
+                                Text("Help & Feedback")
                             }
                         }
                     }

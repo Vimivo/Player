@@ -238,6 +238,7 @@ private fun DesktopPlayer(
     var diagnosticsStatus by remember { mutableStateOf<String?>(null) }
     var updateStatus by remember { mutableStateOf<String?>(null) }
     var showLyrics by remember { mutableStateOf(false) }
+    var showFeedbackDialog by remember { mutableStateOf(false) }
     var lyricsDoc by remember(state.media?.uri) { mutableStateOf<dev.vimivo.core.lyrics.LyricsDocument?>(null) }
 
     LaunchedEffect(state.media?.uri) {
@@ -595,6 +596,7 @@ private fun DesktopPlayer(
                     sleepTimerMinutesRemaining = sleepTimerMinutesRemaining,
                     diagnosticsStatus = diagnosticsStatus,
                     updateStatus = updateStatus,
+                    onOpenFeedback = { showFeedbackDialog = true },
                 )
             }
             if (destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
@@ -808,11 +810,27 @@ private fun DesktopPlayer(
                     "Install libmpv (for example with Homebrew) or set -Dvimivo.mpv.library=/absolute/path/to/libmpv.dylib.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                OutlinedButton(onClick = { showFeedbackDialog = true }) {
+                    Text("Report Playback Issue")
+                }
             }
                     }
                 }
             }
         }
+    }
+
+    if (showFeedbackDialog) {
+        dev.vimivo.desktop.feedback.DesktopFeedbackDialog(
+            onDismissRequest = { showFeedbackDialog = false },
+            diagnosticReport = remember { dev.vimivo.desktop.diagnostics.DesktopDiagnosticExporter().createReport() },
+            initialPlaybackContext = (state.status as? PlaybackStatus.Error)?.let { err ->
+                dev.vimivo.core.feedback.MediaPlaybackContext(
+                    playbackEngine = state.engine?.name,
+                    errorMessage = err.error.message,
+                )
+            },
+        )
     }
 }
 

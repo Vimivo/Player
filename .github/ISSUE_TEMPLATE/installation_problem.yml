@@ -1,0 +1,60 @@
+name: "Installation / Packaging Problem"
+description: "Report an installation, DMG, MSI, AppImage, or APK packaging problem"
+title: "[Packaging]: "
+labels: ["packaging", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please report packaging, installation, or startup failures here (e.g. macOS Gatekeeper, Windows SmartScreen, Linux missing libmpv dependencies, Android package installation).
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      placeholder: "e.g., Linux AppImage fails to start due to missing libmpv.so.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package_format
+    attributes:
+      label: Distribution Package Format
+      options:
+        - macOS DMG / App Bundle
+        - Windows MSI / Portable EXE
+        - Linux AppImage / Deb / Tarball
+        - Android APK / AAB
+        - iOS IPA / TestFlight
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Operating System & Architecture
+      options:
+        - macOS Apple Silicon (arm64)
+        - macOS Intel (x86_64)
+        - Windows 11 / 10 (x64)
+        - Linux x86_64
+        - Android arm64-v8a / armeabi-v7a
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: OS Version & Distribution
+      placeholder: "e.g., Ubuntu 24.04 LTS, macOS Sequoia 15.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_details
+    attributes:
+      label: Error Message / Terminal Output
+      description: Paste any exact terminal error messages or system dialog text.
+      placeholder: "error while loading shared libraries: libmpv.so.2: cannot open shared object file"
+    validations:
+      required: true
