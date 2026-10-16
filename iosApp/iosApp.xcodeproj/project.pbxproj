@@ -38,6 +38,8 @@
 		1029 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2029 /* Security.framework */; };
 		1030 /* WidgetPlaybackSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2031 /* WidgetPlaybackSnapshotStore.swift */; };
 		1031 /* WidgetPlaybackIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2032 /* WidgetPlaybackIntents.swift */; };
+		1201 /* VimivoWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2201 /* VimivoWidgets.swift */; };
+		1202 /* WidgetPlaybackIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2032 /* WidgetPlaybackIntents.swift */; };
 		1101 /* MediaModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2101 /* MediaModelsTests.swift */; };
 		1102 /* IOSDatabaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2102 /* IOSDatabaseTests.swift */; };
 		1103 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2025 /* libsqlite3.tbd */; };
@@ -92,6 +94,10 @@
 		2027 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
 		2028 /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
 		2029 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		0003 /* VimivoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VimivoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2201 /* VimivoWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VimivoWidgets.swift; sourceTree = "<group>"; };
+		2202 /* Widget Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		2203 /* VimivoWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VimivoWidgets.entitlements; sourceTree = "<group>"; };
 		2030 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0002 /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2031 /* WidgetPlaybackSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPlaybackSnapshotStore.swift; sourceTree = "<group>"; };
@@ -123,6 +129,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3003 /* Widget Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -131,6 +144,7 @@
 			children = (
 				4002 /* iosApp */,
 				4012 /* iosAppTests */,
+				4013 /* VimivoWidgets */,
 				4007 /* Frameworks */,
 				4008 /* Products */,
 			);
@@ -207,8 +221,19 @@
 			children = (
 				0001 /* iosApp.app */,
 				0002 /* iosAppTests.xctest */,
+				0003 /* VimivoWidgets.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4013 /* VimivoWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				2201 /* VimivoWidgets.swift */,
+				2202 /* Widget Info.plist */,
+				2203 /* VimivoWidgets.entitlements */,
+			);
+			path = VimivoWidgets;
 			sourceTree = "<group>";
 		};
 		4012 /* iosAppTests */ = {
@@ -295,6 +320,21 @@
 			productReference = 0002 /* iosAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		5003 /* VimivoWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6004 /* Build configuration list for PBXNativeTarget "VimivoWidgets" */;
+			buildPhases = (
+				7005 /* Widget Sources */,
+				3003 /* Widget Frameworks */,
+				7006 /* Widget Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = VimivoWidgets;
+			productName = VimivoWidgets;
+			productReference = 0003 /* VimivoWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -328,6 +368,7 @@
 			targets = (
 				5001 /* iosApp */,
 				5002 /* iosAppTests */,
+				5003 /* VimivoWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -339,6 +380,12 @@
 			files = (
 				1023 /* Assets.xcassets in Resources */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7006 /* Widget Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
@@ -403,6 +450,12 @@
 				1101 /* MediaModelsTests.swift in Sources */,
 				1102 /* IOSDatabaseTests.swift in Sources */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7005 /* Widget Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (1201 /* VimivoWidgets.swift in Sources */, 1202 /* WidgetPlaybackIntents.swift in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
@@ -585,6 +638,42 @@
 			};
 			name = Release;
 		};
+		9007 /* Widget Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = VimivoWidgets/VimivoWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = VimivoWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.vimivo.ios.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG VIMIVO_WIDGET_EXTENSION";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9008 /* Widget Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = VimivoWidgets/VimivoWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = VimivoWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.vimivo.ios.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = VIMIVO_WIDGET_EXTENSION;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -612,6 +701,12 @@
 				9005 /* Debug */,
 				9006 /* Release */,
 			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6004 /* Build configuration list for PBXNativeTarget "VimivoWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (9007 /* Widget Debug */, 9008 /* Widget Release */);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};

@@ -68,8 +68,8 @@ smoothness. The previously published numeric runtime claims require independent 
 ### P0 — required before claiming all-platform completion
 
 1. Run the built/tested iOS target on supported physical iPhone/iPad hardware and verify playback/system surfaces.
-2. Add a real WidgetKit extension plus App Group data contract and provisioning; implement small/medium/large and
-   lock-screen widgets with refresh-budget-aware timelines and App Intents only on supported OS versions.
+2. Configure the WidgetKit App Group capability/provisioning and run the built small/medium/large/accessory widget
+   on supported physical devices; verify refresh budgets and Lock Screen rendering.
 3. Implement Windows SMTC against the existing desktop engine and run real macOS Control Center/media-key
    interaction tests for the newly compiled MediaPlayer bridge. Do not create another player.
 4. Run Android instrumentation/widget/player tests on small and large phones and an API/device that supports PiP.
