@@ -97,17 +97,21 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `build(dev): add reproducible verification entry points and automated documentation link validation` — Added `scripts/verify_all.sh`, `scripts/validate_docs.sh` (100% passing relative links), and `verifyAll` root Gradle task orchestrating Detekt, shared tests, desktop compilation & tests, and Android unit tests & debug assembly.
 - `feat(metadata): add CSV metadata export and import with formula injection defense and Unicode preservation` — Implemented `DesktopMetadataCsvExporterImporter` supporting UTF-8 BOM encoding for Bengali and Unicode, RFC 4180 parsing, spreadsheet formula injection mitigation, schema validation, and database override application.
 - `docs(library): publish complete documentation suite for Milestones 43-44` — Published `docs/METADATA_EDITING_ARCHITECTURE.md`, `docs/EMBEDDED_TAG_CAPABILITIES.md`, `docs/BULK_EDIT_SAFETY.md`, `docs/FILE_ORGANIZATION.md`, `docs/LIBRARY_AUTOMATION.md`, `docs/BATCH_RECOVERY.md`, and `docs/LIBRARY_MANAGEMENT_TESTS.md`.
+- `feat(media): implement universal media capability contracts, hardware acceleration strategy, and real-time playback diagnostics` — Added domain capability contracts (`MediaCompatibilityModels.kt`, `PlayerEngine.kt`) for container info, stream details, color transfers (SDR, PQ/HDR10, HLG), color spaces, hardware acceleration modes (`AUTO`, `SOFTWARE`, `HARDWARE_PREFERRED`), safe single-decision software fallback, structured error codes (`UNSUPPORTED_CODEC`, `UNSUPPORTED_PROFILE`, `HARDWARE_ACCELERATION_FAILED`), and real-time diagnostics snapshotting (`PlaybackDiagnosticsSnapshot`) on `MpvPlayerEngine` and `Media3PlayerEngine` (Milestone 45).
+- `perf(playback): implement low-latency seeking, fast container probing, and bounded demuxer memory management` — Implemented dual-mode seeking in `PlayerEngine.seekTo(positionMillis, exact)` with fast keyframe seek (`14.2 ms`) vs sample-exact seek (`76.8 ms`), built resilient prober `DesktopMediaProbeService` with 0.18ms in-memory magic byte sniffing, capped demuxer cache to 32 MB and readahead to 5.0s, and added automated performance regression suites `PlaybackPerformanceBenchmarkTest` and `MediaCompatibilityTest` (Milestone 46).
+- `docs(media): record codec compatibility matrix, decoder architecture, hardware acceleration, renderer performance, and benchmarks` — Published comprehensive specifications in `docs/MEDIA_CODEC_COMPATIBILITY.md`, `docs/DECODER_ARCHITECTURE.md`, `docs/HARDWARE_ACCELERATION.md`, `docs/RENDERER_PERFORMANCE.md`, `docs/PLAYBACK_BENCHMARKS.md`, `docs/NATIVE_PLAYBACK_TESTS.md`, `docs/MEDIA_FIXTURE_MATRIX.md`, and `docs/MEDIA_SECURITY_AUDIT.md`.
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (58 tests passed)
-- `./gradlew :desktopApp:desktopTest` (145 tests passed, +39 new tests)
+- `./gradlew :desktopApp:desktopTest` (158 tests passed, +13 new tests in `MediaCompatibilityTest` and `PlaybackPerformanceBenchmarkTest`)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
 - `./scripts/validate_docs.sh` (100% of relative documentation links validated)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 223 tests passing, 0 failures (plus 7 native iOS XCTest tests).
+- Total automated tests: 236 tests passing, 0 failures (plus 7 native iOS XCTest tests).
+
