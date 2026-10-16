@@ -178,6 +178,7 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Added a MediaPlayer JNI adapter that publishes the current desktop track, timing, rate, queue position, and playback state to macOS Now Playing.
 - Routed system toggle, previous, next, and seek commands to the existing libmpv engine and `PlaybackQueueController`; no additional player or queue was created.
 - Native bridge compilation, desktop compilation/tests, Detekt, and application startup succeeded. Actual Control Center/media-key interaction remains an explicit physical runtime gate.
+- Rebuilt the packaged macOS distributable and launched it with a local tagged MP3 fixture; process stability was observed, but Control Center was unavailable to the UI automation surface and is not claimed as verified.
 
 On 2026-10-16, these commands completed successfully:
 

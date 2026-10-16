@@ -102,6 +102,8 @@ smoothness. The previously published numeric runtime claims require independent 
   claim iOS compilation, simulator/device execution, WidgetKit, Dynamic Island, or VoiceOver verification.
 - No Windows/Linux host, Android emulator/device, iPhone, or iPad was available. No new visual screenshot set was
   captured, and no unrun screenshot test is reported as passing.
+- The macOS distributable rebuilt successfully and started with a local tagged MP3 fixture. Control Center was not
+  addressable through the available UI automation surface, so system media-control interaction remains unverified.
 
 ## Release verdict
 

@@ -46,4 +46,7 @@ Date: 2026-10-16
 - The macOS JNI/MediaPlayer bridge compiled and the desktop application launched without initialization failure on
   this host. A real Control Center/media-key playback interaction was not performed, so that runtime behavior is not
   claimed as device-verified.
+- A fresh `:desktopApp:createDistributable` succeeded and the packaged app was started with the repository's local
+  tagged MP3 fixture. The process remained stable, but the automation surface could not address macOS Control Center
+  or the fixture-playing app window reliably; this is startup evidence, not proof of visible Now Playing commands.
 
