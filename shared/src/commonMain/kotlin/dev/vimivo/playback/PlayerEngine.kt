@@ -1,3 +1,5 @@
+@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength", "TooManyFunctions")
+
 package dev.vimivo.playback
 
 import dev.vimivo.core.model.MediaItem
@@ -39,6 +41,53 @@ data class PlaybackMetadata(
     val artworkUri: String? = null,
 )
 
+data class ABRepeatRange(
+    val pointA: Long? = null,
+    val pointB: Long? = null,
+    val enabled: Boolean = false,
+)
+
+data class ChapterInfo(
+    val index: Int,
+    val title: String,
+    val startPositionMillis: Long,
+)
+
+enum class VideoAspectRatio(val label: String, val value: String) {
+    ORIGINAL("Original", "-1"),
+    FIT("Fit", "0"),
+    FILL("Fill", "none"),
+    RATIO_16_9("16:9", "16:9"),
+    RATIO_4_3("4:3", "4:3"),
+    RATIO_21_9("21:9", "2.35:1"),
+}
+
+data class VideoAdjustments(
+    val brightness: Int = 0,
+    val contrast: Int = 0,
+    val saturation: Int = 0,
+    val gamma: Int = 0,
+    val rotationDegrees: Int = 0,
+    val zoom: Float = 0f,
+    val panX: Float = 0f,
+    val panY: Float = 0f,
+    val aspectRatio: VideoAspectRatio = VideoAspectRatio.ORIGINAL,
+)
+
+data class SubtitleStyle(
+    val fontSizeSp: Int = 24,
+    val textColorHex: String = "#FFFFFF",
+    val backgroundColorHex: String? = null,
+    val bottomMarginPercent: Int = 5,
+)
+
+data class AudioOutputDevice(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val isSelected: Boolean = false,
+)
+
 data class EngineCapabilities(
     val localAudio: Boolean,
     val localVideo: Boolean,
@@ -58,6 +107,10 @@ data class EngineCapabilities(
     val audioDelay: Boolean = false,
     val subtitleAppearance: Boolean = false,
     val subtitlePosition: Boolean = false,
+    val chapters: Boolean = false,
+    val abRepeat: Boolean = false,
+    val videoAdjustments: Boolean = false,
+    val screenshots: Boolean = false,
     val supportedSpeedRange: ClosedFloatingPointRange<Float> = 0.25f..4f,
     val audioEnhancements: AudioEnhancementCapabilities = AudioEnhancementCapabilities(
         limitation = "Audio enhancements are unavailable with this engine",
@@ -118,6 +171,9 @@ data class PlaybackState(
     val audioTracks: List<TrackInfo> = emptyList(),
     val videoTracks: List<TrackInfo> = emptyList(),
     val subtitleTracks: List<TrackInfo> = emptyList(),
+    val chapters: List<ChapterInfo> = emptyList(),
+    val abRepeat: ABRepeatRange = ABRepeatRange(),
+    val videoAdjustments: VideoAdjustments = VideoAdjustments(),
 )
 
 interface PlayerEngine : AutoCloseable {
@@ -146,6 +202,26 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Audio delay is not supported"))
     fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> =
         Result.failure(UnsupportedOperationException(capabilities.audioEnhancements.limitation))
+    fun setReplayGainMode(mode: ReplayGainMode): Result<Unit> =
+        Result.failure(UnsupportedOperationException("ReplayGain is not supported"))
+    fun setABRepeat(range: ABRepeatRange): Result<Unit> =
+        Result.failure(UnsupportedOperationException("A-B repeat is not supported"))
+    fun getChapters(): List<ChapterInfo> = emptyList()
+    fun selectChapter(index: Int): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Chapter navigation is not supported"))
+    fun nextChapter(): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Chapter navigation is not supported"))
+    fun previousChapter(): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Chapter navigation is not supported"))
+    fun applyVideoAdjustments(adjustments: VideoAdjustments): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Video adjustments are not supported"))
+    fun applySubtitleStyle(style: SubtitleStyle): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Subtitle styling is not supported"))
+    fun takeScreenshot(destinationFilePath: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Video screenshot capture is not supported"))
+    fun getAudioOutputDevices(): List<AudioOutputDevice> = emptyList()
+    fun selectAudioOutputDevice(deviceId: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Audio output selection is not supported"))
     override fun close()
 }
 

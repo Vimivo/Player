@@ -7,6 +7,7 @@
     "MultiLineIfElse",
     "ParameterListWrapping",
     "TooGenericExceptionCaught",
+    "TooManyFunctions",
     "Wrapping",
 )
 
@@ -18,9 +19,12 @@ import com.sun.jna.StringArray
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.desktop.platform.DesktopPlatform
+import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.AudioEnhancementCapabilities
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
+import dev.vimivo.playback.AudioOutputDevice
+import dev.vimivo.playback.ChapterInfo
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
@@ -30,10 +34,13 @@ import dev.vimivo.playback.PlaybackMetadata
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
+import dev.vimivo.playback.ReplayGainMode
+import dev.vimivo.playback.SubtitleStyle
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.TrackInfo
 import dev.vimivo.playback.TrackOrigin
 import dev.vimivo.playback.TrackType
+import dev.vimivo.playback.VideoAdjustments
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,7 +56,7 @@ import java.awt.Canvas
 import java.io.File
 import java.net.URI
 
-/** Desktop libmpv adapter. mpv owns its native output window until render embedding is introduced. */
+/** Desktop libmpv adapter with advanced audio and video controls. */
 class MpvPlayerEngine : PlayerEngine {
     override val id = EngineId.MPV
     private val desktopPlatform = DesktopPlatform.detect()
@@ -119,6 +126,90 @@ class MpvPlayerEngine : PlayerEngine {
     override fun setSubtitleDelay(delayMillis: Long) = action { setProperty("sub-delay", (delayMillis / 1_000.0).toString()) }
     override fun setAudioDelay(delayMillis: Long) = action { setProperty("audio-delay", (delayMillis / 1_000.0).toString()) }
 
+    override fun setReplayGainMode(mode: ReplayGainMode): Result<Unit> = action {
+        val value = when (mode) {
+            ReplayGainMode.OFF -> "no"
+            ReplayGainMode.TRACK -> "track"
+            ReplayGainMode.ALBUM -> "album"
+        }
+        setProperty("replaygain", value)
+        setProperty("replaygain-clip", "yes")
+    }
+
+    override fun setABRepeat(range: ABRepeatRange): Result<Unit> = action {
+        val a = range.pointA
+        val b = range.pointB
+        if (range.enabled && a != null && b != null) {
+            setProperty("ab-loop-a", (a / 1_000.0).toString())
+            setProperty("ab-loop-b", (b / 1_000.0).toString())
+        } else {
+            setProperty("ab-loop-a", "no")
+            setProperty("ab-loop-b", "no")
+        }
+        mutableState.value = mutableState.value.copy(abRepeat = range)
+    }
+
+    override fun getChapters(): List<ChapterInfo> {
+        if (context == null || closed) return emptyList()
+        val count = stringProperty("chapter-list/count")?.toIntOrNull() ?: return emptyList()
+        return (0 until count).map { index ->
+            val title = stringProperty("chapter-list/$index/title") ?: "Chapter ${index + 1}"
+            val timeSec = doubleProperty("chapter-list/$index/time") ?: 0.0
+            ChapterInfo(index = index, title = title, startPositionMillis = (timeSec * 1_000).toLong())
+        }
+    }
+
+    override fun selectChapter(index: Int): Result<Unit> = action {
+        setProperty("chapter", index.toString())
+    }
+
+    override fun nextChapter(): Result<Unit> = action {
+        command("add", "chapter", "1")
+    }
+
+    override fun previousChapter(): Result<Unit> = action {
+        command("add", "chapter", "-1")
+    }
+
+    override fun applyVideoAdjustments(adjustments: VideoAdjustments): Result<Unit> = action {
+        setProperty("brightness", adjustments.brightness.toString())
+        setProperty("contrast", adjustments.contrast.toString())
+        setProperty("saturation", adjustments.saturation.toString())
+        setProperty("gamma", adjustments.gamma.toString())
+        setProperty("video-rotate", adjustments.rotationDegrees.toString())
+        setProperty("video-zoom", adjustments.zoom.toString())
+        setProperty("video-pan-x", adjustments.panX.toString())
+        setProperty("video-pan-y", adjustments.panY.toString())
+        setProperty("video-aspect-override", adjustments.aspectRatio.value)
+        mutableState.value = mutableState.value.copy(videoAdjustments = adjustments)
+    }
+
+    override fun applySubtitleStyle(style: SubtitleStyle): Result<Unit> = action {
+        setProperty("sub-font-size", style.fontSizeSp.toString())
+        setProperty("sub-color", style.textColorHex)
+        style.backgroundColorHex?.let { setProperty("sub-back-color", it) }
+        setProperty("sub-pos", (100 - style.bottomMarginPercent).coerceIn(0, 100).toString())
+    }
+
+    override fun takeScreenshot(destinationFilePath: String): Result<Unit> = action {
+        command("screenshot-to-file", destinationFilePath, "video")
+    }
+
+    override fun getAudioOutputDevices(): List<AudioOutputDevice> {
+        if (context == null || closed) return emptyList()
+        val count = stringProperty("audio-device-list/count")?.toIntOrNull() ?: return emptyList()
+        val currentDevice = stringProperty("audio-device")
+        return (0 until count).mapNotNull { index ->
+            val name = stringProperty("audio-device-list/$index/name") ?: return@mapNotNull null
+            val desc = stringProperty("audio-device-list/$index/description") ?: name
+            AudioOutputDevice(id = name, name = desc, description = desc, isSelected = name == currentDevice)
+        }
+    }
+
+    override fun selectAudioOutputDevice(deviceId: String): Result<Unit> = action {
+        setProperty("audio-device", deviceId)
+    }
+
     /** Finds sibling subtitles only for file URIs the user has already opened. */
     fun detectAssociatedSubtitles(media: MediaItem): List<ExternalSubtitle> = runCatching {
         val mediaFile = File(URI(media.uri))
@@ -131,6 +222,7 @@ class MpvPlayerEngine : PlayerEngine {
             .map { file -> ExternalSubtitle(file.toURI().toString(), file.name, languageFromSubtitleName(file.name), subtitleMimeType(file.extension)) }
             .toList()
     }.getOrDefault(emptyList())
+
     override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> = action {
         val effective = DesktopAudioEffects.effectiveSettings(settings)
         setProperty("af", DesktopAudioEffects.filter(effective).orEmpty())
@@ -154,6 +246,8 @@ class MpvPlayerEngine : PlayerEngine {
         val vo = if (desktopPlatform == DesktopPlatform.MACOS) "libmpv" else "gpu"
         checkCode(loaded.mpv_set_option_string(created, "vo", vo))
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
+        checkCode(loaded.mpv_set_option_string(created, "gapless-audio", "yes"))
+        checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
         checkCode(loaded.mpv_initialize(created))
         videoSurface?.let { surface ->
             DesktopVideoRendererFactory.create(desktopPlatform).also { renderer = it }.attach(surface, created)
@@ -301,13 +395,22 @@ class MpvPlayerEngine : PlayerEngine {
             hdr = platform != DesktopPlatform.UNKNOWN,
             subtitleDelay = true,
             audioDelay = true,
+            subtitleAppearance = true,
+            subtitlePosition = true,
+            chapters = true,
+            abRepeat = true,
+            videoAdjustments = true,
+            screenshots = true,
             supportedSpeedRange = 0.25f..4f,
             audioEnhancements = AudioEnhancementCapabilities(
                 graphicEqualizer = true,
                 bassEnhancement = true,
                 trebleAdjustment = true,
                 attenuatingPreamp = true,
+                replayGain = true,
+                gapless = true,
                 pitchPreservation = true,
+                outputSelection = true,
                 limitation = "Equalizer uses libmpv's FFmpeg filter chain; crossfade and bit-perfect output are not available",
             ),
         )
