@@ -83,4 +83,12 @@
     <string name="irreversible_warning">This action cannot be undone.</string>
     <string name="notices_text">AndroidX and Media3: Apache License 2.0\nLibVLC: LGPL 2.1 or later\nCoil, Koin, Kotlin and kotlinx.coroutines use permissive open-source licenses. See docs/THIRD_PARTY_NOTICES.md for source links and complete notices.</string>
     <string name="ok">OK</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="previous">Previous track</string>
+    <string name="next">Next track</string>
+    <string name="previous_short">Previous</string>
+    <string name="next_short">Next</string>
+    <string name="widget_nothing_playing">Nothing playing</string>
+    <string name="widget_description">Control the current Vimivo playback session</string>
 </resources>

@@ -154,6 +154,12 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Persisted the desktop library presentation in the existing per-user SQLite settings store.
 - Retained real local repositories, stable lazy collection keys, bounded artwork loading, Unicode metadata, and honest device-test limitations. See `PREMIUM_MEDIA_LIBRARY_PHASE_5.md`.
 
+### Native widgets and Now Playing Phase 6 checkpoint (2026-10-16)
+
+- Added a resizable Android RemoteViews playback widget whose commands connect to the existing Media3 library session; no second player or overlay permission was introduced.
+- Enriched the existing iOS Now Playing publication with queue, identity, media-kind, and live-stream metadata while retaining the single AVPlayer engine.
+- Recorded WidgetKit target/provisioning, Xcode-license, macOS command-center, and Windows SMTC limitations explicitly. See `NATIVE_WIDGETS_PHASE_6.md`.
+
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)

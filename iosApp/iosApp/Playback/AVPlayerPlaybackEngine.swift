@@ -251,7 +251,9 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             isPlaying: state.status == .playing,
             positionSeconds: posSec,
             durationSeconds: durSec,
-            playbackRate: state.playbackRate
+            playbackRate: state.playbackRate,
+            queueIndex: currentIndex,
+            queueCount: queue.count
         )
     }
 

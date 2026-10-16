@@ -83,4 +83,12 @@
     <string name="irreversible_warning">এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</string>
     <string name="notices_text">AndroidX ও Media3: Apache License 2.0\nLibVLC: LGPL 2.1 বা পরবর্তী\nCoil, Koin, Kotlin এবং kotlinx.coroutines অনুমোদনমূলক ওপেন-সোর্স লাইসেন্স ব্যবহার করে। উৎসের লিংক ও পূর্ণ নোটিশের জন্য docs/THIRD_PARTY_NOTICES.md দেখুন।</string>
     <string name="ok">ঠিক আছে</string>
+    <string name="play">চালান</string>
+    <string name="pause">বিরতি</string>
+    <string name="previous">আগের ট্র্যাক</string>
+    <string name="next">পরের ট্র্যাক</string>
+    <string name="previous_short">আগের</string>
+    <string name="next_short">পরের</string>
+    <string name="widget_nothing_playing">কিছু চলছে না</string>
+    <string name="widget_description">বর্তমান Vimivo প্লেব্যাক সেশন নিয়ন্ত্রণ করুন</string>
 </resources>
