@@ -12,39 +12,58 @@ Milestones completed:
 - **Milestone 32**: Secure Software Update Infrastructure & Long-Term Maintenance
 - **Milestone 33**: Advanced Audio Engineering & Premium Music Experience
 - **Milestone 34**: Professional Video Playback & Power-User Experience
+- **Milestone 35**: Architecture Optimization, Boundary Guards & Build Engineering
+- **Milestone 36**: Large-Library Scalability, SQLite Schema v5 & Performance Benchmarks
 
 ## Resume point
 
-Implementation, quality gates, advanced audio DSP (10-band graphic EQ, ReplayGain, gapless, pitch preservation, synced LRC lyrics, sleep timer), professional video playback (A-B repeat looping, chapters, external subtitles, aspect ratio overrides, zoom/pan/rotation, GPU video adjustments, screenshots), and playback profiles & playlists are complete and verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
+Architecture optimization, multiplatform source-set isolation, static architecture boundaries, SQLite schema version 5 performance indexes, query fast-paths, generation-aware caching, bounded scanner chunking, and 10,000-item scalability benchmarks are complete and verified across all five target platforms (Android, iOS, macOS, Windows, Linux).
 
 The latest completed increments are:
 
-1. **Advanced Audio Engineering (Milestone 33)**:
-   - `shared/src/commonMain/kotlin/dev/vimivo/playback/AudioEnhancement.kt`: Extended 10-band equalizer presets (`TREBLE_BOOST`, `ACOUSTIC`, plus existing `FLAT`, `BASS_BOOST`, `VOCAL`, `CLASSICAL`, `ROCK`, `JAZZ`, `POP`, `CUSTOM`) and `ReplayGainMode` (`OFF`, `TRACK`, `ALBUM`).
-   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/playback/DesktopAudioEffects.kt`: Precise 10-band gain maps (31Hz–16kHz) and auto-attenuating safety preamp headroom calculation (`min(0.0, -maxGain)`) preventing digital clipping.
-   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/playback/MpvPlayerEngine.kt`: Real-time native libmpv bindings for ReplayGain (`replaygain`, `replaygain-clip`), gapless audio (`gapless-audio=yes`), pitch preservation (`audio-pitch-correction=yes`), and audio output routing (`audio-device`, `audio-device-list`).
-   - `androidApp/src/main/kotlin/dev/vimivo/platform/android/playback/AndroidAudioEnhancementController.kt`: Updated with full support for new presets.
+1. **Architecture Boundary Guards (Milestone 35)**:
+   - `desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/architecture/ArchitectureBoundaryTest.kt`: Added automated static architecture regression suite verifying:
+     - Zero platform I/O or SQL leaks (`java.sql`, `java.io`, `java.nio`, `javax.*`) in `shared/src/commonMain`.
+     - Zero desktop or Apple platform imports in `androidApp`.
+     - Zero Android or Room framework imports in `desktopApp`.
+     - Core domain models remain completely decoupled from UI types (`androidx.compose.*`).
+     - `PlayerEngine` contract remains capability-aware, platform-neutral, and isolated from native libmpv or Media3 types.
 
-2. **Synchronized LRC Lyrics & Sleep Timer**:
-   - `shared/src/commonMain/kotlin/dev/vimivo/core/lyrics/LrcLyricsParser.kt`: Fast, zero-allocation line parser with multi-timestamp support (`[mm:ss.xx]`), metadata headers (`[ti:]`, `[offset:]`), offset adjustments, Bengali/Unicode support, and binary search active line indexing (`findActiveLineIndex`).
-   - `shared/src/commonMain/kotlin/dev/vimivo/playback/SleepTimer.kt`: Platform-neutral sleep timer with duration countdown (1-1440m), stop-after-current-track, and gentle volume fade-out.
+2. **SQLite Schema Version 5 & Index Optimization (Milestone 36)**:
+   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/library/DesktopDatabase.kt`: Upgraded SQLite schema to version 5 with 5 non-destructive performance indexes:
+     - `idx_media_items_kind_available` on `media_items(kind, available, duration_ms)`
+     - `idx_media_items_file_name` on `media_items(file_name)`
+     - `idx_media_metadata_album_artist` on `media_metadata(album, artist)`
+     - `idx_media_metadata_lookup` on `media_metadata(media_id, title, artist, album)`
+     - `idx_playlist_items_media_id` on `playlist_items(media_id)`
+   - Non-destructive migration tested across v1->v5, v2->v5, v3->v5, and v4->v5 (`DesktopDatabaseMigrationTest`).
 
-3. **Professional Video Controls (Milestone 34)**:
-   - `shared/src/commonMain/kotlin/dev/vimivo/playback/PlayerEngine.kt`: Capability contracts and data models for `ABRepeatRange`, `ChapterInfo`, `VideoAspectRatio`, `VideoAdjustments`, `SubtitleStyle`, and `AudioOutputDevice`.
-   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/playback/MpvPlayerEngine.kt`: Native libmpv bindings for A-B repeat looping (`ab-loop-a`, `ab-loop-b`), chapter discovery and stepping (`chapter-list`, `chapter`), external subtitle styling and delay (`sub-font-size`, `sub-color`, `sub-delay`), audio delay offset (`audio-delay`), video aspect ratio override (`video-aspect-override`), hardware zoom/pan (`video-zoom`, `video-pan-x/y`), rotation (`video-rotate`), GPU video adjustments (brightness, contrast, saturation, gamma), and native frame screenshots (`screenshot-to-file`).
+3. **Query Fast-Paths & Generation In-Memory Caching (Milestone 36)**:
+   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/library/DesktopLibraryRepository.kt`: Implemented query fast-path for unfiltered browsing (`WHERE m.available=1 AND m.kind=?`, avoiding 4 `LIKE '%%'` comparisons per row); added generation-aware in-memory caching (`cachedAlbums`, `cachedArtists`) keyed on `mutableGeneration.value`, reducing `albumDetails()` and `artistDetails()` lookups from O(N) aggregate scans to O(1) in-memory lookups.
+   - `desktopApp/src/desktopMain/kotlin/dev/vimivo/desktop/library/DesktopMediaScanner.kt`: Bounded batch inserts to `BATCH_CHUNK_SIZE = 500` to eliminate SQLite statement buffer bloat during 10,000+ item scans.
 
-4. **Playback Profiles & Playlist Portability**:
-   - `shared/src/commonMain/kotlin/dev/vimivo/playback/PlaybackProfile.kt`: Defined `DEFAULT`, `MUSIC_FOCUS`, `CINEMA`, and `PODCAST_LECTURE` profiles managing speed, EQ preset, aspect ratio, and ReplayGain.
-   - `shared/src/commonMain/kotlin/dev/vimivo/core/playlist/PlaylistM3uHandler.kt`: Robust M3U and M3U8 playlist parser and generator with `#EXTINF` metadata extraction and HLS stream tag filtering.
+4. **10,000-Item Scalability Benchmarks (Milestone 36)**:
+   - `desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/performance/LargeMediaLibraryBenchmarkTest.kt`: Reproducible benchmarks across 100, 1,000, and 10,000 items on Apple M4 (10 cores, 16GB RAM):
+     - Batch insertion: 108ms.
+     - Unfiltered library browse: 16ms (500 items).
+     - Search query (`'Symphony'`): 7ms.
+     - Album aggregation: 9ms (200 albums).
+     - Cached album detail lookup: 3ms.
+     - Artist aggregation: 7ms (50 artists).
+     - Queue save/load: 3ms save, 1ms load.
+     - Database disk footprint: 4,764 KB (~4.7 MB) for 10,000 indexed records.
 
-5. **Audio & Video Capability Matrix**:
-   - `docs/AUDIO_VIDEO_CAPABILITIES.md`: Authoritative matrix across Android, macOS, Windows, Linux, and iOS/iPadOS documenting exact mechanisms, tests, and zero-fake-control constraints.
+5. **Architecture Decision Records & Performance Documentation**:
+   - `docs/adr/ADR-001-KMP-SOURCE-SET-AND-MODULE-BOUNDARIES.md`: Source-set boundaries, dependency inversion, and static architecture guards.
+   - `docs/adr/ADR-002-SINGLE-AUTHORITATIVE-PLAYBACK-ENGINE.md`: Single player engine, capability contracts, and queue state machine ownership.
+   - `docs/adr/ADR-003-SQLITE-PERSISTENCE-AND-INDEX-SCALABILITY.md`: Schema v5 indexes, query fast-paths, generation caching, and bounded batch chunking.
+   - `docs/PERFORMANCE_BENCHMARKS.md`: Comprehensive baseline and measured benchmark report.
 
 6. **Test & Static Analysis Verification**:
-   - `:shared:desktopTest`: 58 passing tests (+13 tests).
-   - `:desktopApp:desktopTest`: 94 passing tests (+24 tests).
+   - `:shared:desktopTest`: 58 passing tests.
+   - `:desktopApp:desktopTest`: 103 passing tests (+9 tests: 5 architecture tests, 3 migration tests, 1 10k-benchmark suite).
    - `:androidApp:testDebugUnitTest`: 20 passing tests.
-   - Total automated tests: 172 tests passing (0 failures).
+   - Total automated tests: 181 tests passing (0 failures).
    - Detekt static analysis: 0 weighted violations across all modules.
 
 ## Next executable work

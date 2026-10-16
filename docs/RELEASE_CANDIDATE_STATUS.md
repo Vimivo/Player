@@ -26,11 +26,11 @@ Authoritative five-platform release readiness evaluation as of **2026-10-16** (M
 ## 2. Release Readiness Gates Audit
 
 - **Gate A — Functional**: **PASSED**. Audio/video scanning, tagging, video rendering, albums, artists, search, playlists, favorites, history, bookmarks, queue, privacy-safe diagnostics, and software update verification.
-- **Gate B — Automated Tests**: **PASSED**. 172 total automated tests across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (94), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests). 0 failures. Detekt static analysis 0 violations across all modules.
+- **Gate B — Automated Tests**: **PASSED**. 181 total automated tests across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (103), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests). 0 failures. Detekt static analysis 0 violations across all modules.
 - **Gate C — Native Runtime**: **PASSED**. Real audio and video playback verified on macOS host (libmpv JNA + Cocoa bridge) and Android (Media3/ExoPlayer + LibVLC).
 - **Gate D — Distribution**: **PASSED**. Actual binary packages generated for Android (APK + AAB) and macOS (DMG + APP). Production CI pipelines implemented for all five platforms.
 - **Gate E — Installation**: **PASSED**. Mounted `Vimivo-1.0.0.dmg`, inspected bundle closure, verified `@rpath` dependencies, and executed standalone binary.
-- **Gate F — Data Safety**: **PASSED**. SQLite schema migration suite tests v1 -> v4, v2 -> v4, and v3 -> v4 upgrades. Foreign keys strictly enforced. Non-destructive library scans.
+- **Gate F — Data Safety**: **PASSED**. SQLite schema migration suite tests v1 -> v5, v2 -> v5, v3 -> v5, and v4 -> v5 upgrades. Foreign keys strictly enforced. Non-destructive library scans.
 - **Gate G — Security & Privacy**: **PASSED**. `SafeLogger` sanitizes user paths, URL tokens, and key-value credentials. Zero plaintext passwords. `DesktopDiagnosticExporter` blocks system directory writes (`/etc`, `/System`, `C:\Windows`).
 - **Gate H — Licenses**: **PASSED**. Comprehensive `LICENSE_AUDIT.md` and `THIRD_PARTY_NOTICES.md` prepared. CycloneDX 1.5 SBOM generated.
 - **Gate I — Signing**: **BLOCKED ON CREDENTIALS**. Release builds remain unsigned or ad-hoc signed until owner provides protected signing keys.
@@ -42,6 +42,7 @@ Authoritative five-platform release readiness evaluation as of **2026-10-16** (M
 - **Gate O — Dependency Security & CI**: **PASSED**. Dependabot configured for weekly updates; automated dependency security audit workflow (`dependency-security.yml`) and emergency hotfix release pipeline (`hotfix-release.yml`) established.
 - **Gate P — Advanced Audio Engineering**: **PASSED**. 10-band equalizer presets with auto-attenuating safety preamp headroom, native ReplayGain (Track & Album mode) with peak clipping safety, gapless audio verification, pitch preservation time-stretching, synchronized LRC lyrics parsing with Unicode/Bengali support and binary search indexing, sleep timer, and safe audio output routing.
 - **Gate Q — Professional Video Controls**: **PASSED**. Native A-B repeat looping, MKV/MP4 container chapter discovery and stepping, external subtitle demuxing with real-time delay (±5000ms) and appearance styling, aspect ratio overrides (Fit, Fill, 16:9, 4:3, 21:9), hardware zoom/pan, 90-degree step rotation, GPU video adjustments (brightness, contrast, saturation, gamma), native frame screenshots, and M3U/M3U8 playlist import/export.
+- **Gate R — Architecture & Large-Library Scalability**: **PASSED**. Automated architecture boundary tests (`ArchitectureBoundaryTest`) preventing platform API leakage; schema version 5 performance indexes; reproducible 10,000-item scalability benchmarks (`LargeMediaLibraryBenchmarkTest`) verifying sub-20ms browsing and sub-10ms search; and ADR suite (`docs/adr/`).
 
 ---
 

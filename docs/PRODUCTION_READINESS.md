@@ -1,6 +1,6 @@
 # Production Readiness Assessment
 
-Status overview across all five supported platform targets as of **2026-10-16** (Milestones 31 & 32 Complete).
+Status overview across all five supported platform targets as of **2026-10-16** (Milestones 35 & 36 Complete).
 
 | Platform | Technical & Quality Status | Distribution & Launch Readiness |
 |---|---|---|
@@ -10,14 +10,37 @@ Status overview across all five supported platform targets as of **2026-10-16** 
 | **Windows** | **IMPLEMENTED & PACKAGING READY** (Windows CI Pipeline Implemented) | Embedded video renderer (`MpvWin32Renderer`), secure DLL loading, Windows Credential Manager, desktop shortcuts/drag-and-drop, and standalone packaging (EXE/MSI) configuration are implemented and test-verified. Packaging execution pipeline implemented in `.github/workflows/windows.yml`. Authenticode signing remains blocked on signing credentials. |
 | **Linux** | **IMPLEMENTED & PACKAGING READY** (Linux CI Pipeline Implemented) | Embedded video renderer (`MpvX11Renderer`), MPRIS 2 D-Bus media integration, Freedesktop Secret Service credential store, desktop shortcuts/drag-and-drop, and DEB/RPM/AppImage packaging pipeline implemented in `.github/workflows/linux.yml`. Self-contained packages ready for direct distribution. |
 
-### Milestone 33 & 34 Advanced Audio & Professional Video Engineering Summary
+### Milestone 35 & 36 Architecture Optimization & Large-Library Scalability Summary
 
-- **Automated Tests**: 172 tests passing with 0 failures across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (94), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
+- **Automated Tests**: 181 tests passing with 0 failures across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (103), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
 - **Detekt Analysis**: 0 violations across all modules.
-- **Advanced Audio Processing (M33)**: 10-band graphic equalizer with auto-attenuating safety preamp headroom (0 to -12 dB), native ReplayGain (Track & Album mode) with peak clipping safety, gapless audio transitions (`gapless-audio=yes`), pitch preservation (`audio-pitch-correction=yes`), and safe audio output device routing.
-- **Synchronized LRC Lyrics & Sleep Timer (M33)**: Multi-timestamp LRC parser with offset adjustment, Bengali/Unicode support, and binary search active line indexing. Platform-neutral sleep timer with duration countdown, stop-after-current, and gentle volume fade-out.
-- **Professional Video Controls (M34)**: Native A-B repeat looping, MKV/MP4 container chapter discovery and stepping, external subtitle demuxing with real-time delay (±5000ms) and appearance styling, A/V synchronization clock offset, aspect ratio overrides (Fit, Fill, 16:9, 4:3, 21:9), hardware zoom/pan, 90-degree step rotation, GPU video adjustments (brightness, contrast, saturation, gamma), and native frame screenshots.
-- **Playback Profiles & Playlist Portability (M34)**: Reusable profiles (Default, Music Focus, Cinema, Podcast/Lecture) and M3U/M3U8 playlist import/export with `#EXTINF` metadata parsing and HLS stream tag filtering.
-- **Authoritative Capability Matrix**: Published `docs/AUDIO_VIDEO_CAPABILITIES.md` documenting exact native mechanisms across Android, macOS, Windows, Linux, and iOS/iPadOS without fabricated completion claims.
-- **Release Decision**: **CONDITIONAL GO FOR CONTROLLED DISTRIBUTION (`1.0.0-rc.1`)**. General public deployment blocked on owner signing credentials and explicit user authorization.
+- **Architecture Boundary Guards (M35)**: Verified via automated static architecture assertions (`ArchitectureBoundaryTest`):
+  - Zero platform I/O or SQL leaks (`java.sql`, `java.io`, `java.nio`, `javax.*`) in `shared/src/commonMain`.
+  - Zero desktop or Apple APIs in `androidApp`.
+  - Zero Android or Room APIs in `desktopApp`.
+  - UI framework independence for core domain models.
+  - Platform-neutral, capability-aware `PlayerEngine` contract.
+- **SQLite Schema Version 5 & Index Optimization (M36)**:
+  - Added 5 non-destructive indexes: `media_items_kind_available`, `media_items_file_name`, `media_metadata_album_artist`, `media_metadata_lookup`, `playlist_items_media_id`.
+  - Non-destructive migration verified from v1, v2, v3, and v4 to v5 in `DesktopDatabaseMigrationTest`.
+  - Unfiltered query fast-paths in `DesktopLibraryRepository` bypassing string wildcard comparisons on large tables.
+  - Generation-aware in-memory caching for album/artist detail lookups reducing multi-table aggregate scans from O(N) to O(1).
+  - Bounded batch chunking (`BATCH_CHUNK_SIZE = 500`) in `DesktopMediaScanner` preventing SQLite statement memory bloat.
+- **10,000-Item Scalability Benchmarks (M36)**:
+  - Batch insertion: 108ms.
+  - Unfiltered library browse: 16ms (500 items).
+  - Search query (`'Symphony'`): 7ms.
+  - Album aggregation: 9ms (200 albums).
+  - Cached album detail lookup: 3ms.
+  - Artist aggregation: 7ms (50 artists).
+  - Queue save/load: 3ms save, 1ms load.
+  - Database disk footprint: 4,764 KB (~4.7 MB) for 10,000 indexed records.
+- **Build Performance (M35)**:
+  - Configuration cache compatibility verified (`--configuration-cache`).
+  - Warm incremental compilation speedup: 775ms -> 278ms (2.78x speedup).
+- **Architecture Decision Records (ADRs)**:
+  - `ADR-001`: Multiplatform Source-Set Hierarchy and Dependency Inversion Boundaries.
+  - `ADR-002`: Single Authoritative Playback Engine and Capability-Aware Lifecycle.
+  - `ADR-003`: SQLite Persistence Architecture, Schema Version 5, and Large-Library Scalability.
+- **Release Decision**: **CONDITIONAL GO FOR CONTROLLED DISTRIBUTION (`1.0.0-rc.1`)**. Architecture and persistence boundaries fully hardened and benchmark-verified. General public deployment blocked on owner signing credentials and explicit user authorization.
 

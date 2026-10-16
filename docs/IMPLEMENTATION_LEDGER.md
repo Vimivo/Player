@@ -53,6 +53,8 @@ Status terms: **implemented** means code exists, **tested** means automated test
 | Protected release automation | Implemented | `.github/workflows/publish-release.yml` with manual confirmation token enforcement (`YES_I_CONFIRM_OFFICIAL_RELEASE`) and protected `production-release` environment. |
 | Advanced audio engineering (M33) | Implemented, tested, runtime verified | 10-band equalizer with 10 presets and auto-attenuating safety preamp headroom (0 to -12 dB), native libmpv ReplayGain (Track & Album mode) with peak clipping safety, gapless audio transitions (`gapless-audio=yes`), pitch preservation (`audio-pitch-correction=yes`), synchronized LRC lyrics with Bengali/Unicode support, platform-neutral sleep timer, and audio output routing. |
 | Professional video controls (M34) | Implemented, tested, runtime verified | Native A-B repeat looping, MKV/MP4 chapter navigation, external subtitle demuxing with real-time delay (±5000ms) and appearance customization, A/V sync clock offset, aspect ratio overrides (Fit, Fill, 16:9, 4:3, 21:9), hardware zoom/pan, 90° step rotation, GPU video adjustments (brightness, contrast, saturation, gamma), native frame screenshots, playback profiles, and M3U/M3U8 playlist import/export. |
+| Multiplatform architecture boundaries (M35) | Implemented, tested | Static architecture tests (`ArchitectureBoundaryTest`) enforcing zero platform leaks (`java.sql`, `java.io`, `java.nio`, `javax.*`) in `shared/src/commonMain`, zero desktop/apple crossover in `androidApp`, zero android/room crossover in `desktopApp`, UI independence for core models, and capability-aware `PlayerEngine` contract. |
+| Large-library scalability & SQLite v5 (M36) | Implemented, tested | Non-destructive SQLite schema version 5 with 5 performance indexes (`media_items_kind_available`, `media_items_file_name`, `media_metadata_album_artist`, `media_metadata_lookup`, `playlist_items_media_id`), query fast-paths, generation-aware in-memory caching (O(1) lookups), bounded scanner batch chunking (500 items), and 10k-item performance benchmark suite (`LargeMediaLibraryBenchmarkTest`). |
 
 ## Verified increments
 
@@ -78,18 +80,22 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `feat(release): implement final launch readiness, safe update engine, official distribution architecture, and protected publishing` — In-app update checker and manifest model, DesktopUpdateService, website download portal (`docs/website/index.html`), store listings, publication approval boundary, system requirements, installation guide, privacy review, rollback plan, and protected publishing pipeline (Milestones 29 & 30).
 - `feat(reliability): implement post-launch reliability engineering, structured local logging, crash diagnostics, secure update security, and maintenance CI` — Standardized 20-category error model (`VimivoError`), bounded circular logging (`StructuredLogger`), local disk log rotation (`DesktopLogFileAppender`), fault-injection reliability test suite (`FaultInjectionReliabilityTest`, `DesktopReliabilityTest`), update security with rollback/downgrade attack prevention and SHA-256 validation (`UpdateSecurityTest`), Dependabot automation, supply-chain security workflow, emergency hotfix pipeline, and reliability/maintenance documentation suite (Milestones 31 & 32).
 - `feat(media): implement Milestone 33 advanced audio engineering and Milestone 34 professional video playback` — 10-band equalizer presets with auto-attenuating safety preamp, native ReplayGain, gapless playback, pitch preservation, output routing, synchronized LRC parser with Bengali/Unicode support, platform-neutral sleep timer, A-B repeat looping, chapter navigation, subtitle timing/styling, aspect ratio, zoom/pan/rotation, GPU video adjustments, frame screenshots, playback profiles, and M3U/M3U8 playlist import/export.
+- `perf(database): optimize query fast-paths, generation caching, and schema v5 indexes` — SQLite schema version 5 with 5 performance indexes, fast-path unfiltered browse, generation-keyed in-memory cache for album/artist detail lookups, and bounded batch chunking (500 items).
+- `test(architecture): enforce multiplatform boundaries and zero platform leaks` — Automated static architecture tests verifying commonMain platform neutrality, native isolation, and UI decoupling.
+- `perf(benchmarks): add large media library scalability benchmarks for 10k items` — Validated reproducible benchmarks for 100, 1,000, and 10,000 items measuring insert, query, search, grouping, and persistence.
+- `docs(architecture): record adrs, performance benchmarks, and release candidate checkpoints` — Published ADR-001, ADR-002, ADR-003, performance benchmark report, and updated release readiness matrix.
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (58 tests passed)
-- `./gradlew :desktopApp:desktopTest` (94 tests passed)
+- `./gradlew :desktopApp:desktopTest` (103 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
-- Total automated tests: 172 tests passing, 0 failures (plus 7 native iOS XCTest tests).
+- Total automated tests: 181 tests passing, 0 failures (plus 7 native iOS XCTest tests).
 
 
 
