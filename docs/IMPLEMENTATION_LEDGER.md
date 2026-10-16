@@ -110,12 +110,16 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `feat(streaming): implement universal URL streaming, protocol validation, and buffering state` — Implemented shared stream models (`StreamProtocol`, `StreamType`, `StreamConnectionState`, `StreamFailureReason`, `StreamValidationResult`, `StreamRequest`, `StreamDiagnostics`), `StreamValidator` for scheme enforcement, credential rejection, and portal webpage explanations, bounded exponential backoff reconnection policy (`StreamReconnectionPolicy`), Compose Desktop stream modal dialog (`DesktopOpenStreamDialog`), dedicated network management panel (`DesktopNetworkStreamPanel`), privacy-safe JSON history repository (`DesktopStreamHistoryRepository`), libmpv network hardening and buffering observation (`paused-for-cache`, `demuxer-cache-time`), Now Playing `[LIVE]` badge, and Android `NetworkViewModel` integration (Milestone 53).
 - `docs(streaming): publish streaming architecture, protocol support matrix, and reliability specs` — Published comprehensive specifications in `docs/URL_STREAMING_ARCHITECTURE.md`, `docs/STREAMING_PROTOCOL_SUPPORT.md`, `docs/STREAM_URL_SECURITY.md`, `docs/STREAMING_PLAYER_UX.md`, `docs/STREAMING_NETWORK_RECOVERY.md`, `docs/STREAMING_PERFORMANCE.md`, `docs/NATIVE_STREAMING_TESTS.md`, `docs/STREAMING_PRIVACY.md`, and `docs/STREAMING_LIMITATIONS.md` (Milestone 54).
 
+- `feat(streaming): harden stream session lifecycle, latency modes, and track renditions` — Added `LiveLatencyMode` (`BALANCED`, `LOW_LATENCY`, `STABLE_PLAYBACK`) with dynamic demuxer readahead and buffer tuning, atomic `sessionGeneration` counter isolating rapid stream switching, `userStopped` and `userPaused` intent preservation, and enriched track rendition metadata (`demux-bitrate`, `demux-channel-count`, `demux-samplerate`, `demux-w`, `demux-h`, `demux-fps`) on `MpvPlayerEngine` and `PlayerEngine` (Milestones 55 & 56).
+- `test(streaming): add deterministic test server, session race tests, and fault recovery` — Created in-process `TestStreamServer` supporting byte-ranges (HTTP 206), HLS VOD and live sliding windows, DASH manifests, and HTTP fault codes (401, 403, 404, 408, 429, 500, 302 redirects), along with comprehensive `StreamSessionLifecycleTest` and enhanced `StreamValidatorTest` with CRLF injection defenses (Milestones 55 & 56).
+- `docs(streaming): publish streaming compatibility matrix, live latency, and lifecycle specs` — Published comprehensive specifications in `docs/STREAMING_COMPATIBILITY_MATRIX.md`, `docs/STREAM_SESSION_LIFECYCLE.md`, `docs/STREAM_RECOVERY.md`, `docs/STREAMING_TEST_FIXTURES.md`, `docs/STREAMING_LATENCY.md`, and `docs/STREAMING_RELEASE_READINESS.md`.
+
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)
-- `./gradlew :desktopApp:desktopTest` (170 tests passed)
+- `./gradlew :desktopApp:desktopTest` (178 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (40 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
@@ -124,7 +128,8 @@ On 2026-10-16, these commands completed successfully:
 - `./gradlew :desktopApp:packageDmg` (BUILD SUCCESSFUL, standalone DMG generated with 50 bundled dylibs)
 - `./gradlew detekt` (all modules passed, 0 violations)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 324 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
+- Total automated tests: 332 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
+
 
 
 

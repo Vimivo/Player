@@ -111,6 +111,23 @@ Status overview across all five supported platform targets as of **2026-10-16** 
 - **Published Documentation**:
   - `docs/URL_STREAMING_ARCHITECTURE.md`, `docs/STREAMING_PROTOCOL_SUPPORT.md`, `docs/STREAM_URL_SECURITY.md`, `docs/STREAMING_PLAYER_UX.md`, `docs/STREAMING_NETWORK_RECOVERY.md`, `docs/STREAMING_PERFORMANCE.md`, `docs/NATIVE_STREAMING_TESTS.md`, `docs/STREAMING_PRIVACY.md`, and `docs/STREAMING_LIMITATIONS.md`.
 
+### Milestones 55 & 56 Cross-Platform Streaming Compatibility & Live Reliability Summary
 
-
-
+- **Automated Tests**: 332 tests passing with 0 failures across `:shared:desktopTest` (114), `:desktopApp:desktopTest` (178), and `:androidApp:testDebugUnitTest` (40).
+- **Detekt Analysis**: 0 violations across all modules (`:shared`, `:desktopApp`, `:androidApp`).
+- **Live Playback Latency Optimization**:
+  - Implemented `LiveLatencyMode` enum with `BALANCED` (5.0s readahead, 32MB buffer), `LOW_LATENCY` (1.5s readahead, 8MB buffer), and `STABLE_PLAYBACK` (10.0s readahead, 64MB buffer).
+  - Dynamically updates libmpv demuxer cache and readahead settings without player context destruction or video surface flicker.
+  - Interactive latency mode selector integrated into `DesktopOpenStreamDialog` for live streams.
+- **Session Lifecycle & Concurrency Isolation**:
+  - Atomic `sessionGeneration: Long` generation counter isolates asynchronous polling callbacks across rapid source changes.
+  - Preserves user Stop and Pause intent: stopping halts polling and cancels retry timers; pausing prevents buffering completion from auto-resuming playback.
+- **Track Rendition Metadata Extraction**:
+  - Native `MpvPlayerEngine` demuxer properties extraction for `demux-bitrate`, `demux-channel-count`, `demux-samplerate`, `demux-w`, `demux-h`, and `demux-fps`.
+- **Deterministic Test Stream Server (`TestStreamServer`)**:
+  - Embedded HTTP media server serving direct audio with byte-ranges (206), HLS VOD and live sliding window manifests, DASH XML manifests, and HTTP fault codes (401, 403, 404, 408, 429, 500, 302 redirects).
+- **Network Recovery & Security Hardening**:
+  - Accurate HTTP status classification distinguishing transport/server errors from codec errors.
+  - CRLF injection defense rejecting illegal carriage return and newline characters in custom headers.
+- **Published Documentation Suite**:
+  - `docs/STREAMING_COMPATIBILITY_MATRIX.md`, `docs/STREAM_SESSION_LIFECYCLE.md`, `docs/STREAM_RECOVERY.md`, `docs/STREAMING_TEST_FIXTURES.md`, `docs/STREAMING_LATENCY.md`, and `docs/STREAMING_RELEASE_READINESS.md`.

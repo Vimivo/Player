@@ -60,12 +60,26 @@ Milestones 53 and 54 (Universal User-Provided URL-Based Audio & Video Streaming,
   - `docs/NATIVE_STREAMING_TESTS.md`: Native test matrix and automated test coverage.
   - `docs/STREAMING_PRIVACY.md`: Zero-cloud guarantee, telemetry avoidance, and local storage rules.
   - `docs/STREAMING_LIMITATIONS.md`: Honest scope, webpage vs media distinctions, and DRM boundaries.
+  - `docs/STREAMING_COMPATIBILITY_MATRIX.md`: Comprehensive 5-platform capability matrix for Milestones 55 & 56.
+  - `docs/STREAM_SESSION_LIFECYCLE.md`: Concurrency isolation, session tokens, and user intent preservation.
+  - `docs/STREAM_RECOVERY.md`: Network failure classification, backoff policies, and CRLF header injection defense.
+  - `docs/STREAMING_TEST_FIXTURES.md`: In-process deterministic test stream server and mock endpoints.
+  - `docs/STREAMING_LATENCY.md`: Live streaming latency modes, readahead tuning, and buffer optimization.
+  - `docs/STREAMING_RELEASE_READINESS.md`: Release readiness verdicts and quality gate verification.
+
+Milestones 55 & 56 Implementation & Verification:
+- **Live Latency Optimization**: Added `LiveLatencyMode` (`BALANCED`, `LOW_LATENCY`, `STABLE_PLAYBACK`) dynamically tuning `demuxer-readahead-secs` and `demuxer-max-bytes` in `MpvPlayerEngine` without surface recreation.
+- **Session Lifecycle Concurrency Isolation**: Added atomic `sessionGeneration` counter preventing stale callbacks, delayed errors, or race conditions across rapid source switching.
+- **User Intent Preservation**: User explicit `Stop` cancels reconnection and resets status to `PlaybackStatus.Idle`; user explicit `Pause` sets `userPaused` ensuring paused status persists across buffer completions.
+- **Rich Track Rendition Extraction**: Enriched `TrackInfo` with demuxer bitrate, channel count, sample rate, width, height, and FPS.
+- **Deterministic Test Infrastructure**: Built `TestStreamServer` serving direct audio with byte-ranges (206), HLS VOD and live sliding window manifests, DASH manifests, and HTTP fault codes (401, 403, 404, 408, 429, 500, redirects).
+- **Automated Test Coverage**: Added `StreamSessionLifecycleTest` and enhanced `StreamValidatorTest` verifying fault classification, header injection rejection, and session state transitions.
 
 Test & Static Analysis Verification:
 - `:shared:desktopTest`: 114 passing tests (100% pass rate).
-- `:desktopApp:desktopTest`: 170 passing tests (100% pass rate).
+- `:desktopApp:desktopTest`: 178 passing tests (100% pass rate).
 - `:androidApp:testDebugUnitTest`: 40 passing tests (100% pass rate).
-- Total automated tests: 324 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
+- Total automated tests: 332 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
 - Detekt static analysis: 0 weighted violations across all modules.
 - Android debug build: `:androidApp:assembleDebug` SUCCESS.
 

@@ -78,6 +78,15 @@ Verified against source, automated test suites, and simulator runs on 2026-10-15
 - **Truthful Five-Platform Accessibility Reporting**: Truthfully documented Compose Desktop's lack of out-of-the-box AT-SPI bridge on Linux, while validating 100% keyboard traversal, focus visibility, high-contrast modes, dynamic text scaling, and accessible descriptions across all platforms.
 - **Published Documentation**: `docs/UI_UX_AUDIT.md`, `docs/DESIGN_SYSTEM.md`, `docs/RESPONSIVE_LAYOUTS.md`, `docs/MUSIC_PLAYER_UX.md`, `docs/VIDEO_PLAYER_UX.md`, `docs/ACCESSIBILITY_AUDIT.md`, `docs/ACCESSIBILITY_MATRIX.md`, `docs/KEYBOARD_SHORTCUTS.md`, `docs/LOCALIZATION_AUDIT.md`, `docs/UI_PERFORMANCE.md`, and `docs/UX_RELEASE_GATES.md`.
 
+### Milestones 55 & 56 Highlights:
+- **Cross-Platform Streaming Compatibility & Live Latency Modes**: Implemented `LiveLatencyMode` (`BALANCED` with 5s readahead / 32MB buffer, `LOW_LATENCY` with 1.5s readahead / 8MB buffer, and `STABLE_PLAYBACK` with 10s readahead / 64MB buffer) dynamically tuned in `MpvPlayerEngine` without surface destruction.
+- **Session Lifecycle & Race-Condition Concurrency Isolation**: Atomic `sessionGeneration` counter isolates async polling loops and property events across rapid source switches, preventing stale callbacks from corrupting new active playback sessions.
+- **User Stop and Pause Intent Preservation**: User explicit `Stop` halts polling and cancels active retry attempts; user explicit `Pause` sets `userPaused` ensuring paused status persists across buffer completions.
+- **Rich Track Rendition Extraction**: Enriched `TrackInfo` with demuxer bitrate, channel count, sample rate, width, height, and frame rate across audio and video streams.
+- **Deterministic Test Stream Server (`TestStreamServer`)**: Built in-process HTTP media server for automated testing of byte ranges (HTTP 206), HLS VOD and live sliding windows, DASH manifests, and HTTP fault codes (401, 403, 404, 408, 429, 500, redirects).
+- **Network Recovery & Security Hardening**: Accurate HTTP status classification distinguishing transport errors from decoder failures, and CRLF injection defense rejecting illegal characters in custom headers.
+- **Published Documentation**: `docs/STREAMING_COMPATIBILITY_MATRIX.md`, `docs/STREAM_SESSION_LIFECYCLE.md`, `docs/STREAM_RECOVERY.md`, `docs/STREAMING_TEST_FIXTURES.md`, `docs/STREAMING_LATENCY.md`, and `docs/STREAMING_RELEASE_READINESS.md`.
+
 ### Milestones 53 & 54 Highlights:
 - **Universal User-Provided URL Streaming**: Support for direct progressive audio (MP3, AAC, FLAC, Opus, WAV) and video (MP4, MKV, WebM), HLS (`.m3u8` live & VOD), MPEG-DASH (`.mpd`), RTSP (`rtsp://`, `rtsps://`), and internet radio streams (Icecast / SHOUTcast).
 - **Decoupled URL Validation Pipeline (`StreamValidator`)**: Distinguishes direct stream endpoints from generic portal webpages (YouTube, Vimeo, TikTok, Facebook, HTML pages) with clear, actionable user messages, blocks prohibited schemes (`file:`, `data:`, `javascript:`), and detects embedded credentials (`@`).
