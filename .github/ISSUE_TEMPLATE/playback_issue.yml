@@ -1,0 +1,70 @@
+name: "Playback / Codec Issue"
+description: "Report a media playback, codec, subtitle, or rendering issue"
+title: "[Playback]: "
+labels: ["playback", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please report audio/video playback failures, hardware decoding issues, or subtitle sync defects here.
+        **Privacy Notice**: Never upload copyrighted or private personal media files. Use open-source or freely redistributable sample media fixtures when providing reproduction steps.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Concise description of the playback problem.
+      placeholder: "e.g., MKV with ASS subtitles drops frames on macOS arm64"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: media_kind
+    attributes:
+      label: Media Kind
+      options:
+        - Audio (Local file)
+        - Video (Local file)
+        - Subtitles / Lyrics (SRT / ASS / LRC)
+        - Network Stream (HLS / DASH / Direct URL)
+    validations:
+      required: true
+
+  - type: input
+    id: format_details
+    attributes:
+      label: Container & Codec Information
+      description: Audio/Video codecs, container, bitrate, resolution.
+      placeholder: "e.g., MKV, H.265 10-bit 4K 60fps, FLAC 24-bit 96kHz"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Android
+        - iOS / iPadOS
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Open video file 'sample.mkv'
+        2. Seek past 01:30
+        3. Observe audio continues but video frame freezes
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized Diagnostic Output
+      description: Paste sanitized logs from Settings -> Export Diagnostics.

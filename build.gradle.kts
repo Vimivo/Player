@@ -21,3 +21,16 @@ dependencies {
     detektPlugins(libs.detekt.formatting)
 }
 
+tasks.register("verifyAll") {
+    group = "verification"
+    description = "Runs comprehensive verification across shared, desktop, and Android modules."
+    dependsOn(
+        ":detekt",
+        ":shared:desktopTest",
+        ":desktopApp:desktopTest",
+        ":desktopApp:compileKotlinDesktop",
+        ":androidApp:testDebugUnitTest",
+        ":androidApp:assembleDebug",
+    )
+}
+
