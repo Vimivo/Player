@@ -50,6 +50,8 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
 import dev.vimivo.ui.theme.VimivoTheme
+import dev.vimivo.ui.components.VimivoGlassSurface
+import dev.vimivo.ui.theme.VimivoGlassVariant
 import dev.vimivo.core.model.AlbumItem
 import dev.vimivo.core.model.ArtistItem
 import dev.vimivo.core.model.MediaId
@@ -334,7 +336,7 @@ private fun DesktopPlayer(
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val isVeryCompact = maxWidth < 640.dp
                 val isCompact = maxWidth < 840.dp
-                val sidebarWidth = if (isVeryCompact) 110.dp else if (isCompact) 140.dp else 192.dp
+                val sidebarWidth = if (isVeryCompact) 110.dp else if (isCompact) 160.dp else 220.dp
                 val contentPadding = if (isVeryCompact) 10.dp else if (isCompact) 16.dp else 24.dp
                 val contentScrollState = rememberScrollState()
                 Row(Modifier.fillMaxSize()) {
@@ -786,8 +788,8 @@ private fun DesktopPlayer(
                 DesktopEmptyState(destination)
             }
             Spacer(Modifier.height(4.dp))
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+            VimivoGlassSurface(
+                variant = VimivoGlassVariant.FLOATING_PLAYER,
                 modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
                     contentDescription = "Now playing card for ${state.media?.title ?: "Nothing playing"}"
                 },

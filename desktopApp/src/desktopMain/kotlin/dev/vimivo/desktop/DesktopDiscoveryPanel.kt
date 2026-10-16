@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -48,7 +49,7 @@ internal fun DesktopPersonalizedHomePanel(
     onDismissRecommendation: (String, String) -> Unit,
     onTogglePersonalization: (Boolean) -> Unit,
 ) {
-    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Row(
                 Modifier.fillMaxWidth(),
@@ -157,7 +158,7 @@ internal fun DesktopSmartPlaylistsPanel(
         DesktopSmartPlaylistRepository.builtInCollections() + state.smartPlaylists
     }
 
-    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -259,7 +260,7 @@ internal fun DesktopDuplicatesPanel(
     controller: DesktopLibraryController,
     onPlay: (MediaItem) -> Unit,
 ) {
-    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Row(
                 Modifier.fillMaxWidth(),
@@ -337,7 +338,7 @@ private fun DuplicateGroupCard(
 internal fun DesktopInsightsPanel(
     state: DesktopLibraryUiState,
 ) {
-    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Text("Listening & Watching Insights", style = MaterialTheme.typography.headlineMedium)
             Text(

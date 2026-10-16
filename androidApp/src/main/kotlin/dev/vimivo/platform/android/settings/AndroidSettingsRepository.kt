@@ -45,7 +45,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
                 ?: PreferredEngine.AUTOMATIC,
             resumePlayback = preferences[Keys.resume] ?: true,
             dynamicColor = preferences[Keys.dynamicColor] ?: true,
-            accentColor = preferences.enum(Keys.accentColor, AccentColor.VIOLET),
+            accentColor = preferences.enum(Keys.accentColor, AccentColor.AURORA),
             artworkBasedAccents = preferences[Keys.artworkBasedAccents] ?: true,
             reduceAnimations = preferences[Keys.reduceAnimations] ?: false,
             reduceTransparency = preferences[Keys.reduceTransparency] ?: false,

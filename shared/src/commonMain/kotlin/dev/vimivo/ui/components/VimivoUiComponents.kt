@@ -33,8 +33,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.vimivo.ui.theme.LocalReducedTransparency
 import dev.vimivo.ui.theme.VimivoGlassVariant
-import dev.vimivo.ui.theme.VimivoRadius
 import dev.vimivo.ui.theme.VimivoSpacing
+import dev.vimivo.ui.theme.resolveGlassTokens
 
 /**
  * Lightweight Aurora Glass material. It deliberately avoids live backdrop blur so scrolling and
@@ -49,42 +49,22 @@ fun VimivoGlassSurface(
 ) {
     val reducedTransparency = LocalReducedTransparency.current
     val colors = MaterialTheme.colorScheme
-    val solid = reducedTransparency || variant == VimivoGlassVariant.SOLID_FALLBACK
-    val containerColor = when {
-        solid -> colors.surfaceContainerHigh
-        else -> when (variant) {
-            VimivoGlassVariant.FLOATING_PLAYER -> colors.surfaceContainerHigh.copy(alpha = 0.94f)
-            VimivoGlassVariant.SHEET -> colors.surfaceContainer.copy(alpha = 0.96f)
-            VimivoGlassVariant.CONTROL -> colors.surfaceContainerHighest.copy(alpha = 0.88f)
-            else -> colors.surfaceContainer.copy(alpha = 0.90f)
-        }
+    val tokens = resolveGlassTokens(variant, reducedTransparency)
+    val baseColor = when (variant) {
+        VimivoGlassVariant.FLOATING_PLAYER -> colors.surfaceContainerHigh
+        VimivoGlassVariant.CONTROL -> colors.surfaceContainerHighest
+        else -> colors.surfaceContainer
     }
-    val radius = glassRadius(variant)
-    val elevation = glassElevation(variant)
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(radius),
-        color = containerColor,
+        shape = RoundedCornerShape(tokens.radius),
+        color = if (tokens.opaque) colors.surfaceContainerHigh else baseColor.copy(alpha = tokens.containerAlpha),
         contentColor = colors.onSurface,
-        border = BorderStroke(1.dp, colors.outline.copy(alpha = if (solid) 0.72f else 0.32f)),
-        tonalElevation = elevation,
-        shadowElevation = if (solid) 0.dp else elevation,
+        border = BorderStroke(1.dp, colors.outline.copy(alpha = tokens.borderAlpha)),
+        tonalElevation = tokens.elevation,
+        shadowElevation = tokens.elevation,
         content = content,
     )
-}
-
-private fun glassRadius(variant: VimivoGlassVariant) = when (variant) {
-    VimivoGlassVariant.FLOATING_PLAYER, VimivoGlassVariant.SHEET -> VimivoRadius.xl
-    VimivoGlassVariant.CONTROL -> VimivoRadius.pill
-    VimivoGlassVariant.POPOVER, VimivoGlassVariant.NAVIGATION -> VimivoRadius.lg
-    VimivoGlassVariant.SOLID_FALLBACK -> VimivoRadius.md
-}
-
-private fun glassElevation(variant: VimivoGlassVariant) = when (variant) {
-    VimivoGlassVariant.FLOATING_PLAYER, VimivoGlassVariant.SHEET -> 8.dp
-    VimivoGlassVariant.POPOVER -> 6.dp
-    VimivoGlassVariant.NAVIGATION -> 3.dp
-    else -> 1.dp
 }
 
 @Composable

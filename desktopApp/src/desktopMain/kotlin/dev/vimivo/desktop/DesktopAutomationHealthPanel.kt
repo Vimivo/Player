@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -45,7 +46,7 @@ internal fun DesktopAutomationHealthPanel(
     var selectedAction by remember { mutableStateOf(AutomationActionType.REFRESH_SMART_COLLECTIONS) }
     var dryRunResult by remember { mutableStateOf<DryRunResult?>(null) }
 
-    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Text("Library Health & Automation", style = MaterialTheme.typography.headlineMedium)
             Text(

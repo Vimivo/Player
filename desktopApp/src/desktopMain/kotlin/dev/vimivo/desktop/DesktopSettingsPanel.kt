@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
@@ -52,7 +53,7 @@ internal fun DesktopSettingsPanel(
     updateStatus: String? = null,
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(max = 640.dp).padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {

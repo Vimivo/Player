@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -57,7 +58,7 @@ internal fun DesktopMetadataEditorPanel(
     var year by remember { mutableStateOf("") }
     var statusMessage by remember { mutableStateOf<String?>(null) }
 
-    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -230,7 +231,7 @@ internal fun DesktopBatchRenamePanel(
     var plans by remember { mutableStateOf<List<RenamePlanItem>>(emptyList()) }
     var renameMessage by remember { mutableStateOf<String?>(null) }
 
-    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -311,7 +312,7 @@ internal fun DesktopMissingMediaPanel(
     val missingItems = remember(allItems) { controller.findMissingMedia() }
     var relinkMessage by remember { mutableStateOf<String?>(null) }
 
-    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Text("Missing Media Reconciliation", style = MaterialTheme.typography.headlineMedium)
             Text(

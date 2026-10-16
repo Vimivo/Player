@@ -126,6 +126,8 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Corrected Android Previous/Next glyph semantics and state-aware favorite announcements.
 - Published the truthful redesign, glass, and motion blueprints. No WidgetKit, Android widget, macOS/Windows media-control, visual-regression, or performance-runtime claim is marked complete.
 - Verification: `:shared:desktopTest`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`, and repository `detekt` completed successfully.
+- Consolidated Android onto shared color/typography definitions, added semantic layout and glass component tokens, and migrated the desktop Now Playing surface.
+- Built and launched the macOS distributable, manually captured Home and Dark Settings states, and recorded the result in `AURORA_GLASS_PHASE_1_VERIFICATION.md`; this is not an automated golden-test pass.
 
 On 2026-10-16, these commands completed successfully:
 

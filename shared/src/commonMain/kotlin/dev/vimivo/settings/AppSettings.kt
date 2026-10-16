@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 enum class PreferredEngine { AUTOMATIC, MEDIA3, LIBVLC }
 enum class SubtitleEdgeStyle { NONE, OUTLINE, DROP_SHADOW }
-enum class AccentColor { VIOLET, BLUE, GREEN, ORANGE, PINK }
+enum class AccentColor { AURORA, VIOLET, BLUE, GREEN, ORANGE, PINK }
 enum class ShuffleBehavior { OFF, ON, REMEMBER }
 enum class RepeatBehavior { OFF, ALL, ONE, REMEMBER }
 enum class ResumeBehavior { NEVER, ALWAYS }
@@ -39,7 +39,7 @@ data class AppSettings(
     val preferredEngine: PreferredEngine = PreferredEngine.AUTOMATIC,
     val resumePlayback: Boolean = true,
     val dynamicColor: Boolean = true,
-    val accentColor: AccentColor = AccentColor.VIOLET,
+    val accentColor: AccentColor = AccentColor.AURORA,
     val artworkBasedAccents: Boolean = true,
     val reduceAnimations: Boolean = false,
     val reduceTransparency: Boolean = false,

@@ -45,6 +45,18 @@ object VimivoElevation {
     val level4: Dp = 8.dp
 }
 
+/** Semantic layout aliases built from the primitive spacing scale. */
+object VimivoLayout {
+    val compactScreenPadding: Dp = VimivoSpacing.lg
+    val expandedScreenPadding: Dp = VimivoSpacing.xl
+    val sectionSpacing: Dp = VimivoSpacing.xxl
+    val compactContentGap: Dp = VimivoSpacing.sm
+    val comfortableContentGap: Dp = VimivoSpacing.lg
+    val minimumTouchTarget: Dp = 48.dp
+    val maximumReadingWidth: Dp = 720.dp
+    val maximumContentWidth: Dp = 1_280.dp
+}
+
 /** Shared motion timings. Callers must bypass decorative transitions when [LocalReducedMotion] is true. */
 object VimivoMotion {
     const val instantMillis: Int = 0
@@ -62,6 +74,50 @@ enum class VimivoGlassVariant {
     SHEET,
     POPOVER,
     SOLID_FALLBACK,
+}
+
+/** Component-layer tokens for a glass surface variant. */
+data class VimivoGlassTokens(
+    val containerAlpha: Float,
+    val borderAlpha: Float,
+    val radius: Dp,
+    val elevation: Dp,
+    val opaque: Boolean,
+)
+
+fun resolveGlassTokens(
+    variant: VimivoGlassVariant,
+    reducedTransparency: Boolean,
+): VimivoGlassTokens {
+    val opaque = reducedTransparency || variant == VimivoGlassVariant.SOLID_FALLBACK
+    return VimivoGlassTokens(
+        containerAlpha = if (opaque) 1f else glassContainerAlpha(variant),
+        borderAlpha = if (opaque) 0.72f else 0.32f,
+        radius = glassRadius(variant),
+        elevation = if (opaque) VimivoElevation.level0 else glassElevation(variant),
+        opaque = opaque,
+    )
+}
+
+private fun glassContainerAlpha(variant: VimivoGlassVariant): Float = when (variant) {
+    VimivoGlassVariant.FLOATING_PLAYER -> 0.94f
+    VimivoGlassVariant.SHEET -> 0.96f
+    VimivoGlassVariant.CONTROL -> 0.88f
+    else -> 0.90f
+}
+
+private fun glassRadius(variant: VimivoGlassVariant): Dp = when (variant) {
+    VimivoGlassVariant.FLOATING_PLAYER, VimivoGlassVariant.SHEET -> VimivoRadius.xl
+    VimivoGlassVariant.CONTROL -> VimivoRadius.pill
+    VimivoGlassVariant.POPOVER, VimivoGlassVariant.NAVIGATION -> VimivoRadius.lg
+    VimivoGlassVariant.SOLID_FALLBACK -> VimivoRadius.md
+}
+
+private fun glassElevation(variant: VimivoGlassVariant): Dp = when (variant) {
+    VimivoGlassVariant.FLOATING_PLAYER, VimivoGlassVariant.SHEET -> VimivoElevation.level4
+    VimivoGlassVariant.POPOVER -> VimivoElevation.level3
+    VimivoGlassVariant.NAVIGATION -> VimivoElevation.level2
+    else -> VimivoElevation.level1
 }
 
 object VimivoIconSize {

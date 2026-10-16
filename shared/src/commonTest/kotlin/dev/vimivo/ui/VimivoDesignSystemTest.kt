@@ -5,9 +5,11 @@ import androidx.compose.ui.unit.dp
 import dev.vimivo.ui.theme.VimivoAmoledColorScheme
 import dev.vimivo.ui.theme.VimivoDarkColorScheme
 import dev.vimivo.ui.theme.VimivoElevation
+import dev.vimivo.ui.theme.VimivoGlassVariant
 import dev.vimivo.ui.theme.VimivoHighContrastDarkColorScheme
 import dev.vimivo.ui.theme.VimivoHighContrastLightColorScheme
 import dev.vimivo.ui.theme.VimivoIconSize
+import dev.vimivo.ui.theme.VimivoLayout
 import dev.vimivo.ui.theme.VimivoLightColorScheme
 import dev.vimivo.ui.theme.VimivoMotion
 import dev.vimivo.ui.theme.VimivoRadius
@@ -15,6 +17,7 @@ import dev.vimivo.ui.theme.VimivoSpacing
 import dev.vimivo.ui.theme.WindowSizeClass
 import dev.vimivo.ui.theme.calculateContrastRatio
 import dev.vimivo.ui.theme.calculateRelativeLuminance
+import dev.vimivo.ui.theme.resolveGlassTokens
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -142,6 +145,28 @@ class VimivoDesignSystemTest {
         assertTrue(VimivoMotion.navigationMillis < VimivoMotion.sheetMillis)
         assertTrue(VimivoMotion.sheetMillis < VimivoMotion.playerMillis)
         assertTrue(VimivoMotion.playerMillis <= 400)
+    }
+
+    @Test
+    fun testSemanticLayoutUsesAccessibleTargetsAndBoundedReadingWidth() {
+        assertTrue(VimivoLayout.minimumTouchTarget >= 48.dp)
+        assertTrue(VimivoLayout.maximumReadingWidth < VimivoLayout.maximumContentWidth)
+        assertTrue(VimivoLayout.compactScreenPadding < VimivoLayout.expandedScreenPadding)
+    }
+
+    @Test
+    fun testGlassVariantsHaveBoundedAlphaAndOpaqueFallback() {
+        VimivoGlassVariant.entries.forEach { variant ->
+            val normal = resolveGlassTokens(variant, reducedTransparency = false)
+            assertTrue(normal.containerAlpha in 0.85f..1f)
+            assertTrue(normal.borderAlpha >= 0.3f)
+            assertTrue(normal.radius >= 0.dp)
+
+            val fallback = resolveGlassTokens(variant, reducedTransparency = true)
+            assertTrue(fallback.opaque)
+            assertEquals(1f, fallback.containerAlpha)
+            assertEquals(0.dp, fallback.elevation)
+        }
     }
 
     @Test
