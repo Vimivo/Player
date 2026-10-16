@@ -13,6 +13,7 @@ import dev.vimivo.ui.theme.VimivoIconSize
 import dev.vimivo.ui.theme.VimivoLayout
 import dev.vimivo.ui.theme.VimivoLightColorScheme
 import dev.vimivo.ui.theme.VimivoMotion
+import dev.vimivo.ui.theme.VimivoPlayer
 import dev.vimivo.ui.theme.VimivoRadius
 import dev.vimivo.ui.theme.VimivoShell
 import dev.vimivo.ui.theme.VimivoSpacing
@@ -25,6 +26,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class VimivoDesignSystemTest {
+
+    @Test
+    fun playerControlsMeetAccessibleSizingAndBoundedViewportRules() {
+        assertTrue(VimivoPlayer.transportButton >= 48.dp)
+        assertTrue(VimivoPlayer.primaryTransportButton >= VimivoPlayer.transportButton)
+        assertTrue(VimivoPlayer.lyricsViewport <= 320.dp)
+    }
 
     @Test
     fun shellBreakpointsSelectMobileTabletAndSplitLayouts() {

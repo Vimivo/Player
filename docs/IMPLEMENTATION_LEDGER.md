@@ -136,6 +136,12 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Desktop now provides a collapsible navigation sidebar plus real search, list/grid, sort, and queue toolbar actions while preserving native application menus.
 - Built and launched the macOS distributable and manually inspected expanded/collapsed navigation and queue-toggle states. See `AURORA_GLASS_PHASE_2_VERIFICATION.md`; automated golden tests were not run.
 
+### Premium audio player Phase 3 checkpoint (2026-10-16)
+
+- Redesigned Android Now Playing, floating mini-player, queue, and local LRC lyrics around the existing Media3 session and `PlaybackViewModel`.
+- Added real volume, shuffle, repeat, favorite, queue, playback settings, cached local artwork ambience, stable queue identities, and reduced-motion-aware lyrics scrolling.
+- Added bounded player component tokens and tests. See `PREMIUM_AUDIO_PLAYER_PHASE_3.md` for verification scope and device limitations.
+
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)

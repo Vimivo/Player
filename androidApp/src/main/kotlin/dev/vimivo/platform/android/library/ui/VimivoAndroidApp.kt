@@ -47,8 +47,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -72,6 +74,7 @@ import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Search
@@ -82,6 +85,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -119,9 +123,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -149,6 +155,7 @@ import dev.vimivo.platform.android.network.StreamPlaybackStatus
 import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.platform.android.playback.PlaybackUiState
 import dev.vimivo.platform.android.playback.PlaybackViewModel
+import dev.vimivo.platform.android.playback.LyricsDocument
 import dev.vimivo.platform.android.settings.SettingsViewModel
 import dev.vimivo.platform.android.ui.components.BottomSheet
 import dev.vimivo.platform.android.ui.components.EmptyState
@@ -170,6 +177,7 @@ import dev.vimivo.ui.components.VimivoGlassSurface
 import dev.vimivo.ui.theme.ShellNavigationMode
 import dev.vimivo.ui.theme.VimivoGlassVariant
 import dev.vimivo.ui.theme.VimivoShell
+import dev.vimivo.ui.theme.VimivoPlayer
 import org.koin.compose.viewmodel.koinViewModel
 
 private enum class AppDestination(val label: String, val icon: ImageVector) {
@@ -299,6 +307,7 @@ private fun AppShell(
                                     else nowPlayingVisible = true
                                 },
                                 onToggle = playbackViewModel::togglePlayback,
+                                onNext = playbackViewModel::next,
                             )
                         }
                         if (!useRail) nav()
@@ -340,11 +349,11 @@ private fun AppShell(
                     variant = VimivoGlassVariant.SHEET,
                     modifier = Modifier.width(VimivoShell.desktopQueueWidth).fillMaxHeight().padding(8.dp),
                 ) {
-                    QueueContent(player, playbackViewModel, Modifier.fillMaxSize())
+                    QueueContent(player, playbackViewModel, thumbnails, Modifier.fillMaxSize())
                 }
             }
         }
-        if (!useSplitQueue && queueVisible) QueueSheet(player, playbackViewModel) { queueVisible = false }
+        if (!useSplitQueue && queueVisible) QueueSheet(player, playbackViewModel, thumbnails) { queueVisible = false }
     }
     if (nowPlayingVisible) NowPlayingSheet(
         player,
@@ -1503,60 +1512,60 @@ private fun NowPlayingSheet(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        val ambient = artworkAccent?.let(::Color) ?: MaterialTheme.colorScheme.primary
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        val current = player.current
-        Column(
-            Modifier.fillMaxWidth()
-                .background(artworkAccent?.let { Color(it).copy(alpha = 0.16f) } ?: Color.Transparent)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(onDismiss) { Icon(Icons.Outlined.Close, "Close player") }
-            }
-            if (current != null) {
-                val media = current.toDomain()
-                if (media.kind == MediaKind.VIDEO && controller != null) {
-                    AndroidView(
-                        factory = { PlayerView(it).apply { this.player = controller } },
-                        update = { it.player = controller },
-                        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).padding(vertical = 12.dp),
-                    )
-                } else {
-                    MediaArtwork(media, thumbnails, Modifier.fillMaxWidth().aspectRatio(1f).padding(vertical = 20.dp))
-                }
-                Text(current.mediaMetadata.title?.toString() ?: current.mediaId, style = MaterialTheme.typography.headlineMedium, maxLines = 1)
-                Text(current.mediaMetadata.artist?.toString() ?: "Unknown artist", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                current.mediaMetadata.albumTitle?.let { Text(it.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                if (visualizerEnabled && media.kind == MediaKind.AUDIO) {
-                    PlaybackActivityVisualizer(player.positionMillis, player.isPlaying)
-                }
-                player.lyrics?.let { lyrics ->
-                    val center = player.currentLyricIndex.coerceAtLeast(0)
-                    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        lyrics.lines.subList((center - 2).coerceAtLeast(0), (center + 3).coerceAtMost(lyrics.lines.size)).forEachIndexed { offset, line ->
-                            val actual = (center - 2).coerceAtLeast(0) + offset
-                            Text(
-                                line.text,
-                                color = if (actual == player.currentLyricIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = if (actual == player.currentLyricIndex) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.clickable(enabled = line.timeMillis != null) { line.timeMillis?.let(viewModel::seekTo) }.padding(4.dp),
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        listOf(ambient.copy(alpha = 0.30f), MaterialTheme.colorScheme.background.copy(alpha = 0.96f), MaterialTheme.colorScheme.background),
+                    ),
+                ),
+            ) {
+                val current = player.current
+                Column(
+                    Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Now Playing", style = MaterialTheme.typography.titleMedium)
+                        IconButton(onDismiss) { Icon(Icons.Outlined.Close, "Close player") }
+                    }
+                    if (current != null) {
+                        val media = current.toDomain()
+                        if (media.kind == MediaKind.VIDEO && controller != null) {
+                            AndroidView(
+                                factory = { PlayerView(it).apply { this.player = controller } },
+                                update = { it.player = controller },
+                                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).padding(vertical = 12.dp),
                             )
+                        } else {
+                            MediaArtwork(media, thumbnails, Modifier.fillMaxWidth().widthIn(max = VimivoPlayer.artworkMaximum).aspectRatio(1f).padding(vertical = 20.dp))
+                        }
+                        Text(current.mediaMetadata.title?.toString() ?: current.mediaId, style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(current.mediaMetadata.artist?.toString() ?: "Unknown artist", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        current.mediaMetadata.albumTitle?.let { Text(it.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        if (visualizerEnabled && media.kind == MediaKind.AUDIO) PlaybackActivityVisualizer(player.positionMillis, player.isPlaying)
+                        player.lyrics?.let { lyrics ->
+                            PlayerLyrics(lyrics, player.currentLyricIndex, viewModel::seekTo)
+                        }
+                        player.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
+                        VimivoGlassSurface(VimivoGlassVariant.CONTROL, Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                                PlayerControls(player.isPlaying, player.positionMillis, player.durationMillis, viewModel::previous, viewModel::togglePlayback, viewModel::next, viewModel::seekTo)
+                                Text("Volume ${(player.volume * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
+                                Slider(player.volume, viewModel::setVolume, valueRange = 0f..1f, modifier = Modifier.semantics { contentDescription = "Playback volume" })
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                    IconButton(viewModel::toggleShuffle) { Icon(Icons.Outlined.Shuffle, if (player.shuffleEnabled) "Disable shuffle" else "Enable shuffle", tint = if (player.shuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
+                                    IconButton(viewModel::cycleRepeat) { Icon(Icons.Outlined.Repeat, "Repeat mode ${repeatModeLabel(player.repeatMode)}", tint = if (player.repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
+                                    IconButton(openQueue) { Icon(Icons.AutoMirrored.Outlined.QueueMusic, "Open queue") }
+                                    IconButton(viewModel::toggleFavorite) { Icon(Icons.Outlined.Favorite, if (player.isFavorite) "Remove favorite" else "Add favorite", tint = if (player.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
+                                    IconButton({ settingsVisible = true }) { Icon(Icons.Outlined.MoreVert, "Playback settings") }
+                                }
+                            }
                         }
                     }
                 }
-                player.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
-                PlayerControls(player.isPlaying, player.positionMillis, player.durationMillis, viewModel::previous, viewModel::togglePlayback, viewModel::next, viewModel::seekTo)
-                Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                    IconButton(viewModel::toggleShuffle) { Icon(Icons.Outlined.Shuffle, "Shuffle", tint = if (player.shuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
-                    IconButton(viewModel::cycleRepeat) { Icon(Icons.Outlined.Repeat, "Repeat mode") }
-                    IconButton(openQueue) { Icon(Icons.AutoMirrored.Outlined.QueueMusic, "Open queue") }
-                    IconButton(viewModel::toggleFavorite) { Icon(Icons.Outlined.Favorite, if (player.isFavorite) "Remove favorite" else "Favorite", tint = if (player.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
-                    IconButton({ settingsVisible = true }) { Icon(Icons.Outlined.MoreVert, "Playback settings") }
-                }
             }
-        }
         }
     }
     else {
@@ -1616,9 +1625,58 @@ private fun NowPlayingSheet(
 }
 
 @Composable
-private fun QueueSheet(player: PlaybackUiState, viewModel: PlaybackViewModel, onDismiss: () -> Unit) {
+private fun PlayerLyrics(
+    lyrics: LyricsDocument,
+    currentIndex: Int,
+    onSeek: (Long) -> Unit,
+) {
+    val listState = rememberLazyListState()
+    val reducedMotion = LocalReducedMotion.current
+    LaunchedEffect(currentIndex, lyrics.lines.size) {
+        if (currentIndex >= 0 && lyrics.lines.isNotEmpty()) {
+            val target = (currentIndex - 2).coerceAtLeast(0)
+            if (reducedMotion) listState.scrollToItem(target) else listState.animateScrollToItem(target)
+        }
+    }
+    VimivoGlassSurface(VimivoGlassVariant.SHEET, Modifier.fillMaxWidth().padding(top = 16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text("Lyrics", style = MaterialTheme.typography.titleLarge)
+            Text(if (lyrics.synchronized) "Synchronized local LRC" else "Local lyrics", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxWidth().height(VimivoPlayer.lyricsViewport).padding(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(lyrics.lines.size, key = { index -> "${lyrics.lines[index].timeMillis ?: -1}:$index" }) { index ->
+                    val line = lyrics.lines[index]
+                    val active = index == currentIndex
+                    Text(
+                        text = line.text.ifBlank { " " },
+                        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = if (active) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.fillMaxWidth().clickable(enabled = line.timeMillis != null) { line.timeMillis?.let(onSeek) }.padding(vertical = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun repeatModeLabel(mode: Int): String = when (mode) {
+    Player.REPEAT_MODE_ONE -> "one"
+    Player.REPEAT_MODE_ALL -> "all"
+    else -> "off"
+}
+
+@Composable
+private fun QueueSheet(
+    player: PlaybackUiState,
+    viewModel: PlaybackViewModel,
+    thumbnails: AndroidThumbnailRepository,
+    onDismiss: () -> Unit,
+) {
     BottomSheet(onDismiss) {
-        QueueContent(player, viewModel)
+        QueueContent(player, viewModel, thumbnails)
     }
 }
 
@@ -1626,19 +1684,39 @@ private fun QueueSheet(player: PlaybackUiState, viewModel: PlaybackViewModel, on
 private fun QueueContent(
     player: PlaybackUiState,
     viewModel: PlaybackViewModel,
+    thumbnails: AndroidThumbnailRepository,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier.fillMaxWidth().heightIn(max = 720.dp)) {
-        item { Text("Up next", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp)) }
+        item {
+            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Queue", style = MaterialTheme.typography.headlineMedium)
+                player.current?.let { current ->
+                    VimivoGlassSurface(VimivoGlassVariant.FLOATING_PLAYER, Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            MediaArtwork(current.toDomain(), thumbnails, Modifier.size(VimivoPlayer.queueArtwork))
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                                Text(current.mediaMetadata.title?.toString() ?: current.mediaId, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("Now playing", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
+                }
+                Text("Playing Next", style = MaterialTheme.typography.titleLarge)
+            }
+        }
         if (player.queue.isEmpty()) {
             item { Text("Your queue is empty.", modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
         }
         player.queue.forEachIndexed { index, item ->
-            item(key = item.mediaId + index) {
+            item(key = queueOccurrenceKey(player.queue, index)) {
                 ListItem(
                     modifier = Modifier.clickable { viewModel.playQueueIndex(index) },
+                    leadingContent = { MediaArtwork(item.toDomain(), thumbnails, Modifier.size(VimivoPlayer.queueArtwork)) },
                     headlineContent = { Text(item.mediaMetadata.title?.toString() ?: item.mediaId, maxLines = 1) },
-                    supportingContent = { if (index == player.currentIndex) Text("Playing now", color = MaterialTheme.colorScheme.primary) },
+                    supportingContent = {
+                        Text(if (index == player.currentIndex) "Playing now" else item.mediaMetadata.artist?.toString() ?: "Queued", color = if (index == player.currentIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
                     trailingContent = {
                         Row {
                             IconButton({ if (index > 0) viewModel.moveQueueItem(index, index - 1) }, enabled = index > 0) { Icon(Icons.Outlined.ArrowUpward, "Move up") }
@@ -1649,7 +1727,24 @@ private fun QueueContent(
                 )
             }
         }
+        item {
+            VimivoGlassSurface(VimivoGlassVariant.CONTROL, Modifier.fillMaxWidth().padding(12.dp)) {
+                Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(viewModel::previous) { Icon(Icons.Outlined.SkipPrevious, "Previous track") }
+                    IconButton(viewModel::togglePlayback, Modifier.size(VimivoPlayer.primaryTransportButton)) {
+                        Icon(if (player.isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (player.isPlaying) "Pause" else "Play")
+                    }
+                    IconButton(viewModel::next) { Icon(Icons.Outlined.SkipNext, "Next track") }
+                }
+            }
+        }
     }
+}
+
+private fun queueOccurrenceKey(queue: List<androidx.media3.common.MediaItem>, index: Int): String {
+    val id = queue[index].mediaId
+    val occurrence = queue.take(index + 1).count { it.mediaId == id }
+    return "$id#$occurrence"
 }
 
 internal fun androidx.media3.common.MediaItem.toDomain() = MediaItem(

@@ -83,6 +83,7 @@ import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.ui.theme.LocalReducedMotion
 import dev.vimivo.ui.components.VimivoGlassSurface
 import dev.vimivo.ui.theme.VimivoGlassVariant
+import dev.vimivo.ui.theme.VimivoPlayer
 
 @Composable
 fun MediaArtwork(
@@ -196,6 +197,7 @@ fun PlayerControls(
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
 ) {
+    val reducedMotion = LocalReducedMotion.current
     Column {
         Slider(
             value = position.coerceAtMost(duration).toFloat(),
@@ -209,22 +211,32 @@ fun PlayerControls(
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(formatTime(position), style = MaterialTheme.typography.labelSmall)
-            Text(formatTime(duration), style = MaterialTheme.typography.labelSmall)
+            Text("-${formatTime((duration - position).coerceAtLeast(0))}", style = MaterialTheme.typography.labelSmall)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPrevious) { Icon(Icons.Outlined.SkipPrevious, "Previous track") }
-            IconButton(onClick = onToggle, Modifier.size(64.dp)) {
-                AnimatedContent(isPlaying, label = "play pause") { playing ->
+            IconButton(onClick = onPrevious, Modifier.size(VimivoPlayer.transportButton)) { Icon(Icons.Outlined.SkipPrevious, "Previous track") }
+            IconButton(onClick = onToggle, Modifier.size(VimivoPlayer.primaryTransportButton)) {
+                if (reducedMotion) {
+                    Icon(if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (isPlaying) "Pause" else "Play", Modifier.size(42.dp))
+                } else AnimatedContent(isPlaying, label = "play pause") { playing ->
                     Icon(if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (playing) "Pause" else "Play", Modifier.size(42.dp))
                 }
             }
-            IconButton(onClick = onNext) { Icon(Icons.Outlined.SkipNext, "Next track") }
+            IconButton(onClick = onNext, Modifier.size(VimivoPlayer.transportButton)) { Icon(Icons.Outlined.SkipNext, "Next track") }
         }
     }
 }
 
 @Composable
-fun MiniPlayer(media: MediaItem, thumbnails: AndroidThumbnailRepository, isPlaying: Boolean, progress: Float, onOpen: () -> Unit, onToggle: () -> Unit) {
+fun MiniPlayer(
+    media: MediaItem,
+    thumbnails: AndroidThumbnailRepository,
+    isPlaying: Boolean,
+    progress: Float,
+    onOpen: () -> Unit,
+    onToggle: () -> Unit,
+    onNext: () -> Unit,
+) {
     val reducedMotion = LocalReducedMotion.current
     val animatedProgress by animateFloatAsState(
         progress.coerceIn(0f, 1f),
@@ -237,13 +249,14 @@ fun MiniPlayer(media: MediaItem, thumbnails: AndroidThumbnailRepository, isPlayi
     ) {
         Column {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                MediaArtwork(media, thumbnails, Modifier.size(44.dp))
+                MediaArtwork(media, thumbnails, Modifier.size(VimivoPlayer.compactArtwork))
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(media.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                     Text(media.artist ?: "Unknown artist", maxLines = 1, style = MaterialTheme.typography.bodySmall)
                 }
                 IconButton(onClick = onToggle) { Icon(if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (isPlaying) "Pause" else "Play") }
+                IconButton(onClick = onNext) { Icon(Icons.Outlined.SkipNext, "Next track") }
             }
             Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
                 Box(Modifier.fillMaxWidth(animatedProgress).height(2.dp).background(MaterialTheme.colorScheme.primary))

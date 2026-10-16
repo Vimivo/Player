@@ -80,6 +80,16 @@ enum class ShellNavigationMode {
     RAIL_WITH_SPLIT_VIEW,
 }
 
+/** Component-layer measurements for the immersive audio player. */
+object VimivoPlayer {
+    val compactArtwork: Dp = 48.dp
+    val queueArtwork: Dp = 52.dp
+    val transportButton: Dp = 48.dp
+    val primaryTransportButton: Dp = 72.dp
+    val lyricsViewport: Dp = 280.dp
+    val artworkMaximum: Dp = 520.dp
+}
+
 /** Shared motion timings. Callers must bypass decorative transitions when [LocalReducedMotion] is true. */
 object VimivoMotion {
     const val instantMillis: Int = 0
