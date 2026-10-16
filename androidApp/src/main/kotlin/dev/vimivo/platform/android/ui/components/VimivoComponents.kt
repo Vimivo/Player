@@ -29,7 +29,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Album
@@ -294,7 +296,19 @@ fun SearchBar(value: String, onValueChange: (String) -> Unit, onClose: (() -> Un
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BottomSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, content = { Column(Modifier.padding(bottom = 24.dp)) { content() } })
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        content = {
+            Column(
+                Modifier.fillMaxWidth()
+                    .heightIn(max = 720.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 32.dp),
+            ) {
+                content()
+            }
+        },
+    )
 }
 
 @Composable

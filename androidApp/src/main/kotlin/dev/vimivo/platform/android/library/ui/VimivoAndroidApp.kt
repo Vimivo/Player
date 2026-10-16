@@ -120,6 +120,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -1001,7 +1002,13 @@ private fun WebDavLocationDialog(
                 OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
                 OutlinedTextField(endpoint, { endpoint = it }, label = { Text("HTTPS URL") }, singleLine = true)
                 OutlinedTextField(username, { username = it }, label = { Text("Username (optional)") }, singleLine = true)
-                OutlinedTextField(password, { password = it }, label = { Text("Password") }, singleLine = true)
+                OutlinedTextField(
+                    password,
+                    { password = it },
+                    label = { Text("Password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                )
             }
         },
         confirmButton = { Button({ onSave(name, endpoint, username.takeIf { it.isNotBlank() }, password.takeIf { it.isNotEmpty() }?.toCharArray()) }, enabled = endpoint.isNotBlank()) { Text("Save") } },
@@ -1558,7 +1565,7 @@ private fun QueueSheet(player: PlaybackUiState, viewModel: PlaybackViewModel, on
                     Row {
                         IconButton({ if (index > 0) viewModel.moveQueueItem(index, index - 1) }, enabled = index > 0) { Icon(Icons.Outlined.ArrowUpward, "Move up") }
                         IconButton({ if (index < player.queue.lastIndex) viewModel.moveQueueItem(index, index + 1) }, enabled = index < player.queue.lastIndex) { Icon(Icons.Outlined.ArrowDownward, "Move down") }
-                        IconButton({ viewModel.removeQueueItem(index) }) { Icon(Icons.Outlined.MoreVert, "Remove from queue") }
+                        IconButton({ viewModel.removeQueueItem(index) }) { Icon(Icons.Outlined.Delete, "Remove from queue") }
                     }
                 },
             )
