@@ -88,14 +88,27 @@ class VimivoPlaybackService : MediaLibraryService() {
         }
         serviceScope.launch {
             var lastSavedAt = 0L
+            var lastWidgetUpdateAt = 0L
+            var lastWidgetFingerprint: Pair<String?, PlaybackStatus>? = null
             engineManager.state.collect { state ->
                 diagnostics.publish(state)
+                val now = SystemClock.elapsedRealtime()
+                val widgetFingerprint = state.media?.id?.value to state.status
+                val progressRefreshDue = state.status == PlaybackStatus.Playing &&
+                    now - lastWidgetUpdateAt >= WIDGET_PROGRESS_INTERVAL_MILLIS
+                if (
+                    widgetFingerprint != lastWidgetFingerprint ||
+                    progressRefreshDue
+                ) {
+                    VimivoPlaybackWidget.requestUpdate(this@VimivoPlaybackService)
+                    lastWidgetFingerprint = widgetFingerprint
+                    lastWidgetUpdateAt = now
+                }
                 val media = state.media ?: return@collect
                 val completed = state.status == PlaybackStatus.Completed
                 if (!completed && state.status != PlaybackStatus.Playing && state.status != PlaybackStatus.Paused) {
                     return@collect
                 }
-                val now = SystemClock.elapsedRealtime()
                 if (completed || now - lastSavedAt >= HISTORY_SAVE_INTERVAL_MILLIS) {
                     mediaRepository.recordPlayback(media.id, state.positionMillis, completed)
                     lastSavedAt = now
@@ -182,6 +195,7 @@ class VimivoPlaybackService : MediaLibraryService() {
         const val AUDIO_ID = "audio"
         const val VIDEO_ID = "video"
         const val HISTORY_SAVE_INTERVAL_MILLIS = 5_000L
+        const val WIDGET_PROGRESS_INTERVAL_MILLIS = 30_000L
 
         fun folder(id: String, title: String) = MediaItem.Builder()
             .setMediaId(id)

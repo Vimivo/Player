@@ -167,6 +167,12 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Removed the macOS native bridge's avoidable `xcrun` dependency by selecting the executable Command Line Tools compiler directly; documented remaining OpenGL and native-host risks.
 - Published prioritized P0/P1/P2 gaps and a truthful NO-GO for “all platforms/all features complete.” See `FINAL_PREMIUM_AUDIT_PHASE_7.md`.
 
+### Android widget synchronization follow-up (2026-10-16)
+
+- Added real bounded progress to the RemoteViews playback widget and service-driven refresh on media/status changes.
+- While playing, progress refresh is capped at 30 seconds and piggybacks on the authoritative engine state stream; no polling worker, second player, or always-on process was added.
+- Added JVM coverage for unknown, partial, and over-duration progress values.
+
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)

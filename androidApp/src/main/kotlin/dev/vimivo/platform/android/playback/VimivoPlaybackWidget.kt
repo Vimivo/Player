@@ -52,6 +52,12 @@ class VimivoPlaybackWidget : AppWidgetProvider() {
                         R.id.widget_play_pause,
                         context.getString(if (controller.isPlaying) R.string.pause else R.string.play),
                     )
+                    setProgressBar(
+                        R.id.widget_progress,
+                        WIDGET_PROGRESS_MAX,
+                        widgetProgress(controller.currentPosition, controller.duration),
+                        controller.duration <= 0,
+                    )
                     setOnClickPendingIntent(R.id.widget_previous, actionIntent(context, ACTION_PREVIOUS))
                     setOnClickPendingIntent(R.id.widget_play_pause, actionIntent(context, ACTION_PLAY_PAUSE))
                     setOnClickPendingIntent(R.id.widget_next, actionIntent(context, ACTION_NEXT))
@@ -96,10 +102,28 @@ class VimivoPlaybackWidget : AppWidgetProvider() {
         )
     }
 
-    private companion object {
+    companion object {
+        private const val WIDGET_PROGRESS_MAX = 1_000
         const val ACTION_PLAY_PAUSE = "dev.vimivo.widget.PLAY_PAUSE"
         const val ACTION_NEXT = "dev.vimivo.widget.NEXT"
         const val ACTION_PREVIOUS = "dev.vimivo.widget.PREVIOUS"
         val widgetActions = setOf(ACTION_PLAY_PAUSE, ACTION_NEXT, ACTION_PREVIOUS)
+
+        fun requestUpdate(context: Context) {
+            val manager = AppWidgetManager.getInstance(context)
+            val component = ComponentName(context, VimivoPlaybackWidget::class.java)
+            val ids = manager.getAppWidgetIds(component)
+            if (ids.isEmpty()) return
+            context.sendBroadcast(
+                Intent(context, VimivoPlaybackWidget::class.java)
+                    .setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids),
+            )
+        }
     }
+}
+
+internal fun widgetProgress(positionMillis: Long, durationMillis: Long): Int {
+    if (positionMillis <= 0 || durationMillis <= 0) return 0
+    return ((positionMillis.coerceAtMost(durationMillis) * 1_000L) / durationMillis).toInt()
 }

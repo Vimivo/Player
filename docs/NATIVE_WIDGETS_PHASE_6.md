@@ -18,8 +18,11 @@ Date: 2026-10-16
   text, Previous, Play/Pause, and Next.
 - Every action builds a short-lived Media3 `MediaController` from the existing service `SessionToken`, sends the
   command to that session, and releases the controller. It never owns a player or exposes a source URL.
-- The widget declares no periodic polling and no overlay permission. System notification and lock-screen controls
-  remain provided by Media3.
+- The widget displays a bounded playback-progress snapshot. The authoritative service requests refreshes on track or
+  playback-state changes and at most every 30 seconds while playing, reusing its existing state stream rather than
+  starting a timer or background player.
+- The widget declares no platform periodic polling and no overlay permission. System notification and lock-screen
+  controls remain provided by Media3.
 
 ## Apple platform boundaries
 
