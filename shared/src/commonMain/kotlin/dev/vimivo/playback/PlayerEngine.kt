@@ -133,6 +133,9 @@ enum class PlaybackErrorCode {
     ACCESS_DENIED,
     NETWORK,
     UNSUPPORTED_CONTAINER,
+    UNSUPPORTED_CODEC,
+    UNSUPPORTED_PROFILE,
+    HARDWARE_ACCELERATION_FAILED,
     DECODER_INITIALIZATION,
     DECODING_FAILED,
     ENGINE_INITIALIZATION,
@@ -222,6 +225,10 @@ interface PlayerEngine : AutoCloseable {
     fun getAudioOutputDevices(): List<AudioOutputDevice> = emptyList()
     fun selectAudioOutputDevice(deviceId: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("Audio output selection is not supported"))
+    fun setHardwareAccelerationMode(mode: HardwareAccelerationMode): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Hardware acceleration control is not supported"))
+    fun getDiagnosticsSnapshot(): PlaybackDiagnosticsSnapshot? = null
+    fun seekTo(positionMillis: Long, exact: Boolean): Result<Unit> = seekTo(positionMillis)
     override fun close()
 }
 

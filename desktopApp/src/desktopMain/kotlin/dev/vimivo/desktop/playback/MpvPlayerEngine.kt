@@ -25,9 +25,12 @@ import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.AudioOutputDevice
 import dev.vimivo.playback.ChapterInfo
+import dev.vimivo.playback.ColorTransfer
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
+import dev.vimivo.playback.HardwareAccelerationMode
+import dev.vimivo.playback.PlaybackDiagnosticsSnapshot
 import dev.vimivo.playback.PlaybackError
 import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackMetadata
@@ -71,6 +74,8 @@ class MpvPlayerEngine : PlayerEngine {
     private var polling: Job? = null
     private var renderer: DesktopVideoRenderer? = null
     private var videoSurface: Canvas? = null
+    private var hwdecMode: HardwareAccelerationMode = HardwareAccelerationMode.AUTO
+    private var attemptedSoftwareFallback = false
     private var closed = false
 
     override val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
@@ -107,9 +112,12 @@ class MpvPlayerEngine : PlayerEngine {
     override fun play() = action { setProperty("pause", "no") }
     override fun pause() = action { setProperty("pause", "yes") }
     override fun stop() = action { command("stop") }
-    override fun seekTo(positionMillis: Long) = action {
+    override fun seekTo(positionMillis: Long): Result<Unit> = seekTo(positionMillis, exact = true)
+
+    override fun seekTo(positionMillis: Long, exact: Boolean): Result<Unit> = action {
         require(positionMillis >= 0)
-        command("seek", (positionMillis / 1_000.0).toString(), "absolute+exact")
+        val mode = if (exact) "absolute+exact" else "absolute+keyframes"
+        command("seek", (positionMillis / 1_000.0).toString(), mode)
     }
     override fun setPlaybackSpeed(speed: Float) = action {
         require(speed in capabilities.supportedSpeedRange)
@@ -210,6 +218,78 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("audio-device", deviceId)
     }
 
+    override fun setHardwareAccelerationMode(mode: HardwareAccelerationMode): Result<Unit> = action {
+        hwdecMode = mode
+        val hwdecValue = when (mode) {
+            HardwareAccelerationMode.AUTO -> "auto-safe"
+            HardwareAccelerationMode.SOFTWARE -> "no"
+            HardwareAccelerationMode.HARDWARE_PREFERRED -> when (desktopPlatform) {
+                DesktopPlatform.MACOS -> "videotoolbox"
+                DesktopPlatform.WINDOWS -> "d3d11va"
+                DesktopPlatform.LINUX -> "vaapi"
+                DesktopPlatform.UNKNOWN -> "auto"
+            }
+        }
+        setProperty("hwdec", hwdecValue)
+    }
+
+    fun attemptSoftwareDecoderFallback(): Result<Unit> = runCatching {
+        check(!closed && context != null) { "Cannot fallback on closed player" }
+        val media = mutableState.value.media ?: return@runCatching
+        val resumePosition = mutableState.value.positionMillis
+        attemptedSoftwareFallback = true
+        hwdecMode = HardwareAccelerationMode.SOFTWARE
+        setProperty("hwdec", "no")
+        command("loadfile", media.uri, "replace")
+        if (resumePosition > 0) {
+            command("seek", (resumePosition / 1_000.0).toString(), "absolute+exact")
+        }
+        setProperty("pause", "no")
+    }
+
+    override fun getDiagnosticsSnapshot(): PlaybackDiagnosticsSnapshot? {
+        if (context == null || closed) return null
+        val mediaUri = mutableState.value.media?.uri ?: return null
+        val vCodec = stringProperty("video-codec") ?: stringProperty("video-format")
+        val aCodec = stringProperty("audio-codec") ?: stringProperty("audio-format")
+        val activeHwdec = stringProperty("hwdec-current")
+        val isHwdecActive = flagProperty("hwdec-active") ?: (activeHwdec != null && activeHwdec != "no")
+        val activeRenderer = stringProperty("current-vo")
+            ?: if (desktopPlatform == DesktopPlatform.MACOS) "libmpv/cocoa" else "gpu"
+        val dropped = longProperty("drop-frame-count") ?: longProperty("vo-delayed-frame-count") ?: 0L
+        val totalFrames = longProperty("estimated-frame-count") ?: 0L
+        val avDriftSec = doubleProperty("avsync") ?: 0.0
+        val fps = doubleProperty("container-fps")?.toFloat() ?: 0f
+        val cacheBytes = longProperty("demuxer-cache-state/cache-used")
+            ?: longProperty("demuxer-cache-state/bytes") ?: 0L
+        val colormatrix = stringProperty("colormatrix")
+        val colorTransfer = when {
+            colormatrix?.contains("2084") == true || colormatrix?.contains("pq") == true -> ColorTransfer.HDR10_PQ
+            colormatrix?.contains("hlg") == true || colormatrix?.contains("arib") == true -> ColorTransfer.HLG
+            colormatrix?.contains("bt.709") == true || colormatrix?.contains("709") == true -> ColorTransfer.SDR_BT709
+            else -> ColorTransfer.UNKNOWN
+        }
+
+        return PlaybackDiagnosticsSnapshot(
+            engineId = id,
+            mediaUri = mediaUri,
+            activeVideoCodec = vCodec,
+            activeAudioCodec = aCodec,
+            activeDecoder = if (isHwdecActive) "hw:$activeHwdec" else (stringProperty("video-dec") ?: "sw:$vCodec"),
+            hwdecActive = isHwdecActive,
+            hwdecMode = activeHwdec ?: hwdecMode.name.lowercase(),
+            activeRenderer = activeRenderer,
+            droppedFrames = dropped,
+            totalFrames = totalFrames,
+            avDriftMillis = avDriftSec * 1000.0,
+            estimatedFps = fps,
+            cacheBufferBytes = cacheBytes,
+            colorTransfer = colorTransfer,
+            positionMillis = mutableState.value.positionMillis,
+            durationMillis = mutableState.value.durationMillis,
+        )
+    }
+
     /** Finds sibling subtitles only for file URIs the user has already opened. */
     fun detectAssociatedSubtitles(media: MediaItem): List<ExternalSubtitle> = runCatching {
         val mediaFile = File(URI(media.uri))
@@ -245,6 +325,19 @@ class MpvPlayerEngine : PlayerEngine {
         checkCode(loaded.mpv_set_option_string(created, "terminal", "no"))
         val vo = if (desktopPlatform == DesktopPlatform.MACOS) "libmpv" else "gpu"
         checkCode(loaded.mpv_set_option_string(created, "vo", vo))
+        val initialHwdec = when (hwdecMode) {
+            HardwareAccelerationMode.AUTO -> "auto-safe"
+            HardwareAccelerationMode.SOFTWARE -> "no"
+            HardwareAccelerationMode.HARDWARE_PREFERRED -> when (desktopPlatform) {
+                DesktopPlatform.MACOS -> "videotoolbox"
+                DesktopPlatform.WINDOWS -> "d3d11va"
+                DesktopPlatform.LINUX -> "vaapi"
+                DesktopPlatform.UNKNOWN -> "auto"
+            }
+        }
+        loaded.mpv_set_option_string(created, "hwdec", initialHwdec)
+        loaded.mpv_set_option_string(created, "demuxer-max-bytes", "33554432")
+        loaded.mpv_set_option_string(created, "demuxer-readahead-secs", "5.0")
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
         checkCode(loaded.mpv_set_option_string(created, "gapless-audio", "yes"))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
@@ -313,6 +406,13 @@ class MpvPlayerEngine : PlayerEngine {
         return try { value.getString(0) } finally { checkNotNull(native).mpv_free(value) }
     }
 
+    private fun longProperty(name: String): Long? {
+        val memory = Memory(Long.SIZE_BYTES.toLong())
+        return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_INT64, memory) >= 0) {
+            memory.getLong(0)
+        } else null
+    }
+
     private fun tracks(type: TrackType): List<TrackInfo> {
         val count = stringProperty("track-list/count")?.toIntOrNull() ?: return emptyList()
         val selected = stringProperty(when (type) {
@@ -375,6 +475,7 @@ class MpvPlayerEngine : PlayerEngine {
 
     companion object {
         private const val MPV_FORMAT_FLAG = 3
+        private const val MPV_FORMAT_INT64 = 4
         private const val MPV_FORMAT_DOUBLE = 5
         private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "webvtt")
         private val SUPPORTED_SCHEMES = setOf("file", "http", "https", "rtsp", "rtsps")

@@ -17,10 +17,13 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
-import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.AudioEnhancementSettings
+import dev.vimivo.playback.ColorTransfer
+import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
+import dev.vimivo.playback.HardwareAccelerationMode
+import dev.vimivo.playback.PlaybackDiagnosticsSnapshot
 import dev.vimivo.playback.PlaybackError
 import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackMetadata
@@ -98,9 +101,46 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
     override fun play(): Result<Unit> = command { player.play() }
     override fun pause(): Result<Unit> = command { player.pause() }
     override fun stop(): Result<Unit> = command { player.stop() }
-    override fun seekTo(positionMillis: Long): Result<Unit> = command {
+    override fun seekTo(positionMillis: Long): Result<Unit> = seekTo(positionMillis, exact = true)
+
+    override fun seekTo(positionMillis: Long, exact: Boolean): Result<Unit> = command {
         require(positionMillis >= 0) { "Position cannot be negative" }
         player.seekTo(positionMillis)
+    }
+
+    override fun setHardwareAccelerationMode(mode: HardwareAccelerationMode): Result<Unit> = runCatching {
+        // Media3 delegates to platform MediaCodec which selects hardware or software decoders
+    }
+
+    override fun getDiagnosticsSnapshot(): PlaybackDiagnosticsSnapshot? {
+        if (released) return null
+        val currentMedia = mutableState.value.media ?: return null
+        val videoFormat = player.videoFormat
+        val audioFormat = player.audioFormat
+        val colorTransfer = when (videoFormat?.colorInfo?.colorTransfer) {
+            C.COLOR_TRANSFER_ST2084 -> ColorTransfer.HDR10_PQ
+            C.COLOR_TRANSFER_HLG -> ColorTransfer.HLG
+            C.COLOR_TRANSFER_SDR -> ColorTransfer.SDR_BT709
+            else -> ColorTransfer.UNKNOWN
+        }
+        return PlaybackDiagnosticsSnapshot(
+            engineId = id,
+            mediaUri = currentMedia.uri,
+            activeVideoCodec = videoFormat?.sampleMimeType,
+            activeAudioCodec = audioFormat?.sampleMimeType,
+            activeDecoder = videoFormat?.codecs ?: "MediaCodec",
+            hwdecActive = true,
+            hwdecMode = "mediacodec",
+            activeRenderer = "Media3/SurfaceView",
+            droppedFrames = 0L,
+            totalFrames = 0L,
+            avDriftMillis = 0.0,
+            estimatedFps = videoFormat?.frameRate?.takeIf { it > 0 } ?: 0f,
+            cacheBufferBytes = 0L,
+            colorTransfer = colorTransfer,
+            positionMillis = player.currentPosition.coerceAtLeast(0),
+            durationMillis = player.duration.takeIf { it > 0 },
+        )
     }
 
     override fun setPlaybackSpeed(speed: Float): Result<Unit> = command {
@@ -239,6 +279,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> PlaybackErrorCode.DECODER_INITIALIZATION
             PlaybackException.ERROR_CODE_DECODING_FAILED -> PlaybackErrorCode.DECODING_FAILED
+            PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> PlaybackErrorCode.UNSUPPORTED_CODEC
             else -> PlaybackErrorCode.UNKNOWN
         }
         return PlaybackError(
@@ -254,6 +295,9 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         private const val POSITION_UPDATE_MILLIS = 250L
         private val FALLBACK_ERRORS = setOf(
             PlaybackErrorCode.UNSUPPORTED_CONTAINER,
+            PlaybackErrorCode.UNSUPPORTED_CODEC,
+            PlaybackErrorCode.UNSUPPORTED_PROFILE,
+            PlaybackErrorCode.HARDWARE_ACCELERATION_FAILED,
             PlaybackErrorCode.DECODER_INITIALIZATION,
             PlaybackErrorCode.DECODING_FAILED,
         )
