@@ -40,6 +40,19 @@
 		1031 /* WidgetPlaybackIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2032 /* WidgetPlaybackIntents.swift */; };
 		1201 /* VimivoWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2201 /* VimivoWidgets.swift */; };
 		1202 /* WidgetPlaybackIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2032 /* WidgetPlaybackIntents.swift */; };
+		1203 /* VimivoWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 0003 /* VimivoWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7007 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (1203 /* VimivoWidgets.appex in Embed App Extensions */,);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 		1101 /* MediaModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2101 /* MediaModelsTests.swift */; };
 		1102 /* IOSDatabaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2102 /* IOSDatabaseTests.swift */; };
 		1103 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2025 /* libsqlite3.tbd */; };
@@ -53,6 +66,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 5001;
 			remoteInfo = iosApp;
+		};
+		5202 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5003;
+			remoteInfo = VimivoWidgets;
 		};
 		5202 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -293,10 +313,12 @@
 				7002 /* Sources */,
 				3001 /* Frameworks */,
 				7003 /* Resources */,
+				7007 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5102 /* PBXTargetDependency */,
 			);
 			name = iosApp;
 			productName = iosApp;
@@ -465,6 +487,11 @@
 			isa = PBXTargetDependency;
 			target = 5001 /* iosApp */;
 			targetProxy = 5201 /* PBXContainerItemProxy */;
+		};
+		5102 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5003 /* VimivoWidgets */;
+			targetProxy = 5202 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
