@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.nio.file.Files
 import java.nio.file.Path
+import java.text.Normalizer
 import java.util.UUID
 
 internal data class LibraryRoot(
@@ -64,28 +65,50 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
 
     fun media(kind: MediaKind, query: String = ""): List<MediaItem> = database.transaction { connection ->
         val trimmed = query.trim()
+        val baseSql = "SELECT m.id,m.uri,COALESCE(o.title,NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+            "x.duration_ms,COALESCE(o.artist,x.artist),COALESCE(o.album,x.album),COALESCE(ao.artwork_uri,x.artwork_uri)," +
+            "COALESCE(o.album_artist,x.album_artist),COALESCE(o.genre,x.genre),x.video_width,x.video_height,x.frame_rate," +
+            "x.bitrate,COALESCE(o.track_number,x.track_number),COALESCE(o.disc_number,x.disc_number),COALESCE(o.release_year,x.release_year) " +
+            "FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+            "LEFT JOIN user_metadata_overrides o ON o.media_id=m.id " +
+            "LEFT JOIN user_artwork_overrides ao ON ao.media_id=m.id " +
+            "WHERE m.available=1 AND m.kind=?"
+
         if (trimmed.isEmpty()) {
-            connection.prepareStatement(
-                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
-                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
-                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
-                    "WHERE m.available=1 AND m.kind=? ORDER BY COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE LIMIT 500",
-            ).use { statement ->
+            connection.prepareStatement("$baseSql ORDER BY COALESCE(o.title,NULLIF(x.title,''),m.title) COLLATE NOCASE LIMIT 500").use { statement ->
                 statement.setString(1, kind.name)
                 statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
             }
         } else {
-            connection.prepareStatement(
-                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
-                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
-                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
-                    "WHERE m.available=1 AND m.kind=? AND (COALESCE(NULLIF(x.title,''),m.title) LIKE ? OR m.file_name LIKE ? " +
-                    "OR x.artist LIKE ? OR x.album LIKE ?) ORDER BY COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE LIMIT 500",
+            val unranked = connection.prepareStatement(
+                "$baseSql AND (COALESCE(o.title,NULLIF(x.title,''),m.title) LIKE ? OR m.file_name LIKE ? " +
+                    "OR COALESCE(o.artist,x.artist) LIKE ? OR COALESCE(o.album,x.album) LIKE ?) LIMIT 500",
             ).use { statement ->
                 statement.setString(1, kind.name)
                 repeat(4) { statement.setString(it + 2, "%$trimmed%") }
                 statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
             }
+            unranked.sortedWith(
+                compareByDescending<MediaItem> { scoreSearchMatch(it, trimmed) }
+                    .thenBy { it.title.lowercase() },
+            )
+        }
+    }
+
+    fun allMedia(kind: MediaKind? = null): List<MediaItem> = database.transaction { connection ->
+        val kindFilter = if (kind != null) " AND m.kind=?" else ""
+        connection.prepareStatement(
+            "SELECT m.id,m.uri,COALESCE(o.title,NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+                "x.duration_ms,COALESCE(o.artist,x.artist),COALESCE(o.album,x.album),COALESCE(ao.artwork_uri,x.artwork_uri)," +
+                "COALESCE(o.album_artist,x.album_artist),COALESCE(o.genre,x.genre),x.video_width,x.video_height,x.frame_rate," +
+                "x.bitrate,COALESCE(o.track_number,x.track_number),COALESCE(o.disc_number,x.disc_number),COALESCE(o.release_year,x.release_year) " +
+                "FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                "LEFT JOIN user_metadata_overrides o ON o.media_id=m.id " +
+                "LEFT JOIN user_artwork_overrides ao ON ao.media_id=m.id " +
+                "WHERE m.available=1$kindFilter ORDER BY COALESCE(o.title,NULLIF(x.title,''),m.title) COLLATE NOCASE",
+        ).use { statement ->
+            if (kind != null) statement.setString(1, kind.name)
+            statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
         }
     }
 
@@ -302,4 +325,30 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
     private fun java.sql.ResultSet.nullableLong(column: Int) = getLong(column).takeIf { !wasNull() }
     private fun java.sql.ResultSet.nullableInt(column: Int) = getInt(column).takeIf { !wasNull() }
     private fun java.sql.ResultSet.nullableFloat(column: Int) = getFloat(column).takeIf { !wasNull() }
+
+    companion object {
+        fun normalizeForSearch(text: String): String =
+            Normalizer.normalize(text.trim().lowercase(), Normalizer.Form.NFC)
+
+        fun scoreSearchMatch(item: MediaItem, query: String): Int {
+            val normQ = normalizeForSearch(query)
+            if (normQ.isEmpty()) return 0
+            val normTitle = normalizeForSearch(item.title)
+            val normArtist = normalizeForSearch(item.artist.orEmpty())
+            val normAlbum = normalizeForSearch(item.album.orEmpty())
+            val normFile = normalizeForSearch(item.fileName.orEmpty())
+
+            return when {
+                normTitle == normQ -> 100
+                normTitle.startsWith(normQ) -> 80
+                normTitle.contains(normQ) -> 60
+                normArtist == normQ -> 50
+                normArtist.contains(normQ) -> 40
+                normAlbum == normQ -> 35
+                normAlbum.contains(normQ) -> 30
+                normFile.contains(normQ) -> 20
+                else -> 0
+            }
+        }
+    }
 }
