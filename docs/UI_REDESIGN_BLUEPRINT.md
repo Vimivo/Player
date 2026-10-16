@@ -18,7 +18,8 @@ The visual references described in the assignment were not available as image fi
 ## Confirmed gaps
 
 1. Desktop lacks a contextual top toolbar, fixed bottom player dock, toggleable right queue, responsive video overlay, and grid/list switch.
-2. iOS queue mutations bypass engine commands and are not persisted; WidgetKit/App Intents and UI-test targets do not exist.
+2. iOS queue mutations bypass engine commands and are not persisted; the WidgetKit/App Intent target now exists and
+   builds in the simulator, but physical widget installation and UI-test coverage remain open.
 3. iOS settings expose gapless/hardware toggles that are not wired to the engine.
 4. Android needs reusable Aurora materials across navigation, queue, Now Playing, search, and settings.
 5. Reduced transparency is not persisted across platform settings.

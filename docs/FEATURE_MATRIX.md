@@ -3,7 +3,7 @@
 > Phase 7 audit correction (2026-10-16): the legacy table below is a source-capability inventory, not proof that
 > every platform was run. The authoritative current verification status is in
 > [FINAL_PREMIUM_AUDIT_PHASE_7.md](FINAL_PREMIUM_AUDIT_PHASE_7.md). In particular, macOS media command-center,
-> Windows SMTC, Apple WidgetKit, Windows/Linux packages, and physical Android/iOS accessibility or playback are not
+> Windows SMTC, Apple WidgetKit device installation, Windows/Linux packages, and physical Android/iOS accessibility or playback are not
 > verified complete. “Implemented, tested” entries below mean repository tests unless physical runtime is named.
 
 Verified against source and repository test suites on 2026-10-16. Physical-device and cross-host evidence is
@@ -21,6 +21,7 @@ reported separately and must not be inferred from this inventory.
 | Bookmarks | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
 | Background playback | Implemented, Media3 | Implemented | Partial | Partial (MPRIS) | Implemented, AVAudioSession |
 | System media controls | Implemented, MediaSession | Implemented | Implemented (SMTC) | Implemented (MPRIS) | Implemented, MPRemoteCommandCenter |
+| Native playback widget | Implemented, host-tested | Not implemented | Not implemented | Not implemented | WidgetKit extension embedded; simulator build tested; device install pending |
 | Picture-in-Picture | Implemented, tested | Implemented | Not implemented | Not implemented | Implemented, AVKit tested |
 | Secure credentials | Implemented, Keystore | Implemented, Keychain | Implemented, CredMgr | Implemented, SecretService | Implemented, Keychain tested |
 | Direct network URLs | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
