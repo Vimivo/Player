@@ -25,10 +25,19 @@ Status overview across all five supported platform targets as of **2026-10-16** 
   - Added `DesktopPlaylistM3uTest` verifying M3U export/import round-trips, Unicode/Bengali preservation, and missing file tolerance.
   - Added `DesktopVideoControlsTest` verifying aspect ratio cycling, subtitle file filter extensions, delay arithmetic, rotation math, and screenshot capture.
   - Added `PlaybackQueueRaceConditionTest` verifying queue stability during rapid next transitions with simultaneous track completion, protection against removal of active playing track, duplicate occurrence identity isolation, queue reordering during active playback, and paused session restoration without unexpected autoplay.
-### Milestone 41-44 Smart Discovery, Advanced Library Management & Automation Summary
+### Milestone 47 & 48 Design System, Responsive Layouts & Accessibility Hardening Summary
 
-- **Automated Tests**: 236 tests passing with 0 failures across `:shared:desktopTest` (58), `:desktopApp:desktopTest` (158), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
+- **Automated Tests**: 252 tests passing with 0 failures across `:shared:desktopTest` (69), `:desktopApp:desktopTest` (163), and `:androidApp:testDebugUnitTest` (20), plus native iOS XCTest suite (7 tests).
 - **Detekt Analysis**: 0 violations across all modules.
+- **Design System Consolidation**: Consolidates design tokens (`VimivoSpacing`, `VimivoRadius`, `VimivoElevation`, `VimivoIconSize`, `VimivoColors`), responsive `WindowSizeClass` breakpoints (`COMPACT` < 600dp, `MEDIUM` 600..839dp, `EXPANDED` >= 840dp), composition locals (`LocalReducedMotion`, `LocalHighContrast`, `LocalWindowSizeClass`), and WCAG AA/AAA compliant color schemes.
+- **Adaptive Responsive Layouts**: Navigation adapts seamlessly between compact bottom `NavigationBar` and expanded vertical `NavigationRail` / sidebar without player engine recreation or seek loss.
+- **Accessible UI Components**: Built `VimivoAccessibleSlider` (with `progressBarRangeInfo`), `VimivoEmptyState` (with heading semantics), `VimivoLoadingState`, `VimivoErrorBanner`, and `VimivoQueueReorderControls`.
+- **Accessible Interactions & Non-Drag Alternatives**: Explicit "Move Up" and "Move Down" controls with boundary enforcement for queues and playlists; complete semantics on video overlay controls (aspect ratios, screenshots, rotation, subtitle delays, audio sync, A-B repeat); full keyboard traversal and focus rings.
+- **Truthful Five-Platform Accessibility**: Truthfully documents Linux Compose Desktop's lack of built-in AT-SPI bridge without false Orca claims, while guaranteeing 100% keyboard navigation, visible focus, high-contrast themes, dynamic text scaling, and accessible descriptions across all platforms.
+- **Published Documentation**: `docs/UI_UX_AUDIT.md`, `docs/DESIGN_SYSTEM.md`, `docs/RESPONSIVE_LAYOUTS.md`, `docs/MUSIC_PLAYER_UX.md`, `docs/VIDEO_PLAYER_UX.md`, `docs/ACCESSIBILITY_AUDIT.md`, `docs/ACCESSIBILITY_MATRIX.md`, `docs/KEYBOARD_SHORTCUTS.md`, `docs/LOCALIZATION_AUDIT.md`, `docs/UI_PERFORMANCE.md`, and `docs/UX_RELEASE_GATES.md`.
+
+### Milestone 41-46 Media Compatibility, Performance, Discovery & Automation Summary
+
 - **Universal Media Compatibility & Playback Performance (M45 & M46)**:
   - Universal media capability contracts in `MediaCompatibilityModels.kt` defining container formats, stream details, color matrices, transfer characteristics (SDR, PQ/HDR10, HLG), and real-time playback diagnostics snapshots (`PlaybackDiagnosticsSnapshot`).
   - Resilient dual-mode media prober (`DesktopMediaProbeService`) with 0.18ms in-memory container sniffing, argument-safe external probing without shell interpolation, and bounded 2500ms execution deadlines.

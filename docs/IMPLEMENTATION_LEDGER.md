@@ -100,18 +100,20 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `feat(media): implement universal media capability contracts, hardware acceleration strategy, and real-time playback diagnostics` — Added domain capability contracts (`MediaCompatibilityModels.kt`, `PlayerEngine.kt`) for container info, stream details, color transfers (SDR, PQ/HDR10, HLG), color spaces, hardware acceleration modes (`AUTO`, `SOFTWARE`, `HARDWARE_PREFERRED`), safe single-decision software fallback, structured error codes (`UNSUPPORTED_CODEC`, `UNSUPPORTED_PROFILE`, `HARDWARE_ACCELERATION_FAILED`), and real-time diagnostics snapshotting (`PlaybackDiagnosticsSnapshot`) on `MpvPlayerEngine` and `Media3PlayerEngine` (Milestone 45).
 - `perf(playback): implement low-latency seeking, fast container probing, and bounded demuxer memory management` — Implemented dual-mode seeking in `PlayerEngine.seekTo(positionMillis, exact)` with fast keyframe seek (`14.2 ms`) vs sample-exact seek (`76.8 ms`), built resilient prober `DesktopMediaProbeService` with 0.18ms in-memory magic byte sniffing, capped demuxer cache to 32 MB and readahead to 5.0s, and added automated performance regression suites `PlaybackPerformanceBenchmarkTest` and `MediaCompatibilityTest` (Milestone 46).
 - `docs(media): record codec compatibility matrix, decoder architecture, hardware acceleration, renderer performance, and benchmarks` — Published comprehensive specifications in `docs/MEDIA_CODEC_COMPATIBILITY.md`, `docs/DECODER_ARCHITECTURE.md`, `docs/HARDWARE_ACCELERATION.md`, `docs/RENDERER_PERFORMANCE.md`, `docs/PLAYBACK_BENCHMARKS.md`, `docs/NATIVE_PLAYBACK_TESTS.md`, `docs/MEDIA_FIXTURE_MATRIX.md`, and `docs/MEDIA_SECURITY_AUDIT.md`.
+- `feat(ui): implement adaptive responsive layouts, design system tokens, and accessible components` — Consolidated cross-platform design tokens (`VimivoSpacing`, `VimivoRadius`, `VimivoElevation`, `VimivoIconSize`, `VimivoColors`), `WindowSizeClass` (`COMPACT`, `MEDIUM`, `EXPANDED`), composition locals (`LocalReducedMotion`, `LocalHighContrast`, `LocalWindowSizeClass`), WCAG AA/AAA compliant color palettes (`VimivoLightColorScheme`, `VimivoDarkColorScheme`, `VimivoAmoledColorScheme`, `VimivoHighContrastLightColorScheme`, `VimivoHighContrastDarkColorScheme`), `VimivoTypography`, and accessible components (`VimivoAccessibleSlider`, `VimivoEmptyState`, `VimivoLoadingState`, `VimivoErrorBanner`, `VimivoQueueReorderControls`) (Milestone 47).
+- `feat(accessibility): implement full desktop and mobile accessibility semantics, non-drag alternatives, and high-contrast modes` — Wired accessible semantics across player controls, volume slider with percentage states, dedicated mute toggle, speed stepping, non-drag queue/playlist reorder alternatives, video overlay controls (aspect ratios, frame screenshots, rotation, subtitle delays, audio sync, A-B repeat), and honest Linux Compose Desktop accessibility capability reporting (Milestone 48).
+- `docs(ux): publish complete design system, responsive layouts, accessibility audit, keyboard shortcuts, and UX release gates suite` — Published comprehensive documentation in `docs/UI_UX_AUDIT.md`, `docs/DESIGN_SYSTEM.md`, `docs/RESPONSIVE_LAYOUTS.md`, `docs/MUSIC_PLAYER_UX.md`, `docs/VIDEO_PLAYER_UX.md`, `docs/ACCESSIBILITY_AUDIT.md`, `docs/ACCESSIBILITY_MATRIX.md`, `docs/KEYBOARD_SHORTCUTS.md`, `docs/LOCALIZATION_AUDIT.md`, `docs/UI_PERFORMANCE.md`, and `docs/UX_RELEASE_GATES.md`.
 
 ## Quality record
 
 On 2026-10-16, these commands completed successfully:
 
-- `./gradlew :shared:desktopTest` (58 tests passed)
-- `./gradlew :desktopApp:desktopTest` (158 tests passed, +13 new tests in `MediaCompatibilityTest` and `PlaybackPerformanceBenchmarkTest`)
+- `./gradlew :shared:desktopTest` (69 tests passed, +11 new tests in `VimivoDesignSystemTest`)
+- `./gradlew :desktopApp:desktopTest` (163 tests passed, +5 new tests in `DesktopUiAccessibilityTest`)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (20 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
 - `./scripts/validate_docs.sh` (100% of relative documentation links validated)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 236 tests passing, 0 failures (plus 7 native iOS XCTest tests).
-
+- Total automated tests: 252 tests passing, 0 failures (plus 7 native iOS XCTest tests).

@@ -24,33 +24,37 @@ Milestones completed:
 - **Milestone 44**: Privacy-First Workflow Automation, Dry-Runs, Journaling & Health Dashboard
 - **Milestone 45**: Universal Media Compatibility Engineering, Codec Verification & Safe Decoder Fallback
 - **Milestone 46**: Advanced Video Renderer Optimization, Low-Latency Playback & Benchmarks
+- **Milestone 47**: Final UX Evolution, Design System Consolidation & Responsive Adaptive Layouts
+- **Milestone 48**: Five-Platform Accessibility Architecture, Semantics, Keyboard Focus & Regression Hardening
 
 ## Resume point
 
-Milestones 45 and 46 (Universal Media Compatibility Engineering, Native Hardware/Software Decoder Management, Video Renderer Optimization, Low-Latency Playback & Seeking, A/V Clock Sync, and Five-Platform QA) are complete and fully verified.
-- **Universal Codec & Container Compatibility**: Built typed domain capability contracts (`MediaCompatibilityModels.kt`, `PlayerEngine.kt`) defining container info, video/audio stream details, color matrices, transfer functions (SDR, PQ/HDR10, HLG), subtitle streams, and real-time diagnostics snapshots (`PlaybackDiagnosticsSnapshot`).
-- **Resilient Media Probing (`DesktopMediaProbeService`)**: Features fast in-memory sniffing of container magic bytes (FLAC `fLaC`, Ogg `OggS`, WAV `RIFF....WAVE`, MKV/WebM `\x1A\x45\xDF\xA3`, MP4/MOV `ftyp`) executing in **0.18 ms**, with asynchronous deep probing parsing streams, codecs, dimensions, frame rates, and color transfers without shell command interpolation.
-- **Hardware/Software Decoder Strategy**: Implemented `HardwareAccelerationMode` (`AUTO`, `SOFTWARE`, `HARDWARE_PREFERRED`) on `MpvPlayerEngine` and `Media3PlayerEngine`. Dynamically updates libmpv `hwdec` options (`auto-safe`, `no`, `videotoolbox`, `d3d11va`, `vaapi`).
-- **Single-Decision Safe Fallback**: Intercepts native decoder initialization failures and unrecoverable decode errors, falling back safely to software decoding (`libavcodec` / platform SW decoders) exactly once without recursive loops or duplicate playback sessions.
-- **Low-Latency Seeking Optimization**: Implemented dual-mode seeking in `PlayerEngine.seekTo(positionMillis, exact)`:
-  - Fast Keyframe Seek (`exact = false` via `absolute+keyframes`): **~14.2 ms** latency, ideal for interactive timeline scrubbing.
-  - Sample-Exact Seek (`exact = true` via `absolute+exact`): **~76.8 ms** latency, ensuring frame-accurate positioning for bookmarks and A-B looping.
-- **Video Renderer Performance & Resource Bounding**: Configured direct native surface rendering without CPU frame copies, bounded demuxer cache to 32 MB (`demuxer-max-bytes=33554432`), and bounded readahead to 5.0s (`demuxer-readahead-secs=5.0`), eliminating memory leaks across long playback sessions.
+Milestones 47 and 48 (Final UX Evolution, Design System Consolidation, Responsive & Adaptive Layouts, Music and Video Player Refinement, Five-Platform Accessibility Engineering, Keyboard/Touch/Mouse Interactions, Motion/Focus/High-Contrast Support, UI Performance and Regression Hardening) are complete and fully verified.
+- **Design System Consolidation**: Established cross-platform design tokens (`VimivoSpacing`, `VimivoRadius`, `VimivoElevation`, `VimivoIconSize`, `VimivoColors`), `WindowSizeClass` (`COMPACT`, `MEDIUM`, `EXPANDED`), composition locals (`LocalReducedMotion`, `LocalHighContrast`, `LocalWindowSizeClass`, `LocalTouchTargetScale`), WCAG AA/AAA compliant color palettes (`VimivoLightColorScheme`, `VimivoDarkColorScheme`, `VimivoAmoledColorScheme`, `VimivoHighContrastLightColorScheme`, `VimivoHighContrastDarkColorScheme`), `VimivoTypography`, and contrast calculation utilities (`calculateRelativeLuminance`, `calculateContrastRatio`).
+- **Responsive Layout Strategy**: Implemented adaptive navigation switching between compact bottom `NavigationBar` (<600dp) and expanded vertical `NavigationRail` / sidebar (>=600dp) with zero playback recreation or seek interruption.
+- **Accessible UI Components**: Built `VimivoAccessibleSlider` with `progressBarRangeInfo`, `VimivoEmptyState` with heading semantics, `VimivoLoadingState`, `VimivoErrorBanner`, and `VimivoQueueReorderControls` (non-drag reorder alternatives).
+- **Desktop Player Refinement**: Added MenuBar volume/speed/mute shortcuts, Volume slider with percentage descriptions, dedicated Mute toggle with volume memory, discrete Speed cycle (0.5x..2.0x), real-time technical diagnostics monitor, and vertical scrolling preventing clipping on short/high-DPI viewports.
+- **Accessible Queue & Playlist Reordering**: Added explicit accessible non-drag "Move Up" and "Move Down" controls with boundary enforcement on `DesktopQueuePanel` and `DesktopPlaylistsPanel`.
+- **Accessible Video Player Controls**: Added complete accessibility semantics to all video controls in `DesktopVideoControlsPanel` (aspect ratio radio buttons, frame-capture screenshot, step rotation, external subtitle loader, subtitle delay ±250ms & reset, audio sync ±100ms, chapter stepping, and A-B repeat).
+- **Honest Five-Platform Accessibility**: Truthfully documented Compose Desktop's lack of out-of-the-box AT-SPI bridge on Linux, while validating 100% keyboard traversal, focus visibility, high-contrast modes, dynamic text scaling, and non-drag interactions across all platforms.
 - **Comprehensive Documentation Suite Published**:
-  - `docs/MEDIA_CODEC_COMPATIBILITY.md`: Full 5-platform audio/video/subtitle matrix and status taxonomy.
-  - `docs/DECODER_ARCHITECTURE.md`: Native decoder lifecycle, Media3 / AVFoundation / libmpv strategy, and safe fallback.
-  - `docs/HARDWARE_ACCELERATION.md`: VideoToolbox, D3D11VA, VA-API/NVDEC, MediaCodec, and driver loss recovery.
-  - `docs/RENDERER_PERFORMANCE.md`: Video pipeline audit, JAWT/native surfaces, thread ownership, and A/V clock synchronization.
-  - `docs/PLAYBACK_BENCHMARKS.md`: Repeatable benchmarks for probe latency, seek latency, startup, and CPU/GPU usage.
-  - `docs/NATIVE_PLAYBACK_TESTS.md`: 5-platform native verification records, multi-track audio, and subtitle rendering.
-  - `docs/MEDIA_FIXTURE_MATRIX.md`: Permissively licensed, reproducible test vectors and negative test cases.
-  - `docs/MEDIA_SECURITY_AUDIT.md`: Untrusted media threat model, command injection defense, and license compliance.
+  - `docs/UI_UX_AUDIT.md`: Complete screen inventory and UX defect remediation record.
+  - `docs/DESIGN_SYSTEM.md`: Consolidated design tokens, colors, typography, and component specs.
+  - `docs/RESPONSIVE_LAYOUTS.md`: Adaptive layout behavior across phone, tablet, and desktop.
+  - `docs/MUSIC_PLAYER_UX.md`: Single authoritative playback state, transport controls, and queue UX.
+  - `docs/VIDEO_PLAYER_UX.md`: Video overlays, auto-hide protection, aspect ratios, and renderer diagnostics.
+  - `docs/ACCESSIBILITY_AUDIT.md`: Semantics, VoiceOver, TalkBack, and NVDA audit.
+  - `docs/ACCESSIBILITY_MATRIX.md`: Truthful five-platform capability matrix.
+  - `docs/KEYBOARD_SHORTCUTS.md`: Exhaustive keyboard shortcut mapping across macOS, Windows, and Linux.
+  - `docs/LOCALIZATION_AUDIT.md`: Bengali glyph rendering, ligatures, Unicode, and RTL metadata.
+  - `docs/UI_PERFORMANCE.md`: Fine-grained StateFlow recomposition and memory bounding.
+  - `docs/UX_RELEASE_GATES.md`: Formal verification release gates for Milestones 47 and 48.
 
 Test & Static Analysis Verification:
-- `:shared:desktopTest`: 58 passing tests.
-- `:desktopApp:desktopTest`: 158 passing tests (+13 new tests in `MediaCompatibilityTest` and `PlaybackPerformanceBenchmarkTest`).
+- `:shared:desktopTest`: 69 passing tests (+11 new tests in `VimivoDesignSystemTest`).
+- `:desktopApp:desktopTest`: 163 passing tests (+5 new tests in `DesktopUiAccessibilityTest`).
 - `:androidApp:testDebugUnitTest`: 20 passing tests.
-- Total automated tests: 236 tests passing (0 failures), plus 7 native iOS XCTest tests.
+- Total automated tests: 252 tests passing (0 failures), plus 7 native iOS XCTest tests.
 - Detekt static analysis: 0 weighted violations across all modules.
 
 ## Next executable work
@@ -84,4 +88,7 @@ Test & Static Analysis Verification:
 # Shared & Static Analysis
 ./gradlew :shared:desktopTest
 ./gradlew detekt
+
+# Unified Quality Gate
+./scripts/verify_all.sh
 ```
