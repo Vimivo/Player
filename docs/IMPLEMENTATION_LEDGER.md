@@ -142,6 +142,12 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - Added real volume, shuffle, repeat, favorite, queue, playback settings, cached local artwork ambience, stable queue identities, and reduced-motion-aware lyrics scrolling.
 - Added bounded player component tokens and tests. See `PREMIUM_AUDIO_PLAYER_PHASE_3.md` for verification scope and device limitations.
 
+### Cinematic video player Phase 4 checkpoint (2026-10-16)
+
+- Refined Android's single-renderer video experience with capability-gated PiP, real Stop, reduced-motion overlay fades, glass control surfaces, and safe gestures.
+- Removed application brightness mutation from touch gestures; right-side vertical volume and non-gesture accessibility controls remain.
+- Added a real desktop full-screen native menu action while preserving keyboard seeking and libmpv advanced controls. See `CINEMATIC_VIDEO_PLAYER_PHASE_4.md`.
+
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)

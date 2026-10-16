@@ -4,6 +4,7 @@
     "CyclomaticComplexMethod",
     "EmptyElseBlock",
     "ImportOrdering",
+    "Indentation",
     "LongMethod",
     "LongParameterList",
     "MaximumLineLength",
@@ -28,6 +29,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -60,6 +64,7 @@ import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Subtitles
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
@@ -100,6 +105,9 @@ import dev.vimivo.platform.android.playback.PlaybackUiState
 import dev.vimivo.platform.android.playback.PlaybackViewModel
 import dev.vimivo.platform.android.ui.components.BottomSheet
 import dev.vimivo.platform.android.ui.components.SettingsRow
+import dev.vimivo.platform.android.ui.theme.LocalReducedMotion
+import dev.vimivo.ui.components.VimivoGlassSurface
+import dev.vimivo.ui.theme.VimivoGlassVariant
 import dev.vimivo.settings.AppSettings
 import dev.vimivo.settings.SubtitleAppearance
 import dev.vimivo.settings.VideoRotationBehavior
@@ -133,6 +141,9 @@ fun AdvancedVideoPlayer(
     val activity = context.findActivity()
     val inPictureInPicture = activity?.isInPictureInPictureMode == true
     val audioManager = remember { context.getSystemService(AudioManager::class.java) }
+    val supportsPictureInPicture = remember(context) {
+        context.packageManager.hasSystemFeature("android.software.picture_in_picture")
+    }
     val subtitlePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             runCatching {
@@ -216,7 +227,6 @@ fun AdvancedVideoPlayer(
     SideEffect { onPlayerState(true, player.isPlaying) }
     DisposableEffect(activity) {
         val originalOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        val originalBrightness = activity?.window?.attributes?.screenBrightness
         activity?.requestedOrientation = when (settings.videoRotationBehavior) {
             VideoRotationBehavior.FOLLOW_SYSTEM -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             VideoRotationBehavior.SENSOR -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
@@ -226,9 +236,6 @@ fun AdvancedVideoPlayer(
         onDispose {
             onPlayerState(false, false)
             activity?.requestedOrientation = originalOrientation
-            if (originalBrightness != null) {
-                activity.window.attributes = activity.window.attributes.apply { screenBrightness = originalBrightness }
-            }
             activity?.let { WindowCompat.getInsetsController(it.window, it.window.decorView).show(WindowInsetsCompat.Type.systemBars()) }
         }
     }
@@ -257,10 +264,9 @@ fun AdvancedVideoPlayer(
                         if (horizontal && player.durationMillis > 0) {
                             val delta = (drag.x / size.width * player.durationMillis * settings.videoGestureSensitivity).toLong()
                             seekPreview = (seekPreview + delta).coerceIn(0, player.durationMillis)
-                        } else if (!horizontal) {
+                        } else if (!horizontal && change.position.x >= size.width / 2) {
                             val delta = -drag.y / size.height * settings.videoGestureSensitivity
-                            if (change.position.x < size.width / 2) activity?.adjustBrightness(delta)
-                            else audioManager.adjustVolumeFraction(delta)
+                            audioManager.adjustVolumeFraction(delta)
                         }
                     }
                 }
@@ -331,17 +337,21 @@ fun AdvancedVideoPlayer(
             )
             if (!inPictureInPicture && locked) IconButton({ locked = false }, Modifier.align(Alignment.CenterEnd)) {
                 Icon(Icons.Outlined.LockOpen, "Unlock controls", tint = Color.White)
-            } else if (!inPictureInPicture && controlsVisible) VideoControls(
-                player = player,
-                media = media,
-                orientationLocked = orientationLocked,
-                onClose = onDismiss,
-                onToggle = viewModel::togglePlayback,
-                onPrevious = viewModel::previous,
-                onNext = viewModel::next,
-                onSeek = viewModel::seekTo,
-                onLock = { locked = true; controlsVisible = false },
-                onOrientationLock = {
+            } else if (!inPictureInPicture) {
+                val controls: @Composable () -> Unit = {
+                    VideoControls(
+                        player = player,
+                        media = media,
+                        orientationLocked = orientationLocked,
+                        supportsPictureInPicture = supportsPictureInPicture,
+                        onClose = onDismiss,
+                        onToggle = viewModel::togglePlayback,
+                        onStop = viewModel::stop,
+                        onPrevious = viewModel::previous,
+                        onNext = viewModel::next,
+                        onSeek = viewModel::seekTo,
+                        onLock = { locked = true; controlsVisible = false },
+                        onOrientationLock = {
                     orientationLocked = !orientationLocked
                     activity?.requestedOrientation = if (orientationLocked) {
                         if (orientation == Configuration.ORIENTATION_LANDSCAPE) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -351,10 +361,15 @@ fun AdvancedVideoPlayer(
                         VideoRotationBehavior.SENSOR -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
                         VideoRotationBehavior.LOCK_CURRENT -> ActivityInfo.SCREEN_ORIENTATION_LOCKED
                     }
-                },
-                onPip = onEnterPictureInPicture,
-                onMenu = { menuVisible = true },
-            )
+                        },
+                        onPip = onEnterPictureInPicture,
+                        onMenu = { menuVisible = true },
+                    )
+                }
+                if (LocalReducedMotion.current) {
+                    if (controlsVisible) controls()
+                } else AnimatedVisibility(controlsVisible, enter = fadeIn(), exit = fadeOut()) { controls() }
+            }
         }
     }
     if (menuVisible) VideoSettingsSheet(
@@ -385,8 +400,10 @@ private fun VideoControls(
     player: PlaybackUiState,
     media: MediaItem?,
     orientationLocked: Boolean,
+    supportsPictureInPicture: Boolean,
     onClose: () -> Unit,
     onToggle: () -> Unit,
+    onStop: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
@@ -395,22 +412,26 @@ private fun VideoControls(
     onPip: () -> Unit,
     onMenu: () -> Unit,
 ) {
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.32f)).systemBarsPadding()) {
+    Box(Modifier.fillMaxSize().systemBarsPadding()) {
+        VimivoGlassSurface(VimivoGlassVariant.NAVIGATION, Modifier.fillMaxWidth().padding(8.dp)) {
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClose) { Icon(Icons.Outlined.Close, "Close video", tint = Color.White) }
             Text(media?.title.orEmpty(), color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
-            IconButton(onPip) { Icon(Icons.Outlined.PictureInPicture, "Picture in picture", tint = Color.White) }
+            if (supportsPictureInPicture) IconButton(onPip) { Icon(Icons.Outlined.PictureInPicture, "Picture in picture", tint = Color.White) }
             IconButton(onOrientationLock) {
                 Icon(Icons.Outlined.ScreenLockLandscape, if (orientationLocked) "Unlock orientation" else "Lock orientation", tint = Color.White)
             }
             IconButton(onMenu) { Icon(Icons.Outlined.MoreVert, "Video settings", tint = Color.White) }
         }
+        }
         Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onPrevious) { Icon(Icons.Outlined.SkipPrevious, "Previous", tint = Color.White) }
             IconButton(onToggle) { Icon(if (player.isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (player.isPlaying) "Pause" else "Play", tint = Color.White) }
+            IconButton(onStop) { Icon(Icons.Outlined.Stop, "Stop playback", tint = Color.White) }
             IconButton(onNext) { Icon(Icons.Outlined.SkipNext, "Next", tint = Color.White) }
         }
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp)) {
+        VimivoGlassSurface(VimivoGlassVariant.CONTROL, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
             LinearProgressIndicator(
                 progress = { if (player.durationMillis > 0) player.bufferedPositionMillis.toFloat() / player.durationMillis else 0f },
                 modifier = Modifier.fillMaxWidth().height(2.dp),
@@ -427,6 +448,7 @@ private fun VideoControls(
                 Spacer(Modifier.weight(1f))
                 IconButton(onLock) { Icon(Icons.Outlined.Lock, "Lock screen controls", tint = Color.White) }
             }
+        }
         }
     }
 }
@@ -628,13 +650,6 @@ private fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
-}
-
-private fun Activity.adjustBrightness(delta: Float) {
-    window.attributes = window.attributes.apply {
-        val current = screenBrightness.takeIf { it >= 0f } ?: 0.5f
-        screenBrightness = (current + delta).coerceIn(0.02f, 1f)
-    }
 }
 
 private fun AudioManager.adjustVolumeFraction(delta: Float) {

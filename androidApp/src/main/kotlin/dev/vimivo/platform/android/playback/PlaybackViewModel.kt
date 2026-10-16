@@ -111,6 +111,7 @@ class PlaybackViewModel(
     }
 
     fun togglePlayback() = player?.let { if (it.isPlaying) it.pause() else it.play() }
+    fun stop() = player?.stop()
     fun next() = player?.seekToNext()
     fun previous() = player?.seekToPrevious()
     fun seekTo(positionMillis: Long) = player?.seekTo(positionMillis)

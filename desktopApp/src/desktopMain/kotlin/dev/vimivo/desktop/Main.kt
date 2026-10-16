@@ -53,6 +53,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
 import dev.vimivo.ui.theme.VimivoTheme
@@ -204,6 +205,15 @@ fun main(args: Array<String>) = application {
                 Item(
                     "Slower Speed (-0.25x)",
                     onClick = { engine.setPlaybackSpeed((engine.state.value.speed - 0.25f).coerceAtLeast(0.25f)) },
+                )
+            }
+            Menu("View") {
+                Item(
+                    if (window.placement == WindowPlacement.Fullscreen) "Exit Full Screen" else "Enter Full Screen",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.F, ctrl = true, shift = true),
+                    onClick = {
+                        window.placement = if (window.placement == WindowPlacement.Fullscreen) WindowPlacement.Floating else WindowPlacement.Fullscreen
+                    },
                 )
             }
         }
