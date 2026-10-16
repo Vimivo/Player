@@ -173,6 +173,12 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - While playing, progress refresh is capped at 30 seconds and piggybacks on the authoritative engine state stream; no polling worker, second player, or always-on process was added.
 - Added JVM coverage for unknown, partial, and over-duration progress values.
 
+### macOS native media controls follow-up (2026-10-16)
+
+- Added a MediaPlayer JNI adapter that publishes the current desktop track, timing, rate, queue position, and playback state to macOS Now Playing.
+- Routed system toggle, previous, next, and seek commands to the existing libmpv engine and `PlaybackQueueController`; no additional player or queue was created.
+- Native bridge compilation, desktop compilation/tests, Detekt, and application startup succeeded. Actual Control Center/media-key interaction remains an explicit physical runtime gate.
+
 On 2026-10-16, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (114 tests passed)

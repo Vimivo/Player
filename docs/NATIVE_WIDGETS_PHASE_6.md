@@ -9,8 +9,9 @@ Date: 2026-10-16
 - iOS owns playback in the existing `AVPlayerPlaybackEngine`. `MPNowPlayingInfoCenter` and
   `MPRemoteCommandCenter` already delegate to it; queue index/count, opaque content identity, media kind, and live
   stream state are now published in addition to title, artist, album, artwork, duration, elapsed time, and rate.
-- Linux uses the existing MPRIS service connected to the desktop engine and queue. Windows SMTC and macOS
-  MediaPlayer command-center integration are not implemented and are not represented as working.
+- Linux uses the existing MPRIS service connected to the desktop engine and queue. macOS now publishes playback
+  metadata/state through `MPNowPlayingInfoCenter` and routes toggle, next, previous, and seek commands from
+  `MPRemoteCommandCenter` into the existing libmpv engine/queue. Windows SMTC remains unimplemented.
 
 ## Android widget
 
@@ -42,4 +43,7 @@ Date: 2026-10-16
   checkpoint. Widget interaction still requires a launcher/device and is not claimed from host-side compilation.
 - Apple changes received source review only because `xcodebuild` and `swiftc` both terminate with Xcode license
   status 69 on this machine.
+- The macOS JNI/MediaPlayer bridge compiled and the desktop application launched without initialization failure on
+  this host. A real Control Center/media-key playback interaction was not performed, so that runtime behavior is not
+  claimed as device-verified.
 

@@ -14,9 +14,16 @@ internal object MprisServiceFactory {
         togglePlayback: suspend () -> Unit,
         platform: DesktopPlatform = DesktopPlatform.detect(),
     ): MprisService {
-        if (platform != DesktopPlatform.LINUX) return NoOpMprisService()
         return runCatching {
-            LinuxMprisService(engine, queue, togglePlayback).also { it.start() }
+            when (platform) {
+                DesktopPlatform.MACOS -> dev.vimivo.desktop.integration.macos.MacNowPlayingService(
+                    engine,
+                    queue,
+                    togglePlayback,
+                ).also { it.start() }
+                DesktopPlatform.LINUX -> LinuxMprisService(engine, queue, togglePlayback).also { it.start() }
+                else -> NoOpMprisService()
+            }
         }.getOrElse { NoOpMprisService() }
     }
 }

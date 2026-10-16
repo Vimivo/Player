@@ -2,6 +2,7 @@
 #import <OpenGL/OpenGL.h>
 #import <OpenGL/gl3.h>
 #import <QuartzCore/QuartzCore.h>
+#import <MediaPlayer/MediaPlayer.h>
 #include <jawt.h>
 #include <jawt_md.h>
 #include <mpv/client.h>
@@ -67,6 +68,120 @@ static void *get_proc_address(void *, const char *name) {
 
 static VimivoMpvLayer *activeLayer = nil;
 static id<JAWT_SurfaceLayers> activeSurface = nil;
+static JavaVM *nowPlayingJvm = NULL;
+static jobject nowPlayingCallback = NULL;
+static id toggleCommandTarget = nil;
+static id nextCommandTarget = nil;
+static id previousCommandTarget = nil;
+static id seekCommandTarget = nil;
+
+static NSString *toNSString(JNIEnv *env, jstring value) {
+    if (!value) return nil;
+    const char *characters = env->GetStringUTFChars(value, NULL);
+    NSString *result = [NSString stringWithUTF8String:characters];
+    env->ReleaseStringUTFChars(value, characters);
+    return result;
+}
+
+static void callNowPlayingCallback(const char *method, const char *signature, jlong value = 0) {
+    if (!nowPlayingJvm || !nowPlayingCallback) return;
+    JNIEnv *env = NULL;
+    bool detach = false;
+    if (nowPlayingJvm->GetEnv((void **)&env, JNI_VERSION_1_6) != JNI_OK) {
+        if (nowPlayingJvm->AttachCurrentThread((void **)&env, NULL) != JNI_OK) return;
+        detach = true;
+    }
+    jclass callbackClass = env->GetObjectClass(nowPlayingCallback);
+    jmethodID methodId = env->GetMethodID(callbackClass, method, signature);
+    if (methodId) {
+        if (signature[1] == 'J') env->CallVoidMethod(nowPlayingCallback, methodId, value);
+        else env->CallVoidMethod(nowPlayingCallback, methodId);
+    }
+    env->DeleteLocalRef(callbackClass);
+    if (detach) nowPlayingJvm->DetachCurrentThread();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_vimivo_desktop_integration_macos_MacNowPlayingService_configureNative(JNIEnv *env, jobject self) {
+    if (nowPlayingCallback) return JNI_TRUE;
+    if (env->GetJavaVM(&nowPlayingJvm) != JNI_OK) return JNI_FALSE;
+    nowPlayingCallback = env->NewGlobalRef(self);
+    void (^configureCommands)(void) = ^{
+        MPRemoteCommandCenter *center = MPRemoteCommandCenter.sharedCommandCenter;
+        center.togglePlayPauseCommand.enabled = YES;
+        toggleCommandTarget = [center.togglePlayPauseCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *) {
+            callNowPlayingCallback("remoteTogglePlayback", "()V");
+            return MPRemoteCommandHandlerStatusSuccess;
+        }];
+        center.nextTrackCommand.enabled = YES;
+        nextCommandTarget = [center.nextTrackCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *) {
+            callNowPlayingCallback("remoteNext", "()V");
+            return MPRemoteCommandHandlerStatusSuccess;
+        }];
+        center.previousTrackCommand.enabled = YES;
+        previousCommandTarget = [center.previousTrackCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *) {
+            callNowPlayingCallback("remotePrevious", "()V");
+            return MPRemoteCommandHandlerStatusSuccess;
+        }];
+        center.changePlaybackPositionCommand.enabled = YES;
+        seekCommandTarget = [center.changePlaybackPositionCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *event) {
+            MPChangePlaybackPositionCommandEvent *seekEvent = (MPChangePlaybackPositionCommandEvent *)event;
+            callNowPlayingCallback("remoteSeek", "(J)V", (jlong)(seekEvent.positionTime * 1000.0));
+            return MPRemoteCommandHandlerStatusSuccess;
+        }];
+    };
+    if (NSThread.isMainThread) configureCommands();
+    else dispatch_sync(dispatch_get_main_queue(), configureCommands);
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_dev_vimivo_desktop_integration_macos_MacNowPlayingService_updateNative(
+    JNIEnv *env, jobject, jstring title, jstring artist, jstring album, jlong durationMillis,
+    jlong positionMillis, jboolean playing, jfloat rate, jint queueIndex, jint queueCount) {
+    NSString *nativeTitle = toNSString(env, title);
+    NSString *nativeArtist = toNSString(env, artist);
+    NSString *nativeAlbum = toNSString(env, album);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (!nativeTitle) {
+            MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo = nil;
+            MPNowPlayingInfoCenter.defaultCenter.playbackState = MPNowPlayingPlaybackStateStopped;
+            return;
+        }
+        NSMutableDictionary *info = [NSMutableDictionary dictionary];
+        info[MPMediaItemPropertyTitle] = nativeTitle;
+        if (nativeArtist) info[MPMediaItemPropertyArtist] = nativeArtist;
+        if (nativeAlbum) info[MPMediaItemPropertyAlbumTitle] = nativeAlbum;
+        info[MPMediaItemPropertyPlaybackDuration] = @(MAX(0, durationMillis) / 1000.0);
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(MAX(0, positionMillis) / 1000.0);
+        info[MPNowPlayingInfoPropertyPlaybackRate] = playing ? @(rate) : @0.0;
+        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = @1.0;
+        info[MPNowPlayingInfoPropertyPlaybackQueueIndex] = @(MAX(0, queueIndex));
+        info[MPNowPlayingInfoPropertyPlaybackQueueCount] = @(MAX(0, queueCount));
+        MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo = info;
+        MPNowPlayingInfoCenter.defaultCenter.playbackState = playing
+            ? MPNowPlayingPlaybackStatePlaying : MPNowPlayingPlaybackStatePaused;
+    });
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_dev_vimivo_desktop_integration_macos_MacNowPlayingService_closeNative(JNIEnv *env, jobject) {
+    void (^removeCommands)(void) = ^{
+        MPRemoteCommandCenter *center = MPRemoteCommandCenter.sharedCommandCenter;
+        if (toggleCommandTarget) [center.togglePlayPauseCommand removeTarget:toggleCommandTarget];
+        if (nextCommandTarget) [center.nextTrackCommand removeTarget:nextCommandTarget];
+        if (previousCommandTarget) [center.previousTrackCommand removeTarget:previousCommandTarget];
+        if (seekCommandTarget) [center.changePlaybackPositionCommand removeTarget:seekCommandTarget];
+        toggleCommandTarget = nextCommandTarget = previousCommandTarget = seekCommandTarget = nil;
+        MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo = nil;
+        MPNowPlayingInfoCenter.defaultCenter.playbackState = MPNowPlayingPlaybackStateStopped;
+    };
+    if (NSThread.isMainThread) removeCommands();
+    else dispatch_sync(dispatch_get_main_queue(), removeCommands);
+    if (nowPlayingCallback) env->DeleteGlobalRef(nowPlayingCallback);
+    nowPlayingCallback = NULL;
+    nowPlayingJvm = NULL;
+}
 
 static void on_mpv_update(void *context) {
     VimivoMpvLayer *layer = (__bridge VimivoMpvLayer *)context;

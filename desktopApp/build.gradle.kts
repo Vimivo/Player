@@ -17,7 +17,7 @@ val macosMpvBridge by tasks.registering(Exec::class) {
         compiler, "-dynamiclib", "-std=c++17",
         "-I${javaHome.get()}/include", "-I${javaHome.get()}/include/darwin", "-I/opt/homebrew/include",
         "src/desktopMain/native/macos/MpvCocoaRenderer.mm", "-o", output.get().asFile.absolutePath,
-        "-L/opt/homebrew/lib", "-L${javaHome.get()}/lib", "-lmpv", "-ljawt", "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "QuartzCore",
+        "-L/opt/homebrew/lib", "-L${javaHome.get()}/lib", "-lmpv", "-ljawt", "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "QuartzCore", "-framework", "MediaPlayer",
     )
     val stableSdk = file("/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk")
     if (stableSdk.exists()) {

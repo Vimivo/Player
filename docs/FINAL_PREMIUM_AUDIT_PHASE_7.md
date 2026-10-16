@@ -7,12 +7,12 @@ Audited checkpoint: `6790ee1` plus the Phase 7 build-tool correction
 
 Vimivo now has a coherent Aurora Glass foundation, adaptive Android and desktop shells, an immersive audio player,
 a capability-aware cinematic video player, persistent local-library presentation, Android Media3 system controls,
-a session-backed Android widget, iOS Now Playing publication, and Linux MPRIS. The shared player/repository
+a session-backed Android widget, iOS/macOS Now Playing publication, and Linux MPRIS. The shared player/repository
 boundaries remain intact and no online catalog, advertising, analytics, account, DRM bypass, fake Dynamic Island,
 or second playback engine was introduced.
 
 It is not truthful to call every requested platform feature complete. The repository can be a strong Android/macOS
-candidate after device QA, but Apple widgets, macOS system media command-center integration, Windows SMTC, and
+candidate after device QA, but Apple widgets, Windows SMTC, and
 several physical-device/accessibility/performance gates remain open.
 
 ## Authoritative feature status
@@ -24,7 +24,7 @@ several physical-device/accessibility/performance gates remain open.
 | Audio Now Playing/queue/lyrics | Implemented | Implemented | Shared desktop source | Shared desktop source | Basic native player; premium parity incomplete |
 | Cinematic video controls | Implemented, capability-gated | libmpv controls implemented | Shared desktop controls | Shared desktop controls | AVKit/PiP source present; not run |
 | Persistent list/grid library | Implemented (DataStore + backup) | Implemented (SQLite) | Same desktop source | Same desktop source | Not audited as equivalent |
-| System media surface | Media3 notification/session | Not implemented | Not implemented | MPRIS implemented | MPNowPlayingInfoCenter/RemoteCommandCenter implemented |
+| System media surface | Media3 notification/session | MediaPlayer bridge compiled; interaction unverified | Not implemented | MPRIS implemented | MPNowPlayingInfoCenter/RemoteCommandCenter implemented |
 | Native widget | Resizable RemoteViews widget | No | No | No | WidgetKit target absent |
 | Dynamic Island | Not applicable; no overlay | — | — | — | System Now Playing only; no fake overlay/Live Activity |
 | Runtime accessibility evidence | Device run required | Manual/AT run required | Not run | AT-SPI limitation | VoiceOver run required |
@@ -70,8 +70,8 @@ smoothness. The previously published numeric runtime claims require independent 
 1. Accept the local Xcode license, build/test the iOS target, and run it on supported iPhone/iPad hardware.
 2. Add a real WidgetKit extension plus App Group data contract and provisioning; implement small/medium/large and
    lock-screen widgets with refresh-budget-aware timelines and App Intents only on supported OS versions.
-3. Implement macOS `MPNowPlayingInfoCenter`/`MPRemoteCommandCenter` and Windows SMTC adapters against the existing
-   desktop engine. Do not create another player.
+3. Implement Windows SMTC against the existing desktop engine and run real macOS Control Center/media-key
+   interaction tests for the newly compiled MediaPlayer bridge. Do not create another player.
 4. Run Android instrumentation/widget/player tests on small and large phones and an API/device that supports PiP.
 5. Run Windows and Linux native playback, packaging, media-key, video-surface, and cleanup tests on their own hosts.
 
