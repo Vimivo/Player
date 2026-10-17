@@ -288,6 +288,8 @@ private fun DesktopPlayer(
     var activeReplayGain by remember { mutableStateOf(ReplayGainMode.OFF) }
     var previousVolume by remember { mutableStateOf(1f) }
     var showDiagnostics by remember { mutableStateOf(false) }
+    var showEqualizerPanel by remember { mutableStateOf(false) }
+    var audioSettings by remember { mutableStateOf(AudioEnhancementSettings()) }
     var sleepTimerJob by remember { mutableStateOf<Job?>(null) }
     var sleepTimerMinutesRemaining by remember { mutableStateOf<Int?>(null) }
     var diagnosticsStatus by remember { mutableStateOf<String?>(null) }
@@ -728,6 +730,14 @@ private fun DesktopPlayer(
                     state = state,
                 )
             }
+            if (showEqualizerPanel) {
+                dev.vimivo.desktop.playback.DesktopEqualizerPanel(
+                    engine = engine,
+                    currentSettings = audioSettings,
+                    onSettingsChanged = { audioSettings = it },
+                    onDismiss = { showEqualizerPanel = false },
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = {
@@ -824,6 +834,14 @@ private fun DesktopPlayer(
                     },
                 ) {
                     Text(if (showDiagnostics) "Hide Stats" else "Stats")
+                }
+                OutlinedButton(
+                    onClick = { showEqualizerPanel = !showEqualizerPanel },
+                    modifier = Modifier.semantics {
+                        contentDescription = if (showEqualizerPanel) "Close equalizer panel" else "Open real 10-band equalizer"
+                    },
+                ) {
+                    Text(if (showEqualizerPanel) "Close EQ" else "Equalizer")
                 }
             }
             Row(

@@ -169,19 +169,23 @@ private fun AudioEnhancementSettings.sanitized() = copy(
     bands = bands.map { it.copy(gainDb = it.gainDb.coerceIn(-12f, 12f)) },
 )
 
+private val PRESET_GAINS = mapOf(
+    dev.vimivo.playback.EqualizerPreset.FLAT to listOf(0f, 0f, 0f, 0f, 0f),
+    dev.vimivo.playback.EqualizerPreset.ROCK to listOf(4f, 2f, -1f, 2f, 4f),
+    dev.vimivo.playback.EqualizerPreset.POP to listOf(-1f, 2f, 4f, 2f, -1f),
+    dev.vimivo.playback.EqualizerPreset.CLASSICAL to listOf(3f, 2f, 0f, 2f, 3f),
+    dev.vimivo.playback.EqualizerPreset.JAZZ to listOf(3f, 1f, 1f, 3f, 4f),
+    dev.vimivo.playback.EqualizerPreset.VOCAL to listOf(-2f, 0f, 4f, 3f, 0f),
+    dev.vimivo.playback.EqualizerPreset.BASS_BOOST to listOf(6f, 4f, 0f, -1f, -2f),
+    dev.vimivo.playback.EqualizerPreset.TREBLE_BOOST to listOf(-2f, 0f, 2f, 4f, 6f),
+    dev.vimivo.playback.EqualizerPreset.ACOUSTIC to listOf(3f, 1f, 2f, 3f, 2f),
+    dev.vimivo.playback.EqualizerPreset.ELECTRONIC to listOf(5f, 2f, -1f, 2f, 5f),
+    dev.vimivo.playback.EqualizerPreset.PODCAST to listOf(-2f, 1f, 4f, 2f, -2f),
+    dev.vimivo.playback.EqualizerPreset.CUSTOM to emptyList(),
+)
+
 private fun AudioEnhancementSettings.resolvedGains(frequencies: List<Int>): List<Float> {
-    val presetBands = when (preset) {
-        dev.vimivo.playback.EqualizerPreset.FLAT -> listOf(0f, 0f, 0f, 0f, 0f)
-        dev.vimivo.playback.EqualizerPreset.ROCK -> listOf(4f, 2f, -1f, 2f, 4f)
-        dev.vimivo.playback.EqualizerPreset.POP -> listOf(-1f, 2f, 4f, 2f, -1f)
-        dev.vimivo.playback.EqualizerPreset.CLASSICAL -> listOf(3f, 2f, 0f, 2f, 3f)
-        dev.vimivo.playback.EqualizerPreset.JAZZ -> listOf(3f, 1f, 1f, 3f, 4f)
-        dev.vimivo.playback.EqualizerPreset.VOCAL -> listOf(-2f, 0f, 4f, 3f, 0f)
-        dev.vimivo.playback.EqualizerPreset.BASS_BOOST -> listOf(6f, 4f, 0f, -1f, -2f)
-        dev.vimivo.playback.EqualizerPreset.TREBLE_BOOST -> listOf(-2f, 0f, 2f, 4f, 6f)
-        dev.vimivo.playback.EqualizerPreset.ACOUSTIC -> listOf(3f, 1f, 2f, 3f, 2f)
-        dev.vimivo.playback.EqualizerPreset.CUSTOM -> emptyList()
-    }
+    val presetBands = PRESET_GAINS[preset].orEmpty()
     return frequencies.mapIndexed { index, frequency ->
         val custom = bands.minByOrNull { kotlin.math.abs(it.centerFrequencyHz - frequency) }?.gainDb
         val base = if (presetBands.isEmpty()) custom ?: 0f else {

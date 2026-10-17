@@ -97,10 +97,22 @@ Every platform engine implements `dev.vimivo.core.playback.PlayerEngine`:
 
 ## 5. Audio DSP & Video Adjustments
 
-- **10-Band Equalizer**: Frequencies: 31Hz, 63Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz. Range: -12 dB to +12 dB. Auto-attenuating preamp guarantees zero digital clipping when boosts are applied.
-- **ReplayGain**: Supports Track and Album modes with clipping protection.
-- **Video Adjustments**: Real-time GPU adjustments for `brightness`, `contrast`, `saturation`, and `gamma` via native libmpv properties.
-- **External Subtitles**: Real-time timing adjustment (±5000ms in 50ms increments) for synchronizing out-of-sync subtitle files.
+- **10-Band Graphic Equalizer**: Frequencies: 31Hz, 62Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz. Range: -12 dB to +12 dB.
+  - **12 Presets**: `Flat`, `Bass Boost`, `Treble Boost`, `Vocal`, `Classical`, `Jazz`, `Rock`, `Electronic`, `Podcast`, `Acoustic`, `Custom`.
+  - **Custom Presets**: Full custom curve adjustment with named persistence, safe defaults, and reset capabilities.
+  - **Auto-Attenuating Preamp Headroom**: Prevents digital clipping by automatically offsetting the maximum positive band boost down to -24 dB.
+- **Hardware Audio Effects**:
+  - **Bass Boost**: 0% to 100% strength enhancement.
+  - **Treble Adjustment**: -12 dB to +12 dB boost/cut.
+  - **Stereo Balance**: -1.0 (100% Left) to +1.0 (100% Right) with centered neutral default (0.0).
+  - **ReplayGain**: Supports `Track` and `Album` modes with peak limiting and clipping protection.
+  - **Audio Output Routing**: Dynamic device enumeration and selection (`getAudioOutputDevices()`, `selectAudioOutputDevice()`).
+- **Video Adjustments & Subtitles**:
+  - **Multi-Track Audio Selection**: Dynamic inspection and switching between audio renditions (language, codec, channels) without player restart.
+  - **Aspect Ratio & Display Modes**: `Fit`, `Fill`, `Original`, `16:9`, `4:3`, `21:9` with 90-degree step rotation.
+  - **Real-Time GPU Adjustments**: Dynamic hardware adjustments for `brightness`, `contrast`, `saturation`, and `gamma`.
+  - **External Subtitles**: Real-time delay adjustment (±5000ms in ±100ms or ±250ms steps) supporting `.srt`, `.vtt`, `.ass`, and `.ssa` with UTF-8 Bengali/Unicode text rendering.
+  - **Subtitle Styling**: Dynamic font size (18sp–36sp), text color (#FFFFFF, #FFFF00, #00FFFF), and safe margins.
 
 ---
 

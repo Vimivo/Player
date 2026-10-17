@@ -192,6 +192,10 @@ class MpvPlayerEngine : PlayerEngine {
     override fun addExternalSubtitle(subtitle: ExternalSubtitle) = action { command("sub-add", subtitle.uri, "select") }
     override fun setSubtitleDelay(delayMillis: Long) = action { setProperty("sub-delay", (delayMillis / 1_000.0).toString()) }
     override fun setAudioDelay(delayMillis: Long) = action { setProperty("audio-delay", (delayMillis / 1_000.0).toString()) }
+    override fun setAudioBalance(balance: Float) = action {
+        require(balance in -1f..1f) { "Stereo balance must be between -1.0 and 1.0" }
+        setProperty("balance", balance.toString())
+    }
 
     override fun setReplayGainMode(mode: ReplayGainMode): Result<Unit> = action {
         val value = when (mode) {
@@ -365,6 +369,7 @@ class MpvPlayerEngine : PlayerEngine {
     override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> = action {
         val effective = DesktopAudioEffects.effectiveSettings(settings)
         setProperty("af", DesktopAudioEffects.filter(effective).orEmpty())
+        setProperty("balance", effective.balance.toString())
         mutableAudio.value = AudioEnhancementState(
             capabilities = capabilities.audioEnhancements,
             settings = effective,
@@ -616,6 +621,7 @@ class MpvPlayerEngine : PlayerEngine {
                 attenuatingPreamp = true,
                 replayGain = true,
                 gapless = true,
+                stereoBalance = true,
                 pitchPreservation = true,
                 outputSelection = true,
                 limitation = "Equalizer uses libmpv's FFmpeg filter chain; crossfade and bit-perfect output are not available",

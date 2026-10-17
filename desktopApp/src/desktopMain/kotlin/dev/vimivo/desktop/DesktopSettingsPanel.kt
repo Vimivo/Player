@@ -160,9 +160,9 @@ internal fun DesktopSettingsPanel(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                EqualizerPreset.entries.take(5).forEach { preset ->
+                                EqualizerPreset.entries.take(6).forEach { preset ->
                                     val isSelected = activePreset == preset
-                                    val label = preset.name.lowercase().replaceFirstChar { it.uppercase() }
+                                    val label = preset.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
                                     if (isSelected) {
                                         Button(onClick = { onEqualizerPresetSelected(preset) }) { Text(label) }
                                     } else {
@@ -174,9 +174,9 @@ internal fun DesktopSettingsPanel(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                EqualizerPreset.entries.drop(5).forEach { preset ->
+                                EqualizerPreset.entries.drop(6).forEach { preset ->
                                     val isSelected = activePreset == preset
-                                    val label = preset.name.lowercase().replaceFirstChar { it.uppercase() }
+                                    val label = preset.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
                                     if (isSelected) {
                                         Button(onClick = { onEqualizerPresetSelected(preset) }) { Text(label) }
                                     } else {

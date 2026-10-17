@@ -25,6 +25,7 @@ internal object DesktopAudioEffects {
         bassStrength = settings.bassStrength.coerceIn(0f, 1f),
         trebleGainDb = settings.trebleGainDb.coerceIn(-12f, 12f),
         preampDb = settings.preampDb.coerceIn(-12f, 0f),
+        balance = settings.balance.coerceIn(-1f, 1f),
     )
 
     private fun presetGains(settings: AudioEnhancementSettings): List<Float> {
@@ -48,5 +49,7 @@ internal object DesktopAudioEffects {
         EqualizerPreset.BASS_BOOST to listOf(6f, 5f, 4f, 2f, 0f, -1f, -2f, -2f, -2f, -2f),
         EqualizerPreset.TREBLE_BOOST to listOf(-2f, -2f, -1f, 0f, 1f, 2f, 3f, 4f, 5f, 6f),
         EqualizerPreset.ACOUSTIC to listOf(3f, 2f, 1f, 1f, 2f, 2f, 3f, 3f, 2f, 1f),
+        EqualizerPreset.ELECTRONIC to listOf(5f, 4f, 2f, 0f, -2f, 2f, 1f, 2f, 4f, 5f),
+        EqualizerPreset.PODCAST to listOf(-2f, -1f, 0f, 2f, 4f, 4f, 3f, 1f, -1f, -2f),
     )
 }

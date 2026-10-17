@@ -10,6 +10,8 @@ enum class EqualizerPreset {
     BASS_BOOST,
     TREBLE_BOOST,
     ACOUSTIC,
+    ELECTRONIC,
+    PODCAST,
     CUSTOM,
 }
 
@@ -26,6 +28,11 @@ data class EqualizerBand(
     val gainDb: Float,
 )
 
+data class CustomEqualizerPreset(
+    val name: String,
+    val bands: List<EqualizerBand>,
+)
+
 data class AudioEnhancementSettings(
     val enabled: Boolean = false,
     val preset: EqualizerPreset = EqualizerPreset.FLAT,
@@ -35,6 +42,9 @@ data class AudioEnhancementSettings(
     /** Attenuation only. Positive digital preamp is deliberately unsupported to reduce clipping. */
     val preampDb: Float = 0f,
     val replayGainMode: ReplayGainMode = ReplayGainMode.OFF,
+    val balance: Float = 0f,
+    val customPresetName: String? = null,
+    val customPresets: List<CustomEqualizerPreset> = emptyList(),
 )
 
 data class AudioEnhancementCapabilities(

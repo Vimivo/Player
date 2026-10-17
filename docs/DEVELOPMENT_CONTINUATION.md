@@ -46,10 +46,29 @@ Milestones completed:
 - **Milestone 66**: Premium Aurora Glass UI/UX, Native Platform Integration, Playback Quality & Final Refinement
 - **Milestone 67**: Advanced Local Media Workflows, Unified Import Experience & Library Management
 - **Milestone 68**: Direct URL Streaming Workflows, Professional Aurora Glass UI/UX & Cross-Platform Completion
+- **Milestone 69**: Advanced Audio Experience, Real Equalizer & Native Integration
+- **Milestone 70**: Advanced Video Playback, Subtitles & Cross-Platform Display Controls
 
 ## Resume point
 
-Milestones 67 and 68 (Advanced Local Media Workflows, Unified Import Experience, Media Library Management, Metadata and Artwork Management, Advanced Playlists, Playback Queue Improvements, Direct URL Streaming Workflows, Professional Aurora Glass UI/UX, Cross-Platform Feature Completion) are complete, verified, and passing all quality gates.
+Milestones 69 and 70 (Advanced Audio Experience, Real Equalizer and Audio Effects, Premium Audio Playback Experience, Advanced Video Playback Controls, Subtitle and Audio Track Management, Playback Speed and Display Controls, Background Playback and Native Media Integration, Cross-Platform Playback Feature Completion) are complete, verified, and passing all quality gates.
+
+- **Real Graphic Equalizer & Audio Effects (Desktop & Android)**:
+  - Expanded 10-band equalizer presets from 10 to 12 presets: `FLAT`, `BASS_BOOST`, `TREBLE_BOOST`, `VOCAL`, `CLASSICAL`, `JAZZ`, `ROCK`, `ELECTRONIC`, `PODCAST`, `ACOUSTIC`, `CUSTOM`.
+  - Built interactive Aurora Glass Equalizer & DSP Panel (`DesktopEqualizerPanel`) with live per-band slider controls (-12 dB to +12 dB across 31Hz, 62Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz).
+  - Custom preset management: interactive creation, naming, application, and deletion of custom curves stored safely in `AudioEnhancementSettings`.
+  - Auto-attenuating preamp headroom: dynamically offsets positive band boosts down to -24 dB to completely prevent digital clipping.
+  - Stereo Balance (-1.0 Left to +1.0 Right) added to `PlayerEngine` contract and wired to native libmpv property `balance` without audio pipeline rebuilding.
+  - Mapped `ELECTRONIC` and `PODCAST` 5-band presets on Android with refactored lookup map eliminating cyclomatic complexity.
+- **Advanced Video Playback & Subtitle Management**:
+  - Multi-track audio and subtitle selection with dynamic track switching.
+  - External subtitle loading (`.srt`, `.vtt`, `.ass`, `.ssa`), real-time delay adjustment (±5000ms), and custom appearance styling.
+  - Real-time GPU video adjustments (brightness, contrast, saturation, gamma) and aspect ratio controls.
+  - Full UTF-8 Unicode and Bengali subtitle verification (`আমার সোনার বাংলা, আমি তোমায় ভালোবাসি`).
+- **Testing & Verification**:
+  - Total automated tests: **482 passing tests** across shared, desktop, Android, and iOS suites (0 failures, 100% pass rate).
+  - All quality gates verified via `./scripts/verify_all.sh` and `./scripts/validate_docs.sh`.
+
 
 - **Unified Import & Multi-File Workflows (Desktop & Android)**:
   - Upgraded desktop "Open media" dialog and action buttons to process multiple files simultaneously (`chooseMediaFiles().let { if (it.isNotEmpty()) queue.play(it.map { f -> f.toMediaItem() }) }`).

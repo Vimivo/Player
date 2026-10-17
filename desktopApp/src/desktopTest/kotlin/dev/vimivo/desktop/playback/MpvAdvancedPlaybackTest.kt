@@ -38,6 +38,7 @@ class MpvAdvancedPlaybackTest {
             assertTrue(audioCaps.gapless)
             assertTrue(audioCaps.pitchPreservation)
             assertTrue(audioCaps.outputSelection)
+            assertTrue(audioCaps.stereoBalance)
         } finally {
             engine.close()
         }
@@ -61,6 +62,23 @@ class MpvAdvancedPlaybackTest {
         val acousticFilter = DesktopAudioEffects.filter(acousticSettings)
         assertNotNull(acousticFilter)
         assertTrue(acousticFilter.contains("equalizer=f=1000"))
+
+        val electronicSettings = AudioEnhancementSettings(
+            enabled = true,
+            preset = EqualizerPreset.ELECTRONIC,
+        )
+        val electronicFilter = DesktopAudioEffects.filter(electronicSettings)
+        assertNotNull(electronicFilter)
+        assertTrue(electronicFilter.contains("equalizer=f=31:t=q:w=1:g=5.0"))
+        assertTrue(electronicFilter.contains("equalizer=f=16000:t=q:w=1:g=5.0"))
+
+        val podcastSettings = AudioEnhancementSettings(
+            enabled = true,
+            preset = EqualizerPreset.PODCAST,
+        )
+        val podcastFilter = DesktopAudioEffects.filter(podcastSettings)
+        assertNotNull(podcastFilter)
+        assertTrue(podcastFilter.contains("equalizer=f=500:t=q:w=1:g=4.0"))
     }
 
     @Test

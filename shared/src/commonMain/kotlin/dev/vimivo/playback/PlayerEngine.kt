@@ -203,6 +203,8 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Subtitle delay is not supported"))
     fun setAudioDelay(delayMillis: Long): Result<Unit> =
         Result.failure(UnsupportedOperationException("Audio delay is not supported"))
+    fun setAudioBalance(balance: Float): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Stereo balance adjustment is not supported"))
     fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> =
         Result.failure(UnsupportedOperationException(capabilities.audioEnhancements.limitation))
     fun setReplayGainMode(mode: ReplayGainMode): Result<Unit> =

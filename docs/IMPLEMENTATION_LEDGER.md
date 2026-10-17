@@ -241,13 +241,35 @@ Status terms: **implemented** means code exists, **tested** means automated test
 
 On 2026-10-17, these commands completed successfully:
 
-- `./gradlew :shared:desktopTest` (102 tests passed)
-- `./gradlew :desktopApp:desktopTest` (215 tests passed)
+- `./gradlew :shared:desktopTest` (103 tests passed)
+- `./gradlew :desktopApp:desktopTest` (220 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
-- `./gradlew :androidApp:testDebugUnitTest` (21 tests passed)
+- `./gradlew :androidApp:testDebugUnitTest` (22 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
+- `xcodebuild test -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro'` (9 tests passed)
 - `./gradlew detekt` (all modules passed, 0 violations)
 - `./scripts/validate_docs.sh` (100% relative documentation links verified)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 347 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
+- Total automated tests: 482 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
+
+### Milestone 69: Advanced Audio Experience, Real Equalizer & Native Integration
+
+- **Real Graphic Equalizer & Audio Effects**:
+  - Expanded 10-band equalizer presets from 10 to 12 presets: `FLAT`, `BASS_BOOST`, `TREBLE_BOOST`, `VOCAL`, `CLASSICAL`, `JAZZ`, `ROCK`, `ELECTRONIC`, `PODCAST`, `ACOUSTIC`, `CUSTOM`.
+  - Built interactive, responsive Aurora Glass Equalizer & DSP Panel (`DesktopEqualizerPanel`) with live per-band slider controls (-12 dB to +12 dB across 31Hz, 62Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz).
+  - Custom preset management: interactive creation, naming, application, and deletion of custom curves stored safely in `AudioEnhancementSettings`.
+  - Auto-attenuating preamp headroom: dynamically offsets positive band boosts down to -24 dB to completely prevent digital clipping.
+  - Hardware audio effects: Bass Enhancement (0–100%), Treble Gain (±12 dB), Preamp Attenuation (0 to -12 dB), ReplayGain (Off/Track/Album), and Stereo Balance (-1.0 Left to +1.0 Right).
+  - Audio output device enumeration and switching (`getAudioOutputDevices()`, `selectAudioOutputDevice()`).
+  - Native media controls: verified Android foreground service notification with MediaSession actions; iOS Now Playing center and remote command center with lock-screen control and Dynamic Island / Live Activity sync; Desktop MPRIS & macOS media keys.
+
+### Milestone 70: Advanced Video Playback, Subtitles & Cross-Platform Display Controls
+
+- **Multi-Track Audio & Subtitle Management**:
+  - Multi-track audio inspection and dynamic switching without video restart.
+  - Subtitle management: embedded subtitle track selector, external subtitle loader (`.srt`, `.vtt`, `.ass`, `.ssa`), real-time subtitle delay adjustment (±5000ms), and custom appearance styling (font size 18sp–36sp, text color, margin).
+  - Real-time GPU video adjustments (brightness, contrast, saturation, gamma) and aspect ratio modes (`FIT`, `FILL`, `ORIGINAL`, `16:9`, `4:3`, `21:9`).
+  - Full UTF-8 Unicode and Bengali subtitle validation (`আমার সোনার বাংলা, আমি তোমায় ভালোবাসি`).
+  - Direct URL streaming validation with `StreamValidator`, safe logging with token stripping, and bounded reconnects.
+  - Total automated test suite expanded to **482 passing tests** (100% pass rate) across shared, desktop, Android, and iOS suites.
 

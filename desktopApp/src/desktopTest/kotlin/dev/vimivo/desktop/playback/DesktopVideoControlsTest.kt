@@ -14,6 +14,7 @@ import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
+import dev.vimivo.playback.SubtitleStyle
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.VideoAdjustments
 import dev.vimivo.playback.VideoAspectRatio
@@ -60,6 +61,9 @@ class DesktopVideoControlsTest {
         var lastAudioDelayMs: Long? = null
         var lastABRepeatRange: ABRepeatRange? = null
         var lastAddedSubtitle: ExternalSubtitle? = null
+        var lastSelectedAudioTrackId: String? = null
+        var lastSelectedSubtitleTrackId: String? = null
+        var lastSubtitleStyle: SubtitleStyle? = null
         var screenshotPath: String? = null
         var chapterNavCount = 0
 
@@ -71,9 +75,19 @@ class DesktopVideoControlsTest {
         override fun seekTo(positionMillis: Long): Result<Unit> = Result.success(Unit)
         override fun setPlaybackSpeed(speed: Float): Result<Unit> = Result.success(Unit)
         override fun setVolume(volume: Float): Result<Unit> = Result.success(Unit)
-        override fun selectAudioTrack(trackId: String?): Result<Unit> = Result.success(Unit)
+        override fun selectAudioTrack(trackId: String?): Result<Unit> {
+            lastSelectedAudioTrackId = trackId
+            return Result.success(Unit)
+        }
         override fun selectVideoTrack(trackId: String?): Result<Unit> = Result.success(Unit)
-        override fun selectSubtitleTrack(trackId: String?): Result<Unit> = Result.success(Unit)
+        override fun selectSubtitleTrack(trackId: String?): Result<Unit> {
+            lastSelectedSubtitleTrackId = trackId
+            return Result.success(Unit)
+        }
+        override fun applySubtitleStyle(style: SubtitleStyle): Result<Unit> {
+            lastSubtitleStyle = style
+            return Result.success(Unit)
+        }
         override fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> {
             lastAddedSubtitle = subtitle
             return Result.success(Unit)
@@ -216,5 +230,72 @@ class DesktopVideoControlsTest {
         engine.nextChapter()
         engine.previousChapter()
         assertEquals(1, engine.chapterNavCount)
+    }
+
+    @Test
+    fun selectsAudioAndSubtitleTracks() {
+        val engine = RecordingPlayerEngine()
+        engine.selectAudioTrack("aid-2")
+        assertEquals("aid-2", engine.lastSelectedAudioTrackId)
+
+        engine.selectAudioTrack(null)
+        assertEquals(null, engine.lastSelectedAudioTrackId)
+
+        engine.selectSubtitleTrack("sid-1")
+        assertEquals("sid-1", engine.lastSelectedSubtitleTrackId)
+
+        engine.selectSubtitleTrack(null)
+        assertEquals(null, engine.lastSelectedSubtitleTrackId)
+    }
+
+    @Test
+    fun appliesSubtitleAppearanceStyles() {
+        val engine = RecordingPlayerEngine()
+        val style = SubtitleStyle(
+            fontSizeSp = 30,
+            textColorHex = "#FFFF00",
+            bottomMarginPercent = 10,
+        )
+        val result = engine.applySubtitleStyle(style)
+        assertTrue(result.isSuccess)
+        assertEquals(30, engine.lastSubtitleStyle?.fontSizeSp)
+        assertEquals("#FFFF00", engine.lastSubtitleStyle?.textColorHex)
+        assertEquals(10, engine.lastSubtitleStyle?.bottomMarginPercent)
+    }
+
+    @Test
+    fun parsesBengaliAndUnicodeExternalSubtitlesSafely() {
+        val engine = RecordingPlayerEngine()
+        val tempSub = File.createTempFile("vimivo_bengali_test_", ".srt")
+        try {
+            val bengaliSrtContent = """
+                1
+                00:00:01,000 --> 00:00:04,500
+                আমার সোনার বাংলা, আমি তোমায় ভালোবাসি।
+
+                2
+                00:00:05,000 --> 00:00:08,200
+                চিরদিন তোমার আকাশ, তোমার বাতাস, আমার প্রাণে বাজায় বাঁশি।
+            """.trimIndent()
+            tempSub.writeText(bengaliSrtContent, Charsets.UTF_8)
+
+            val externalSub = ExternalSubtitle(
+                uri = tempSub.toURI().toString(),
+                label = tempSub.name,
+                language = "bn",
+                mimeType = "application/x-subrip",
+            )
+            val result = engine.addExternalSubtitle(externalSub)
+            assertTrue(result.isSuccess)
+            assertEquals(externalSub, engine.lastAddedSubtitle)
+            assertEquals("bn", engine.lastAddedSubtitle?.language)
+
+            // Verify content was read with UTF-8 encoding preserving Bengali unicode
+            val readBack = tempSub.readText(Charsets.UTF_8)
+            assertTrue(readBack.contains("সোনার বাংলা"))
+            assertTrue(readBack.contains("তোমায় ভালোবাসি"))
+        } finally {
+            tempSub.delete()
+        }
     }
 }
