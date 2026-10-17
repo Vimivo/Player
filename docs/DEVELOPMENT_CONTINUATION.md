@@ -134,12 +134,12 @@ Milestones 73 and 74 (Final Product Audit, Remaining Feature Gaps, Feature Compl
   - Android AAB: `androidApp-release.aab` (76 MB, SHA-256: `8d7f0060a9ec770bb5162d0f5d61ed90f5cd7226a67ef64216030c8710af7133`).
   - Verification records published in `docs/INSTALLATION_VERIFICATION.md` and `docs/DISTRIBUTION_ARTIFACTS.md`.
 
-Test & Static Analysis Verification (Milestones 75 & 76 Complete):
-- `:shared:desktopTest`: 120 passing tests (100% pass rate).
+Test & Static Analysis Verification (Milestones 77 & 78 Complete):
+- `:shared:desktopTest`: 121 passing tests (100% pass rate).
 - `:desktopApp:desktopTest`: 220 passing tests (100% pass rate).
 - `:androidApp:testDebugUnitTest`: 147 passing tests (100% pass rate).
 - `iosAppTests` (Xcode / iPhone 17 Pro Simulator): 9 passing tests (100% pass rate).
-- Total automated tests: 496 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
+- Total automated tests: 497 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
 - Detekt static analysis: 0 weighted violations across all modules.
 - Android debug build: `:androidApp:assembleDebug` SUCCESS.
 - Relative documentation links: 100% verified via `./scripts/validate_docs.sh` (32 links).

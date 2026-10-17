@@ -7,11 +7,14 @@ package dev.vimivo.core.util
  */
 object SafeLogger {
     private val USER_PATH_REGEX = Regex("""(?i)(?:/Users/|/home/|[A-Z]:\\Users\\)([^/\\]+)[/\\]?""")
+    private val EMBEDDED_CREDENTIALS_REGEX = Regex("""(?i)([a-z0-9+.-]+://)[^:@/\s]+:[^@/\s]+@""")
     private val SENSITIVE_QUERY_PARAM_REGEX = Regex(
-        """(?i)([?&](?:token|auth|key|secret|password|sig|signature|access_token|api_key)=)([^&#\s]+)""",
+        """(?i)([?&](?:token|auth|key|secret|password|passwd|sig|signature|""" +
+            """access_token|api_key|client_secret|session_token|jwt|ticket)=)([^&#\s]+)""",
     )
     private val SENSITIVE_KEY_VALUE_REGEX = Regex(
-        """(?i)\b((?:token|auth|key|secret|password|sig|signature|access_token|api_key)=)([^\s&#]+)""",
+        """(?i)\b((?:token|auth|key|secret|password|passwd|sig|signature|""" +
+            """access_token|api_key|client_secret|session_token|jwt|ticket)=)([^\s&#]+)""",
     )
     private val AUTH_HEADER_REGEX = Regex("""(?i)(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*""")
 
@@ -32,10 +35,11 @@ object SafeLogger {
     }
 
     /**
-     * Redacts sensitive query parameters (token, auth, signature, password) from URLs.
+     * Redacts sensitive query parameters (token, auth, signature, password) and embedded credentials from URLs.
      */
     fun redactUrl(url: String): String {
-        return url.replace(SENSITIVE_QUERY_PARAM_REGEX, "$1[REDACTED]")
+        return url.replace(EMBEDDED_CREDENTIALS_REGEX, "$1[REDACTED]@")
+            .replace(SENSITIVE_QUERY_PARAM_REGEX, "$1[REDACTED]")
             .replace(AUTH_HEADER_REGEX, "$1 [REDACTED]")
     }
 

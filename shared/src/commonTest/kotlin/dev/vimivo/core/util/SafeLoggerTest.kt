@@ -42,12 +42,24 @@ class SafeLoggerTest {
     }
 
     @Test
+    fun testRedactEmbeddedUrlCredentials() {
+        val url = "https://admin:mySecretPassword123@stream.example.com/live.m3u8?jwt=xyz987"
+        val redacted = SafeLogger.redactUrl(url)
+        assertFalse(redacted.contains("admin"))
+        assertFalse(redacted.contains("mySecretPassword123"))
+        assertFalse(redacted.contains("xyz987"))
+        assertTrue(redacted.contains("https://[REDACTED]@stream.example.com/live.m3u8?jwt=[REDACTED]"))
+    }
+
+    @Test
     fun testSanitizeErrorMessage() {
-        val raw = "Failed to open /Users/alice/Library/test.flac with stream https://server.com?key=SUPERSECRET"
+        val raw = "Failed to open /Users/alice/Library/test.flac with stream " +
+            "https://user:pass@server.com?key=SUPERSECRET"
         val sanitized = SafeLogger.sanitize(raw)
         assertFalse(sanitized.contains("alice"))
+        assertFalse(sanitized.contains("user:pass"))
         assertFalse(sanitized.contains("SUPERSECRET"))
         assertTrue(sanitized.contains("~/user/Library/test.flac"))
-        assertTrue(sanitized.contains("key=[REDACTED]"))
+        assertTrue(sanitized.contains("https://[REDACTED]@server.com?key=[REDACTED]"))
     }
 }

@@ -56,12 +56,32 @@ We do not artificially downgrade defects to permit unverified releases, nor do w
 - **Regression Test**: `DesktopUserJourneysTest.kt` -> `journey7_FaultInjectionAndResilience()`. Verified passing.
 - **Status**: **VERIFIED FIXED**.
 
+### Defect VIM-BUG-005 (P1): Desktop libmpv Polling Race Condition Overwrote Media State on Rapid Track Switching
+- **Platform**: Desktop (macOS, Windows, Linux) (`MpvPlayerEngine.kt`).
+- **Subsystem**: Desktop libmpv Playback Engine.
+- **Symptom**: Rapid switching across multiple audio tracks in tight succession resulted in `engine.state.value.media` reflecting an earlier track (e.g. track 17 instead of track 20) or showing outdated media metadata.
+- **Root Cause**: `open()` initiated asynchronous polling without atomically canceling previous polling jobs under `nativeLock`, and `startPolling` captured a stale `previous = mutableState.value` before querying JNA properties, subsequently copying this stale reference over newer state emitted by a concurrent `open()`.
+- **Correction**: Synchronized session generation advancement and job cancellation atomically within `synchronized(nativeLock)`. Refactored state updates to use `mutableState.update` guarded by `sessionGeneration == expectedSession`, preventing stale asynchronous polling iterations from corrupting active state.
+- **Regression Test**: `LongSessionStabilityTest.kt` -> `testLongSessionRapidSourceSwitchingSafety()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-006 (P2): URL Embedded User Credentials Leaked in Raw Diagnostic Export
+- **Platform**: All platforms (`SafeLogger.kt`).
+- **Subsystem**: Privacy & Logging Subsystem.
+- **Symptom**: URLs containing embedded user info credentials (`http://username:password@domain.com/stream.m3u8`) retained credentials in error logs because regexes only matched query parameters (`?token=...`).
+- **Root Cause**: `SafeLogger.redactUrl` lacked an embedded user-info credential regex (`EMBEDDED_CREDENTIALS_REGEX`), exposing user:pass strings before the `@` host delimiter.
+- **Correction**: Implemented `EMBEDDED_CREDENTIALS_REGEX` in `SafeLogger.kt` and expanded sensitive token keywords to include `passwd`, `client_secret`, `session_token`, `jwt`, `ticket`.
+- **Regression Test**: `SafeLoggerTest.kt` -> `testRedactEmbeddedUrlCredentials()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
 ---
 
 ## 4. Defect Metrics & Statistics
 
-- **Total Defects Triaged**: 4
+- **Total Defects Triaged**: 6
 - **Total P0 Defects**: 1 (Fixed: 1, Remaining: 0)
-- **Total P1 Defects**: 3 (Fixed: 3, Remaining: 0)
-- **Total P2/P3 Defects**: 0 open blockers
+- **Total P1 Defects**: 4 (Fixed: 4, Remaining: 0)
+- **Total P2 Defects**: 1 (Fixed: 1, Remaining: 0)
+- **Total P3 Defects**: 0 open blockers
 - **Unresolved Release Blockers**: **0**
+
