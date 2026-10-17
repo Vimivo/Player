@@ -169,10 +169,28 @@ internal fun DesktopVideoControlsPanel(
                 }
 
                 Text("Sync: ${audioDelayMs}ms", style = MaterialTheme.typography.labelSmall)
-                OutlinedButton(onClick = { audioDelayMs -= 100; engine.setAudioDelay(audioDelayMs) }) { Text("-100ms") }
-                OutlinedButton(onClick = { audioDelayMs += 100; engine.setAudioDelay(audioDelayMs) }) { Text("+100ms") }
+                OutlinedButton(
+                    onClick = { audioDelayMs -= 100; engine.setAudioDelay(audioDelayMs) },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Decrease audio delay by 100 milliseconds"
+                    },
+                ) { Text("-100ms") }
+                OutlinedButton(
+                    onClick = { audioDelayMs += 100; engine.setAudioDelay(audioDelayMs) },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Increase audio delay by 100 milliseconds"
+                    },
+                ) { Text("+100ms") }
                 if (audioDelayMs != 0L) {
-                    OutlinedButton(onClick = { audioDelayMs = 0; engine.setAudioDelay(0) }) { Text("Reset") }
+                    OutlinedButton(
+                        onClick = { audioDelayMs = 0; engine.setAudioDelay(0) },
+                        modifier = Modifier.semantics {
+                            role = Role.Button
+                            contentDescription = "Reset audio delay to 0 milliseconds"
+                        },
+                    ) { Text("Reset") }
                 }
             }
 
@@ -228,10 +246,28 @@ internal fun DesktopVideoControlsPanel(
                 }
 
                 Text("Delay: ${subtitleDelayMs}ms", style = MaterialTheme.typography.labelSmall)
-                OutlinedButton(onClick = { subtitleDelayMs -= 250; engine.setSubtitleDelay(subtitleDelayMs) }) { Text("-250ms") }
-                OutlinedButton(onClick = { subtitleDelayMs += 250; engine.setSubtitleDelay(subtitleDelayMs) }) { Text("+250ms") }
+                OutlinedButton(
+                    onClick = { subtitleDelayMs -= 250; engine.setSubtitleDelay(subtitleDelayMs) },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Decrease subtitle delay by 250 milliseconds"
+                    },
+                ) { Text("-250ms") }
+                OutlinedButton(
+                    onClick = { subtitleDelayMs += 250; engine.setSubtitleDelay(subtitleDelayMs) },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Increase subtitle delay by 250 milliseconds"
+                    },
+                ) { Text("+250ms") }
                 if (subtitleDelayMs != 0L) {
-                    OutlinedButton(onClick = { subtitleDelayMs = 0; engine.setSubtitleDelay(0) }) { Text("Reset") }
+                    OutlinedButton(
+                        onClick = { subtitleDelayMs = 0; engine.setSubtitleDelay(0) },
+                        modifier = Modifier.semantics {
+                            role = Role.Button
+                            contentDescription = "Reset subtitle delay to 0 milliseconds"
+                        },
+                    ) { Text("Reset") }
                 }
             }
 
@@ -341,14 +377,30 @@ internal fun DesktopVideoControlsPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Chapters:", style = MaterialTheme.typography.labelMedium)
-                OutlinedButton(onClick = { engine.previousChapter() }) { Text("◀ Prev") }
-                OutlinedButton(onClick = { engine.nextChapter() }) { Text("Next ▶") }
+                OutlinedButton(
+                    onClick = { engine.previousChapter() },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Skip to previous chapter"
+                    },
+                ) { Text("◀ Prev") }
+                OutlinedButton(
+                    onClick = { engine.nextChapter() },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Skip to next chapter"
+                    },
+                ) { Text("Next ▶") }
 
                 Text("A-B Loop:", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 12.dp))
                 OutlinedButton(
                     onClick = {
                         abRepeatA = state.positionMillis
                         message = "Point A set at ${formatMs(state.positionMillis)}"
+                    },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = if (abRepeatA != null) "Point A set at ${formatMs(abRepeatA!!)}" else "Set Point A"
                     },
                 ) {
                     Text(if (abRepeatA != null) "A: ${formatMs(abRepeatA!!)}" else "Set A")
@@ -362,6 +414,10 @@ internal fun DesktopVideoControlsPanel(
                         message = "Looping ${formatMs(a)} to ${formatMs(b)}"
                     },
                     enabled = abRepeatA != null,
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = if (abRepeatB != null) "Point B set at ${formatMs(abRepeatB!!)}" else "Set Point B"
+                    },
                 ) {
                     Text(if (abRepeatB != null) "B: ${formatMs(abRepeatB!!)}" else "Set B")
                 }
@@ -372,6 +428,10 @@ internal fun DesktopVideoControlsPanel(
                             abRepeatB = null
                             engine.setABRepeat(ABRepeatRange(null, null, enabled = false))
                             message = "A-B Repeat cleared"
+                        },
+                        modifier = Modifier.semantics {
+                            role = Role.Button
+                            contentDescription = "Clear A-B repeat loop"
                         },
                     ) {
                         Text("Clear Loop")

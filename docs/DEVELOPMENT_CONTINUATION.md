@@ -142,16 +142,20 @@ Milestones 73 and 74 (Final Product Audit, Remaining Feature Gaps, Feature Compl
   - Android AAB: `androidApp-release.aab` (76 MB, SHA-256: `8d7f0060a9ec770bb5162d0f5d61ed90f5cd7226a67ef64216030c8710af7133`).
   - Verification records published in `docs/INSTALLATION_VERIFICATION.md` and `docs/DISTRIBUTION_ARTIFACTS.md`.
 
-Test & Static Analysis Verification (Milestones 81 & 82 Complete):
-- `:shared:desktopTest`: 123 passing tests (100% pass rate).
-- `:desktopApp:desktopTest`: 222 passing tests (100% pass rate).
+Test & Static Analysis Verification (Milestones 83 & 84 Complete):
+- `:shared:desktopTest`: 126 passing tests (100% pass rate).
+- `:desktopApp:desktopTest`: 224 passing tests (100% pass rate).
 - `:androidApp:testDebugUnitTest`: 147 passing tests (100% pass rate).
 - `iosAppTests` (Xcode / iPhone 17 Pro Simulator): 9 passing tests (100% pass rate).
-- Total automated tests: 501 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
+- Total automated tests: 506 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
 - Detekt static analysis: 0 weighted violations across all modules (`:shared`, `:desktopApp`, `:androidApp`).
 - Android debug build: `:androidApp:assembleDebug` SUCCESS.
-- Relative documentation links: 100% verified via `./scripts/validate_docs.sh` (32 links).
+- Relative documentation links: 100% verified via `./scripts/validate_docs.sh`.
 - Unified quality gate: 100% verified via `./scripts/verify_all.sh` (all 7 gates passed).
+- Playback Engine Failover: Automatic fallback to secondary candidate engines on primary engine open failure (VIM-BUG-010).
+- Playback Queue Protection: Ghost playback prevented when queue is cleared during asynchronous open (VIM-BUG-011).
+- Desktop Keyboard Non-Interference: MenuBar Spacebar accelerator made non-preempting for text inputs via root window key event routing (VIM-BUG-012).
+- Screen-Reader Accessibility: Redundant announcements eliminated via `clearAndSetSemantics`, decorative artwork silenced, slider semantics added (VIM-BUG-013).
 
 ## Next executable work
 

@@ -95,6 +95,42 @@ class PlaybackEngineManagerTest {
         assertEquals(0, fallbackVlc.created)
     }
 
+    @Test
+    fun fallsBackToNextCandidateWhenPreferredEngineFailsToOpen() = runTest {
+        val media3 = FakeFactory(EngineId.MEDIA3)
+        val vlc = FakeFactory(EngineId.LIBVLC)
+        val manager = PlaybackEngineManager(mapOf(media3.id to media3, vlc.id to vlc), backgroundScope)
+
+        media3.failOnOpen = true
+
+        val result = manager.open(media("unsupported_by_media3.mkv"))
+        runCurrent()
+
+        assertTrue(result.isSuccess, "Manager should fall back to LibVLC when Media3 fails to open")
+        assertEquals(EngineId.LIBVLC, manager.state.value.engine)
+        assertEquals(PlaybackStatus.Ready, manager.state.value.status)
+        assertEquals(1, media3.created)
+        assertEquals(1, vlc.created)
+    }
+
+    @Test
+    fun marksStateAsErrorWhenAllCandidateEnginesFailToOpen() = runTest {
+        val media3 = FakeFactory(EngineId.MEDIA3)
+        val vlc = FakeFactory(EngineId.LIBVLC)
+        val manager = PlaybackEngineManager(mapOf(media3.id to media3, vlc.id to vlc), backgroundScope)
+
+        media3.failOnOpen = true
+        vlc.failOnOpen = true
+
+        val result = manager.open(media("corrupt.mkv"))
+        runCurrent()
+
+        assertTrue(result.isFailure, "Manager should return failure when all engines fail")
+        assertTrue(manager.state.value.status is PlaybackStatus.Error)
+        assertEquals(1, media3.created)
+        assertEquals(1, vlc.created)
+    }
+
     private fun media(name: String) = MediaItem(MediaId(name), "file:///tmp/$name", name, MediaKind.VIDEO)
 }
 
@@ -115,6 +151,7 @@ private class FakeFactory(
     override val id: EngineId,
 ) : PlayerEngineFactory {
     var created = 0
+    var failOnOpen = false
     lateinit var latest: FakeEngine
     override fun supportFor(media: MediaItem) = if (id == EngineId.MEDIA3) {
         SupportLevel.PREFERRED
@@ -122,13 +159,16 @@ private class FakeFactory(
         SupportLevel.FALLBACK
     }
 
-    override fun create(): PlayerEngine = FakeEngine(id).also {
+    override fun create(): PlayerEngine = FakeEngine(id, failOnOpen).also {
         latest = it
         created++
     }
 }
 
-private class FakeEngine(override val id: EngineId) : PlayerEngine {
+private class FakeEngine(
+    override val id: EngineId,
+    private val failOnOpen: Boolean = false,
+) : PlayerEngine {
     private val mutableState = MutableStateFlow(PlaybackState(engine = id))
     override val state = mutableState.asStateFlow()
     override val capabilities = EngineCapabilities(
@@ -152,6 +192,9 @@ private class FakeEngine(override val id: EngineId) : PlayerEngine {
 
     override fun supportFor(media: MediaItem) = SupportLevel.PREFERRED
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> {
+        if (failOnOpen) {
+            return Result.failure(IllegalStateException("Simulated engine open failure"))
+        }
         mutableState.value = PlaybackState(
             engine = id,
             media = media,

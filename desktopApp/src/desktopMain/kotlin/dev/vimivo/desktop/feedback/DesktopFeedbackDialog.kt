@@ -38,7 +38,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.vimivo.core.diagnostics.DiagnosticReport
@@ -264,6 +266,10 @@ fun DesktopFeedbackDialog(
                                                     statusMessage = "Loaded draft: ${draft.title}"
                                                     isErrorMessage = false
                                                 },
+                                                modifier = Modifier.semantics {
+                                                    role = Role.Button
+                                                    contentDescription = "Load draft: ${draft.title.ifBlank { "Untitled" }}"
+                                                },
                                             ) {
                                                 Text("Load")
                                             }
@@ -273,6 +279,10 @@ fun DesktopFeedbackDialog(
                                                         repository.deleteDraft(draft.id)
                                                         refreshDrafts()
                                                     }
+                                                },
+                                                modifier = Modifier.semantics {
+                                                    role = Role.Button
+                                                    contentDescription = "Delete draft: ${draft.title.ifBlank { "Untitled" }}"
                                                 },
                                             ) {
                                                 Text("Delete")

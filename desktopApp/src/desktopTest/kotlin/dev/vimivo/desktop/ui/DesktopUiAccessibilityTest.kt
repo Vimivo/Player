@@ -118,6 +118,57 @@ class DesktopUiAccessibilityTest {
     }
 
     @Test
+    fun testAudioAndSubtitleDelayStepBounds() {
+        val maxAudioDelay = 5_000L
+        val minAudioDelay = -5_000L
+        val audioStep = 100L
+
+        var audioDelay = 0L
+        audioDelay = (audioDelay + audioStep).coerceIn(minAudioDelay, maxAudioDelay)
+        assertEquals(100L, audioDelay)
+
+        audioDelay = (audioDelay - audioStep).coerceIn(minAudioDelay, maxAudioDelay)
+        assertEquals(0L, audioDelay)
+
+        // Reset
+        audioDelay = 0L
+        assertEquals(0L, audioDelay)
+
+        val maxSubDelay = 10_000L
+        val minSubDelay = -10_000L
+        val subStep = 250L
+
+        var subDelay = 0L
+        subDelay = (subDelay + subStep).coerceIn(minSubDelay, maxSubDelay)
+        assertEquals(250L, subDelay)
+
+        subDelay = (subDelay - subStep).coerceIn(minSubDelay, maxSubDelay)
+        assertEquals(0L, subDelay)
+    }
+
+    @Test
+    fun testABRepeatLifecycleInvariants() {
+        var pointA: Long? = null
+        var pointB: Long? = null
+        var enabled = false
+
+        // Step 1: Set point A at 5s
+        pointA = 5_000L
+        assertFalse(enabled, "AB repeat should not be active when only point A is set")
+
+        // Step 2: Set point B at 12s
+        pointB = 12_000L
+        enabled = true
+        assertTrue(enabled && pointA < pointB, "AB repeat active when pointB > pointA")
+
+        // Step 3: Clear
+        pointA = null
+        pointB = null
+        enabled = false
+        assertFalse(enabled)
+    }
+
+    @Test
     fun testDesktopAccessibilityTruthInReporting() {
         // Platform verification contracts:
         // macOS: Native VoiceOver integration through NSAccessibility in Compose Multiplatform

@@ -77,17 +77,23 @@ class PlaybackEngineManager(
     }
 
     private suspend fun openBestEngine(queue: QueueContext, positionMillis: Long): Result<Unit> {
-        val candidates = candidatesFor(queue.current)
-        if (candidates.isEmpty()) {
-            return failure(
-                PlaybackError(
-                    code = PlaybackErrorCode.UNSUPPORTED_CONTAINER,
-                    message = "No installed playback engine supports this media source",
-                ),
-                queue,
-            )
+        var lastFailure: Result<Unit>? = null
+        while (true) {
+            val candidate = candidatesFor(queue.current).firstOrNull() ?: break
+            val result = switchTo(candidate, queue, positionMillis)
+            if (result.isSuccess) return result
+            lastFailure = result
         }
-        return switchTo(candidates.first(), queue, positionMillis)
+        releaseCurrent()
+        val cause = lastFailure?.exceptionOrNull()
+        return failure(
+            PlaybackError(
+                code = PlaybackErrorCode.UNSUPPORTED_CONTAINER,
+                message = cause?.message ?: "No installed playback engine supports this media source",
+                cause = cause,
+            ),
+            queue,
+        )
     }
 
     private fun candidatesFor(media: MediaItem): List<EngineId> =
@@ -128,11 +134,26 @@ class PlaybackEngineManager(
             positionMillis = positionMillis,
         )
         observe(engine, queue)
-        return engine.open(queue.current, positionMillis).onSuccess {
+        val openResult = engine.open(queue.current, positionMillis)
+        return openResult.onSuccess {
             if (engine.capabilities.audioEnhancements.graphicEqualizer) {
                 engine.applyAudioEnhancements(audioEnhancements)
             }
             externalSubtitles.forEach { engine.addExternalSubtitle(it) }
+        }.onFailure { cause ->
+            val error = (mutableState.value.status as? PlaybackStatus.Error)?.error ?: PlaybackError(
+                code = PlaybackErrorCode.ENGINE_INITIALIZATION,
+                message = cause.message ?: "Could not open media on $engineId",
+                engine = engineId,
+                recoverableByFallback = true,
+                cause = cause,
+            )
+            mutableState.value = PlaybackState(
+                engine = engine.id,
+                queue = queue,
+                media = queue.current,
+                status = PlaybackStatus.Error(error),
+            )
         }
     }
 

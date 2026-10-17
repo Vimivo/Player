@@ -101,15 +101,52 @@ We do not artificially downgrade defects to permit unverified releases, nor do w
 - **Regression Test**: `LrcLyricsParserTest.kt` -> `testTimestampedInstrumentalBreak()`. Verified passing.
 - **Status**: **VERIFIED FIXED**.
 
+### Defect VIM-BUG-010 (P1): PlaybackEngineManager Stuck in Preparing on Preferred Engine Open Failure
+- **Platform**: All platforms (`PlaybackEngineManager.kt`).
+- **Subsystem**: Core Playback Engine Orchestration.
+- **Symptom**: When `openBestEngine` attempted to open media with the preferred candidate (e.g., Media3 or LibVLC) and that engine failed during `open()`, the manager did not fall back to secondary candidates, leaving the player permanently stuck in `PlaybackStatus.Preparing` without attempting alternative engines or transitioning to `PlaybackStatus.Error`.
+- **Root Cause**: `openBestEngine` called `switchTo(candidates.first())` without iterating through candidates if `engine.open` failed, and `switchTo` did not have an `onFailure` catch to transition `_state.value` out of `Preparing`.
+- **Correction**: Refactored `openBestEngine` to loop through `candidatesFor(queue.current)` until an engine successfully opens media; if all candidates fail, explicitly transitions state to `PlaybackStatus.Error` and releases resources.
+- **Regression Test**: `PlaybackEngineManagerTest.kt` -> `fallsBackToNextCandidateWhenPreferredEngineFailsToOpen()`, `marksStateAsErrorWhenAllCandidateEnginesFailToOpen()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-011 (P1): PlaybackQueueController Ghost Playback on Asynchronous Queue Clear
+- **Platform**: All platforms (`PlaybackQueueController.kt`).
+- **Subsystem**: Playback Queue Management.
+- **Symptom**: If a user called `clear()` or removed the active track while `engine.open()` was suspended asynchronously, the engine continued initializing and started playing the removed track after completion (ghost playback).
+- **Root Cause**: `openAvailable()` did not verify queue index invariants after `engine.open(item, startPositionMillis)` returned. If `activeIndex < 0` (queue was emptied or active item was deleted), it still returned success and allowed playback to proceed.
+- **Correction**: Checked `if (queue.value.activeIndex < 0) { engine.stop(); return Result.failure(...) }` immediately after `engine.open(...)` returns, ensuring any removed media is halted immediately.
+- **Regression Test**: `PlaybackQueueControllerTest.kt` -> `stopsEngineAndFailsWhenQueueClearedWhileOpenIsPending()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-012 (P2): Desktop Spacebar Menu Accelerator Blocked Typing in Text Input Fields
+- **Platform**: Desktop (macOS, Windows, Linux) (`Main.kt`).
+- **Subsystem**: Desktop UI Input & Keyboard Navigation.
+- **Symptom**: When typing in search inputs, stream URL fields, or metadata edit forms, pressing Spacebar triggered Play/Pause instead of typing a space character, making it impossible to enter titles or queries with spaces.
+- **Root Cause**: The window `MenuBar` registered an unconditional global accelerator `KeyShortcut(Key.Spacebar)`, which preempts all focused child components including text fields.
+- **Correction**: Changed MenuBar accelerator to `KeyShortcut(Key.Spacebar, ctrl = true)`, and added root `Window.onKeyEvent` handler for bare Spacebar (as well as `K`, `J`, `L`) that only handles playback commands when text inputs are not consuming the event.
+- **Regression Test**: `DesktopUiAccessibilityTest.kt`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-013 (P2): Redundant Announcements and Missing Semantic Roles in UI Components
+- **Platform**: All platforms (`VimivoUiComponents.kt`, `DesktopArtwork.kt`, `DesktopVideoControlsPanel.kt`, `DesktopFeedbackDialog.kt`, `VimivoComponents.kt`, `AdvancedVideoPlayer.kt`).
+- **Subsystem**: Accessibility & Screen-Reader Semantics.
+- **Symptom**: Screen readers (TalkBack, VoiceOver) read empty state / error banner buttons twice (once for button container, once for text); decorative artwork initials were read as words before song titles; video controls buttons lacked explicit roles and descriptions.
+- **Root Cause**: Missing `clearAndSetSemantics` on composite button containers; missing `null` content description on decorative thumbnails; missing `ProgressBarRangeInfo` and explicit `Role.Button` semantics.
+- **Correction**: Applied `clearAndSetSemantics` to composite buttons, silenced decorative initials, added accessibility semantics to video sliders and delay adjustments.
+- **Regression Test**: `DesktopUiAccessibilityTest.kt`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
 ---
 
 ## 4. Defect Metrics & Statistics
 
-- **Total Defects Triaged**: 9
+- **Total Defects Triaged**: 13
 - **Total P0 Defects**: 1 (Fixed: 1, Remaining: 0)
-- **Total P1 Defects**: 5 (Fixed: 5, Remaining: 0)
-- **Total P2 Defects**: 3 (Fixed: 3, Remaining: 0)
+- **Total P1 Defects**: 7 (Fixed: 7, Remaining: 0)
+- **Total P2 Defects**: 5 (Fixed: 5, Remaining: 0)
 - **Total P3 Defects**: 0 open blockers
 - **Unresolved Release Blockers**: **0**
+
 
 

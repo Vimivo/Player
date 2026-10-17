@@ -56,6 +56,9 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.Window
@@ -146,11 +149,33 @@ fun main(args: Array<String>) = application {
         icon = windowIcon,
         onKeyEvent = { event ->
             if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
-                if (event.key == androidx.compose.ui.input.key.Key.Escape && windowState.placement == WindowPlacement.Fullscreen) {
-                    windowState.placement = WindowPlacement.Floating
-                    true
-                } else {
-                    false
+                when {
+                    event.key == androidx.compose.ui.input.key.Key.Escape &&
+                        windowState.placement == WindowPlacement.Fullscreen -> {
+                        windowState.placement = WindowPlacement.Floating
+                        true
+                    }
+                    event.key == androidx.compose.ui.input.key.Key.Spacebar &&
+                        !event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed -> {
+                        applicationScope.launch { togglePlayback(engine, queue, library) }
+                        true
+                    }
+                    event.key == androidx.compose.ui.input.key.Key.K &&
+                        !event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed -> {
+                        applicationScope.launch { togglePlayback(engine, queue, library) }
+                        true
+                    }
+                    event.key == androidx.compose.ui.input.key.Key.J &&
+                        !event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed -> {
+                        engine.seekTo((engine.state.value.positionMillis - 10_000).coerceAtLeast(0))
+                        true
+                    }
+                    event.key == androidx.compose.ui.input.key.Key.L &&
+                        !event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed -> {
+                        engine.seekTo(engine.state.value.positionMillis + 10_000)
+                        true
+                    }
+                    else -> false
                 }
             } else {
                 false
@@ -205,7 +230,10 @@ fun main(args: Array<String>) = application {
             Menu("Playback") {
                 Item(
                     "Play / Pause",
-                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.Spacebar),
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(
+                        androidx.compose.ui.input.key.Key.Spacebar,
+                        ctrl = true,
+                    ),
                     onClick = { applicationScope.launch { togglePlayback(engine, queue, library) } },
                 )
                 Item("Stop", onClick = { engine.stop() })

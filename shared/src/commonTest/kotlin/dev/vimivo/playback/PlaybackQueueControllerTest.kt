@@ -223,6 +223,25 @@ class PlaybackQueueControllerTest {
         assertEquals(listOf(0L), engine.seeks)
     }
 
+    @Test
+    fun stopsEngineAndFailsWhenQueueClearedWhileOpenIsPending() = runTest {
+        val engine = FakeQueueEngine()
+        lateinit var controller: PlaybackQueueController
+        controller = PlaybackQueueController(engine, backgroundScope)
+        val items = listOf(media("a"), media("b"))
+
+        engine.openHook = {
+            controller.clear()
+        }
+
+        val result = controller.play(items)
+        runCurrent()
+
+        assertTrue(result.isFailure, "Playback must fail when queue was cleared during open")
+        assertTrue(engine.stopped, "Engine must be stopped when queue is cleared while open is pending")
+        assertTrue(controller.state.value.items.isEmpty())
+    }
+
     private fun media(id: String) = MediaItem(MediaId(id), "file:///$id.mp3", id, MediaKind.AUDIO)
 }
 
@@ -235,19 +254,32 @@ private class FakeQueueEngine : PlayerEngine {
         softwareDecoding = true, playbackSpeed = true, audioTrackSelection = true,
         videoTrackSelection = true, embeddedSubtitles = true, externalSubtitles = true, hdr = true,
     )
-    override val audioEnhancementState = MutableStateFlow(AudioEnhancementState(capabilities.audioEnhancements)).asStateFlow()
+    override val audioEnhancementState = MutableStateFlow(
+        AudioEnhancementState(capabilities.audioEnhancements),
+    ).asStateFlow()
     val opened = mutableListOf<String>()
     val seeks = mutableListOf<Long>()
+    var openHook: (() -> Unit)? = null
+    var stopped = false
 
     override fun supportFor(media: MediaItem) = SupportLevel.PREFERRED
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> {
+        openHook?.invoke()
         opened += media.id.value
-        mutableState.value = PlaybackState(engine = id, media = media, status = PlaybackStatus.Ready, positionMillis = startPositionMillis)
+        mutableState.value = PlaybackState(
+            engine = id,
+            media = media,
+            status = PlaybackStatus.Ready,
+            positionMillis = startPositionMillis,
+        )
         return Result.success(Unit)
     }
     override fun play() = Result.success(Unit)
     override fun pause() = Result.success(Unit)
-    override fun stop() = Result.success(Unit)
+    override fun stop(): Result<Unit> {
+        stopped = true
+        return Result.success(Unit)
+    }
     override fun seekTo(positionMillis: Long): Result<Unit> {
         seeks += positionMillis
         mutableState.value = state.value.copy(positionMillis = positionMillis)

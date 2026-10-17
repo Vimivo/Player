@@ -492,6 +492,32 @@ On 2026-10-17, these commands completed successfully:
   - Unified verification script `./scripts/verify_all.sh`: all 7 verification gates passed.
   - Documentation relative links: 100% verified via `./scripts/validate_docs.sh`.
 
+### Milestone 83: Advanced Playback Interoperability, Native Media Controls, Platform-Specific Media Engine Improvements & Playback Consistency
+
+- **Playback Engine Failover & Error State Recovery (VIM-BUG-010)**:
+  - In `shared/.../PlaybackEngineManager.kt`, upgraded `openBestEngine` to loop through candidate engines for the active media item. When a preferred engine fails to open (e.g. Media3 decoder initialization error on Android or missing codec), the manager seamlessly falls back to secondary candidate engines (e.g. LibVLC) instead of stalling.
+  - Added explicit `.onFailure` handling in `switchTo` to ensure `mutableState.value` transitions from `PlaybackStatus.Preparing` to `PlaybackStatus.Error(cause = ...)` whenever all candidate engines fail.
+- **Ghost Playback Prevention on Asynchronous Queue Clear (VIM-BUG-011)**:
+  - In `shared/.../PlaybackQueueController.kt`, added queue active index verification in `openAvailable()` immediately following asynchronous `engine.open(...)` suspension. If the user clears the queue or removes the active item while loading, the engine is stopped immediately (`engine.stop()`) and returns `Result.failure`, preventing unauthorized background playback of cleared items.
+- **Automated Regression Protection**:
+  - Added `PlaybackEngineManagerTest` regression test cases: `fallsBackToNextCandidateWhenPreferredEngineFailsToOpen()` and `marksStateAsErrorWhenAllCandidateEnginesFailToOpen()`.
+  - Added `PlaybackQueueControllerTest` regression test case: `stopsEngineAndFailsWhenQueueClearedWhileOpenIsPending()`.
+
+### Milestone 84: Accessibility Refinement, Automated Media Compatibility Testing, Cross-Platform Regression Prevention & Playback Quality Assurance
+
+- **Screen-Reader Semantics & Duplicate Announcement Elimination (VIM-BUG-013)**:
+  - Applied `clearAndSetSemantics` to composite UI components (`VimivoEmptyState`, `VimivoErrorBanner`, `VimivoQueueReorderControls`) in `shared/.../VimivoUiComponents.kt`, preventing assistive screen readers (TalkBack, VoiceOver) from reading container and button text redundantly.
+  - Silenced decorative fallback initials (`contentDescription = null` with `clearAndSetSemantics {}`) in `DesktopArtwork.kt` and `SongRow`, preventing screen readers from reciting initial letters before track titles in media lists.
+  - Added explicit `Role.Button` and contextual `contentDescription` to video control panel adjustments (audio delay, subtitle delay, A-B repeat, chapter navigation) in `DesktopVideoControlsPanel.kt` and draft list buttons in `DesktopFeedbackDialog.kt`.
+  - Enhanced Android seekbar controls with `ProgressBarRangeInfo` and descriptive accessibility states.
+- **Keyboard Shortcut Non-Interference (VIM-BUG-012)**:
+  - In `desktopApp/.../Main.kt`, changed `MenuBar` shortcut for Play/Pause to `KeyShortcut(Key.Spacebar, ctrl = true)`, moving bare Spacebar and J/K/L playback commands to root `Window.onKeyEvent` handlers that only process keystrokes when focused text components (e.g. search bars, URL inputs, metadata editors) do not consume them.
+- **Cross-Platform Quality Gate & Test Suite Growth**:
+  - Test suite expanded to **506 automated tests** (126 shared, 224 desktop, 147 Android, 9 iOS) with 100% pass rate.
+  - Detekt static analysis: 0 weighted violations.
+  - All 7 verification gates in `./scripts/verify_all.sh` passing cleanly.
+
+
 
 
 

@@ -71,8 +71,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -120,8 +123,8 @@ fun MediaCard(media: MediaItem, thumbnails: AndroidThumbnailRepository, onClick:
         media.artist ?: media.album ?: media.folderName.orEmpty()
     }
     Column(
-        Modifier.width(164.dp).clickable(role = Role.Button, onClick = onClick).semantics {
-            contentDescription = "Play ${media.title}"
+        Modifier.width(164.dp).clickable(role = Role.Button, onClick = onClick).semantics(mergeDescendants = true) {
+            contentDescription = "Play ${media.title}, $subtitle"
         },
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -144,7 +147,7 @@ fun SongRow(
     }
     ListItem(
         modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
-        leadingContent = { MediaArtwork(media, thumbnails, Modifier.size(54.dp)) },
+        leadingContent = { MediaArtwork(media, thumbnails, Modifier.size(54.dp), contentDescription = null) },
         headlineContent = { Text(media.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(subtitle, maxLines = 1) },
         trailingContent = if (onFavorite != null || onMore != null) ({
@@ -215,6 +218,10 @@ fun PlayerControls(
             modifier = Modifier.semantics {
                 contentDescription = "Playback seekbar"
                 stateDescription = "${formatTime(position)} of ${formatTime(duration)}"
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = position.coerceIn(0, duration.coerceAtLeast(1)).toFloat(),
+                    range = 0f..duration.coerceAtLeast(1).toFloat(),
+                )
             },
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

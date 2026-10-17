@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.progressBarRangeInfo
@@ -135,7 +136,7 @@ fun VimivoEmptyState(
             if (actionLabel != null && onAction != null) {
                 Button(
                     onClick = onAction,
-                    modifier = Modifier.padding(top = VimivoSpacing.sm).semantics {
+                    modifier = Modifier.padding(top = VimivoSpacing.sm).clearAndSetSemantics {
                         role = Role.Button
                         contentDescription = actionLabel
                     },
@@ -209,7 +210,7 @@ fun VimivoErrorBanner(
             if (recoveryActionLabel != null && onRecoveryAction != null) {
                 Button(
                     onClick = onRecoveryAction,
-                    modifier = Modifier.semantics {
+                    modifier = Modifier.clearAndSetSemantics {
                         role = Role.Button
                         contentDescription = recoveryActionLabel
                     },
@@ -239,7 +240,7 @@ fun VimivoQueueReorderControls(
         OutlinedButton(
             onClick = onMoveUp,
             enabled = canMoveUp,
-            modifier = Modifier.semantics {
+            modifier = Modifier.clearAndSetSemantics {
                 role = Role.Button
                 contentDescription = "Move $itemTitle up in order"
             },
@@ -249,7 +250,7 @@ fun VimivoQueueReorderControls(
         OutlinedButton(
             onClick = onMoveDown,
             enabled = canMoveDown,
-            modifier = Modifier.semantics {
+            modifier = Modifier.clearAndSetSemantics {
                 role = Role.Button
                 contentDescription = "Move $itemTitle down in order"
             },
@@ -258,7 +259,7 @@ fun VimivoQueueReorderControls(
         }
         OutlinedButton(
             onClick = onRemove,
-            modifier = Modifier.semantics {
+            modifier = Modifier.clearAndSetSemantics {
                 role = Role.Button
                 contentDescription = "Remove $itemTitle from list"
             },

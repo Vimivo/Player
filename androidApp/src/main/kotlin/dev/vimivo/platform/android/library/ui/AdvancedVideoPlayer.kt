@@ -92,6 +92,11 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -442,6 +447,14 @@ private fun VideoControls(
                 value = player.positionMillis.toFloat().coerceAtMost(player.durationMillis.toFloat()),
                 onValueChange = { onSeek(it.toLong()) },
                 valueRange = 0f..player.durationMillis.coerceAtLeast(1).toFloat(),
+                modifier = Modifier.fillMaxWidth().semantics {
+                    contentDescription = "Video playback seekbar"
+                    stateDescription = "${formatVideoTime(player.positionMillis)} of ${formatVideoTime(player.durationMillis)}"
+                    progressBarRangeInfo = ProgressBarRangeInfo(
+                        current = player.positionMillis.toFloat().coerceAtMost(player.durationMillis.coerceAtLeast(1).toFloat()),
+                        range = 0f..player.durationMillis.coerceAtLeast(1).toFloat(),
+                    )
+                },
             )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("${formatVideoTime(player.positionMillis)} / ${formatVideoTime(player.durationMillis)}", color = Color.White)

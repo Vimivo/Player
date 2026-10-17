@@ -285,8 +285,13 @@ class PlaybackQueueController(
                 if (result.isSuccess) {
                     val latest = mutableState.value
                     val activeIndex = latest.items.indexOfFirst { it.queueId == entry.queueId }
-                    if (activeIndex >= 0) mutableState.value = latest.copy(currentIndex = activeIndex)
-                    return engine.play()
+                    return if (activeIndex >= 0) {
+                        mutableState.value = latest.copy(currentIndex = activeIndex)
+                        engine.play()
+                    } else {
+                        engine.stop()
+                        Result.failure(IllegalStateException("Queue entry was removed or cleared during opening"))
+                    }
                 }
                 lastFailure = result.exceptionOrNull()
             }
