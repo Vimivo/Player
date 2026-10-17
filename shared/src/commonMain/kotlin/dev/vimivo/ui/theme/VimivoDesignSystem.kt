@@ -183,24 +183,42 @@ val LocalWindowSizeClass = staticCompositionLocalOf { WindowSizeClass.MEDIUM }
 val LocalTouchTargetScale = staticCompositionLocalOf { 1.0f }
 
 object VimivoColors {
-    // Aurora brand accents: calm teal with a restrained warm counterpoint.
+    // Primary Brand Accents: Neon Cyan and Electric Violet
+    val NeonCyan = Color(0xFF00E5FF)
+    val NeonCyanDark = Color(0xFF00B4D8)
+    val ElectricViolet = Color(0xFF8B5CF6)
+    val ElectricVioletLight = Color(0xFFA78BFA)
+
+    // Neutral Surfaces & Backgrounds
+    val DarkBackground = Color(0xFF0A0A0C)
+    val DarkSurface = Color(0xFF141418)
+    val DarkSurfaceElevated = Color(0xFF1B1B21)
+    val DarkBorder = Color(0xFF24242C)
+    val DarkBorderLight = Color(0xFF32323D)
+
+    // Typography Tokens
+    val TextPrimary = Color(0xFFF5F5F7)
+    val TextSecondary = Color(0xFFA1A1AA)
+    val TextTertiary = Color(0xFF71717A)
+
+    // Legacy Aurora brand accents for backward compatibility
     val AuroraTeal = Color(0xFF007F78)
     val AuroraTealLight = Color(0xFF71DBD2)
     val AuroraWarm = Color(0xFFC97852)
 
     // Semantic Status
-    val Success = Color(0xFF087F5B)
-    val SuccessContainer = Color(0xFFD3F9D8)
-    val Warning = Color(0xFFC45100)
-    val WarningContainer = Color(0xFFFFE8CC)
-    val Error = Color(0xFFBA1A1A)
-    val ErrorContainer = Color(0xFFFFDAD6)
-    val Info = Color(0xFF1769E0)
-    val InfoContainer = Color(0xFFD0E2FF)
+    val Success = Color(0xFF10B981)
+    val SuccessContainer = Color(0xFF064E3B)
+    val Warning = Color(0xFFF59E0B)
+    val WarningContainer = Color(0xFF78350F)
+    val Error = Color(0xFFEF4444)
+    val ErrorContainer = Color(0xFF7F1D1D)
+    val Info = Color(0xFF38BDF8)
+    val InfoContainer = Color(0xFF0C4A6E)
 
     // Focus Outline Token (High-visibility for keyboard navigation)
     val FocusOutlineLight = Color(0xFF4D56C7)
-    val FocusOutlineDark = Color(0xFFBEC2FF)
+    val FocusOutlineDark = Color(0xFF00E5FF)
 }
 
 val VimivoLightColorScheme = lightColorScheme(
@@ -233,55 +251,59 @@ val VimivoLightColorScheme = lightColorScheme(
 )
 
 val VimivoDarkColorScheme = darkColorScheme(
-    primary = Color(0xFF71DBD2),
-    onPrimary = Color(0xFF003735),
-    primaryContainer = Color(0xFF00504C),
-    onPrimaryContainer = Color(0xFFA0F2E9),
-    secondary = Color(0xFFBBC7D1),
-    onSecondary = Color(0xFF25313A),
-    secondaryContainer = Color(0xFF3B4852),
-    onSecondaryContainer = Color(0xFFD7E3EC),
-    tertiary = Color(0xFFE8B9D4),
-    onTertiary = Color(0xFF45263B),
-    background = Color(0xFF0D1212),
-    onBackground = Color(0xFFDDE4E2),
-    surface = Color(0xFF0D1212),
-    onSurface = Color(0xFFDDE4E2),
-    surfaceVariant = Color(0xFF46464F),
-    onSurfaceVariant = Color(0xFFC7C5D0),
-    surfaceContainerLowest = Color(0xFF0E0E11),
-    surfaceContainerLow = Color(0xFF1B1B1F),
-    surfaceContainer = Color(0xFF1F1F23),
-    surfaceContainerHigh = Color(0xFF2A292D),
-    surfaceContainerHighest = Color(0xFF353438),
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF690005),
-    errorContainer = Color(0xFF93000A),
-    onErrorContainer = Color(0xFFFFDAD6),
-    outline = Color(0xFF91909A),
+    primary = Color(0xFF00E5FF),
+    onPrimary = Color(0xFF00363D),
+    primaryContainer = Color(0xFF004E57),
+    onPrimaryContainer = Color(0xFF9CF4FF),
+    secondary = Color(0xFFA78BFA),
+    onSecondary = Color(0xFF281157),
+    secondaryContainer = Color(0xFF3C2278),
+    onSecondaryContainer = Color(0xFFEBDDFF),
+    tertiary = Color(0xFF38BDF8),
+    onTertiary = Color(0xFF003549),
+    background = Color(0xFF0A0A0C),
+    onBackground = Color(0xFFF5F5F7),
+    surface = Color(0xFF141418),
+    onSurface = Color(0xFFF5F5F7),
+    surfaceVariant = Color(0xFF1B1B21),
+    onSurfaceVariant = Color(0xFFA1A1AA),
+    surfaceContainerLowest = Color(0xFF0A0A0C),
+    surfaceContainerLow = Color(0xFF101014),
+    surfaceContainer = Color(0xFF141418),
+    surfaceContainerHigh = Color(0xFF1B1B21),
+    surfaceContainerHighest = Color(0xFF24242C),
+    error = Color(0xFFEF4444),
+    onError = Color(0xFF450A0A),
+    errorContainer = Color(0xFF7F1D1D),
+    onErrorContainer = Color(0xFFFEE2E2),
+    outline = Color(0xFF24242C),
+    outlineVariant = Color(0xFF1E1E26),
 )
 
 val VimivoAmoledColorScheme = darkColorScheme(
-    primary = Color(0xFF71DBD2),
-    onPrimary = Color(0xFF003735),
-    primaryContainer = Color(0xFF00504C),
-    onPrimaryContainer = Color(0xFFA0F2E9),
-    secondary = Color(0xFFBBC7D1),
-    onSecondary = Color(0xFF25313A),
+    primary = Color(0xFF00E5FF),
+    onPrimary = Color(0xFF00363D),
+    primaryContainer = Color(0xFF004E57),
+    onPrimaryContainer = Color(0xFF9CF4FF),
+    secondary = Color(0xFFA78BFA),
+    onSecondary = Color(0xFF281157),
     background = Color.Black,
-    onBackground = Color(0xFFE4E2E6),
+    onBackground = Color(0xFFF5F5F7),
     surface = Color.Black,
-    onSurface = Color(0xFFE4E2E6),
-    surfaceVariant = Color(0xFF1E1E24),
-    onSurfaceVariant = Color(0xFFC7C5D0),
+    onSurface = Color(0xFFF5F5F7),
+    surfaceVariant = Color(0xFF101014),
+    onSurfaceVariant = Color(0xFFA1A1AA),
     surfaceContainerLowest = Color.Black,
-    surfaceContainerLow = Color(0xFF0A0A0E),
-    surfaceContainer = Color(0xFF121216),
-    surfaceContainerHigh = Color(0xFF1C1C22),
-    surfaceContainerHighest = Color(0xFF26262E),
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF690005),
-    outline = Color(0xFF91909A),
+    surfaceContainerLow = Color(0xFF070709),
+    surfaceContainer = Color(0xFF0E0E12),
+    surfaceContainerHigh = Color(0xFF16161C),
+    surfaceContainerHighest = Color(0xFF202028),
+    error = Color(0xFFEF4444),
+    onError = Color(0xFF450A0A),
+    errorContainer = Color(0xFF7F1D1D),
+    onErrorContainer = Color(0xFFFEE2E2),
+    outline = Color(0xFF202028),
+    outlineVariant = Color(0xFF16161E),
 )
 
 val VimivoHighContrastLightColorScheme = lightColorScheme(

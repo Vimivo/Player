@@ -88,12 +88,31 @@ class VimivoDesignSystemTest {
             VimivoDarkColorScheme.background,
         )
         assertTrue(textContrast >= 4.5f, "Dark theme text contrast ($textContrast) must meet WCAG AA (>= 4.5)")
+        assertTrue(textContrast >= 7.0f, "Dark theme text contrast ($textContrast) should achieve WCAG AAA (>= 7.0)")
 
         val surfaceContrast = calculateContrastRatio(
             VimivoDarkColorScheme.onSurface,
             VimivoDarkColorScheme.surface,
         )
         assertTrue(surfaceContrast >= 4.5f, "Dark theme surface contrast ($surfaceContrast) must meet WCAG AA")
+
+        val cyanContrast = calculateContrastRatio(
+            VimivoDarkColorScheme.primary,
+            VimivoDarkColorScheme.background,
+        )
+        assertTrue(
+            cyanContrast >= 7.0f,
+            "Neon cyan accent ($cyanContrast) on dark background must exceed WCAG AAA (>= 7.0)",
+        )
+
+        val violetContrast = calculateContrastRatio(
+            VimivoDarkColorScheme.secondary,
+            VimivoDarkColorScheme.background,
+        )
+        assertTrue(
+            violetContrast >= 7.0f,
+            "Electric violet light accent ($violetContrast) on dark background must meet WCAG AAA (>= 7.0)",
+        )
     }
 
     @Test

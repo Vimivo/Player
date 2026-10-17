@@ -143,7 +143,7 @@ class IncrementalMediaScannerTest {
 
             // Test cancellation
             coordinator.start(root.id)
-            coordinator.cancel(root.id)
+            coordinator.cancelAndJoin(root.id)
             runCurrent()
             assertTrue(extractedCount >= 0)
         }

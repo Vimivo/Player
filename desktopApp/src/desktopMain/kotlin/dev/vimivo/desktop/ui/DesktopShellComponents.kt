@@ -312,34 +312,6 @@ internal fun DesktopSidebarView(
                     }
                 }
             }
-
-            // Bottom Privacy Status indicator
-            if (!collapsed) {
-                Spacer(Modifier.height(8.dp))
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = colors.surfaceContainer,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF10B981)),
-                        )
-                        Text(
-                            text = "Offline & Private",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            color = colors.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -796,7 +768,7 @@ internal fun DesktopHomeScreenView(
                     )
 
                     Text(
-                        text = "Vimivo keeps your media strictly offline and on this device.\nNo accounts, no trackers, no algorithms — just your local library.",
+                        text = "Add a folder or open local audio and video files to begin playback.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -934,22 +906,12 @@ internal fun DesktopHomeScreenView(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Offline Personalization", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = colors.primaryContainer.copy(alpha = 0.5f),
-                                ) {
-                                    Text(
-                                        text = "100% PRIVATE",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
-                                        color = colors.primary,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    )
-                                }
-                            }
                             Text(
-                                text = "Local recommendations calculated strictly on-device without internet access.",
+                                text = "Recommendations",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            )
+                            Text(
+                                text = "Queue suggestions tailored to your library and listening history.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colors.onSurfaceVariant,
                             )

@@ -540,22 +540,22 @@ internal fun DesktopSettingsPanel(
             }
         }
 
-        // Category 8: Privacy & Philosophy
+        // Category 8: Architecture & Design Principles
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-                    contentDescription = "Privacy and philosophy pledge"
+                    contentDescription = "Architecture and design principles"
                 },
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Privacy & Philosophy", style = MaterialTheme.typography.titleMedium)
+                    Text("Design Principles", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Vimivo is an ad-free, account-free, privacy-first multimedia player.",
-                        style = MaterialTheme.typography.bodyLarge,
+                        "Every Sound. Every Frame.",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
                     )
                     Text(
-                        "Zero analytics, zero tracking SDKs, zero telemetry. Your media files, playlists, tags, and playback history never leave your device. Network connections are initiated only when you explicitly stream or authorize remote media.",
+                        "Engineered for speed, clarity, and uncompromised audio-video playback fidelity. Media processing runs locally, and network connections are initiated only when you explicitly open remote streams.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

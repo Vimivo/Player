@@ -146,7 +146,7 @@ fun AndroidFeedbackDialog(
                     .verticalScroll(rememberScrollState()),
             ) {
                 Text(
-                    text = "Vimivo is 100% offline-first and privacy-first. Reports are sanitized locally. " +
+                    text = "Feedback reports are sanitized locally. " +
                         "No credentials or media files are ever transmitted.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

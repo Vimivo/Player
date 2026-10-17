@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -55,6 +56,10 @@ internal class DesktopMetadataCoordinator(
 
     fun cancel(rootId: String) {
         jobs.remove(rootId)?.cancel()
+    }
+
+    suspend fun cancelAndJoin(rootId: String) {
+        jobs.remove(rootId)?.cancelAndJoin()
     }
 
     private companion object {

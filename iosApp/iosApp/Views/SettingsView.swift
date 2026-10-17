@@ -39,11 +39,11 @@ public struct SettingsView: View {
                     }
                 }
 
-                Section(header: Text("Privacy & Philosophy")) {
+                Section(header: Text("Design Principles")) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Vimivo is an ad-free, account-free, privacy-first multimedia player.")
-                            .font(.subheadline)
-                        Text("No analytics, trackers, or telemetry. Your media library and listening habits never leave this device.")
+                        Text("Every Sound. Every Frame.")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Engineered for speed, clarity, and uncompromised audio-video playback fidelity.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
