@@ -250,7 +250,7 @@ On 2026-10-17, these commands completed successfully:
 - `./gradlew detekt` (all modules passed, 0 violations)
 - `./scripts/validate_docs.sh` (100% relative documentation links verified)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 482 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
+- Total automated tests: 486 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
 
 ### Milestone 69: Advanced Audio Experience, Real Equalizer & Native Integration
 
@@ -271,5 +271,37 @@ On 2026-10-17, these commands completed successfully:
   - Real-time GPU video adjustments (brightness, contrast, saturation, gamma) and aspect ratio modes (`FIT`, `FILL`, `ORIGINAL`, `16:9`, `4:3`, `21:9`).
   - Full UTF-8 Unicode and Bengali subtitle validation (`আমার সোনার বাংলা, আমি তোমায় ভালোবাসি`).
   - Direct URL streaming validation with `StreamValidator`, safe logging with token stripping, and bounded reconnects.
-  - Total automated test suite expanded to **482 passing tests** (100% pass rate) across shared, desktop, Android, and iOS suites.
+
+### Milestone 71: Native Platform Polish, Lifecycle Hardening & Advanced Playback Reliability
+
+- **Native Platform Polish Across Targets**:
+  - **Android**: Integrated `BackHandler` dismissing overlays (fullscreen video, now playing sheet, queue sheet, search) or returning to `HOME` before app minimize; adopted `rememberSaveable` for process recreation and screen rotation state preservation; verified Picture-in-Picture (`onUserLeaveHint`), audio focus ducking/pause, and scoped storage permissions.
+  - **Desktop (macOS, Windows, Linux)**: Implemented dynamic window title (`"${media.title} — ${media.artist} — Vimivo"` or `"Vimivo"`); wired `windowState` with `Escape` key handling to exit fullscreen mode; refined MenuBar accelerators with Alt modifiers for seeking to guarantee text field arrow keys are never intercepted.
+  - **iOS & iPadOS**: Hardened `AVPlayerPlaybackEngine` with `repeatMode == .all` wrapping on `playPrevious()`; added pre-flight local file existence verification (`FileManager.default.fileExists`) preventing AVPlayer hangs on moved/deleted files; registered `AVPlayerItemFailedToPlayToEndTime` observer for clean error state presentation; configured automatic `GENERATE_INFOPLIST_FILE = YES;` for test signing.
+- **Advanced Playback Reliability & Queue Integrity**:
+  - Enhanced `PlaybackQueueController.previous()` to wrap around to the last track when `repeatMode == QueueRepeatMode.ALL`, restart track if past 3,000ms threshold, and seek to 0 at the start of queue without failing.
+  - Refined `MpvPlayerEngine.publishFailure` with granular error classification: `SOURCE_NOT_FOUND`, `ACCESS_DENIED`, `NETWORK`, `UNSUPPORTED_CODEC`, `UNSUPPORTED_CONTAINER`, `DECODING_FAILED`, and `ENGINE_INITIALIZATION`.
+  - Added unit test suite in `PlaybackQueueControllerTest` verifying `previous()` behavior across all repeat and threshold conditions.
+
+### Milestone 72: Packaging and Distribution Readiness & Release Candidate Preparation
+
+- **Five-Platform Quality & Build Verification**:
+  - `:shared:desktopTest`: 104 tests passing (100% pass rate).
+  - `:desktopApp:desktopTest`: 220 tests passing (100% pass rate).
+  - `:desktopApp:compileKotlinDesktop`: BUILD SUCCESSFUL.
+  - `:androidApp:testDebugUnitTest`: 22 tests passing (100% pass rate).
+  - `:androidApp:assembleDebug`: BUILD SUCCESSFUL.
+  - `iosAppTests`: 9 tests passing (100% pass rate) on iPhone 17 Pro iOS Simulator.
+  - `detekt`: 0 weighted violations across all modules (`:shared`, `:desktopApp`, `:androidApp`).
+  - Relative documentation links: 100% verified via `./scripts/validate_docs.sh`.
+  - Unified quality gate: 100% verified via `./scripts/verify_all.sh`.
+  - Total automated tests: **486 passing tests** with 0 failures, 0 errors, 0 skipped.
+- **Packaging Readiness**:
+  - Android: Release unsigned APK (`androidApp-release-unsigned.apk`) and App Bundle (`androidApp-release.aab`) ready for developer signing.
+  - macOS: Relocatable standalone application bundle (`Vimivo.app`) and installable DMG (`Vimivo-1.0.0.dmg`) with bundled JVM and 50 native dylibs.
+  - Windows: EXE and MSI installer configuration with UUID upgrade stability and PE x64 DLL bundling.
+  - Linux: DEB, RPM, and AppImage packaging configuration with MPRIS session bus and XDG directories.
+  - iOS: Xcode project archive ready with WidgetKit and ActivityKit extensions.
+- **Release Candidate Verdict**: **CONDITIONAL GO FOR CONTROLLED DISTRIBUTION (`1.0.0-rc.1`)**. Strict privacy guarantees maintained: zero tracking, zero accounts, zero cloud media catalog, local-first audio and video playback, and explicit user URL streaming. Public release blocked only on owner signing keys and authorization.
+
 

@@ -175,6 +175,54 @@ class PlaybackQueueControllerTest {
         assertNull(snapshot.retainOnly { false }.currentQueueId)
     }
 
+    @Test
+    fun previousRestartsTrackWhenBeyondThreshold() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("a"), media("b")), startIndex = 1).getOrThrow()
+        engine.setPosition(5_000L)
+
+        controller.previous().getOrThrow()
+        assertEquals("b", controller.state.value.currentMedia?.id?.value)
+        assertEquals(listOf(0L), engine.seeks)
+    }
+
+    @Test
+    fun previousStepsBackWhenAtOrBeforeThreshold() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("a"), media("b")), startIndex = 1).getOrThrow()
+        engine.setPosition(1_500L)
+
+        controller.previous().getOrThrow()
+        assertEquals("a", controller.state.value.currentMedia?.id?.value)
+    }
+
+    @Test
+    fun previousWrapsToLastTrackWhenRepeatAll() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("first"), media("second"), media("last")), startIndex = 0).getOrThrow()
+        controller.cycleRepeat() // ONE
+        controller.cycleRepeat() // ALL
+        assertEquals(QueueRepeatMode.ALL, controller.state.value.repeatMode)
+
+        controller.previous().getOrThrow()
+        assertEquals("last", controller.state.value.currentMedia?.id?.value)
+    }
+
+    @Test
+    fun previousSeeksToZeroAtFirstTrackWhenRepeatOff() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("first"), media("last")), startIndex = 0).getOrThrow()
+        assertEquals(QueueRepeatMode.OFF, controller.state.value.repeatMode)
+
+        controller.previous().getOrThrow()
+        assertEquals("first", controller.state.value.currentMedia?.id?.value)
+        assertEquals(listOf(0L), engine.seeks)
+    }
+
     private fun media(id: String) = MediaItem(MediaId(id), "file:///$id.mp3", id, MediaKind.AUDIO)
 }
 
@@ -189,6 +237,7 @@ private class FakeQueueEngine : PlayerEngine {
     )
     override val audioEnhancementState = MutableStateFlow(AudioEnhancementState(capabilities.audioEnhancements)).asStateFlow()
     val opened = mutableListOf<String>()
+    val seeks = mutableListOf<Long>()
 
     override fun supportFor(media: MediaItem) = SupportLevel.PREFERRED
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> {
@@ -199,7 +248,11 @@ private class FakeQueueEngine : PlayerEngine {
     override fun play() = Result.success(Unit)
     override fun pause() = Result.success(Unit)
     override fun stop() = Result.success(Unit)
-    override fun seekTo(positionMillis: Long) = Result.success(Unit)
+    override fun seekTo(positionMillis: Long): Result<Unit> {
+        seeks += positionMillis
+        mutableState.value = state.value.copy(positionMillis = positionMillis)
+        return Result.success(Unit)
+    }
     override fun setPlaybackSpeed(speed: Float) = Result.success(Unit)
     override fun setVolume(volume: Float) = Result.success(Unit)
     override fun selectAudioTrack(trackId: String?) = Result.success(Unit)
@@ -209,5 +262,9 @@ private class FakeQueueEngine : PlayerEngine {
 
     fun complete() {
         mutableState.value = state.value.copy(status = PlaybackStatus.Completed)
+    }
+
+    fun setPosition(pos: Long) {
+        mutableState.value = state.value.copy(positionMillis = pos)
     }
 }

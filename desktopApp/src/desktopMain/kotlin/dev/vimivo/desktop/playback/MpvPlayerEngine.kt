@@ -557,11 +557,22 @@ class MpvPlayerEngine : PlayerEngine {
     }
 
     private fun publishFailure(error: Throwable) {
+        val message = error.message.orEmpty()
+        val lower = message.lowercase()
+        val code = when {
+            error is java.io.FileNotFoundException || "not found" in lower || "no such file" in lower -> PlaybackErrorCode.SOURCE_NOT_FOUND
+            error is java.lang.SecurityException || "permission denied" in lower || "access denied" in lower -> PlaybackErrorCode.ACCESS_DENIED
+            error is java.net.SocketException || error is java.net.UnknownHostException || "timeout" in lower || "network" in lower || "connection" in lower -> PlaybackErrorCode.NETWORK
+            "unsupported" in lower || "codec" in lower -> PlaybackErrorCode.UNSUPPORTED_CODEC
+            "demux" in lower || "container" in lower || "corrupt" in lower -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
+            "decode" in lower || "decoder" in lower -> PlaybackErrorCode.DECODING_FAILED
+            else -> PlaybackErrorCode.ENGINE_INITIALIZATION
+        }
         mutableState.value = mutableState.value.copy(
             status = PlaybackStatus.Error(
                 PlaybackError(
-                    PlaybackErrorCode.ENGINE_INITIALIZATION,
-                    error.message ?: "libmpv playback failed",
+                    code,
+                    if (message.isNotBlank()) message else "libmpv playback failed",
                     engine = id,
                     cause = error,
                 ),

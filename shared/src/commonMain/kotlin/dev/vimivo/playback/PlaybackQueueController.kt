@@ -162,7 +162,20 @@ class PlaybackQueueController(
 
     suspend fun previous(): Result<Unit> = mutex.withLock {
         if (engine.state.value.positionMillis > PREVIOUS_RESTART_THRESHOLD_MILLIS) return@withLock engine.seekTo(0)
-        openAvailable(mutableState.value.currentIndex - 1, -1, 0)
+        val current = mutableState.value
+        val prevIndex = current.currentIndex - 1
+        val targetIndex = if (prevIndex >= 0) {
+            prevIndex
+        } else if (current.repeatMode == QueueRepeatMode.ALL && current.items.isNotEmpty()) {
+            current.items.lastIndex
+        } else {
+            -1
+        }
+        if (targetIndex >= 0) {
+            openAvailable(targetIndex, -1, 0)
+        } else {
+            engine.seekTo(0)
+        }
     }
 
     fun addToQueue(items: List<MediaItem>) {

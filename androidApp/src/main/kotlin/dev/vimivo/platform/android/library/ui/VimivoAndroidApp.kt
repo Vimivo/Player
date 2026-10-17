@@ -21,8 +21,10 @@ package dev.vimivo.platform.android.library.ui
 import android.content.Intent
 import android.content.ClipboardManager
 import android.app.ActivityManager
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -234,12 +236,24 @@ private fun AppShell(
     onVideoPlayerState: (Boolean, Boolean) -> Unit,
     enterPictureInPicture: () -> Unit,
 ) {
-    var destination by remember { mutableStateOf(AppDestination.HOME) }
-    var searchVisible by remember { mutableStateOf(false) }
-    var nowPlayingVisible by remember { mutableStateOf(false) }
-    var queueVisible by remember { mutableStateOf(false) }
-    var videoPlayerVisible by remember { mutableStateOf(false) }
+    var destination by rememberSaveable { mutableStateOf(AppDestination.HOME) }
+    var searchVisible by rememberSaveable { mutableStateOf(false) }
+    var nowPlayingVisible by rememberSaveable { mutableStateOf(false) }
+    var queueVisible by rememberSaveable { mutableStateOf(false) }
+    var videoPlayerVisible by rememberSaveable { mutableStateOf(false) }
     var overflowVisible by remember { mutableStateOf(false) }
+
+    BackHandler(
+        enabled = videoPlayerVisible || nowPlayingVisible || queueVisible || searchVisible || destination != AppDestination.HOME,
+    ) {
+        when {
+            videoPlayerVisible -> videoPlayerVisible = false
+            nowPlayingVisible -> nowPlayingVisible = false
+            queueVisible -> queueVisible = false
+            searchVisible -> searchVisible = false
+            destination != AppDestination.HOME -> destination = AppDestination.HOME
+        }
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val navigationMode = VimivoShell.navigationMode(maxWidth)

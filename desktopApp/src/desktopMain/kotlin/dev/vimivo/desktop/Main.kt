@@ -56,10 +56,13 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
 import javax.imageio.ImageIO
 import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.ui.components.VimivoGlassSurface
@@ -109,6 +112,19 @@ fun main(args: Array<String>) = application {
             { togglePlayback(engine, queue, library) },
         )
     }
+    val playbackState by engine.state.collectAsState()
+    val windowTitle = remember(playbackState.media?.title, playbackState.media?.artist) {
+        val media = playbackState.media
+        if (media != null && media.title.isNotBlank()) {
+            if (!media.artist.isNullOrBlank()) {
+                "${media.title} — ${media.artist} — Vimivo"
+            } else {
+                "${media.title} — Vimivo"
+            }
+        } else {
+            "Vimivo"
+        }
+    }
     val windowIcon = remember {
         runCatching {
             DesktopDestination::class.java.classLoader.getResourceAsStream("icon.png")?.use { stream ->
@@ -116,6 +132,7 @@ fun main(args: Array<String>) = application {
             }
         }.getOrNull()
     }
+    val windowState = rememberWindowState()
     Window(
         onCloseRequest = {
             mpris.close()
@@ -124,8 +141,21 @@ fun main(args: Array<String>) = application {
             openFileHandler.close()
             exitApplication()
         },
-        title = "Vimivo",
+        state = windowState,
+        title = windowTitle,
         icon = windowIcon,
+        onKeyEvent = { event ->
+            if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                if (event.key == androidx.compose.ui.input.key.Key.Escape && windowState.placement == WindowPlacement.Fullscreen) {
+                    windowState.placement = WindowPlacement.Floating
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        },
     ) {
         var openStreamRequested by remember { mutableStateOf(false) }
         LaunchedEffect(window) {
@@ -178,17 +208,25 @@ fun main(args: Array<String>) = application {
                     onClick = { applicationScope.launch { togglePlayback(engine, queue, library) } },
                 )
                 Item("Stop", onClick = { engine.stop() })
-                Item("Next", onClick = { applicationScope.launch { queue.next() } })
-                Item("Previous", onClick = { applicationScope.launch { queue.previous() } })
+                Item(
+                    "Next Track",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionRight, ctrl = true),
+                    onClick = { applicationScope.launch { queue.next() } },
+                )
+                Item(
+                    "Previous Track",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionLeft, ctrl = true),
+                    onClick = { applicationScope.launch { queue.previous() } },
+                )
                 Separator()
                 Item(
                     "Seek Backward",
-                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionLeft),
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionLeft, alt = true),
                     onClick = { engine.seekTo((engine.state.value.positionMillis - 10_000).coerceAtLeast(0)) },
                 )
                 Item(
                     "Seek Forward",
-                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionRight),
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionRight, alt = true),
                     onClick = { engine.seekTo(engine.state.value.positionMillis + 10_000) },
                 )
                 Separator()
@@ -226,10 +264,10 @@ fun main(args: Array<String>) = application {
             }
             Menu("View") {
                 Item(
-                    if (window.placement == WindowPlacement.Fullscreen) "Exit Full Screen" else "Enter Full Screen",
+                    if (windowState.placement == WindowPlacement.Fullscreen) "Exit Full Screen" else "Enter Full Screen",
                     shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.F, ctrl = true, shift = true),
                     onClick = {
-                        window.placement = if (window.placement == WindowPlacement.Fullscreen) WindowPlacement.Floating else WindowPlacement.Fullscreen
+                        windowState.placement = if (windowState.placement == WindowPlacement.Fullscreen) WindowPlacement.Floating else WindowPlacement.Fullscreen
                     },
                 )
             }

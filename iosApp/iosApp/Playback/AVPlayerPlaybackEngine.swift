@@ -85,6 +85,9 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         } else if currentIndex > 0 {
             currentIndex -= 1
             loadItem(queue[currentIndex])
+        } else if state.repeatMode == .all {
+            currentIndex = queue.count - 1
+            loadItem(queue[currentIndex])
         } else {
             seek(toMillis: 0)
         }
@@ -192,6 +195,11 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         }
 
         if playUrl.isFileURL {
+            if !FileManager.default.fileExists(atPath: playUrl.path) {
+                state.status = .error
+                state.errorMessage = "Media file not found: \(playUrl.lastPathComponent)"
+                return
+            }
             _ = SecurityScopedMediaManager.shared.startAccessing(url: playUrl)
             activeSecurityUrl = playUrl
         }
@@ -240,6 +248,16 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             } else {
                 self.playNext()
             }
+        }
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            self.state.status = .error
+            self.state.errorMessage = "Media playback failed"
+            self.updateNowPlaying()
         }
     }
 
