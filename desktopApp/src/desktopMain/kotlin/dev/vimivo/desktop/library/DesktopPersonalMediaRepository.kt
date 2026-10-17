@@ -7,6 +7,7 @@ package dev.vimivo.desktop.library
 
 import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
+import dev.vimivo.core.model.MediaPlaybackPreference
 import dev.vimivo.core.model.PlaybackHistory
 import dev.vimivo.core.model.Playlist
 import java.util.UUID
@@ -72,10 +73,37 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
             touchPlaylist(connection, playlistId, now)
         }
 
+    fun addMultipleToPlaylist(playlistId: String, mediaIds: Collection<MediaId>, now: Long = System.currentTimeMillis()) =
+        database.transaction { connection ->
+            var position = connection.prepareStatement("SELECT COALESCE(MAX(position),-1)+1 FROM playlist_items WHERE playlist_id=?").use { query ->
+                query.setString(1, playlistId); query.executeQuery().use { rows -> rows.next(); rows.getInt(1) }
+            }
+            connection.prepareStatement("INSERT OR IGNORE INTO playlist_items(playlist_id,media_id,position,added_at_ms) VALUES(?,?,?,?)").use { statement ->
+                mediaIds.forEach { id ->
+                    statement.setString(1, playlistId); statement.setString(2, id.value); statement.setInt(3, position++); statement.setLong(4, now)
+                    statement.addBatch()
+                }
+                statement.executeBatch()
+            }
+            touchPlaylist(connection, playlistId, now)
+        }
+
     fun removeFromPlaylist(playlistId: String, mediaId: MediaId, now: Long = System.currentTimeMillis()) =
         database.transaction { connection ->
             connection.prepareStatement("DELETE FROM playlist_items WHERE playlist_id=? AND media_id=?").use { statement ->
                 statement.setString(1, playlistId); statement.setString(2, mediaId.value); statement.executeUpdate()
+            }
+            normalizePlaylistPositions(connection, playlistId)
+            touchPlaylist(connection, playlistId, now)
+        }
+
+    fun removeMultipleFromPlaylist(playlistId: String, mediaIds: Collection<MediaId>, now: Long = System.currentTimeMillis()) =
+        database.transaction { connection ->
+            connection.prepareStatement("DELETE FROM playlist_items WHERE playlist_id=? AND media_id=?").use { statement ->
+                mediaIds.forEach { id ->
+                    statement.setString(1, playlistId); statement.setString(2, id.value); statement.addBatch()
+                }
+                statement.executeBatch()
             }
             normalizePlaylistPositions(connection, playlistId)
             touchPlaylist(connection, playlistId, now)
@@ -121,6 +149,19 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
                 statement.setString(1, type.name); statement.setString(2, id)
                 if (favorite) statement.setLong(3, now)
                 statement.executeUpdate()
+            }
+        }
+
+    fun setFavoritesBulk(type: FavoriteTarget, ids: Collection<String>, favorite: Boolean, now: Long = System.currentTimeMillis()) =
+        database.transaction { connection ->
+            val sql = if (favorite) "INSERT OR IGNORE INTO favorites(target_type,target_id,created_at_ms) VALUES(?,?,?)" else "DELETE FROM favorites WHERE target_type=? AND target_id=?"
+            connection.prepareStatement(sql).use { statement ->
+                ids.forEach { id ->
+                    statement.setString(1, type.name); statement.setString(2, id)
+                    if (favorite) statement.setLong(3, now)
+                    statement.addBatch()
+                }
+                statement.executeBatch()
             }
         }
 
@@ -177,7 +218,11 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
         database.transaction { connection ->
             connection.prepareStatement(
                 "INSERT INTO playback_positions(media_id,position_ms,duration_ms,completed,updated_at_ms) VALUES(?,?,?,?,?) " +
-                    "ON CONFLICT(media_id) DO UPDATE SET position_ms=excluded.position_ms,duration_ms=excluded.duration_ms,completed=excluded.completed,updated_at_ms=excluded.updated_at_ms",
+                    "ON CONFLICT(media_id) DO UPDATE SET " +
+                    "position_ms=CASE WHEN excluded.position_ms > 0 OR excluded.completed = 1 THEN excluded.position_ms ELSE playback_positions.position_ms END, " +
+                    "duration_ms=COALESCE(excluded.duration_ms, playback_positions.duration_ms), " +
+                    "completed=excluded.completed, " +
+                    "updated_at_ms=excluded.updated_at_ms",
             ).use { statement ->
                 statement.setString(1, mediaId.value); statement.setLong(2, positionMillis.coerceAtLeast(0))
                 if (durationMillis == null) statement.setNull(3, java.sql.Types.BIGINT) else statement.setLong(3, durationMillis)
@@ -275,6 +320,67 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
     fun clearSettings() = database.transaction { connection ->
         connection.createStatement().use { it.executeUpdate("DELETE FROM settings") }
     }
+
+    fun saveMediaPreference(pref: MediaPlaybackPreference) = database.transaction { connection ->
+        val jsonStr = buildString {
+            append("{")
+            append("\"speed\":").append(pref.speed).append(",")
+            append("\"subtitleTrackId\":").append(pref.subtitleTrackId?.let { "\"$it\"" } ?: "null").append(",")
+            append("\"subtitleDelayMillis\":").append(pref.subtitleDelayMillis).append(",")
+            append("\"audioTrackId\":").append(pref.audioTrackId?.let { "\"$it\"" } ?: "null").append(",")
+            append("\"audioSyncDelayMillis\":").append(pref.audioSyncDelayMillis).append(",")
+            append("\"aspectRatio\":").append(pref.aspectRatio?.let { "\"$it\"" } ?: "null").append(",")
+            append("\"resumeEligible\":").append(pref.resumeEligible).append(",")
+            append("\"updatedAtMillis\":").append(pref.updatedAtMillis)
+            append("}")
+        }
+        val key = "media_pref:${pref.mediaId.value}"
+        connection.prepareStatement(
+            "INSERT INTO personalization_preferences(key, value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        ).use { statement ->
+            statement.setString(1, key); statement.setString(2, jsonStr); statement.executeUpdate()
+        }
+    }
+
+    fun mediaPreference(mediaId: MediaId): MediaPlaybackPreference? = database.transaction { connection ->
+        val key = "media_pref:${mediaId.value}"
+        connection.prepareStatement("SELECT value FROM personalization_preferences WHERE key=?").use { statement ->
+            statement.setString(1, key)
+            statement.executeQuery().use { rows ->
+                if (!rows.next()) null else parseMediaPreference(mediaId, rows.getString(1))
+            }
+        }
+    }
+
+    fun clearMediaPreference(mediaId: MediaId) = database.transaction { connection ->
+        val key = "media_pref:${mediaId.value}"
+        connection.prepareStatement("DELETE FROM personalization_preferences WHERE key=?").use { statement ->
+            statement.setString(1, key); statement.executeUpdate()
+        }
+    }
+
+    private fun parseMediaPreference(mediaId: MediaId, raw: String): MediaPlaybackPreference? = runCatching {
+        val speed = Regex("\"speed\":([0-9.]+)").find(raw)?.groupValues?.get(1)?.toFloatOrNull()
+        val subTrack = Regex("\"subtitleTrackId\":\"([^\"]+)\"").find(raw)?.groupValues?.get(1)
+        val subDelay = Regex("\"subtitleDelayMillis\":(-?[0-9]+)").find(raw)?.groupValues?.get(1)?.toLongOrNull()
+        val audioTrack = Regex("\"audioTrackId\":\"([^\"]+)\"").find(raw)?.groupValues?.get(1)
+        val audioDelay = Regex("\"audioSyncDelayMillis\":(-?[0-9]+)").find(raw)?.groupValues?.get(1)?.toLongOrNull()
+        val aspect = Regex("\"aspectRatio\":\"([^\"]+)\"").find(raw)?.groupValues?.get(1)
+        val resumeEligible = Regex("\"resumeEligible\":(true|false)").find(raw)?.groupValues?.get(1)?.toBooleanStrictOrNull() ?: true
+        val updated = Regex("\"updatedAtMillis\":([0-9]+)").find(raw)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+
+        MediaPlaybackPreference(
+            mediaId = mediaId,
+            speed = speed,
+            subtitleTrackId = subTrack,
+            subtitleDelayMillis = subDelay,
+            audioTrackId = audioTrack,
+            audioSyncDelayMillis = audioDelay,
+            aspectRatio = aspect,
+            resumeEligible = resumeEligible,
+            updatedAtMillis = updated,
+        )
+    }.getOrNull()
 
     private fun playlistMediaIds(connection: java.sql.Connection, playlistId: String): List<String> =
         connection.prepareStatement("SELECT media_id FROM playlist_items WHERE playlist_id=? ORDER BY position").use { statement ->

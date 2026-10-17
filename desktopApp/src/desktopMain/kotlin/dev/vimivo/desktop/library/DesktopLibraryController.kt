@@ -20,6 +20,7 @@ import dev.vimivo.core.model.ListeningInsights
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.core.model.MediaPlaybackPreference
 import dev.vimivo.core.model.MetadataChangeset
 import dev.vimivo.core.model.MetadataWriteMode
 import dev.vimivo.core.model.MissingMediaCandidate
@@ -113,6 +114,7 @@ internal class DesktopLibraryController(
     val recommendationEngine = DesktopRecommendationEngine(database)
     val insightsCalculator = DesktopInsightsCalculator()
     val csvExporterImporter = DesktopMetadataCsvExporterImporter(metadataEditor)
+    val mediaCache = DesktopMediaCache()
     private val coordinator = LibraryScanCoordinator(
         repository,
         DesktopMediaScanner(database),
@@ -196,6 +198,25 @@ internal class DesktopLibraryController(
     fun toggleFavorite(media: MediaItem) = mutatePersonalData {
         personalRepository.setFavorite(FavoriteTarget.MEDIA, media.id.value, !media.isFavorite)
     }
+    fun addMultipleToPlaylist(playlistId: String, mediaIds: List<MediaId>) = mutatePersonalData {
+        personalRepository.addMultipleToPlaylist(playlistId, mediaIds)
+    }
+    fun removeMultipleFromPlaylist(playlistId: String, mediaIds: List<MediaId>) = mutatePersonalData {
+        personalRepository.removeMultipleFromPlaylist(playlistId, mediaIds)
+    }
+    fun setFavoritesBulk(mediaIds: List<MediaId>, favorite: Boolean) = mutatePersonalData {
+        personalRepository.setFavoritesBulk(FavoriteTarget.MEDIA, mediaIds.map { it.value }, favorite)
+    }
+    fun saveMediaPreference(pref: MediaPlaybackPreference) = mutatePersonalData {
+        personalRepository.saveMediaPreference(pref)
+    }
+    fun mediaPreference(mediaId: MediaId): MediaPlaybackPreference? =
+        personalRepository.mediaPreference(mediaId)
+    fun clearMediaPreference(mediaId: MediaId) = mutatePersonalData {
+        personalRepository.clearMediaPreference(mediaId)
+    }
+    fun cleanArtworkCache(): Long = mediaCache.cleanAllCache()
+
     fun removeHistory(mediaId: MediaId) = mutatePersonalData { personalRepository.removeHistory(mediaId) }
     fun clearHistory() = mutatePersonalData { personalRepository.clearHistory() }
     fun setThemeMode(mode: ThemeMode): Job {
@@ -319,7 +340,14 @@ internal class DesktopLibraryController(
         runCatching {
             require(media.uri.startsWith("file:")) { "Only indexed local files can be opened from the library" }
             require(File(URI(media.uri)).isFile) { "The indexed media file is unavailable" }
-            DesktopPlaybackRequest(media, resumePositionMillis(media, personalRepository.position(media.id)))
+            val resumeEnabled = personalRepository.setting("resume_playback")?.toBooleanStrictOrNull() ?: true
+            val pref = personalRepository.mediaPreference(media.id)
+            val pos = if (resumeEnabled && (pref?.resumeEligible != false)) {
+                resumePositionMillis(media, personalRepository.position(media.id))
+            } else {
+                0L
+            }
+            DesktopPlaybackRequest(media, pos)
         }.onFailure(::report)
     }
 
@@ -466,7 +494,10 @@ internal class DesktopLibraryController(
                 val recommendations = recommendationEngine.generateRecommendations(allMediaList, history, positions)
                 val listeningInsights = insightsCalculator.calculateListeningInsights(allMediaList, history)
                 val watchingInsights = insightsCalculator.calculateWatchingInsights(allMediaList, history, positions)
-                val healthReport = automationEngine.generateHealthReport(allMediaList)
+                val healthReport = automationEngine.generateHealthReport(
+                    allMediaList,
+                    cacheSizeBytes = mediaCache.calculateCacheSizeBytes(),
+                )
 
                 roots.forEach(::observeScan)
                 GenerationCache(

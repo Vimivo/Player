@@ -21,22 +21,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -52,7 +59,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -69,9 +75,13 @@ import androidx.compose.ui.window.rememberWindowState
 import javax.imageio.ImageIO
 import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.ui.components.VimivoGlassSurface
-import dev.vimivo.ui.components.VimivoErrorBanner
-import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.ui.theme.VimivoGlassVariant
+import dev.vimivo.desktop.ui.DesktopDestination
+import dev.vimivo.desktop.ui.DesktopSidebarView
+import dev.vimivo.desktop.ui.DesktopTopHeaderView
+import dev.vimivo.desktop.ui.DesktopPlaybackErrorCard
+import dev.vimivo.desktop.ui.DesktopHomeScreenView
+import dev.vimivo.desktop.ui.DesktopPlaybackBarView
 import dev.vimivo.ui.theme.LocalReducedMotion
 import dev.vimivo.ui.theme.VimivoMotion
 import dev.vimivo.ui.theme.VimivoShell
@@ -391,14 +401,12 @@ private fun DesktopPlayer(
     val scope = rememberCoroutineScope()
     val queueState by queue.state.collectAsState()
     val libraryState by library.state.collectAsState()
-    var networkUrl by remember { mutableStateOf("") }
     var destination by remember { mutableStateOf(DesktopDestination.Home) }
     var selectedAlbum by remember { mutableStateOf<AlbumItem?>(null) }
     var selectedArtist by remember { mutableStateOf<ArtistItem?>(null) }
     var activeProfile by remember { mutableStateOf(PlaybackProfile.DEFAULT) }
     var activePreset by remember { mutableStateOf(EqualizerPreset.FLAT) }
     var activeReplayGain by remember { mutableStateOf(ReplayGainMode.OFF) }
-    var previousVolume by remember { mutableStateOf(1f) }
     var showDiagnostics by remember { mutableStateOf(false) }
     var showEqualizerPanel by remember { mutableStateOf(false) }
     var audioSettings by remember { mutableStateOf(AudioEnhancementSettings()) }
@@ -517,47 +525,88 @@ private fun DesktopPlayer(
                 )
                 val contentPadding = if (isVeryCompact) 10.dp else if (isCompact) 16.dp else 24.dp
                 val contentScrollState = rememberScrollState()
-                Row(Modifier.fillMaxSize()) {
-                    DesktopSidebar(
-                        destination,
-                        onDestinationSelected = {
-                            destination = it
-                            selectedAlbum = null
-                            selectedArtist = null
-                        },
-                        collapsed = sidebarCollapsed,
-                        modifier = Modifier.width(sidebarWidth),
-                    )
-                    Column(
-                        Modifier.fillMaxSize().verticalScroll(contentScrollState).padding(contentPadding),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        DesktopTopToolbar(
-                            destination = destination,
-                            search = libraryState.search,
-                            showLibraryControls = destination in setOf(DesktopDestination.Music, DesktopDestination.Videos),
-                            gridView = gridView,
-                            descendingSort = descendingSort,
-                            queueVisible = queuePanelVisible,
-                            onToggleSidebar = { sidebarCollapsed = !sidebarCollapsed },
-                            onSearch = library::setSearch,
-                            onToggleView = {
-                                val next = !gridView
-                                gridView = next
-                                library.setLibraryViewMode(if (next) dev.vimivo.settings.LibraryViewMode.GRID else dev.vimivo.settings.LibraryViewMode.LIST)
+                Column(Modifier.fillMaxSize()) {
+                    // 1. Playback Error Card (Top Banner)
+                    (state.status as? PlaybackStatus.Error)?.let { error ->
+                        DesktopPlaybackErrorCard(
+                            error = error,
+                            onRetry = { scope.launch { queue.retryCurrent() } },
+                            onOpenOtherMedia = {
+                                val files = chooseMediaFiles()
+                                if (files.isNotEmpty()) {
+                                    scope.launch { queue.play(files.map { it.toMediaItem() }) }
+                                }
                             },
-                            onToggleSort = { descendingSort = !descendingSort },
-                            onToggleQueue = { queuePanelVisible = !queuePanelVisible },
+                            onSkipNext = if (queueState.items.size > 1) { { scope.launch { queue.next() } } } else null,
+                            onDismiss = { engine.stop() },
+                            onReportIssue = { showFeedbackDialog = true },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
-                        Text(destination.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (destination == DesktopDestination.Home) {
-                DesktopPersonalizedHomePanel(
-                    state = libraryState,
-                    onPlay = playMedia,
-                    onDismissRecommendation = library::dismissRecommendation,
-                    onTogglePersonalization = library::setPersonalizationEnabled,
-                )
-            }
+                    }
+
+                    // 2. Main Work Area: Sidebar + Screen Canvas + Slide-out Queue Drawer
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        DesktopSidebarView(
+                            selected = destination,
+                            onDestinationSelected = {
+                                destination = it
+                                selectedAlbum = null
+                                selectedArtist = null
+                            },
+                            collapsed = sidebarCollapsed,
+                            onToggleCollapse = { sidebarCollapsed = !sidebarCollapsed },
+                            modifier = Modifier.width(sidebarWidth),
+                        )
+                        Column(Modifier.weight(1f).fillMaxHeight()) {
+                            DesktopTopHeaderView(
+                                destination = destination,
+                                search = libraryState.search,
+                                showLibraryControls = destination in setOf(DesktopDestination.Music, DesktopDestination.Videos),
+                                gridView = gridView,
+                                descendingSort = descendingSort,
+                                queueVisible = queuePanelVisible,
+                                queueItemCount = queueState.items.size,
+                                onToggleSidebar = { sidebarCollapsed = !sidebarCollapsed },
+                                onSearch = library::setSearch,
+                                onToggleView = {
+                                    val next = !gridView
+                                    gridView = next
+                                    library.setLibraryViewMode(if (next) dev.vimivo.settings.LibraryViewMode.GRID else dev.vimivo.settings.LibraryViewMode.LIST)
+                                },
+                                onToggleSort = { descendingSort = !descendingSort },
+                                onToggleQueue = { queuePanelVisible = !queuePanelVisible },
+                            )
+                            Column(
+                                Modifier.fillMaxSize().verticalScroll(contentScrollState).padding(contentPadding),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                if (destination == DesktopDestination.Home) {
+                                    DesktopHomeScreenView(
+                                        state = libraryState,
+                                        onPlay = playMedia,
+                                        onOpenFile = {
+                                            val files = chooseMediaFiles()
+                                            if (files.isNotEmpty()) {
+                                                scope.launch { queue.play(files.map { it.toMediaItem() }) }
+                                            }
+                                        },
+                                        onAddFolder = library::addFolder,
+                                        onOpenStreamDialog = { showOpenStreamDialog = true },
+                                        onDismissRecommendation = library::dismissRecommendation,
+                                        onTogglePersonalization = library::setPersonalizationEnabled,
+                                        onScan = library::scan,
+                                        onCancelScan = library::cancelScan,
+                                        onRemoveRoot = library::removeRoot,
+                                        onSelectAlbum = { album ->
+                                            selectedAlbum = album
+                                            destination = DesktopDestination.Albums
+                                        },
+                                        onSelectArtist = { artist ->
+                                            selectedArtist = artist
+                                            destination = DesktopDestination.Artists
+                                        },
+                                    )
+                                }
             if (destination in setOf(DesktopDestination.Music, DesktopDestination.Videos)) {
                 DesktopLibraryPanel(
                     destination = destination,
@@ -881,297 +930,138 @@ private fun DesktopPlayer(
                     onDismiss = { showEqualizerPanel = false },
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = {
-                        val files = chooseMediaFiles()
-                        if (files.isNotEmpty()) {
-                            scope.launch { queue.play(files.map { it.toMediaItem() }) }
-                        }
-                    },
-                    modifier = Modifier.semantics { contentDescription = "Open local media files" },
-                ) { Text("Open media") }
-                OutlinedButton(
-                    onClick = { scope.launch { togglePlayback(engine, queue, library) } },
-                    modifier = Modifier.semantics {
-                        contentDescription = if (state.status == PlaybackStatus.Playing) "Pause playback" else "Start playback"
-                    },
-                ) {
-                    Text(if (state.status == PlaybackStatus.Playing) "Pause" else "Play")
-                }
-                OutlinedButton(
-                    onClick = { scope.launch { queue.previous() } },
-                    enabled = queueState.items.isNotEmpty(),
-                    modifier = Modifier.semantics { contentDescription = "Previous track in queue" },
-                ) { Text("Previous") }
-                OutlinedButton(
-                    onClick = { engine.stop() },
-                    modifier = Modifier.semantics { contentDescription = "Stop playback" },
-                ) { Text("Stop") }
-                OutlinedButton(
-                    onClick = { scope.launch { queue.next() } },
-                    enabled = queueState.items.isNotEmpty(),
-                    modifier = Modifier.semantics { contentDescription = "Next track in queue" },
-                ) { Text("Next") }
-                OutlinedButton(
-                    onClick = queue::toggleShuffle,
-                    enabled = queueState.items.size > 1,
-                    modifier = Modifier.semantics {
-                        contentDescription = if (queueState.shuffleEnabled) "Shuffle enabled. Click to disable." else "Shuffle disabled. Click to enable."
-                    },
-                ) {
-                    Text(if (queueState.shuffleEnabled) "Shuffle on" else "Shuffle off")
-                }
-                OutlinedButton(
-                    onClick = queue::cycleRepeat,
-                    enabled = queueState.items.isNotEmpty(),
-                    modifier = Modifier.semantics {
-                        contentDescription = "Cycle repeat mode: currently ${queueState.repeatMode.name.lowercase()}"
-                    },
-                ) {
-                    Text("Repeat ${queueState.repeatMode.name.lowercase()}")
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                val isMuted = state.volume == 0f
-                OutlinedButton(
-                    onClick = {
-                        if (isMuted) {
-                            engine.setVolume(if (previousVolume > 0f) previousVolume else 1f)
-                        } else {
-                            previousVolume = state.volume
-                            engine.setVolume(0f)
-                        }
-                    },
-                    modifier = Modifier.semantics {
-                        contentDescription = if (isMuted) "Unmute audio" else "Mute audio"
-                    },
-                ) {
-                    Text(if (isMuted) "🔇 Muted" else "🔊 ${(state.volume * 100).toInt()}%")
-                }
-                Slider(
-                    value = state.volume,
-                    onValueChange = { engine.setVolume(it) },
-                    valueRange = 0f..1f,
-                    modifier = Modifier.width(110.dp).semantics {
-                        contentDescription = "Volume level"
-                        stateDescription = "${(state.volume * 100).toInt()}%"
-                    },
-                )
-                val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
-                OutlinedButton(
-                    onClick = {
-                        val nextIndex = (speeds.indexOfFirst { kotlin.math.abs(it - state.speed) < 0.05f } + 1) % speeds.size
-                        engine.setPlaybackSpeed(speeds[nextIndex])
-                    },
-                    modifier = Modifier.semantics {
-                        contentDescription = "Playback speed ${state.speed}x. Click to change."
-                    },
-                ) {
-                    Text("${state.speed}x")
-                }
-                OutlinedButton(
-                    onClick = { showDiagnostics = !showDiagnostics },
-                    modifier = Modifier.semantics {
-                        contentDescription = if (showDiagnostics) "Hide technical diagnostics" else "Show technical diagnostics"
-                    },
-                ) {
-                    Text(if (showDiagnostics) "Hide Stats" else "Stats")
-                }
-                OutlinedButton(
-                    onClick = { showEqualizerPanel = !showEqualizerPanel },
-                    modifier = Modifier.semantics {
-                        contentDescription = if (showEqualizerPanel) "Close equalizer panel" else "Open real 10-band equalizer"
-                    },
-                ) {
-                    Text(if (showEqualizerPanel) "Close EQ" else "Equalizer")
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = networkUrl,
-                    onValueChange = { networkUrl = it },
-                    modifier = Modifier.weight(1f).semantics { contentDescription = "Authorized HTTP, HTTPS, or RTSP streaming address" },
-                    label = { Text("Authorized HTTP, HTTPS, or RTSP URL") },
-                    singleLine = true,
-                )
-                Button(
-                    enabled = networkUrl.isNotBlank(),
-                    onClick = {
-                        val url = networkUrl.trim()
-                        when (val validation = dev.vimivo.core.streaming.StreamValidator.validate(url)) {
-                            is dev.vimivo.core.streaming.StreamValidationResult.Valid -> {
-                                val item = dev.vimivo.core.streaming.StreamValidator.toMediaItem(validation)
-                                streamHistoryRepository.recordStream(validation.normalizedUrl)
-                                networkUrl = ""
-                                scope.launch { queue.play(listOf(item)) }
-                            }
-                            is dev.vimivo.core.streaming.StreamValidationResult.Invalid -> {
-                                showOpenStreamDialog = true
-                            }
-                        }
-                    },
-                    modifier = Modifier.semantics { contentDescription = "Open stream URL" },
-                ) { Text("Open stream") }
-                OutlinedButton(
-                    onClick = { showOpenStreamDialog = true },
-                    modifier = Modifier.semantics { contentDescription = "Open network stream dialog" },
-                ) { Text("Stream…") }
-            }
-            if (state.media == null && destination !in setOf(DesktopDestination.Settings, DesktopDestination.Network)) {
-                DesktopEmptyState(destination)
-            }
-            Spacer(Modifier.height(4.dp))
-            VimivoGlassSurface(
-                variant = VimivoGlassVariant.FLOATING_PLAYER,
-                modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-                    contentDescription = "Now playing card for ${state.media?.title ?: "Nothing playing"}"
-                },
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.media?.let { DesktopArtwork(it.artworkUri, it.title, 96.dp) }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(state.media?.title ?: "Nothing playing", style = MaterialTheme.typography.titleLarge)
-                        if (state.media?.kind == MediaKind.STREAM && state.durationMillis == null) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.errorContainer,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-                                modifier = Modifier.padding(start = 8.dp),
-                            ) {
-                                Text(
-                                    text = "LIVE",
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                if (showDiagnostics) {
+                                    val diag = engine.getDiagnosticsSnapshot()
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                                        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Technical playback diagnostics" },
+                                    ) {
+                                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text("Technical Playback Diagnostics", style = MaterialTheme.typography.titleSmall)
+                                            if (diag != null) {
+                                                Text(
+                                                    "Video: ${diag.activeVideoCodec ?: "none"} · Audio: ${diag.activeAudioCodec ?: "none"} · HWDEC: ${diag.activeDecoder ?: "none"} (${if (diag.hwdecActive) "Active" else "Inactive"})",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                )
+                                                Text(
+                                                    "VO: ${diag.activeRenderer ?: "none"} · FPS: ${diag.estimatedFps} · Dropped Frames: ${diag.droppedFrames} / ${diag.totalFrames}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                )
+                                                Text(
+                                                    "A/V Sync Drift: ${diag.avDriftMillis.toLong()} ms · Cache: ${formatBytes(diag.cacheBufferBytes)}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            } else {
+                                                Text("Diagnostics available during active playback.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (showLyrics && state.media?.kind == MediaKind.AUDIO) {
+                                    DesktopLyricsCard(lyricsDoc = lyricsDoc, positionMillis = state.positionMillis)
+                                }
+
+                                DesktopBookmarksPanel(
+                                    media = state.media,
+                                    positionMillis = state.positionMillis,
+                                    bookmarks = libraryState.bookmarks,
+                                    onAdd = library::addBookmark,
+                                    onSeek = { engine.seekTo(it) },
+                                    onRename = library::renameBookmark,
+                                    onDelete = library::deleteBookmark,
                                 )
                             }
                         }
+
+                        // Right: Slide-out Queue Drawer
+                        if (queuePanelVisible) {
+                            Surface(
+                                modifier = Modifier.width(320.dp).fillMaxHeight(),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = "Playback Queue",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        IconButton(
+                                            onClick = { queuePanelVisible = false },
+                                            modifier = Modifier.size(28.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.Close,
+                                                contentDescription = "Close queue",
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                    }
+                                    if (queueState.items.isEmpty()) {
+                                        Box(
+                                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = "Queue is empty\nAdd tracks from your library",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                textAlign = TextAlign.Center,
+                                            )
+                                        }
+                                    } else {
+                                        DesktopQueuePanel(
+                                            state = queueState,
+                                            onRemove = queue::remove,
+                                            onMove = queue::move,
+                                            onClear = queue::clear,
+                                            onPlayAt = { index -> scope.launch { queue.playAt(index) } },
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                    Text(
-                        if (state.status == PlaybackStatus.Buffering) "Buffering stream..." else state.status.label(),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Slider(
-                        value = state.positionMillis.toFloat().coerceAtMost((state.durationMillis ?: 1).toFloat()),
-                        onValueChange = { engine.seekTo(it.toLong()) },
-                        valueRange = 0f..(state.durationMillis ?: 1).coerceAtLeast(1).toFloat(),
-                        enabled = state.isSeekable && state.durationMillis != null,
-                        modifier = Modifier.fillMaxWidth().semantics {
-                            contentDescription = if (state.durationMillis == null) {
-                                "Live stream: ${formatTime(state.positionMillis)}"
-                            } else {
-                                "Playback seekbar: ${formatTime(state.positionMillis)} of ${formatTime(state.durationMillis ?: 0)}"
+
+                    // 3. Persistent Playback Bar (Docked at Bottom)
+                    DesktopPlaybackBarView(
+                        state = state,
+                        queueState = queueState,
+                        onTogglePlayback = { scope.launch { togglePlayback(engine, queue, library) } },
+                        onPrevious = { scope.launch { queue.previous() } },
+                        onNext = { scope.launch { queue.next() } },
+                        onStop = { engine.stop() },
+                        onSeek = { engine.seekTo(it) },
+                        onSetVolume = { engine.setVolume(it) },
+                        onSetSpeed = { engine.setPlaybackSpeed(it) },
+                        onToggleShuffle = queue::toggleShuffle,
+                        onCycleRepeat = queue::cycleRepeat,
+                        onToggleFavorite = library::toggleFavorite,
+                        onToggleEqualizer = { showEqualizerPanel = !showEqualizerPanel },
+                        showEqualizer = showEqualizerPanel,
+                        onToggleDiagnostics = { showDiagnostics = !showDiagnostics },
+                        showDiagnostics = showDiagnostics,
+                        onToggleQueue = { queuePanelVisible = !queuePanelVisible },
+                        queueVisible = queuePanelVisible,
+                        onOpenMedia = {
+                            val files = chooseMediaFiles()
+                            if (files.isNotEmpty()) {
+                                scope.launch { queue.play(files.map { it.toMediaItem() }) }
                             }
                         },
+                        onToggleLyrics = { showLyrics = !showLyrics },
+                        showLyrics = showLyrics,
                     )
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(formatTime(state.positionMillis))
-                        Spacer(Modifier.weight(1f))
-                        if (state.media?.kind == MediaKind.AUDIO) {
-                            OutlinedButton(onClick = { showLyrics = !showLyrics }) {
-                                Text(if (showLyrics) "Hide Lyrics" else "Lyrics")
-                            }
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        Text(if (state.durationMillis == null && state.media?.kind == MediaKind.STREAM) "Live broadcast" else formatTime(state.durationMillis ?: 0))
-                    }
-                    if (showLyrics && state.media?.kind == MediaKind.AUDIO) {
-                        DesktopLyricsCard(lyricsDoc = lyricsDoc, positionMillis = state.positionMillis)
-                    }
-                }
-            }
-            if (showDiagnostics) {
-                val diag = engine.getDiagnosticsSnapshot()
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Technical playback diagnostics" },
-                ) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Technical Playback Diagnostics", style = MaterialTheme.typography.titleSmall)
-                        if (diag != null) {
-                            Text(
-                                "Video: ${diag.activeVideoCodec ?: "none"} · Audio: ${diag.activeAudioCodec ?: "none"} · HWDEC: ${diag.activeDecoder ?: "none"} (${if (diag.hwdecActive) "Active" else "Inactive"})",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Text(
-                                "VO: ${diag.activeRenderer ?: "none"} · FPS: ${diag.estimatedFps} · Dropped Frames: ${diag.droppedFrames} / ${diag.totalFrames}",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Text(
-                                "A/V Sync Drift: ${diag.avDriftMillis.toLong()} ms · Cache: ${formatBytes(diag.cacheBufferBytes)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            Text("Diagnostics available during active playback.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-            DesktopBookmarksPanel(
-                media = state.media,
-                positionMillis = state.positionMillis,
-                bookmarks = libraryState.bookmarks,
-                onAdd = library::addBookmark,
-                onSeek = { engine.seekTo(it) },
-                onRename = library::renameBookmark,
-                onDelete = library::deleteBookmark,
-            )
-            if (queuePanelVisible) {
-                VimivoGlassSurface(VimivoGlassVariant.SHEET, Modifier.fillMaxWidth()) {
-                    DesktopQueuePanel(
-                        state = queueState,
-                        onRemove = queue::remove,
-                        onMove = queue::move,
-                        onClear = queue::clear,
-                        onPlayAt = { index -> scope.launch { queue.playAt(index) } },
-                    )
-                }
-            }
-            (state.status as? PlaybackStatus.Error)?.let { error ->
-                val errorMessage = error.error.message
-                val advice = when (error.error.code) {
-                    PlaybackErrorCode.ENGINE_INITIALIZATION ->
-                        "Install libmpv (for example with Homebrew) or set -Dvimivo.mpv.library=/absolute/path/to/libmpv.dylib."
-                    PlaybackErrorCode.NETWORK ->
-                        "Network error encountered. Check your internet connection or verify the stream URL."
-                    PlaybackErrorCode.UNSUPPORTED_CONTAINER, PlaybackErrorCode.UNSUPPORTED_CODEC ->
-                        "This media format or codec is not supported by the active playback engine."
-                    else ->
-                        "The media could not be played. Check that the source file is accessible."
-                }
-                VimivoErrorBanner(
-                    title = "Playback Error",
-                    message = "$errorMessage — $advice",
-                    recoveryActionLabel = "Retry",
-                    onRecoveryAction = { scope.launch { queue.retryCurrent() } },
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    if (queue.state.value.items.size > 1) {
-                        OutlinedButton(onClick = { scope.launch { queue.next() } }) {
-                            Text("Skip to Next")
-                        }
-                    }
-                    OutlinedButton(onClick = { engine.stop() }) {
-                        Text("Dismiss")
-                    }
-                    OutlinedButton(onClick = { showFeedbackDialog = true }) {
-                        Text("Report Issue")
-                    }
-                }
-            }
-                    }
                 }
             }
         }
@@ -1473,112 +1363,7 @@ private fun LibraryScanState.label(): String = when (this) {
 
 private fun formatBytes(bytes: Long): String = if (bytes < 1_048_576) "${bytes / 1024} KB" else "${bytes / 1_048_576} MB"
 
-@Composable
-private fun DesktopTopToolbar(
-    destination: DesktopDestination,
-    search: String,
-    showLibraryControls: Boolean,
-    gridView: Boolean,
-    descendingSort: Boolean,
-    queueVisible: Boolean,
-    onToggleSidebar: () -> Unit,
-    onSearch: (String) -> Unit,
-    onToggleView: () -> Unit,
-    onToggleSort: () -> Unit,
-    onToggleQueue: () -> Unit,
-) {
-    VimivoGlassSurface(VimivoGlassVariant.NAVIGATION, Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = VimivoShell.desktopToolbarHeight).padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(onToggleSidebar, modifier = Modifier.semantics { contentDescription = "Collapse or expand navigation sidebar" }) { Text("Navigation") }
-            Text(destination.title, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.weight(1f))
-            if (showLibraryControls) {
-                OutlinedTextField(search, onSearch, label = { Text("Search") }, singleLine = true, modifier = Modifier.width(240.dp))
-                OutlinedButton(onToggleView) { Text(if (gridView) "List" else "Grid") }
-                OutlinedButton(onToggleSort) { Text(if (descendingSort) "Z–A" else "A–Z") }
-            }
-            OutlinedButton(onToggleQueue) { Text(if (queueVisible) "Hide queue" else "Queue") }
-        }
-    }
-}
 
-@Composable
-private fun DesktopSidebar(
-    selected: DesktopDestination,
-    onDestinationSelected: (DesktopDestination) -> Unit,
-    collapsed: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val scrollState = rememberScrollState()
-    VimivoGlassSurface(VimivoGlassVariant.NAVIGATION, modifier = modifier.fillMaxHeight()) {
-        Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(if (collapsed) "V" else "Vimivo", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(12.dp))
-            DesktopDestination.entries.forEach { destination ->
-                val isSelected = selected == destination
-                if (isSelected) {
-                    Button(
-                        onClick = { onDestinationSelected(destination) },
-                        modifier = Modifier.fillMaxWidth().semantics {
-                            contentDescription = "${destination.title} navigation tab, active"
-                        },
-                    ) { Text(if (collapsed) destination.title.take(1) else destination.title) }
-                } else {
-                    OutlinedButton(
-                        onClick = { onDestinationSelected(destination) },
-                        modifier = Modifier.fillMaxWidth().semantics {
-                            contentDescription = "Navigate to ${destination.title}"
-                        },
-                    ) { Text(if (collapsed) destination.title.take(1) else destination.title) }
-                }
-            }
-            Spacer(Modifier.weight(1f))
-            if (!collapsed) Text("Private, local-first playback", style = MaterialTheme.typography.labelSmall)
-        }
-    }
-}
-
-@Composable
-private fun DesktopEmptyState(destination: DesktopDestination) {
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(destination.emptyTitle, style = MaterialTheme.typography.titleLarge)
-            Text(destination.emptyDetail, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-private enum class DesktopDestination(
-    val title: String,
-    val subtitle: String,
-    val emptyTitle: String,
-    val emptyDetail: String,
-) {
-    Home("Home", "Personalized offline dashboard", "Open media to begin", "Vimivo keeps your media on this device."),
-    Music("Music", "Songs and tracks in your library", "Your music library is empty", "Add and scan a library folder from Home."),
-    Albums("Albums", "Browse albums and complete discographies", "No albums yet", "Add and scan music folders with album metadata."),
-    Artists("Artists", "Musicians, bands, and composers", "No artists yet", "Add and scan music folders with artist metadata."),
-    Videos("Videos", "Local videos and resume points", "Your video library is empty", "Add and scan a library folder from Home, or open a video directly."),
-    Playlists("Playlists", "Your local collections", "No playlists yet", "Create a playlist to organize your media."),
-    SmartPlaylists("Smart Playlists", "Dynamic rule-based collections", "No smart playlists yet", "Create a rule-based smart collection."),
-    Duplicates("Duplicates", "Safe duplicate review", "No duplicate groups found", "Scan your library to find duplicate content clusters."),
-    Insights("Insights", "Private listening and watching statistics", "No playback history", "Insights appear as you play media offline."),
-    MetadataEditor("Metadata", "Overrides and embedded tag editing", "No media selected", "Select items to view or edit metadata."),
-    BatchRename("Rename", "Pattern-based file renaming", "No files ready for renaming", "Select a pattern to preview renames."),
-    MissingMedia("Relink", "Reconcile moved or missing files", "All library media is available", "No missing files detected."),
-    Automation("Automation", "Maintenance jobs and health report", "Library is healthy", "Run maintenance jobs or configure rules."),
-    Favorites("Favorites", "Media you marked for quick access", "No favorites yet", "Favorite controls are available on media cards."),
-    History("History", "Recently played and watched", "No playback history", "Played library media appears here."),
-    Network("Network", "Authorized streams and remote media", "Open an authorized stream", "Paste an HTTP, HTTPS, or RTSP address above."),
-    Settings("Settings", "Appearance and playback preferences", "Settings are being prepared", "Preferences will be stored locally in the desktop persistence layer."),
-}
 
 private fun chooseMediaFiles(): List<File> {
     val dialog = FileDialog(null as Frame?, "Open media", FileDialog.LOAD)

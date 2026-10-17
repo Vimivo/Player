@@ -57,9 +57,12 @@ data class LibraryHealthReport(
     val totalMediaCount: Int,
     val availableMediaCount: Int,
     val missingMediaCount: Int,
+    val inaccessibleMediaCount: Int = 0,
     val missingMetadataCount: Int,
     val missingArtworkCount: Int,
     val exactDuplicateGroupCount: Int,
-    val possibleDuplicateGroupCount: Int,
+    val possibleDuplicateGroupCount: Int = 0,
+    val cacheSizeBytes: Long = 0L,
+    val failedScanCount: Int = 0,
     val healthScorePercent: Int,
 )

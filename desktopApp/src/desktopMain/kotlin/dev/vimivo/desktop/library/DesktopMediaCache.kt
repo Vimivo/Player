@@ -85,6 +85,42 @@ internal class DesktopMediaCache(
         }
     }
 
+    fun calculateCacheSizeBytes(): Long {
+        var total = 0L
+        for (dir in listOf(artworkDirectory, thumbnailDirectory)) {
+            if (Files.isDirectory(dir)) {
+                runCatching {
+                    Files.list(dir).use { stream ->
+                        total += stream.filter(Files::isRegularFile).mapToLong { p ->
+                            runCatching { Files.size(p) }.getOrDefault(0L)
+                        }.sum()
+                    }
+                }
+            }
+        }
+        return total
+    }
+
+    @Synchronized
+    fun cleanAllCache(): Long {
+        var deletedBytes = 0L
+        for (dir in listOf(artworkDirectory, thumbnailDirectory)) {
+            if (Files.isDirectory(dir)) {
+                runCatching {
+                    Files.list(dir).use { stream ->
+                        stream.filter(Files::isRegularFile).forEach { path ->
+                            val size = runCatching { Files.size(path) }.getOrDefault(0L)
+                            if (runCatching { Files.deleteIfExists(path) }.getOrDefault(false)) {
+                                deletedBytes += size
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return deletedBytes
+    }
+
     private fun scale(source: BufferedImage, maximumEdge: Int): BufferedImage {
         val ratio = minOf(1.0, maximumEdge.toDouble() / maxOf(source.width, source.height))
         val width = maxOf(1, (source.width * ratio).toInt())

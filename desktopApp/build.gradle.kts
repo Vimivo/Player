@@ -175,6 +175,14 @@ val packageAppImage by tasks.registering(Exec::class) {
     )
 }
 
+tasks.matching { it.name == "createDistributable" }.configureEach {
+    when {
+        org.gradle.internal.os.OperatingSystem.current().isMacOsX -> finalizedBy(bundleMacosMpv)
+        org.gradle.internal.os.OperatingSystem.current().isWindows -> finalizedBy(bundleWindowsMpv)
+        org.gradle.internal.os.OperatingSystem.current().isLinux -> finalizedBy(bundleLinuxMpv)
+    }
+}
+
 tasks.matching {
     val isMac = org.gradle.internal.os.OperatingSystem.current().isMacOsX
     isMac && it.name in listOf(

@@ -99,9 +99,15 @@ internal interface MpvNative : Library {
                 }
             }
             val systemCandidates = listOf(File("/opt/homebrew/lib"), File("/usr/local/lib"))
-            systemCandidates.forEach { dir ->
-                if (dir.exists() && (dir.resolve("libmpv.2.dylib").exists() || dir.resolve("libmpv.dylib").exists())) {
-                    appendJnaLibraryPath(dir)
+            for (dir in systemCandidates) {
+                if (dir.exists()) {
+                    val candidate = listOf("libmpv.2.dylib", "libmpv.dylib")
+                        .map { File(dir, it) }
+                        .firstOrNull(File::exists)
+                    if (candidate != null) {
+                        appendJnaLibraryPath(dir)
+                        return Native.load(candidate.absolutePath, MpvNative::class.java)
+                    }
                 }
             }
             return Native.load("mpv", MpvNative::class.java)

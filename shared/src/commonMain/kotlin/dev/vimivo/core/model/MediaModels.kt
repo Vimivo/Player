@@ -159,3 +159,15 @@ data class ArtistDetails(
     val albums: List<AlbumItem>,
     val tracks: List<MediaItem>,
 )
+
+data class MediaPlaybackPreference(
+    val mediaId: MediaId,
+    val speed: Float? = null,
+    val subtitleTrackId: String? = null,
+    val subtitleDelayMillis: Long? = null,
+    val audioTrackId: String? = null,
+    val audioSyncDelayMillis: Long? = null,
+    val aspectRatio: String? = null,
+    val resumeEligible: Boolean = true,
+    val updatedAtMillis: Long = 0L,
+)

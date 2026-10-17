@@ -185,17 +185,26 @@ internal class DesktopAutomationEngine(private val database: DesktopDatabase) {
         }
     }
 
-    fun generateHealthReport(allMedia: List<MediaItem>): LibraryHealthReport {
+    fun generateHealthReport(
+        allMedia: List<MediaItem>,
+        cacheSizeBytes: Long = 0L,
+        failedScanCount: Int = 0,
+    ): LibraryHealthReport {
         val total = allMedia.size
         var available = 0
         var missingMedia = 0
+        var inaccessibleMedia = 0
         var missingMetadata = 0
         var missingArtwork = 0
 
         allMedia.forEach { item ->
             val file = runCatching { File(URI(item.uri)) }.getOrNull()
             if (file != null && file.exists()) {
-                available++
+                if (file.canRead()) {
+                    available++
+                } else {
+                    inaccessibleMedia++
+                }
             } else {
                 missingMedia++
             }
@@ -221,10 +230,13 @@ internal class DesktopAutomationEngine(private val database: DesktopDatabase) {
             totalMediaCount = total,
             availableMediaCount = available,
             missingMediaCount = missingMedia,
+            inaccessibleMediaCount = inaccessibleMedia,
             missingMetadataCount = missingMetadata,
             missingArtworkCount = missingArtwork,
             exactDuplicateGroupCount = exactDupGroups,
             possibleDuplicateGroupCount = 0,
+            cacheSizeBytes = cacheSizeBytes,
+            failedScanCount = failedScanCount,
             healthScorePercent = score,
         )
     }
