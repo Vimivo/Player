@@ -88,12 +88,17 @@ class LongSessionStabilityTest {
     @Test
     fun testLongSessionRapidSourceSwitchingSafety() = runBlocking {
         val engine = MpvPlayerEngine()
+        val tempFiles = (1..20).map { i ->
+            File.createTempFile("vimivo_rapid_switch_$i", ".mp3").apply {
+                writeBytes(ByteArray(1024) { (it % 256).toByte() })
+            }
+        }
         try {
             // Rapid switching across 20 media targets without awaiting completion
             for (i in 1..20) {
                 val item = MediaItem(
                     id = MediaId("rapid-switch-$i"),
-                    uri = "file:///tmp/dummy_switch_$i.mp3",
+                    uri = tempFiles[i - 1].toURI().toString(),
                     title = "Rapid Switch $i",
                     kind = MediaKind.AUDIO,
                 )
@@ -106,6 +111,7 @@ class LongSessionStabilityTest {
             assertEquals(MediaId("rapid-switch-20"), state.media?.id)
         } finally {
             engine.close()
+            tempFiles.forEach { it.delete() }
         }
     }
 

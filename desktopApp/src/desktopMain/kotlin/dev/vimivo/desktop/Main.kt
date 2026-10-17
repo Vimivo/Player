@@ -158,6 +158,7 @@ fun main(args: Array<String>) = application {
         },
     ) {
         var openStreamRequested by remember { mutableStateOf(false) }
+        var requestedDestination by remember { mutableStateOf<DesktopDestination?>(null) }
         LaunchedEffect(window) {
             window.dropTarget = java.awt.dnd.DropTarget(window, object : java.awt.dnd.DropTargetAdapter() {
                 override fun drop(dtde: java.awt.dnd.DropTargetDropEvent) {
@@ -271,6 +272,45 @@ fun main(args: Array<String>) = application {
                     },
                 )
             }
+            Menu("Navigate") {
+                Item(
+                    "Home",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.One, ctrl = true),
+                    onClick = { requestedDestination = DesktopDestination.Home },
+                )
+                Item(
+                    "Music",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.Two, ctrl = true),
+                    onClick = { requestedDestination = DesktopDestination.Music },
+                )
+                Item(
+                    "Videos",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.Three, ctrl = true),
+                    onClick = { requestedDestination = DesktopDestination.Videos },
+                )
+                Item(
+                    "Playlists",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.Four, ctrl = true),
+                    onClick = { requestedDestination = DesktopDestination.Playlists },
+                )
+                Item(
+                    "Network Streams",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.Five, ctrl = true),
+                    onClick = { requestedDestination = DesktopDestination.Network },
+                )
+                Separator()
+                Item(
+                    "Settings",
+                    shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.Comma, ctrl = true),
+                    onClick = { requestedDestination = DesktopDestination.Settings },
+                )
+            }
+            Menu("Help") {
+                Item(
+                    "About Vimivo",
+                    onClick = { requestedDestination = DesktopDestination.Settings },
+                )
+            }
         }
         DesktopPlayer(
             engine,
@@ -281,6 +321,8 @@ fun main(args: Array<String>) = application {
             mpris,
             openStreamRequested = openStreamRequested,
             onOpenStreamHandled = { openStreamRequested = false },
+            requestedDestination = requestedDestination,
+            onDestinationHandled = { requestedDestination = null },
         )
     }
 }
@@ -312,6 +354,8 @@ private fun DesktopPlayer(
     mpris: dev.vimivo.desktop.integration.mpris.MprisService,
     openStreamRequested: Boolean = false,
     onOpenStreamHandled: () -> Unit = {},
+    requestedDestination: DesktopDestination? = null,
+    onDestinationHandled: () -> Unit = {},
 ) {
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -341,6 +385,15 @@ private fun DesktopPlayer(
     var descendingSort by remember { mutableStateOf(false) }
     val streamHistoryRepository = remember { dev.vimivo.desktop.streaming.DesktopStreamHistoryRepository() }
     var lyricsDoc by remember(state.media?.uri) { mutableStateOf<dev.vimivo.core.lyrics.LyricsDocument?>(null) }
+
+    LaunchedEffect(requestedDestination) {
+        requestedDestination?.let {
+            destination = it
+            selectedAlbum = null
+            selectedArtist = null
+            onDestinationHandled()
+        }
+    }
 
     LaunchedEffect(openStreamRequested) {
         if (openStreamRequested) {

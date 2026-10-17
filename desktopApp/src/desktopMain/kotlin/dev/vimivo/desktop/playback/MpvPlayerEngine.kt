@@ -54,6 +54,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.awt.Canvas
@@ -118,7 +119,10 @@ class MpvPlayerEngine : PlayerEngine {
         check(!closed) { "Player is closed" }
         require(supportFor(media) != SupportLevel.UNSUPPORTED) { "Unsupported desktop media URI" }
         ensureInitialized()
-        val currentSession = ++sessionGeneration
+        val currentSession = synchronized(nativeLock) {
+            polling?.cancel()
+            ++sessionGeneration
+        }
         userStopped = false
         userPaused = false
         mutableState.value = PlaybackState(
@@ -415,60 +419,70 @@ class MpvPlayerEngine : PlayerEngine {
     }
 
     private fun startPolling(expectedSession: Long) {
-        polling?.cancel()
-        polling = scope.launch {
-            var lastTrackCount = -1
-            var cachedAudio: List<TrackInfo> = emptyList()
-            var cachedVideo: List<TrackInfo> = emptyList()
-            var cachedSubtitle: List<TrackInfo> = emptyList()
-            var iteration = 0L
+        synchronized(nativeLock) {
+            if (sessionGeneration != expectedSession) return
+            polling?.cancel()
+            polling = scope.launch {
+                var lastTrackCount = -1
+                var cachedAudio: List<TrackInfo> = emptyList()
+                var cachedVideo: List<TrackInfo> = emptyList()
+                var cachedSubtitle: List<TrackInfo> = emptyList()
+                var iteration = 0L
 
-            while (isActive && !closed && sessionGeneration == expectedSession) {
-                iteration++
-                val previous = mutableState.value
-                val duration = doubleProperty("duration")?.times(1_000)?.toLong()
-                val position = doubleProperty("time-pos")?.times(1_000)?.toLong()?.coerceAtLeast(0) ?: 0
-                val paused = flagProperty("pause") ?: true
-                val idle = flagProperty("idle-active") ?: false
-                val pausedForCache = flagProperty("paused-for-cache") ?: false
-                val cacheDurationMs = doubleProperty("demuxer-cache-time")?.times(1_000)?.toLong() ?: 0L
-                val bufferedPosition = position + cacheDurationMs
-                if (sessionGeneration != expectedSession) break
+                while (isActive && !closed && sessionGeneration == expectedSession) {
+                    iteration++
+                    val duration = doubleProperty("duration")?.times(1_000)?.toLong()
+                    val position = doubleProperty("time-pos")?.times(1_000)?.toLong()?.coerceAtLeast(0) ?: 0
+                    val paused = flagProperty("pause") ?: true
+                    val idle = flagProperty("idle-active") ?: false
+                    val pausedForCache = flagProperty("paused-for-cache") ?: false
+                    val cacheDurationMs = doubleProperty("demuxer-cache-time")?.times(1_000)?.toLong() ?: 0L
+                    val bufferedPosition = position + cacheDurationMs
 
-                val currentTrackCount = stringProperty("track-list/count")?.toIntOrNull() ?: 0
-                if (currentTrackCount != lastTrackCount || iteration % 20L == 1L) {
-                    lastTrackCount = currentTrackCount
-                    cachedAudio = tracks(TrackType.AUDIO)
-                    cachedVideo = tracks(TrackType.VIDEO)
-                    cachedSubtitle = tracks(TrackType.SUBTITLE)
+                    val currentTrackCount = stringProperty("track-list/count")?.toIntOrNull() ?: 0
+                    if (currentTrackCount != lastTrackCount || iteration % 20L == 1L) {
+                        lastTrackCount = currentTrackCount
+                        cachedAudio = tracks(TrackType.AUDIO)
+                        cachedVideo = tracks(TrackType.VIDEO)
+                        cachedSubtitle = tracks(TrackType.SUBTITLE)
+                    }
+
+                    val status = when {
+                        idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
+                        idle -> PlaybackStatus.Ready
+                        pausedForCache -> PlaybackStatus.Buffering
+                        paused || userPaused -> PlaybackStatus.Paused
+                        else -> PlaybackStatus.Playing
+                    }
+
+                    val speed = doubleProperty("speed")?.toFloat()
+                    val volume = doubleProperty("volume")?.let { (it / 100.0).toFloat().coerceIn(0f, 1f) }
+                    val seekable = flagProperty("seekable") ?: false
+
+                    if (sessionGeneration != expectedSession) break
+
+                    mutableState.update { current ->
+                        if (sessionGeneration != expectedSession) return@update current
+                        current.copy(
+                            status = status,
+                            positionMillis = position,
+                            bufferedPositionMillis = bufferedPosition,
+                            durationMillis = duration,
+                            speed = speed ?: current.speed,
+                            volume = volume ?: current.volume,
+                            isSeekable = seekable,
+                            audioTracks = cachedAudio,
+                            videoTracks = cachedVideo,
+                            subtitleTracks = cachedSubtitle,
+                        )
+                    }
+                    val pollDelay = when (status) {
+                        PlaybackStatus.Completed, is PlaybackStatus.Error -> 1000L
+                        PlaybackStatus.Paused, PlaybackStatus.Ready -> 500L
+                        else -> 250L
+                    }
+                    delay(pollDelay)
                 }
-
-                val status = when {
-                    idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
-                    idle -> PlaybackStatus.Ready
-                    pausedForCache -> PlaybackStatus.Buffering
-                    paused || userPaused -> PlaybackStatus.Paused
-                    else -> PlaybackStatus.Playing
-                }
-
-                mutableState.value = previous.copy(
-                    status = status,
-                    positionMillis = position,
-                    bufferedPositionMillis = bufferedPosition,
-                    durationMillis = duration,
-                    speed = doubleProperty("speed")?.toFloat() ?: previous.speed,
-                    volume = ((doubleProperty("volume") ?: 100.0) / 100.0).toFloat().coerceIn(0f, 1f),
-                    isSeekable = flagProperty("seekable") ?: false,
-                    audioTracks = cachedAudio,
-                    videoTracks = cachedVideo,
-                    subtitleTracks = cachedSubtitle,
-                )
-                val pollDelay = when (status) {
-                    PlaybackStatus.Completed, is PlaybackStatus.Error -> 1000L
-                    PlaybackStatus.Paused, PlaybackStatus.Ready -> 500L
-                    else -> 250L
-                }
-                delay(pollDelay)
             }
         }
     }

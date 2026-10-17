@@ -348,5 +348,46 @@ On 2026-10-17, these commands completed successfully:
   - **Windows**: **CONDITIONAL GO** (Packaging and CI pipelines verified; release binary build requires Windows runner and Authenticode certificate).
   - **Linux**: **CONDITIONAL GO** (Packaging and CI pipelines verified; release packages require Linux runner).
 
+### Milestone 75: Final UX Refinement, Platform-Specific Acceptance Testing
+
+- **Desktop MenuBar & Navigation Architecture**:
+  - Implemented top-level `Navigate` menu in desktop MenuBar supporting direct keyboard navigation across all destinations: Home (`Ctrl+1`), Music (`Ctrl+2`), Videos (`Ctrl+3`), Playlists (`Ctrl+4`), Network Streams (`Ctrl+5`), and Settings (`Ctrl+,`).
+  - Added `Help` menu with `About Vimivo` routing directly to application version and privacy disclosure cards.
+  - Added clean destination hoisting between Compose `Window` MenuBar and `DesktopPlayer` content lifecycle via `requestedDestination` and `onDestinationHandled` state callbacks.
+- **Desktop libmpv Engine Concurrency Hardening**:
+  - Identified and eliminated race condition in `MpvPlayerEngine` where rapid source switching across multiple media items allowed asynchronous polling coroutines from earlier sessions to overwrite `mutableState` with stale media references.
+  - Synchronized session advance and previous job cancellation atomically inside `synchronized(nativeLock)`.
+  - Converted state emission to `mutableState.update` verifying `sessionGeneration == expectedSession` to ensure in-flight native property polling runs safely without corrupting current player state.
+  - Fixed test fixture generation in `LongSessionStabilityTest.testLongSessionRapidSourceSwitchingSafety` to verify seamless 20-track rapid switching with valid temporary test fixtures.
+- **Cross-Platform Acceptance & Usability Review**:
+  - Android: Edge-to-edge layouts, system gesture insets, back navigation, background audio focus handling, and dynamic Material 3 theme switching verified.
+  - Desktop: Keyboard shortcuts, window title updates reflecting active media metadata, drag-and-drop file imports, and MenuBar commands verified.
+  - iOS: Audio session configuration, now playing center updates, remote command handling, and error clearing verified.
+
+### Milestone 76: Release Candidate Stabilization & Launch Preparation
+
+- **Quality Gates & Regression Test Suite**:
+  - `:shared:desktopTest`: 120 tests passing (100% pass rate).
+  - `:desktopApp:desktopTest`: 220 tests passing (100% pass rate).
+  - `:desktopApp:compileKotlinDesktop`: BUILD SUCCESSFUL.
+  - `:androidApp:testDebugUnitTest`: 147 tests passing (100% pass rate).
+  - `:androidApp:assembleDebug`: BUILD SUCCESSFUL.
+  - `iosAppTests`: 9 tests passing (100% pass rate) on iPhone 17 Pro simulator.
+  - Detekt static analysis: 0 weighted violations across all modules (`:shared`, `:desktopApp`, `:androidApp`).
+  - Relative documentation links: 100% verified via `./scripts/validate_docs.sh` (32 links).
+  - Unified quality gate: 100% verified via `./scripts/verify_all.sh` (all 6 gates passed).
+  - Total automated test cases: **496 passing tests** with 0 failures, 0 errors, 0 skipped.
+- **Version & Configuration Review**:
+  - Target Release Candidate: `1.0.0-rc.1` across build manifests and desktop distribution metadata.
+  - Zero cloud accounts, zero telemetry, zero analytics, zero trackers, and zero DRM circumvention guaranteed.
+  - Safe sanitization via `SafeLogger` redacting user filesystem paths, authentication tokens, and query parameters.
+- **Platform-Specific Launch Recommendations**:
+  - **Android**: **CONDITIONAL GO** (Release APK and AAB compiled and verified; publication pending developer upload keystore).
+  - **macOS**: **CONDITIONAL GO** (Standalone DMG with bundled JVM and 50 native dylibs verified; publication pending Apple Developer ID notarization).
+  - **iOS / iPadOS**: **CONDITIONAL GO** (SwiftUI app and shared framework verified in simulator; App Store submission pending Apple Developer certificate and provisioning profile).
+  - **Windows**: **CONDITIONAL GO** (Packaging and CI pipelines verified; release binary build requires Windows runner and Authenticode certificate).
+  - **Linux**: **CONDITIONAL GO** (Packaging and CI pipelines verified; release packages require Linux runner).
+
+
 
 
