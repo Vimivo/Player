@@ -13,7 +13,7 @@ echo "================================================================="
 echo "  Vimivo — Unified Quality & Build Verification"
 echo "================================================================="
 echo "Target modules: :shared, :desktopApp, :androidApp"
-echo "Quality tools: Detekt, JUnit 5 / Kotlin Test, AGP Unit Tests"
+echo "Quality tools: Detekt, JUnit 5 / Kotlin Test, AGP Unit Tests, Doc Validator"
 echo ""
 
 echo "==> Step 1: Running static analysis (Detekt)..."
@@ -33,6 +33,9 @@ echo "==> Step 5: Running Android unit tests (:androidApp:testDebugUnitTest)..."
 
 echo "==> Step 6: Assembling Android debug package (:androidApp:assembleDebug)..."
 ./gradlew :androidApp:assembleDebug --quiet
+
+echo "==> Step 7: Validating documentation cross-links (./scripts/validate_docs.sh)..."
+"${SCRIPT_DIR}/validate_docs.sh"
 
 echo ""
 echo "================================================================="

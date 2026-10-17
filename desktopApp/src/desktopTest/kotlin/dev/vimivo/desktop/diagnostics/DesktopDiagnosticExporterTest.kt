@@ -54,4 +54,15 @@ class DesktopDiagnosticExporterTest {
         assertTrue(result.isFailure, "Must refuse to export to protected system directory")
         assertTrue(result.exceptionOrNull()?.message?.contains("protected system directory") == true)
     }
+
+    @Test
+    fun supportsCustomAppVersionAndBuildCommit() {
+        val exporter = DesktopDiagnosticExporter(
+            appVersion = "1.0.0-rc.2",
+            buildCommit = "custom-commit-abc",
+        )
+        val report = exporter.createReport()
+        assertEquals("1.0.0-rc.2", report.appVersion)
+        assertEquals("custom-commit-abc", report.buildCommit)
+    }
 }

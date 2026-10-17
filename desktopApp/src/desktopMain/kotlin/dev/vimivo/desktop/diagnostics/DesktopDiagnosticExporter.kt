@@ -14,14 +14,16 @@ import kotlin.io.path.writeText
  */
 class DesktopDiagnosticExporter(
     private val buffer: DiagnosticBuffer = defaultBuffer,
+    val appVersion: String = APP_VERSION,
+    val buildCommit: String = BUILD_COMMIT,
 ) {
     fun createReport(
         playbackBackend: String = "libmpv 2.0.0 (JNA)",
         now: Long = System.currentTimeMillis(),
     ): DiagnosticReport {
         return DiagnosticReport(
-            appVersion = APP_VERSION,
-            buildCommit = BUILD_COMMIT,
+            appVersion = appVersion,
+            buildCommit = buildCommit,
             platform = "Compose Desktop (JVM)",
             osVersion = "${System.getProperty("os.name")} ${System.getProperty("os.version")}",
             architecture = System.getProperty("os.arch") ?: "unknown",

@@ -27,7 +27,7 @@ Authoritative five-platform release readiness evaluation as of **2026-10-16** (M
 ## 2. Release Readiness Gates Audit
 
 - **Gate A — Functional**: **PASSED**. Audio/video scanning, tagging, video rendering, albums, artists, search, playlists, favorites, history, bookmarks, queue, privacy-safe diagnostics, and software update verification.
-- **Gate B — Automated Tests**: **PASSED**. 352 total automated tests across `:shared:desktopTest` (114), `:desktopApp:desktopTest` (198), and `:androidApp:testDebugUnitTest` (40), plus native iOS XCTest suite (7 tests). 0 failures, 100% pass rate. Detekt static analysis 0 violations across all modules.
+- **Gate B — Automated Tests**: **PASSED**. 498 total automated tests across `:shared:desktopTest` (121), `:desktopApp:desktopTest` (221), and `:androidApp:testDebugUnitTest` (147), plus native iOS XCTest suite (9 tests). 0 failures, 100% pass rate. Detekt static analysis 0 violations across all modules.
 - **Gate C — Native Runtime**: **PASSED**. Real audio and video playback verified on macOS host (libmpv JNA + Cocoa bridge) and Android (Media3/ExoPlayer + LibVLC).
 - **Gate D — Distribution**: **PASSED**. Actual binary packages generated for Android (APK + AAB) and macOS (DMG + APP). Production CI pipelines implemented for all five platforms.
 - **Gate E — Installation**: **PASSED**. Mounted `Vimivo-1.0.0.dmg`, inspected bundle closure, verified `@rpath` dependencies, verified codesign seal, and executed standalone binary.

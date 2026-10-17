@@ -1,6 +1,8 @@
 name: Shared Quality & PR Validation
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -31,3 +33,6 @@ jobs:
 
       - name: Run shared cross-platform unit tests
         run: ./gradlew :shared:desktopTest
+
+      - name: Validate documentation cross-links
+        run: ./scripts/validate_docs.sh
