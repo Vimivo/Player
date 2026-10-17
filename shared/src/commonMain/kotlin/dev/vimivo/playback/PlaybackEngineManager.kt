@@ -1,6 +1,9 @@
+@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength", "Wrapping")
+
 package dev.vimivo.playback
 
 import dev.vimivo.core.model.MediaItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +26,7 @@ class PlaybackEngineManager(
     private var desiredPlayback = false
     private val externalSubtitles = mutableListOf<ExternalSubtitle>()
     private var audioEnhancements = AudioEnhancementSettings()
+    private var sessionGeneration = 0L
 
     val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
     val activeEngine: StateFlow<PlayerEngine?> = mutableActiveEngine.asStateFlow()
@@ -31,7 +35,9 @@ class PlaybackEngineManager(
         desiredPlayback = false
         attemptedEngines.clear()
         externalSubtitles.clear()
-        openBestEngine(queue, startPositionMillis)
+        fallbackJob?.cancel()
+        val currentSession = ++sessionGeneration
+        openBestEngine(queue, startPositionMillis, currentSession)
     }
 
     suspend fun open(media: MediaItem, startPositionMillis: Long = 0): Result<Unit> =
@@ -51,6 +57,8 @@ class PlaybackEngineManager(
 
     fun stop(): Result<Unit> {
         desiredPlayback = false
+        sessionGeneration++
+        fallbackJob?.cancel()
         return activeOrFailure().flatMap(PlayerEngine::stop)
     }
 
@@ -76,11 +84,11 @@ class PlaybackEngineManager(
         return activeOrFailure().flatMap { it.applyAudioEnhancements(settings) }
     }
 
-    private suspend fun openBestEngine(queue: QueueContext, positionMillis: Long): Result<Unit> {
+    private suspend fun openBestEngine(queue: QueueContext, positionMillis: Long, session: Long): Result<Unit> {
         var lastFailure: Result<Unit>? = null
         while (true) {
             val candidate = candidatesFor(queue.current).firstOrNull() ?: break
-            val result = switchTo(candidate, queue, positionMillis)
+            val result = switchTo(candidate, queue, positionMillis, session)
             if (result.isSuccess) return result
             lastFailure = result
         }
@@ -93,6 +101,7 @@ class PlaybackEngineManager(
                 cause = cause,
             ),
             queue,
+            session,
         )
     }
 
@@ -110,7 +119,7 @@ class PlaybackEngineManager(
             }
             .map { it.key }
 
-    private suspend fun switchTo(engineId: EngineId, queue: QueueContext, positionMillis: Long): Result<Unit> {
+    private suspend fun switchTo(engineId: EngineId, queue: QueueContext, positionMillis: Long, session: Long): Result<Unit> {
         attemptedEngines += engineId
         releaseCurrent()
         val engine = runCatching { factories.getValue(engineId).create() }.getOrElse { cause ->
@@ -123,6 +132,7 @@ class PlaybackEngineManager(
                     cause = cause,
                 ),
                 queue,
+                session,
             )
         }
         mutableActiveEngine.value = engine
@@ -132,9 +142,14 @@ class PlaybackEngineManager(
             media = queue.current,
             status = PlaybackStatus.Preparing,
             positionMillis = positionMillis,
+            sessionId = session,
         )
-        observe(engine, queue)
+        observe(engine, queue, session)
         val openResult = engine.open(queue.current, positionMillis)
+        if (sessionGeneration != session) {
+            engine.stop()
+            return Result.failure(CancellationException("Superseded by newer playback session"))
+        }
         return openResult.onSuccess {
             if (engine.capabilities.audioEnhancements.graphicEqualizer) {
                 engine.applyAudioEnhancements(audioEnhancements)
@@ -153,20 +168,21 @@ class PlaybackEngineManager(
                 queue = queue,
                 media = queue.current,
                 status = PlaybackStatus.Error(error),
+                sessionId = session,
             )
         }
     }
 
-    private fun observe(engine: PlayerEngine, queue: QueueContext) {
+    private fun observe(engine: PlayerEngine, queue: QueueContext, session: Long) {
         engineStateJob?.cancel()
         engineStateJob = scope.launch {
             engine.state.collect { engineState ->
-                if (mutableActiveEngine.value !== engine) return@collect
-                val merged = engineState.copy(queue = queue)
+                if (mutableActiveEngine.value !== engine || sessionGeneration != session) return@collect
+                val merged = engineState.copy(queue = queue, sessionId = session)
                 mutableState.value = merged
                 val error = (merged.status as? PlaybackStatus.Error)?.error
                 if (error?.recoverableByFallback == true && fallbackJob?.isActive != true) {
-                    fallbackJob = scope.launch { attemptFallback(engine, queue, merged.positionMillis, error) }
+                    fallbackJob = scope.launch { attemptFallback(engine, queue, merged.positionMillis, error, session) }
                 }
             }
         }
@@ -177,14 +193,15 @@ class PlaybackEngineManager(
         queue: QueueContext,
         positionMillis: Long,
         originalError: PlaybackError,
+        session: Long,
     ) = mutex.withLock {
-        if (mutableActiveEngine.value !== failedEngine) return@withLock
+        if (mutableActiveEngine.value !== failedEngine || sessionGeneration != session) return@withLock
         val next = candidatesFor(queue.current).firstOrNull()
         if (next == null) {
-            mutableState.value = mutableState.value.copy(status = PlaybackStatus.Error(originalError))
+            mutableState.value = mutableState.value.copy(status = PlaybackStatus.Error(originalError), sessionId = session)
             return@withLock
         }
-        val result = switchTo(next, queue, positionMillis)
+        val result = switchTo(next, queue, positionMillis, session)
         if (result.isSuccess && desiredPlayback) mutableActiveEngine.value?.play()
     }
 
@@ -198,12 +215,13 @@ class PlaybackEngineManager(
     private fun activeOrFailure(): Result<PlayerEngine> = mutableActiveEngine.value?.let(Result.Companion::success)
         ?: Result.failure(IllegalStateException("No media is open"))
 
-    private fun failure(error: PlaybackError, queue: QueueContext): Result<Unit> {
-        mutableState.value = PlaybackState(queue = queue, media = queue.current, status = PlaybackStatus.Error(error))
+    private fun failure(error: PlaybackError, queue: QueueContext, session: Long): Result<Unit> {
+        mutableState.value = PlaybackState(queue = queue, media = queue.current, status = PlaybackStatus.Error(error), sessionId = session)
         return Result.failure(IllegalStateException(error.message, error.cause))
     }
 
     override fun close() {
+        sessionGeneration++
         fallbackJob?.cancel()
         releaseCurrent()
         mutableState.value = PlaybackState()

@@ -1,8 +1,9 @@
-@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength", "MultiLineIfElse", "NestedBlockDepth", "ReturnCount", "TooManyFunctions")
+@file:Suppress("ArgumentListWrapping", "ComplexCondition", "MaximumLineLength", "MaxLineLength", "MultiLineIfElse", "NestedBlockDepth", "ReturnCount", "TooManyFunctions")
 
 package dev.vimivo.playback
 
 import dev.vimivo.core.model.MediaItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,16 +73,26 @@ class PlaybackQueueController(
     private val mutableState = MutableStateFlow(PlaybackQueueState())
     private var sourceOrder: List<QueueItem> = emptyList()
     private var nextQueueId = 0L
-    private var completionHandled = false
+    private var sessionGeneration = 0L
+    private var lastHandledCompletionQueueId: Long? = null
     private val observer: Job = scope.launch {
         engine.state.collect { playback ->
-            if (playback.status == PlaybackStatus.Completed && !completionHandled) {
-                completionHandled = true
-                advance(automatic = true)
-            } else if (playback.status != PlaybackStatus.Completed) {
-                completionHandled = false
+            val current = mutableState.value.current
+            if (playback.status == PlaybackStatus.Completed) {
+                if (shouldHandleCompletion(playback, current)) {
+                    lastHandledCompletionQueueId = current?.queueId
+                    advance(automatic = true)
+                }
+            } else if (playback.status == PlaybackStatus.Playing) {
+                lastHandledCompletionQueueId = null
             }
         }
+    }
+
+    private fun shouldHandleCompletion(playback: PlaybackState, current: QueueItem?): Boolean {
+        if (current == null || lastHandledCompletionQueueId == current.queueId) return false
+        val media = playback.media
+        return media == null || media.id == current.media.id
     }
 
     val state: StateFlow<PlaybackQueueState> = mutableState.asStateFlow()
@@ -123,7 +134,13 @@ class PlaybackQueueController(
     suspend fun retryCurrent(startPositionMillis: Long = 0): Result<Unit> = mutex.withLock {
         val current = mutableState.value.current
             ?: return@withLock Result.failure(IllegalStateException("No media item is currently active in queue"))
+        lastHandledCompletionQueueId = null
+        val currentSession = ++sessionGeneration
         val result = engine.open(current.media, startPositionMillis)
+        if (sessionGeneration != currentSession) {
+            engine.stop()
+            return@withLock Result.failure(CancellationException("Superseded by newer playback session"))
+        }
         if (result.isSuccess) {
             engine.play()
         } else {
@@ -162,7 +179,8 @@ class PlaybackQueueController(
         val restoredIndex = snapshot.currentQueueId?.let(playbackIds::indexOf)?.takeIf { it >= 0 }
         sourceOrder = snapshot.sourceItems.toList()
         nextQueueId = maxOf(nextQueueId, (playbackIds.maxOrNull() ?: -1L) + 1L)
-        completionHandled = false
+        sessionGeneration++
+        lastHandledCompletionQueueId = null
         mutableState.value = PlaybackQueueState(
             items = snapshot.playbackItems.toList(),
             currentIndex = restoredIndex ?: if (playbackIds.isEmpty()) -1 else 0,
@@ -241,6 +259,8 @@ class PlaybackQueueController(
     }
 
     fun clear() {
+        sessionGeneration++
+        lastHandledCompletionQueueId = null
         sourceOrder = emptyList()
         mutableState.value = mutableState.value.copy(items = emptyList(), currentIndex = -1, sourceLabel = null)
         engine.stop()
@@ -286,6 +306,8 @@ class PlaybackQueueController(
      * UI mutations may change indices while the engine is opening media.
      */
     private suspend fun openAvailable(startIndex: Int, direction: Int, positionMillis: Long): Result<Unit> {
+        val currentSession = ++sessionGeneration
+        lastHandledCompletionQueueId = null
         val queue = mutableState.value.items
         var index = startIndex
         var attempts = 0
@@ -294,6 +316,10 @@ class PlaybackQueueController(
             val entry = queue[index]
             if (isAvailable(entry.media)) {
                 val result = engine.open(entry.media, if (attempts == 0) positionMillis else 0)
+                if (sessionGeneration != currentSession) {
+                    engine.stop()
+                    return Result.failure(CancellationException("Superseded by newer playback session"))
+                }
                 if (result.isSuccess) {
                     val latest = mutableState.value
                     val activeIndex = latest.items.indexOfFirst { it.queueId == entry.queueId }
@@ -314,7 +340,10 @@ class PlaybackQueueController(
         return Result.failure(lastFailure ?: IllegalStateException("No available media remains in the queue"))
     }
 
-    override fun close() = observer.cancel()
+    override fun close() {
+        sessionGeneration++
+        observer.cancel()
+    }
 
     private fun entries(items: List<MediaItem>) = items.map { QueueItem(nextQueueId++, it) }
 

@@ -177,6 +177,7 @@ data class PlaybackState(
     val chapters: List<ChapterInfo> = emptyList(),
     val abRepeat: ABRepeatRange = ABRepeatRange(),
     val videoAdjustments: VideoAdjustments = VideoAdjustments(),
+    val sessionId: Long = 0L,
 )
 
 interface PlayerEngine : AutoCloseable {

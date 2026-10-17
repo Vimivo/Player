@@ -173,17 +173,31 @@ We do not artificially downgrade defects to permit unverified releases, nor do w
 - **Regression Test**: `PlaybackQueueControllerTest.kt` -> `retriesCurrentTrackWithoutAdvancingToNext()`. Verified passing.
 - **Status**: **VERIFIED FIXED**.
 
+### Defect VIM-BUG-018 (P1): Duplicate Completion Callbacks Caused Duplicate Queue Advancement
+- **Platform**: All platforms (`PlaybackQueueController.kt`).
+- **Subsystem**: Queue & Playback Session Subsystem.
+- **Symptom**: Underlying playback engines or drivers emitting duplicate `Completed` events caused the queue controller to advance multiple tracks forward, skipping songs unexpectedly.
+- **Root Cause**: `PlaybackQueueController` had no completion deduplication per queue item, so multiple `PlaybackStatus.Completed` emissions from the same track invoked `advance(automatic = true)` repeatedly.
+- **Correction**: Introduced `shouldHandleCompletion(playback, current)` check and `lastHandledCompletionQueueId` tracking in `PlaybackQueueController.kt`. The first completion event advances the queue and records the queue item ID; subsequent completions for the same item are rejected until playback resumes active state.
+- **Regression Test**: `PlaybackSessionSynchronizationTest.kt` -> `scenarioB_duplicateCompletionEventsAdvanceQueueOnlyOnce()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-019 (P1): Stale Asynchronous Playback Engine Callbacks Overwrote Newer Playback Sessions
+- **Platform**: All platforms (`PlaybackEngineManager.kt`, `PlayerEngine.kt`, `MpvPlayerEngine.kt`).
+- **Subsystem**: Playback Engine Session Synchronization.
+- **Symptom**: On rapid track switching (e.g. user selects track A, then selects track B before A finishes loading), delayed asynchronous open callbacks or events from track A overwrote track B's playback state, metadata, and position.
+- **Root Cause**: Playback state had no session generation identifier; asynchronous operations in `PlaybackEngineManager` and `PlayerEngine` did not track generation numbers to discard superseded operations.
+- **Correction**: Added `val sessionId: Long = 0L` to `PlaybackState`, introduced `sessionGeneration` in `PlaybackEngineManager` and `PlaybackQueueController`, and tagged engine operations. Any callback from a superseded session is rejected and returns `CancellationException`.
+- **Regression Test**: `PlaybackSessionSynchronizationTest.kt` -> `scenarioA_rapidItemSwitchingRejectsDelayedCallback()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
 ---
 
 ## 4. Defect Metrics & Statistics
 
-- **Total Defects Triaged**: 17
+- **Total Defects Triaged**: 19
 - **Total P0 Defects**: 1 (Fixed: 1, Remaining: 0)
-- **Total P1 Defects**: 10 (Fixed: 10, Remaining: 0)
+- **Total P1 Defects**: 12 (Fixed: 12, Remaining: 0)
 - **Total P2 Defects**: 6 (Fixed: 6, Remaining: 0)
 - **Total P3 Defects**: 0 open blockers
 - **Unresolved Release Blockers**: **0**
-
-
-
-

@@ -130,6 +130,7 @@ class MpvPlayerEngine : PlayerEngine {
             media = media,
             status = PlaybackStatus.Preparing,
             metadata = PlaybackMetadata(media.title, media.artist, media.album, media.artworkUri),
+            sessionId = currentSession,
         )
         if (media.kind == MediaKind.STREAM) {
             applyLatencySettings(liveLatencyMode)
@@ -474,6 +475,7 @@ class MpvPlayerEngine : PlayerEngine {
                             audioTracks = cachedAudio,
                             videoTracks = cachedVideo,
                             subtitleTracks = cachedSubtitle,
+                            sessionId = expectedSession,
                         )
                     }
                     val pollDelay = when (status) {
