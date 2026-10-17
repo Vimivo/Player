@@ -83,6 +83,7 @@ class MpvPlayerEngine : PlayerEngine {
     private var userStopped = false
     var liveLatencyMode: LiveLatencyMode = LiveLatencyMode.BALANCED
         private set
+    private val nativeLock = Any()
 
     override val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
     override val audioEnhancementState: StateFlow<AudioEnhancementState> = mutableAudio.asStateFlow()
@@ -128,8 +129,12 @@ class MpvPlayerEngine : PlayerEngine {
         if (media.kind == MediaKind.STREAM) {
             applyLatencySettings(liveLatencyMode)
         }
+        if (startPositionMillis > 0) {
+            setProperty("start", (startPositionMillis / 1_000.0).toString())
+        } else {
+            setProperty("start", "none")
+        }
         command("loadfile", media.uri, "replace")
-        if (startPositionMillis > 0) command("seek", (startPositionMillis / 1_000.0).toString(), "absolute+exact")
         setProperty("pause", "yes")
         startPolling(currentSession)
     }.onFailure(::publishFailure)
@@ -251,7 +256,7 @@ class MpvPlayerEngine : PlayerEngine {
         command("screenshot-to-file", destinationFilePath, "video")
     }
 
-    override fun getAudioOutputDevices(): List<AudioOutputDevice> {
+    override fun getAudioOutputDevices(): List<AudioOutputDevice> = synchronized(nativeLock) {
         if (context == null || closed) return emptyList()
         val count = stringProperty("audio-device-list/count")?.toIntOrNull() ?: return emptyList()
         val currentDevice = stringProperty("audio-device")
@@ -363,8 +368,8 @@ class MpvPlayerEngine : PlayerEngine {
         )
     }
 
-    private fun ensureInitialized() {
-        if (context != null) return
+    private fun ensureInitialized() = synchronized(nativeLock) {
+        if (context != null) return@synchronized
         val loaded = MpvNative.load()
         val created = checkNotNull(loaded.mpv_create()) { "libmpv could not create a playback context" }
         native = loaded
@@ -401,7 +406,14 @@ class MpvPlayerEngine : PlayerEngine {
     private fun startPolling(expectedSession: Long) {
         polling?.cancel()
         polling = scope.launch {
+            var lastTrackCount = -1
+            var cachedAudio: List<TrackInfo> = emptyList()
+            var cachedVideo: List<TrackInfo> = emptyList()
+            var cachedSubtitle: List<TrackInfo> = emptyList()
+            var iteration = 0L
+
             while (isActive && !closed && sessionGeneration == expectedSession) {
+                iteration++
                 val previous = mutableState.value
                 val duration = doubleProperty("duration")?.times(1_000)?.toLong()
                 val position = doubleProperty("time-pos")?.times(1_000)?.toLong()?.coerceAtLeast(0) ?: 0
@@ -411,58 +423,81 @@ class MpvPlayerEngine : PlayerEngine {
                 val cacheDurationMs = doubleProperty("demuxer-cache-time")?.times(1_000)?.toLong() ?: 0L
                 val bufferedPosition = position + cacheDurationMs
                 if (sessionGeneration != expectedSession) break
+
+                val currentTrackCount = stringProperty("track-list/count")?.toIntOrNull() ?: 0
+                if (currentTrackCount != lastTrackCount || iteration % 20L == 1L) {
+                    lastTrackCount = currentTrackCount
+                    cachedAudio = tracks(TrackType.AUDIO)
+                    cachedVideo = tracks(TrackType.VIDEO)
+                    cachedSubtitle = tracks(TrackType.SUBTITLE)
+                }
+
+                val status = when {
+                    idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
+                    idle -> PlaybackStatus.Ready
+                    pausedForCache -> PlaybackStatus.Buffering
+                    paused || userPaused -> PlaybackStatus.Paused
+                    else -> PlaybackStatus.Playing
+                }
+
                 mutableState.value = previous.copy(
-                    status = when {
-                        idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
-                        idle -> PlaybackStatus.Ready
-                        pausedForCache -> PlaybackStatus.Buffering
-                        paused || userPaused -> PlaybackStatus.Paused
-                        else -> PlaybackStatus.Playing
-                    },
+                    status = status,
                     positionMillis = position,
                     bufferedPositionMillis = bufferedPosition,
                     durationMillis = duration,
                     speed = doubleProperty("speed")?.toFloat() ?: previous.speed,
                     volume = ((doubleProperty("volume") ?: 100.0) / 100.0).toFloat().coerceIn(0f, 1f),
                     isSeekable = flagProperty("seekable") ?: false,
-                    audioTracks = tracks(TrackType.AUDIO),
-                    videoTracks = tracks(TrackType.VIDEO),
-                    subtitleTracks = tracks(TrackType.SUBTITLE),
+                    audioTracks = cachedAudio,
+                    videoTracks = cachedVideo,
+                    subtitleTracks = cachedSubtitle,
                 )
-                delay(250)
+                val pollDelay = if (status == PlaybackStatus.Paused || status == PlaybackStatus.Ready) 500L else 250L
+                delay(pollDelay)
             }
         }
     }
 
     private fun command(vararg arguments: String) {
-        val handle = checkNotNull(context)
-        val array = StringArray(arguments)
-        checkCode(checkNotNull(native).mpv_command(handle, array))
+        synchronized(nativeLock) {
+            if (closed || context == null) return
+            val handle = checkNotNull(context)
+            val array = StringArray(arguments)
+            checkCode(checkNotNull(native).mpv_command(handle, array))
+        }
     }
 
-    private fun setProperty(name: String, value: String) =
-        checkCode(checkNotNull(native).mpv_set_property_string(checkNotNull(context), name, value))
+    private fun setProperty(name: String, value: String) {
+        synchronized(nativeLock) {
+            if (closed || context == null) return
+            checkCode(checkNotNull(native).mpv_set_property_string(checkNotNull(context), name, value))
+        }
+    }
 
-    private fun doubleProperty(name: String): Double? {
+    private fun doubleProperty(name: String): Double? = synchronized(nativeLock) {
+        if (closed || context == null) return null
         val memory = Memory(Double.SIZE_BYTES.toLong())
         return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_DOUBLE, memory) >= 0) {
             memory.getDouble(0)
         } else null
     }
 
-    private fun flagProperty(name: String): Boolean? {
+    private fun flagProperty(name: String): Boolean? = synchronized(nativeLock) {
+        if (closed || context == null) return null
         val memory = Memory(Int.SIZE_BYTES.toLong())
         return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_FLAG, memory) >= 0) {
             memory.getInt(0) != 0
         } else null
     }
 
-    private fun stringProperty(name: String): String? {
+    private fun stringProperty(name: String): String? = synchronized(nativeLock) {
+        if (closed || context == null) return null
         val value = checkNotNull(native).mpv_get_property_string(checkNotNull(context), name) ?: return null
         return try { value.getString(0) } finally { checkNotNull(native).mpv_free(value) }
     }
 
-    private fun longProperty(name: String): Long? {
+    private fun longProperty(name: String): Long? = synchronized(nativeLock) {
+        if (closed || context == null) return null
         val memory = Memory(Long.SIZE_BYTES.toLong())
         return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_INT64, memory) >= 0) {
             memory.getLong(0)
@@ -526,11 +561,13 @@ class MpvPlayerEngine : PlayerEngine {
         if (closed) return
         closed = true
         polling?.cancel()
-        renderer?.detach()
-        renderer = null
-        context?.let { native?.mpv_terminate_destroy(it) }
-        context = null
-        native = null
+        synchronized(nativeLock) {
+            renderer?.detach()
+            renderer = null
+            context?.let { native?.mpv_terminate_destroy(it) }
+            context = null
+            native = null
+        }
         scope.cancel()
         mutableState.value = PlaybackState(engine = id)
     }

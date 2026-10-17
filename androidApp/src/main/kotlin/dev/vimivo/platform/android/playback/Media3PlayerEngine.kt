@@ -58,17 +58,35 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
     private val audioEnhancements = AndroidAudioEnhancementController(context.applicationContext)
     override val audioEnhancementState = audioEnhancements.state
 
+    private var cachedAudioTracks: List<TrackInfo> = emptyList()
+    private var cachedVideoTracks: List<TrackInfo> = emptyList()
+    private var cachedSubtitleTracks: List<TrackInfo> = emptyList()
+
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) = publishState()
-        override fun onIsPlayingChanged(isPlaying: Boolean) = publishState()
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            publishState()
+            if (isPlaying) {
+                startPositionUpdates()
+            } else {
+                positionJob?.cancel()
+            }
+        }
         override fun onIsLoadingChanged(isLoading: Boolean) = publishState()
-        override fun onTracksChanged(tracks: Tracks) = publishState()
+        override fun onTracksChanged(tracks: Tracks) {
+            val trackInfoList = tracks.toTrackInfo()
+            cachedAudioTracks = trackInfoList.filter { it.type == TrackType.AUDIO }
+            cachedVideoTracks = trackInfoList.filter { it.type == TrackType.VIDEO }
+            cachedSubtitleTracks = trackInfoList.filter { it.type == TrackType.SUBTITLE }
+            publishState()
+        }
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) = publishState()
         override fun onVideoSizeChanged(videoSize: VideoSize) = publishState()
         override fun onAudioSessionIdChanged(audioSessionId: Int) = audioEnhancements.attach(audioSessionId)
         override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) = audioEnhancements.refreshRoute()
 
         override fun onPlayerError(error: PlaybackException) {
+            positionJob?.cancel()
             val mapped = mapError(error)
             mutableState.value = snapshot().copy(status = PlaybackStatus.Error(mapped))
         }
@@ -86,6 +104,9 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
     override suspend fun open(media: VimivoMediaItem, startPositionMillis: Long): Result<Unit> = runCatching {
         checkOpen()
         require(supportFor(media) != SupportLevel.UNSUPPORTED) { "Media3 does not support this URI or container" }
+        cachedAudioTracks = emptyList()
+        cachedVideoTracks = emptyList()
+        cachedSubtitleTracks = emptyList()
         mutableState.value = PlaybackState(
             engine = id,
             media = media,
@@ -209,7 +230,6 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
 
     private fun snapshot(): PlaybackState {
         val previous = mutableState.value
-        val tracks = player.currentTracks.toTrackInfo()
         return previous.copy(
             engine = id,
             status = status(),
@@ -220,9 +240,9 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             volume = player.volume,
             isSeekable = player.isCurrentMediaItemSeekable,
             metadata = player.mediaMetadata.toPlaybackMetadata(previous.metadata),
-            audioTracks = tracks.filter { it.type == TrackType.AUDIO },
-            videoTracks = tracks.filter { it.type == TrackType.VIDEO },
-            subtitleTracks = tracks.filter { it.type == TrackType.SUBTITLE },
+            audioTracks = cachedAudioTracks,
+            videoTracks = cachedVideoTracks,
+            subtitleTracks = cachedSubtitleTracks,
         )
     }
 
@@ -260,6 +280,9 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         if (released) return
         released = true
         positionJob?.cancel()
+        cachedAudioTracks = emptyList()
+        cachedVideoTracks = emptyList()
+        cachedSubtitleTracks = emptyList()
         player.removeListener(listener)
         player.release()
         audioEnhancements.close()
