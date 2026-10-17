@@ -61,7 +61,20 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             if (version < 4) migrateToVersion4(statement)
             if (version < 5) migrateToVersion5(statement)
             if (version < 6) migrateToVersion6(statement)
+            ensurePerformanceIndexes(statement)
         }
+    }
+
+    private fun ensurePerformanceIndexes(statement: java.sql.Statement) {
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS favorites (target_type TEXT NOT NULL, target_id TEXT NOT NULL, created_at_ms INTEGER NOT NULL, PRIMARY KEY(target_type, target_id))",
+        )
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS playback_positions (media_id TEXT PRIMARY KEY, position_ms INTEGER NOT NULL, duration_ms INTEGER, completed INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL, FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE RESTRICT)",
+        )
+        statement.execute("CREATE INDEX IF NOT EXISTS favorites_target_created ON favorites(target_type, created_at_ms DESC)")
+        statement.execute("CREATE INDEX IF NOT EXISTS playback_positions_updated ON playback_positions(updated_at_ms DESC)")
+        statement.execute("CREATE INDEX IF NOT EXISTS media_items_available_kind_title ON media_items(available, kind, title COLLATE NOCASE)")
     }
 
     private fun migrateToVersion2(statement: java.sql.Statement) {

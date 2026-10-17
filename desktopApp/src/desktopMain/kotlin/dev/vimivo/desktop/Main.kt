@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -1084,12 +1085,15 @@ private fun DesktopMediaListRow(
     onToggleFavorite: (MediaItem) -> Unit,
     onAddToPlaylist: (String, MediaItem) -> Unit,
 ) {
+    val subtitle = remember(item.artist, item.album, item.durationMillis) {
+        listOfNotNull(item.artist, item.album, item.durationMillis?.let(::formatTime)).joinToString(" · ")
+    }
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             DesktopArtwork(item.artworkUri, item.title, if (destination == DesktopDestination.Videos) 80.dp else 48.dp)
             Column(Modifier.weight(1f)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium)
-                Text(listOfNotNull(item.artist, item.album, item.durationMillis?.let(::formatTime)).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Button({ onPlay(item) }, modifier = Modifier.semantics { contentDescription = "Play ${item.title}" }) { Text("Play") }
             OutlinedButton({ onPlayNext(item) }) { Text("Next") }
@@ -1110,11 +1114,12 @@ private fun DesktopMediaGridCard(
     onToggleFavorite: (MediaItem) -> Unit,
     onAddToPlaylist: (String, MediaItem) -> Unit,
 ) {
+    val subtitle = remember(item.artist, item.album) { item.artist ?: item.album ?: "Local media" }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             DesktopArtwork(item.artworkUri, item.title, if (destination == DesktopDestination.Videos) 120.dp else 88.dp)
             Text(item.title, style = MaterialTheme.typography.titleMedium)
-            Text(item.artist ?: item.album ?: "Local media", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Button({ onPlay(item) }) { Text("Play") }
                 OutlinedButton({ onAddToQueue(item) }) { Text("Queue") }
@@ -1175,32 +1180,34 @@ private fun DesktopSidebar(
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
-    Column(
-        modifier = modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(if (collapsed) "V" else "Vimivo", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(12.dp))
-        DesktopDestination.entries.forEach { destination ->
-            val isSelected = selected == destination
-            if (isSelected) {
-                Button(
-                    onClick = { onDestinationSelected(destination) },
-                    modifier = Modifier.fillMaxWidth().semantics {
-                        contentDescription = "${destination.title} navigation tab, active"
-                    },
-                ) { Text(if (collapsed) destination.title.take(1) else destination.title) }
-            } else {
-                OutlinedButton(
-                    onClick = { onDestinationSelected(destination) },
-                    modifier = Modifier.fillMaxWidth().semantics {
-                        contentDescription = "Navigate to ${destination.title}"
-                    },
-                ) { Text(if (collapsed) destination.title.take(1) else destination.title) }
+    VimivoGlassSurface(VimivoGlassVariant.NAVIGATION, modifier = modifier.fillMaxHeight()) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(if (collapsed) "V" else "Vimivo", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(12.dp))
+            DesktopDestination.entries.forEach { destination ->
+                val isSelected = selected == destination
+                if (isSelected) {
+                    Button(
+                        onClick = { onDestinationSelected(destination) },
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            contentDescription = "${destination.title} navigation tab, active"
+                        },
+                    ) { Text(if (collapsed) destination.title.take(1) else destination.title) }
+                } else {
+                    OutlinedButton(
+                        onClick = { onDestinationSelected(destination) },
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            contentDescription = "Navigate to ${destination.title}"
+                        },
+                    ) { Text(if (collapsed) destination.title.take(1) else destination.title) }
+                }
             }
+            Spacer(Modifier.weight(1f))
+            if (!collapsed) Text("Private, local-first playback", style = MaterialTheme.typography.labelSmall)
         }
-        Spacer(Modifier.weight(1f))
-        if (!collapsed) Text("Private, local-first playback", style = MaterialTheme.typography.labelSmall)
     }
 }
 

@@ -20,6 +20,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -49,18 +50,27 @@ fun VimivoGlassSurface(
 ) {
     val reducedTransparency = LocalReducedTransparency.current
     val colors = MaterialTheme.colorScheme
-    val tokens = resolveGlassTokens(variant, reducedTransparency)
-    val baseColor = when (variant) {
-        VimivoGlassVariant.FLOATING_PLAYER -> colors.surfaceContainerHigh
-        VimivoGlassVariant.CONTROL -> colors.surfaceContainerHighest
-        else -> colors.surfaceContainer
+    val tokens = remember(variant, reducedTransparency) { resolveGlassTokens(variant, reducedTransparency) }
+    val baseColor = remember(variant, colors) {
+        when (variant) {
+            VimivoGlassVariant.FLOATING_PLAYER -> colors.surfaceContainerHigh
+            VimivoGlassVariant.CONTROL -> colors.surfaceContainerHighest
+            else -> colors.surfaceContainer
+        }
+    }
+    val shape = remember(tokens.radius) { RoundedCornerShape(tokens.radius) }
+    val border = remember(colors.outline, tokens.borderAlpha) {
+        BorderStroke(1.dp, colors.outline.copy(alpha = tokens.borderAlpha))
+    }
+    val surfaceColor = remember(tokens.opaque, tokens.containerAlpha, baseColor, colors.surfaceContainerHigh) {
+        if (tokens.opaque) colors.surfaceContainerHigh else baseColor.copy(alpha = tokens.containerAlpha)
     }
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(tokens.radius),
-        color = if (tokens.opaque) colors.surfaceContainerHigh else baseColor.copy(alpha = tokens.containerAlpha),
+        shape = shape,
+        color = surfaceColor,
         contentColor = colors.onSurface,
-        border = BorderStroke(1.dp, colors.outline.copy(alpha = tokens.borderAlpha)),
+        border = border,
         tonalElevation = tokens.elevation,
         shadowElevation = tokens.elevation,
         content = content,

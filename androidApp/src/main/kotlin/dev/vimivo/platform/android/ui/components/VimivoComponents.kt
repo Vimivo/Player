@@ -65,6 +65,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -95,8 +96,9 @@ fun MediaArtwork(
     val bitmap by produceState<android.graphics.Bitmap?>(null, media.uri, media.artworkUri) {
         value = thumbnails.load(media.uri, media.artworkUri)
     }
+    val artworkShape = remember { RoundedCornerShape(16.dp) }
     Box(
-        modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        modifier.clip(artworkShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
@@ -238,11 +240,6 @@ fun MiniPlayer(
     onNext: () -> Unit,
 ) {
     val reducedMotion = LocalReducedMotion.current
-    val animatedProgress by animateFloatAsState(
-        progress.coerceIn(0f, 1f),
-        animationSpec = if (reducedMotion) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(),
-        label = "playback progress",
-    )
     VimivoGlassSurface(
         variant = VimivoGlassVariant.FLOATING_PLAYER,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clickable(onClick = onOpen),
@@ -258,10 +255,20 @@ fun MiniPlayer(
                 IconButton(onClick = onToggle) { Icon(if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (isPlaying) "Pause" else "Play") }
                 IconButton(onClick = onNext) { Icon(Icons.Outlined.SkipNext, "Next track") }
             }
-            Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                Box(Modifier.fillMaxWidth(animatedProgress).height(2.dp).background(MaterialTheme.colorScheme.primary))
-            }
+            MiniPlayerProgressBar(progress = progress, reducedMotion = reducedMotion)
         }
+    }
+}
+
+@Composable
+private fun MiniPlayerProgressBar(progress: Float, reducedMotion: Boolean) {
+    val animatedProgress by animateFloatAsState(
+        progress.coerceIn(0f, 1f),
+        animationSpec = if (reducedMotion) androidx.compose.animation.core.snap() else androidx.compose.animation.core.tween(),
+        label = "playback progress",
+    )
+    Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        Box(Modifier.fillMaxWidth(animatedProgress).height(2.dp).background(MaterialTheme.colorScheme.primary))
     }
 }
 

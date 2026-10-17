@@ -1475,17 +1475,24 @@ private fun AudioSlider(label: String, value: Float, range: ClosedFloatingPointR
 /** Low-rate playback activity indicator; it intentionally avoids microphone/Visualizer permissions. */
 @Composable
 private fun PlaybackActivityVisualizer(positionMillis: Long, playing: Boolean) {
+    val reducedMotion = dev.vimivo.platform.android.ui.theme.LocalReducedMotion.current
+    val barShape = remember { RoundedCornerShape(2.dp) }
+    val primaryColor = MaterialTheme.colorScheme.primary
     Row(
         Modifier.height(36.dp).padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(18) { index ->
-            val phase = if (playing) positionMillis / 250.0 + index * 0.83 else index * 0.2
-            val height = if (playing) 6 + (kotlin.math.abs(kotlin.math.sin(phase)) * 22).toInt() else 6
+            val height = if (playing && !reducedMotion) {
+                val phase = positionMillis / 250.0 + index * 0.83
+                6 + (kotlin.math.abs(kotlin.math.sin(phase)) * 22).toInt()
+            } else {
+                6
+            }
             Box(
                 Modifier.width(3.dp).height(height.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)),
+                    .background(primaryColor, barShape),
             )
         }
     }

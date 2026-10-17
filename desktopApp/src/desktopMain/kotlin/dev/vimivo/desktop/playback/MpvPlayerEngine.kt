@@ -84,6 +84,7 @@ class MpvPlayerEngine : PlayerEngine {
     var liveLatencyMode: LiveLatencyMode = LiveLatencyMode.BALANCED
         private set
     private val nativeLock = Any()
+    private val nativeBuffer = Memory(8L)
 
     override val state: StateFlow<PlaybackState> = mutableState.asStateFlow()
     override val audioEnhancementState: StateFlow<AudioEnhancementState> = mutableAudio.asStateFlow()
@@ -169,8 +170,13 @@ class MpvPlayerEngine : PlayerEngine {
 
     override fun seekTo(positionMillis: Long, exact: Boolean): Result<Unit> = action {
         require(positionMillis >= 0)
-        val mode = if (exact) "absolute+exact" else "absolute+keyframes"
-        command("seek", (positionMillis / 1_000.0).toString(), mode)
+        val seekable = flagProperty("seekable") ?: false
+        if (seekable) {
+            val mode = if (exact) "absolute+exact" else "absolute+keyframes"
+            command("seek", (positionMillis / 1_000.0).toString(), mode)
+        } else {
+            setProperty("start", (positionMillis / 1_000.0).toString())
+        }
     }
     override fun setPlaybackSpeed(speed: Float) = action {
         require(speed in capabilities.supportedSpeedRange)
@@ -452,7 +458,11 @@ class MpvPlayerEngine : PlayerEngine {
                     videoTracks = cachedVideo,
                     subtitleTracks = cachedSubtitle,
                 )
-                val pollDelay = if (status == PlaybackStatus.Paused || status == PlaybackStatus.Ready) 500L else 250L
+                val pollDelay = when (status) {
+                    PlaybackStatus.Completed, is PlaybackStatus.Error -> 1000L
+                    PlaybackStatus.Paused, PlaybackStatus.Ready -> 500L
+                    else -> 250L
+                }
                 delay(pollDelay)
             }
         }
@@ -476,17 +486,15 @@ class MpvPlayerEngine : PlayerEngine {
 
     private fun doubleProperty(name: String): Double? = synchronized(nativeLock) {
         if (closed || context == null) return null
-        val memory = Memory(Double.SIZE_BYTES.toLong())
-        return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_DOUBLE, memory) >= 0) {
-            memory.getDouble(0)
+        return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_DOUBLE, nativeBuffer) >= 0) {
+            nativeBuffer.getDouble(0)
         } else null
     }
 
     private fun flagProperty(name: String): Boolean? = synchronized(nativeLock) {
         if (closed || context == null) return null
-        val memory = Memory(Int.SIZE_BYTES.toLong())
-        return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_FLAG, memory) >= 0) {
-            memory.getInt(0) != 0
+        return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_FLAG, nativeBuffer) >= 0) {
+            nativeBuffer.getInt(0) != 0
         } else null
     }
 
@@ -498,9 +506,8 @@ class MpvPlayerEngine : PlayerEngine {
 
     private fun longProperty(name: String): Long? = synchronized(nativeLock) {
         if (closed || context == null) return null
-        val memory = Memory(Long.SIZE_BYTES.toLong())
-        return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_INT64, memory) >= 0) {
-            memory.getLong(0)
+        return if (checkNotNull(native).mpv_get_property(checkNotNull(context), name, MPV_FORMAT_INT64, nativeBuffer) >= 0) {
+            nativeBuffer.getLong(0)
         } else null
     }
 

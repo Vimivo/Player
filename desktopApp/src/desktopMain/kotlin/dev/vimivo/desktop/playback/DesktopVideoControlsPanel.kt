@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -33,6 +31,8 @@ import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.VideoAspectRatio
+import dev.vimivo.ui.components.VimivoGlassSurface
+import dev.vimivo.ui.theme.VimivoGlassVariant
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -50,8 +50,8 @@ internal fun DesktopVideoControlsPanel(
     var subtitleDelayMs by remember { mutableStateOf(0L) }
     var audioDelayMs by remember { mutableStateOf(0L) }
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    VimivoGlassSurface(
+        variant = VimivoGlassVariant.CONTROL,
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
