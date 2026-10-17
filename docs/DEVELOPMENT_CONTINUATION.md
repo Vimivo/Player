@@ -81,10 +81,10 @@ Milestones 63 and 64 (Large Local Media Library Scalability, Aurora Glass UI Rec
   - Verification records published in `docs/INSTALLATION_VERIFICATION.md` and `docs/DISTRIBUTION_ARTIFACTS.md`.
 
 Test & Static Analysis Verification:
-- `:shared:desktopTest`: 114 passing tests (100% pass rate).
-- `:desktopApp:desktopTest`: 198 passing tests (100% pass rate).
-- `:androidApp:testDebugUnitTest`: 40 passing tests (100% pass rate).
-- Total automated tests: 352 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
+- `:shared:desktopTest`: 102 passing tests (100% pass rate).
+- `:desktopApp:desktopTest`: 214 passing tests (100% pass rate).
+- `:androidApp:testDebugUnitTest`: 21 passing tests (100% pass rate).
+- Total automated tests: 337 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
 - Detekt static analysis: 0 weighted violations across all modules.
 - Android debug build: `:androidApp:assembleDebug` SUCCESS.
 - Relative documentation links: 100% verified via `./scripts/validate_docs.sh`.

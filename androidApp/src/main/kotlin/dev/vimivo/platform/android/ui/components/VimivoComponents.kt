@@ -116,6 +116,9 @@ fun MediaArtwork(
 
 @Composable
 fun MediaCard(media: MediaItem, thumbnails: AndroidThumbnailRepository, onClick: () -> Unit) {
+    val subtitle = remember(media.artist, media.album, media.folderName) {
+        media.artist ?: media.album ?: media.folderName.orEmpty()
+    }
     Column(
         Modifier.width(164.dp).clickable(role = Role.Button, onClick = onClick).semantics {
             contentDescription = "Play ${media.title}"
@@ -124,7 +127,7 @@ fun MediaCard(media: MediaItem, thumbnails: AndroidThumbnailRepository, onClick:
     ) {
         MediaArtwork(media, thumbnails, Modifier.fillMaxWidth().aspectRatio(1f))
         Text(media.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(media.artist ?: media.album ?: media.folderName.orEmpty(), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(subtitle, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -136,11 +139,14 @@ fun SongRow(
     onFavorite: (() -> Unit)? = null,
     onMore: (() -> Unit)? = null,
 ) {
+    val subtitle = remember(media.artist, media.album) {
+        listOfNotNull(media.artist, media.album).joinToString(" · ")
+    }
     ListItem(
         modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
         leadingContent = { MediaArtwork(media, thumbnails, Modifier.size(54.dp)) },
         headlineContent = { Text(media.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(listOfNotNull(media.artist, media.album).joinToString(" · "), maxLines = 1) },
+        supportingContent = { Text(subtitle, maxLines = 1) },
         trailingContent = if (onFavorite != null || onMore != null) ({
             Row {
                 onFavorite?.let { action ->
