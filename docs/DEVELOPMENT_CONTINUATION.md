@@ -61,6 +61,14 @@ Milestones 67 and 68 (Advanced Local Media Workflows, Unified Import Experience,
   - Added selection checkboxes and `primaryContainer` subtle highlighting to `DesktopMediaListRow` and `DesktopMediaGridCard`.
   - Added bidirectional track reordering (`ArrowUpward` and `ArrowDownward`) in Android `PlaylistDetail`.
   - Verified non-destructive database overrides (`user_metadata_overrides`) and M3U8 import/export pipelines.
+- **Multiplatform Logo & Application Icons**:
+  - Derived and verified official application icons across all supported targets from canonical source `docs/brand/vimivo-icon-source.png` using reproducible generator `scripts/generate_app_icons.py`.
+  - iOS: 1024x1024 24-bit RGB non-alpha icon for `Assets.xcassets/AppIcon.appiconset`, fully meeting App Store submission standards.
+  - macOS: Generated Apple `icon.icns` with 10 Retina resolutions (16x16 to 1024x1024) via `iconutil`, wired to `desktopApp/build.gradle.kts` `nativeDistributions.macOS.iconFile`.
+  - Desktop Window: Cleanly wired `windowIcon` on Compose `Window(...)` via `ImageIO` and `toComposeImageBitmap()` with zero deprecation warnings.
+  - Linux: 512x512 app icon and full hicolor theme sizes (16, 32, 48, 64, 128, 256, 512).
+  - Windows: Multi-resolution `icon.ico` with embedded PNG frames (16 to 256).
+  - Android: Generated fallback raster launcher icons across all screen densities (`mipmap-mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) for both standard and round icons alongside existing adaptive vectors.
 - **Testing & Verification**:
   - Added automated test `journey8MultiSelectLibraryWorkflowAndBatchActions` in `DesktopUserJourneysTest.kt`, verifying select-all, selective toggling, clearing, and batch playlist creation.
   - Total automated tests: **347 passing tests** across shared, desktop, Android, and iOS suites (0 failures, 100% pass rate).

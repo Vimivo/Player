@@ -98,6 +98,7 @@ compose.desktop {
             macOS {
                 bundleID = "dev.vimivo.desktop"
                 minimumSystemVersion = "12.0"
+                iconFile.set(project.file("src/desktopMain/resources/macos/icon.icns"))
             }
             windows {
                 upgradeUuid = "e32d5e8d-901d-4d16-9b26-32d2fe47f890"

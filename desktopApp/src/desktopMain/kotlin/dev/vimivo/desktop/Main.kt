@@ -54,10 +54,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
+import javax.imageio.ImageIO
 import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.ui.components.VimivoGlassSurface
 import dev.vimivo.ui.theme.VimivoGlassVariant
@@ -106,6 +109,13 @@ fun main(args: Array<String>) = application {
             { togglePlayback(engine, queue, library) },
         )
     }
+    val windowIcon = remember {
+        runCatching {
+            DesktopDestination::class.java.classLoader.getResourceAsStream("icon.png")?.use { stream ->
+                ImageIO.read(stream)?.toComposeImageBitmap()?.let(::BitmapPainter)
+            }
+        }.getOrNull()
+    }
     Window(
         onCloseRequest = {
             mpris.close()
@@ -115,6 +125,7 @@ fun main(args: Array<String>) = application {
             exitApplication()
         },
         title = "Vimivo",
+        icon = windowIcon,
     ) {
         var openStreamRequested by remember { mutableStateOf(false) }
         LaunchedEffect(window) {
