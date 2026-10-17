@@ -21,7 +21,8 @@ reported separately and must not be inferred from this inventory.
 | Bookmarks | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |
 | Background playback | Implemented, Media3 | Implemented | Partial | Partial (MPRIS) | Implemented, AVAudioSession |
 | System media controls | Implemented, MediaSession | MediaPlayer bridge compiled; interaction pending | Not implemented | Implemented (MPRIS) | MPRemoteCommandCenter implemented; physical interaction pending |
-| Native playback widget | Implemented, host-tested | Not implemented | Not implemented | Not implemented | WidgetKit extension embedded; simulator build tested; device install pending |
+| Native playback widget | Implemented, host-tested | Not implemented | Not implemented | Not implemented | Implemented (WidgetKit extension, simulator tested) |
+| Dynamic Island & Live Activities | Not applicable | Not applicable | Not applicable | Not applicable | Implemented (ActivityKit compact/expanded/minimal & lock-screen, simulator tested) |
 | Picture-in-Picture | Implemented, tested | Implemented | Not implemented | Not implemented | Implemented, AVKit tested |
 | Secure credentials | Implemented, Keystore | Implemented, Keychain | Implemented, CredMgr | Implemented, SecretService | Implemented, Keychain tested |
 | Direct network URLs | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested | Implemented, tested |

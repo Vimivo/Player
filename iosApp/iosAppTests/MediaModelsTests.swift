@@ -49,4 +49,28 @@ final class MediaModelsTests: XCTestCase {
         let decoded = try JSONDecoder().decode(WidgetPlaybackSnapshot.self, from: data)
         XCTAssertEqual(decoded, snapshot)
     }
+
+#if canImport(ActivityKit)
+    func testPlaybackActivityAttributesRoundTrip() throws {
+        if #available(iOS 16.1, *) {
+            let attrs = VimivoPlaybackActivityAttributes(mediaID: "media-99")
+            XCTAssertEqual(attrs.mediaID, "media-99")
+
+            let state = VimivoPlaybackActivityAttributes.ContentState(
+                title: "আমার সোনার বাংলা",
+                artist: "Vimivo KMP",
+                isPlaying: true,
+                positionSeconds: 45.0,
+                durationSeconds: 190.0,
+                updatedAt: Date(timeIntervalSince1970: 5678)
+            )
+            XCTAssertEqual(state.title, "আমার সোনার বাংলা")
+            XCTAssertEqual(state.positionSeconds, 45.0)
+
+            let data = try JSONEncoder().encode(state)
+            let decoded = try JSONDecoder().decode(VimivoPlaybackActivityAttributes.ContentState.self, from: data)
+            XCTAssertEqual(decoded, state)
+        }
+    }
+#endif
 }

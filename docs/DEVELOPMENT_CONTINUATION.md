@@ -42,10 +42,28 @@ Milestones completed:
 - **Milestone 62**: Production Release Quality, Final Platform Verification & Launch Sign-Off
 - **Milestone 63**: Playback Performance Evolution & Large Media Library Optimization
 - **Milestone 64**: Battery/Energy Efficiency, Native Resource Hardening & Long-Session Stability
+- **Milestone 65**: Complete Product Consolidation & Functional Quality
+- **Milestone 66**: Premium Aurora Glass UI/UX, Native Platform Integration, Playback Quality & Final Refinement
 
 ## Resume point
 
-Milestones 63 and 64 (Large Local Media Library Scalability, Aurora Glass UI Recomposition Optimization, Native Buffer Resource Hardening, Battery Efficiency & Long-Session Stability) are complete, verified, and passing all quality gates.
+Milestones 65 and 66 (Complete Product Consolidation, Premium Aurora Glass UI/UX, Native ActivityKit Dynamic Island & Live Activities, Playback Quality & Final Refinement) are complete, verified, and passing all quality gates.
+
+- **Native Dynamic Island & Live Activities (Apple ActivityKit)**:
+  - Added `VimivoPlaybackActivityAttributes` with codable `ContentState` in `WidgetPlaybackIntents.swift`.
+  - Implemented `VimivoPlaybackLiveActivity` in `VimivoWidgets.swift` with `compactLeading`, `compactTrailing`, `minimal`, and `expanded` Dynamic Island layouts, plus Lock Screen/StandBy Aurora Glass cards.
+  - Interactive playback intents (`PreviousWidgetTrackIntent`, `ToggleWidgetPlaybackIntent`, `NextWidgetTrackIntent`) wired to `AVPlayerPlaybackEngine.shared`.
+  - `WidgetPlaybackSnapshotStore.swift` starts, updates, and dismisses Live Activities based on authoritative playback state and battery-conscious 15-second update intervals.
+  - Enabled `NSSupportsLiveActivities` in both `iosApp/Info.plist` and `VimivoWidgets/Info.plist`.
+  - Added unit test `MediaModelsTests.testPlaybackActivityAttributesRoundTrip` (passing 100% on iOS Simulator).
+  - Xcode 27.1 build and test on iPhone 17 Pro simulator: **9/9 tests passed**.
+- **Product Consolidation & UI/UX Refinement**:
+  - Offline-first local library with zero cloud dependencies, zero remote catalogs, zero trackers.
+  - Apple Music-inspired audio player: ambient backdrop, queue sheet, lyrics, sleep timer, playback speed, and memoized mini-player.
+  - VLC/MX-inspired video player: auto-hiding controls, double-tap seek, aspect ratio options (Fit, Fill, 16:9, 4:3, Crop), subtitle/audio track picker, PiP.
+  - Direct URL player: safe validation (`StreamValidator`), low-latency modes, clear error feedback for DRM/webpages.
+  - Accessibility: Full semantic roles, TalkBack and VoiceOver descriptions, visible focus, reduced motion and transparency fallbacks.
+
 
 - **Aurora Glass Rendering Optimization**:
   - `VimivoGlassSurface`: Memoized `tokens`, `shape`, `border`, and `surfaceColor` using `remember(tokens.radius)` and `remember(variant, reducedTransparency)`, eliminating 100% of shape allocation churn on static redraws.
@@ -84,7 +102,8 @@ Test & Static Analysis Verification:
 - `:shared:desktopTest`: 102 passing tests (100% pass rate).
 - `:desktopApp:desktopTest`: 214 passing tests (100% pass rate).
 - `:androidApp:testDebugUnitTest`: 21 passing tests (100% pass rate).
-- Total automated tests: 337 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
+- `iosAppTests` (Xcode 27.1 / iPhone 17 Pro): 9 passing tests (100% pass rate).
+- Total automated tests: 346 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
 - Detekt static analysis: 0 weighted violations across all modules.
 - Android debug build: `:androidApp:assembleDebug` SUCCESS.
 - Relative documentation links: 100% verified via `./scripts/validate_docs.sh`.

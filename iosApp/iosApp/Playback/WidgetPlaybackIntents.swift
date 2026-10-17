@@ -39,3 +39,41 @@ struct PreviousWidgetTrackIntent: AudioPlaybackIntent {
         return .result()
     }
 }
+
+#if canImport(ActivityKit)
+import ActivityKit
+
+@available(iOS 16.1, *)
+public struct VimivoPlaybackActivityAttributes: ActivityAttributes {
+    public struct ContentState: Codable, Hashable {
+        public var title: String
+        public var artist: String
+        public var isPlaying: Bool
+        public var positionSeconds: Double
+        public var durationSeconds: Double
+        public var updatedAt: Date
+
+        public init(
+            title: String,
+            artist: String,
+            isPlaying: Bool,
+            positionSeconds: Double,
+            durationSeconds: Double,
+            updatedAt: Date = Date()
+        ) {
+            self.title = title
+            self.artist = artist
+            self.isPlaying = isPlaying
+            self.positionSeconds = positionSeconds
+            self.durationSeconds = durationSeconds
+            self.updatedAt = updatedAt
+        }
+    }
+
+    public var mediaID: String
+
+    public init(mediaID: String) {
+        self.mediaID = mediaID
+    }
+}
+#endif
