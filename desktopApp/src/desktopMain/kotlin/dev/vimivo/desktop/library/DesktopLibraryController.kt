@@ -27,6 +27,7 @@ import dev.vimivo.core.model.OrganizePlanItem
 import dev.vimivo.core.model.PlaybackHistory
 import dev.vimivo.core.model.Playlist
 import dev.vimivo.core.model.RecommendationItem
+import dev.vimivo.core.model.LibrarySort
 import dev.vimivo.core.model.RenamePlanItem
 import dev.vimivo.core.model.SmartPlaylistDefinition
 import dev.vimivo.core.model.SmartRuleCondition
@@ -36,6 +37,9 @@ import dev.vimivo.playback.PlaybackQueueSnapshot
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.QueueItem
+import dev.vimivo.settings.LibraryViewMode
+import dev.vimivo.settings.RepeatBehavior
+import dev.vimivo.settings.ShuffleBehavior
 import dev.vimivo.settings.ThemeMode
 import java.io.File
 import java.net.URI
@@ -77,6 +81,15 @@ internal data class DesktopLibraryUiState(
     val scanStates: Map<String, LibraryScanState> = emptyMap(),
     val search: String = "",
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val libraryViewMode: LibraryViewMode = LibraryViewMode.LIST,
+    val defaultSort: LibrarySort = LibrarySort.TITLE,
+    val reduceAnimations: Boolean = false,
+    val highContrast: Boolean = false,
+    val reduceTransparency: Boolean = false,
+    val resumePlayback: Boolean = true,
+    val defaultSpeed: Float = 1.0f,
+    val repeatBehavior: RepeatBehavior = RepeatBehavior.REMEMBER,
+    val shuffleBehavior: ShuffleBehavior = ShuffleBehavior.REMEMBER,
     val loading: Boolean = true,
     val error: String? = null,
 )
@@ -185,9 +198,63 @@ internal class DesktopLibraryController(
     }
     fun removeHistory(mediaId: MediaId) = mutatePersonalData { personalRepository.removeHistory(mediaId) }
     fun clearHistory() = mutatePersonalData { personalRepository.clearHistory() }
-    fun setThemeMode(mode: ThemeMode) {
+    fun setThemeMode(mode: ThemeMode): Job {
         mutableState.value = mutableState.value.copy(themeMode = mode)
-        mutatePersonalData { personalRepository.putSetting("theme_mode", mode.name) }
+        return mutatePersonalData { personalRepository.putSetting("theme_mode", mode.name) }
+    }
+    fun setLibraryViewMode(mode: LibraryViewMode): Job {
+        mutableState.value = mutableState.value.copy(libraryViewMode = mode)
+        return mutatePersonalData { personalRepository.putSetting("library_view_mode", mode.name) }
+    }
+    fun setDefaultSort(sort: LibrarySort): Job {
+        mutableState.value = mutableState.value.copy(defaultSort = sort)
+        return mutatePersonalData { personalRepository.putSetting("default_sort", sort.name) }
+    }
+    fun setReduceAnimations(enabled: Boolean): Job {
+        mutableState.value = mutableState.value.copy(reduceAnimations = enabled)
+        return mutatePersonalData { personalRepository.putSetting("reduce_animations", enabled.toString()) }
+    }
+    fun setHighContrast(enabled: Boolean): Job {
+        mutableState.value = mutableState.value.copy(highContrast = enabled)
+        return mutatePersonalData { personalRepository.putSetting("high_contrast", enabled.toString()) }
+    }
+    fun setReduceTransparency(enabled: Boolean): Job {
+        mutableState.value = mutableState.value.copy(reduceTransparency = enabled)
+        return mutatePersonalData { personalRepository.putSetting("reduce_transparency", enabled.toString()) }
+    }
+    fun setResumePlayback(enabled: Boolean): Job {
+        mutableState.value = mutableState.value.copy(resumePlayback = enabled)
+        return mutatePersonalData { personalRepository.putSetting("resume_playback", enabled.toString()) }
+    }
+    fun setDefaultSpeed(speed: Float): Job {
+        val clamped = speed.coerceIn(0.25f, 3.0f)
+        mutableState.value = mutableState.value.copy(defaultSpeed = clamped)
+        return mutatePersonalData { personalRepository.putSetting("default_speed", clamped.toString()) }
+    }
+    fun setRepeatBehavior(behavior: RepeatBehavior): Job {
+        mutableState.value = mutableState.value.copy(repeatBehavior = behavior)
+        return mutatePersonalData { personalRepository.putSetting("repeat_behavior", behavior.name) }
+    }
+    fun setShuffleBehavior(behavior: ShuffleBehavior): Job {
+        mutableState.value = mutableState.value.copy(shuffleBehavior = behavior)
+        return mutatePersonalData { personalRepository.putSetting("shuffle_behavior", behavior.name) }
+    }
+    fun resetSettings(): Job {
+        mutableState.value = mutableState.value.copy(
+            themeMode = ThemeMode.SYSTEM,
+            libraryViewMode = LibraryViewMode.LIST,
+            defaultSort = LibrarySort.TITLE,
+            reduceAnimations = false,
+            highContrast = false,
+            reduceTransparency = false,
+            resumePlayback = true,
+            defaultSpeed = 1.0f,
+            repeatBehavior = RepeatBehavior.REMEMBER,
+            shuffleBehavior = ShuffleBehavior.REMEMBER,
+        )
+        return mutatePersonalData {
+            personalRepository.clearSettings()
+        }
     }
     fun uiSetting(key: String): String? = personalRepository.setting(key)
     fun setUiSetting(key: String, value: String) = mutatePersonalData {
@@ -330,6 +397,15 @@ internal class DesktopLibraryController(
         val personalMedia: Map<MediaId, MediaItem>,
         val history: List<PlaybackHistory>,
         val themeMode: ThemeMode,
+        val libraryViewMode: LibraryViewMode,
+        val defaultSort: LibrarySort,
+        val reduceAnimations: Boolean,
+        val highContrast: Boolean,
+        val reduceTransparency: Boolean,
+        val resumePlayback: Boolean,
+        val defaultSpeed: Float,
+        val repeatBehavior: RepeatBehavior,
+        val shuffleBehavior: ShuffleBehavior,
         val smartPlaylists: List<SmartPlaylistDefinition>,
         val workflowRules: List<WorkflowRule>,
         val journalEntries: List<JournalEntry>,
@@ -357,6 +433,23 @@ internal class DesktopLibraryController(
                 val themeMode = personalRepository.setting("theme_mode")?.let {
                     runCatching { ThemeMode.valueOf(it) }.getOrNull()
                 } ?: ThemeMode.SYSTEM
+                val libraryViewMode = personalRepository.setting("library_view_mode")?.let {
+                    runCatching { LibraryViewMode.valueOf(it) }.getOrNull()
+                } ?: LibraryViewMode.LIST
+                val defaultSort = personalRepository.setting("default_sort")?.let {
+                    runCatching { LibrarySort.valueOf(it) }.getOrNull()
+                } ?: LibrarySort.TITLE
+                val reduceAnimations = personalRepository.setting("reduce_animations")?.toBooleanStrictOrNull() ?: false
+                val highContrast = personalRepository.setting("high_contrast")?.toBooleanStrictOrNull() ?: false
+                val reduceTransparency = personalRepository.setting("reduce_transparency")?.toBooleanStrictOrNull() ?: false
+                val resumePlayback = personalRepository.setting("resume_playback")?.toBooleanStrictOrNull() ?: true
+                val defaultSpeed = personalRepository.setting("default_speed")?.toFloatOrNull() ?: 1.0f
+                val repeatBehavior = personalRepository.setting("repeat_behavior")?.let {
+                    runCatching { RepeatBehavior.valueOf(it) }.getOrNull()
+                } ?: RepeatBehavior.REMEMBER
+                val shuffleBehavior = personalRepository.setting("shuffle_behavior")?.let {
+                    runCatching { ShuffleBehavior.valueOf(it) }.getOrNull()
+                } ?: ShuffleBehavior.REMEMBER
                 val personalMedia = repository.media(
                     playlists.flatMap(Playlist::items) + favoriteIds + history.map(PlaybackHistory::mediaId),
                 ).associateBy { it.id }
@@ -385,6 +478,15 @@ internal class DesktopLibraryController(
                     personalMedia = personalMedia,
                     history = history,
                     themeMode = themeMode,
+                    libraryViewMode = libraryViewMode,
+                    defaultSort = defaultSort,
+                    reduceAnimations = reduceAnimations,
+                    highContrast = highContrast,
+                    reduceTransparency = reduceTransparency,
+                    resumePlayback = resumePlayback,
+                    defaultSpeed = defaultSpeed,
+                    repeatBehavior = repeatBehavior,
+                    shuffleBehavior = shuffleBehavior,
                     smartPlaylists = smartPlaylists,
                     workflowRules = workflowRules,
                     journalEntries = journalEntries,
@@ -418,6 +520,15 @@ internal class DesktopLibraryController(
                 history = cache.history.mapNotNull { entry -> cache.personalMedia[entry.mediaId]?.let { DesktopHistoryItem(it, entry) } },
                 bookmarks = personalRepository.allBookmarks(),
                 themeMode = cache.themeMode,
+                libraryViewMode = cache.libraryViewMode,
+                defaultSort = cache.defaultSort,
+                reduceAnimations = cache.reduceAnimations,
+                highContrast = cache.highContrast,
+                reduceTransparency = cache.reduceTransparency,
+                resumePlayback = cache.resumePlayback,
+                defaultSpeed = cache.defaultSpeed,
+                repeatBehavior = cache.repeatBehavior,
+                shuffleBehavior = cache.shuffleBehavior,
                 loading = false,
                 error = null,
             )

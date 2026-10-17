@@ -593,3 +593,49 @@ On 2026-10-17, these commands completed successfully:
   - `iosApp` XCTest Simulator Suite: 9 tests passing, 0 failures.
   - Detekt static analysis: 0 weighted violations across all modules.
   - Full `./scripts/verify_all.sh` pipeline passing 7 of 7 gates cleanly.
+
+### Milestone 89: Advanced Playback UX Refinement, Unified Settings, Personalization, Native Platform Polish & Accessibility
+
+- **Shared Accessible UI System (`VimivoUiComponents.kt`)**:
+  - Implemented `VimivoSettingsSectionHeader(title, subtitle)` with semantic heading annotations (`semantics { heading() }`) for screen reader section navigation.
+  - Implemented `VimivoSettingsRow(title, subtitle, control)` establishing clear visual and semantic hierarchy with accessible typography tokens and contrast compliance.
+  - Implemented `VimivoConfirmationDialog(title, message, confirmLabel, cancelLabel, onConfirm, onDismiss)` with accessible action labels, semantic role tags, and clear non-destructive dismiss paths.
+- **Unified 9-Category Settings Architecture & Personalization (`DesktopSettingsPanel.kt`)**:
+  - Reorganized preferences into 9 intent-focused sections:
+    1. Appearance & Theme (System, Light, Dark, AMOLED).
+    2. Library & Presentation (List vs Grid, Title / Artist / Date Added / Duration sorting).
+    3. Audio DSP: Equalizer, Profiles & ReplayGain.
+    4. Sleep Timer.
+    5. Playback & Video Defaults (Default speed 0.5x–2.0x, repeat mode, shuffle behavior, resume position).
+    6. Accessibility & Motion (Reduced motion, high contrast, reduced transparency).
+    7. Storage & Media Access (Cache clearance, root management).
+    8. Diagnostics & Updates.
+    9. About Vimivo & Safe Preference Reset.
+  - Connected interactive confirmation dialog for safe preference reset.
+- **Live Theme & Accessibility Integration (`Main.kt`)**:
+  - Bound `VimivoTheme(mode = libraryState.themeMode, highContrast = libraryState.highContrast, reduceMotion = libraryState.reduceAnimations, reduceTransparency = libraryState.reduceTransparency)` dynamically to active reactive state, instantly propagating changes without application restarts.
+  - Synchronized `gridView` state directly with `libraryState.libraryViewMode`.
+- **Safe Transactional Preference Reset (`DesktopPersonalMediaRepository.kt`)**:
+  - Added `clearSettings()` in `DesktopPersonalMediaRepository` executing `DELETE FROM settings` within a clean isolated SQLite transaction.
+  - Strictly preserves user media (`media_items`), playlists (`playlists`, `playlist_items`), favorites (`favorites`), bookmarks (`media_bookmarks`), and playback history (`playback_history`).
+
+### Milestone 90: Comprehensive Release Regression Gate, UI Consistency, Settings Persistence Validation & Cross-Platform Acceptance
+
+- **Automated Settings Persistence & Regression Suite (`DesktopSettingsPersistenceTest.kt`)**:
+  - Implemented 5 comprehensive test scenarios:
+    - `testDefaultSettingsValues`: Verifies defaults match expected product values across all categories.
+    - `testSettingsMutationAndImmediatePersistence`: Verifies instant in-memory reactive update and raw SQLite persistence.
+    - `testSettingsRestorationAcrossAppRestart`: Verifies complete preference restoration when re-instantiating repositories from disk.
+    - `testSafeSettingsResetPreservesUserMediaAndPlaylists`: Proves resetting settings restores defaults while 100% preserving media, playlists, favorites, and history.
+    - `testCorruptAndInvalidSettingsValuesFallbackSafely`: Proves corrupt/unsupported enum strings fall back gracefully to defaults without unhandled exceptions.
+- **Cross-Platform Quality Gate Verification (515 Automated Tests)**:
+  - `:shared:desktopTest`: 123 tests passing, 0 failures.
+  - `:desktopApp:desktopTest`: 236 tests passing, 0 failures.
+  - `:androidApp:testDebugUnitTest`: 147 tests passing, 0 failures.
+  - `iosApp` XCTest Simulator Suite: 9 tests passing, 0 failures.
+  - Total automated tests: 515 passing tests (0 failures, 100% pass rate).
+  - Detekt static analysis: 0 weighted violations across all modules (`:shared`, `:desktopApp`, `:androidApp`).
+  - Android debug package: `:androidApp:assembleDebug` SUCCESS.
+  - Documentation validation: 100% relative links verified via `./scripts/validate_docs.sh`.
+  - Unified quality gate: 100% verified via `./scripts/verify_all.sh` (all 7 gates passed).
+

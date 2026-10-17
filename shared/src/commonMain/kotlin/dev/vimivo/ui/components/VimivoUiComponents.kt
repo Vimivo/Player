@@ -268,3 +268,110 @@ fun VimivoQueueReorderControls(
         }
     }
 }
+
+@Composable
+fun VimivoSettingsSectionHeader(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(VimivoSpacing.xxs),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.semantics { heading() },
+        )
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+fun VimivoSettingsRow(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    control: @Composable () -> Unit,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(vertical = VimivoSpacing.xs),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f).padding(end = VimivoSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(VimivoSpacing.xxs),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        control()
+    }
+}
+
+@Composable
+fun VimivoConfirmationDialog(
+    title: String,
+    message: String,
+    confirmLabel: String = "Confirm",
+    cancelLabel: String = "Cancel",
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() },
+            )
+        },
+        text = {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.clearAndSetSemantics {
+                    role = Role.Button
+                    contentDescription = confirmLabel
+                },
+            ) {
+                Text(confirmLabel)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.clearAndSetSemantics {
+                    role = Role.Button
+                    contentDescription = cancelLabel
+                },
+            ) {
+                Text(cancelLabel)
+            }
+        },
+    )
+}

@@ -191,13 +191,32 @@ We do not artificially downgrade defects to permit unverified releases, nor do w
 - **Regression Test**: `PlaybackSessionSynchronizationTest.kt` -> `scenarioA_rapidItemSwitchingRejectsDelayedCallback()`. Verified passing.
 - **Status**: **VERIFIED FIXED**.
 
+### Defect VIM-BUG-020 (P1): Desktop Theme and Accessibility Settings Were Disconnected From Top-Level Compose Theme
+- **Platform**: Desktop UI (`Main.kt`, `DesktopSettingsPanel.kt`, `DesktopLibraryController.kt`).
+- **Subsystem**: UI Theme & Accessibility Integration.
+- **Symptom**: Changing appearance theme (System, Light, Dark, AMOLED) or accessibility options (Reduced Motion, High Contrast, Reduced Transparency) in the settings panel failed to dynamically update the active Compose Desktop window theme or accessibility locals.
+- **Root Cause**: `Main.kt` invoked `VimivoTheme(mode = ThemeMode.DARK)` with hardcoded constants rather than binding to reactive state from `DesktopLibraryController`.
+- **Correction**: Bound `VimivoTheme(mode = libraryState.themeMode, highContrast = libraryState.highContrast, reduceMotion = libraryState.reduceAnimations, reduceTransparency = libraryState.reduceTransparency)` to reactive state in `Main.kt` and wired `DesktopSettingsPanel` callbacks to `DesktopLibraryController` persistence methods.
+- **Regression Test**: `DesktopSettingsPersistenceTest.kt` -> `testSettingsMutationAndImmediatePersistence()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-021 (P1): Preference Reset Lacked Transactional Boundary Isolation and Accessible Confirmation Modal
+- **Platform**: Desktop Persistence & UI (`DesktopPersonalMediaRepository.kt`, `DesktopSettingsPanel.kt`, `VimivoUiComponents.kt`).
+- **Subsystem**: Settings Persistence & Safety Boundaries.
+- **Symptom**: No dedicated mechanism existed to reset user preferences back to defaults without risk of wiping user playlists, favorites, bookmarks, or indexed media records.
+- **Root Cause**: Repository lacked an isolated `DELETE FROM settings` transaction; settings UI had no accessible two-step confirmation modal with semantic role tags.
+- **Correction**: Implemented `clearSettings()` in `DesktopPersonalMediaRepository.kt` executing `DELETE FROM settings` within a clean isolated database transaction, strictly preserving all media, playlists, favorites, and history tables. Added `VimivoConfirmationDialog` in `VimivoUiComponents.kt` with accessible action buttons and integrated it into `DesktopSettingsPanel.kt`.
+- **Regression Test**: `DesktopSettingsPersistenceTest.kt` -> `testSafeSettingsResetPreservesUserMediaAndPlaylists()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
 ---
 
 ## 4. Defect Metrics & Statistics
 
-- **Total Defects Triaged**: 19
+- **Total Defects Triaged**: 21
 - **Total P0 Defects**: 1 (Fixed: 1, Remaining: 0)
-- **Total P1 Defects**: 12 (Fixed: 12, Remaining: 0)
+- **Total P1 Defects**: 14 (Fixed: 14, Remaining: 0)
 - **Total P2 Defects**: 6 (Fixed: 6, Remaining: 0)
 - **Total P3 Defects**: 0 open blockers
 - **Unresolved Release Blockers**: **0**
+

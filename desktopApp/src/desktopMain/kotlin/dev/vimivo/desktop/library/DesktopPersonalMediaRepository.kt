@@ -272,6 +272,10 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
         }
     }
 
+    fun clearSettings() = database.transaction { connection ->
+        connection.createStatement().use { it.executeUpdate("DELETE FROM settings") }
+    }
+
     private fun playlistMediaIds(connection: java.sql.Connection, playlistId: String): List<String> =
         connection.prepareStatement("SELECT media_id FROM playlist_items WHERE playlist_id=? ORDER BY position").use { statement ->
             statement.setString(1, playlistId); statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.getString(1)) } }

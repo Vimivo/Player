@@ -494,7 +494,12 @@ private fun DesktopPlayer(
         queue.state.collect { mpris.updateQueue(it) }
     }
 
-    VimivoTheme(mode = libraryState.themeMode) {
+    VimivoTheme(
+        mode = libraryState.themeMode,
+        highContrast = libraryState.highContrast,
+        reduceMotion = libraryState.reduceAnimations,
+        reduceTransparency = libraryState.reduceTransparency,
+    ) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val isVeryCompact = maxWidth < 640.dp
@@ -537,8 +542,9 @@ private fun DesktopPlayer(
                             onToggleSidebar = { sidebarCollapsed = !sidebarCollapsed },
                             onSearch = library::setSearch,
                             onToggleView = {
-                                gridView = !gridView
-                                library.setUiSetting("library_view_mode", if (gridView) "GRID" else "LIST")
+                                val next = !gridView
+                                gridView = next
+                                library.setLibraryViewMode(if (next) dev.vimivo.settings.LibraryViewMode.GRID else dev.vimivo.settings.LibraryViewMode.LIST)
                             },
                             onToggleSort = { descendingSort = !descendingSort },
                             onToggleQueue = { queuePanelVisible = !queuePanelVisible },
@@ -839,6 +845,22 @@ private fun DesktopPlayer(
                     diagnosticsStatus = diagnosticsStatus,
                     updateStatus = updateStatus,
                     onOpenFeedback = { showFeedbackDialog = true },
+                    onLibraryViewModeSelected = { mode ->
+                        gridView = mode == dev.vimivo.settings.LibraryViewMode.GRID
+                        library.setLibraryViewMode(mode)
+                    },
+                    onDefaultSortSelected = library::setDefaultSort,
+                    onReduceAnimationsToggled = library::setReduceAnimations,
+                    onHighContrastToggled = library::setHighContrast,
+                    onReduceTransparencyToggled = library::setReduceTransparency,
+                    onResumePlaybackToggled = library::setResumePlayback,
+                    onDefaultSpeedSelected = { speed ->
+                        library.setDefaultSpeed(speed)
+                        engine.setPlaybackSpeed(speed)
+                    },
+                    onRepeatBehaviorSelected = library::setRepeatBehavior,
+                    onShuffleBehaviorSelected = library::setShuffleBehavior,
+                    onResetSettings = library::resetSettings,
                 )
             }
             if (destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
