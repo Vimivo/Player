@@ -469,6 +469,30 @@ On 2026-10-17, these commands completed successfully:
   - Verified and aligned development continuation guide (`docs/DEVELOPMENT_CONTINUATION.md`), release candidate status (`docs/RELEASE_CANDIDATE_STATUS.md`), and implementation ledger (`docs/IMPLEMENTATION_LEDGER.md`).
   - Audited documentation cross-links with 0 errors across all 32 markdown links.
 
+### Milestone 81: Post-Release Feedback Workflow, Real-World Media Compatibility, Targeted Performance Optimization & User-Reported Defect Resolution
+
+- **Post-Release Feedback & Privacy-Conscious Diagnostics**:
+  - Audited feedback intake templates (`.github/ISSUE_TEMPLATE`) and community guidelines, ensuring clear categorization across bug reports, playback issues, and accessibility feedback.
+  - Verified local-only, user-initiated diagnostic reports via `DesktopDiagnosticExporter` with `SafeLogger` sanitizing file paths, credentials, and query tokens without telemetry.
+- **Real-World Media Compatibility Hardening**:
+  - Implemented pure Kotlin multiplatform `percentDecode` in `StreamValidator` (`shared/.../StreamValidator.kt`), ensuring direct streaming URLs with encoded spaces (`%20`), symbols, and Unicode/Bengali characters (`%E0%A6%...`) decode cleanly into human-readable display titles rather than raw hex gibberish (VIM-BUG-008).
+  - Enhanced `LrcLyricsParser` (`shared/.../LrcLyricsParser.kt`) to support timestamped blank lines (`[01:23.45]`), ensuring that instrumental breaks and guitar solos cleanly clear active lyrics on screen instead of retaining stale text (VIM-BUG-009).
+- **Targeted Performance & Database Consistency (VIM-BUG-007)**:
+  - Fixed metadata override omission in `DesktopLibraryRepository`: unified `BASE_SELECT_COLUMNS` and `BASE_JOINS` across `media(ids)`, `findMediaByUriOrFileName`, `albumDetails`, and `artistDetails`. Custom titles, artists, albums, and artwork overrides are now consistently reflected in queue restoration, album views, and artist profiles.
+  - Added comprehensive regression tests in `DesktopLibraryIntegrationTest`, `StreamValidatorTest`, and `LrcLyricsParserTest`.
+
+### Milestone 82: Continuous Stability Engineering, Compatibility Regression Testing, Resource Efficiency & Long-Term Playback Reliability
+
+- **Continuous Stability Engineering & Regression Suite Expansion**:
+  - Expanded automated test coverage across shared, desktop, Android, and iOS suites to **501 tests** (123 shared, 222 desktop, 147 Android, 9 iOS) with a 100% pass rate.
+  - Verified failure-injection safety, SQLite foreign-key enforcement, Write-Ahead Logging (WAL) concurrency, and bounded non-destructive media library reconciliation.
+  - Verified native resource stability across macOS Cocoa/OpenGL bridge, Android Media3 foreground services, and iOS AVPlayer sessions.
+- **Quality Gates & Release Baseline**:
+  - Detekt static analysis: 0 weighted violations across all modules.
+  - Unified verification script `./scripts/verify_all.sh`: all 7 verification gates passed.
+  - Documentation relative links: 100% verified via `./scripts/validate_docs.sh`.
+
+
 
 
 

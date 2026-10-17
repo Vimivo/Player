@@ -74,14 +74,42 @@ We do not artificially downgrade defects to permit unverified releases, nor do w
 - **Regression Test**: `SafeLoggerTest.kt` -> `testRedactEmbeddedUrlCredentials()`. Verified passing.
 - **Status**: **VERIFIED FIXED**.
 
+### Defect VIM-BUG-007 (P1): User Metadata and Artwork Overrides Omitted in Queue and Projection Lookups
+- **Platform**: Desktop (macOS, Windows, Linux) (`DesktopLibraryRepository.kt`).
+- **Subsystem**: Desktop Database & Library Repository.
+- **Symptom**: Custom metadata and artwork edits saved via the metadata editor appeared in the primary songs list but were lost when tracks were queued or viewed in Album Details and Artist Details.
+- **Root Cause**: `media(ids)`, `findMediaByUriOrFileName`, `albumDetails`, and `artistDetails` queries omitted `LEFT JOIN user_metadata_overrides` and `LEFT JOIN user_artwork_overrides`.
+- **Correction**: Standardized all queries on `BASE_SELECT_COLUMNS` and `BASE_JOINS`, ensuring user overrides are consistently applied across all lookups and grouping projections.
+- **Regression Test**: `DesktopLibraryIntegrationTest.kt` -> `userMetadataOverridesArePreservedAcrossAllProjectionsAndQueries()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-008 (P2): Raw Percent Hex Shown in Direct URL Streaming Display Titles
+- **Platform**: All platforms (`StreamValidator.kt`).
+- **Subsystem**: Core Streaming Subsystem.
+- **Symptom**: Direct media URLs with percent-encoded characters (such as `%20` or Bengali UTF-8 `%E0%A6%97%E0%A6%BE%E0%A6%A8`) displayed raw hex gibberish in the player title.
+- **Root Cause**: `StreamValidator.generateDisplayTitle` did not decode percent-encoded byte sequences into UTF-8 characters.
+- **Correction**: Implemented pure Kotlin multiplatform `percentDecode` helper and integrated it into title generation.
+- **Regression Test**: `StreamValidatorTest.kt` -> `testPercentDecodedUrlDisplayTitle()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-009 (P2): Synchronized LRC Lyrics Parser Discarded Instrumental Pause Lines
+- **Platform**: All platforms (`LrcLyricsParser.kt`).
+- **Subsystem**: Core Lyrics Subsystem.
+- **Symptom**: During guitar solos or instrumental breaks, the player continued displaying stale lyrics instead of clearing the screen because empty timestamp lines were dropped.
+- **Root Cause**: `LrcLyricsParser` required `content.isNotEmpty()` when matching timestamp lines, discarding intentional pause lines (`[01:23.45]`).
+- **Correction**: Permitted timestamped lines with empty content to produce `LyricLine(timeMillis, "")`, enabling `findActiveLineIndex` to accurately indicate instrumental interludes.
+- **Regression Test**: `LrcLyricsParserTest.kt` -> `testTimestampedInstrumentalBreak()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
 ---
 
 ## 4. Defect Metrics & Statistics
 
-- **Total Defects Triaged**: 6
+- **Total Defects Triaged**: 9
 - **Total P0 Defects**: 1 (Fixed: 1, Remaining: 0)
-- **Total P1 Defects**: 4 (Fixed: 4, Remaining: 0)
-- **Total P2 Defects**: 1 (Fixed: 1, Remaining: 0)
+- **Total P1 Defects**: 5 (Fixed: 5, Remaining: 0)
+- **Total P2 Defects**: 3 (Fixed: 3, Remaining: 0)
 - **Total P3 Defects**: 0 open blockers
 - **Unresolved Release Blockers**: **0**
+
 

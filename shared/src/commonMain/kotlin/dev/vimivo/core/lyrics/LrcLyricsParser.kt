@@ -81,7 +81,7 @@ object LrcLyricsParser {
                 if (content.isNotEmpty() && !content.startsWith('[')) {
                     parsedLines.add(LyricLine(timeMillis = null, text = content))
                 }
-            } else if (content.isNotEmpty()) {
+            } else {
                 timestampMatches.forEach { match ->
                     val minutes = match.groupValues[1].toLongOrNull() ?: 0L
                     val seconds = match.groupValues[2].toLongOrNull() ?: 0L

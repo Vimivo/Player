@@ -110,4 +110,31 @@ class LrcLyricsParserTest {
         assertEquals(null, doc.lines[0].timeMillis)
         assertEquals(-1, doc.findActiveLineIndex(5_000L))
     }
+
+    @Test
+    fun testTimestampedInstrumentalBreak() {
+        val lrc = """
+            [00:02.00]Vocal intro
+            [00:06.00]
+            [00:12.00]Second verse after guitar solo
+        """.trimIndent()
+
+        val doc = LrcLyricsParser.parse(lrc)
+        assertTrue(doc.synchronized)
+        assertEquals(3, doc.lines.size)
+
+        assertEquals("Vocal intro", doc.lines[0].text)
+        assertEquals(2_000L, doc.lines[0].timeMillis)
+
+        // Instrumental break line has empty text
+        assertEquals("", doc.lines[1].text)
+        assertEquals(6_000L, doc.lines[1].timeMillis)
+
+        assertEquals("Second verse after guitar solo", doc.lines[2].text)
+        assertEquals(12_000L, doc.lines[2].timeMillis)
+
+        // During guitar solo (at 8s), active line should be index 1 (blank line), clearing vocals
+        assertEquals(1, doc.findActiveLineIndex(8_000L))
+        assertEquals("", doc.lines[doc.findActiveLineIndex(8_000L)].text)
+    }
 }

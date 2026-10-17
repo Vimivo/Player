@@ -65,14 +65,7 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
 
     fun media(kind: MediaKind, query: String = ""): List<MediaItem> = database.transaction { connection ->
         val trimmed = query.trim()
-        val baseSql = "SELECT m.id,m.uri,COALESCE(o.title,NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
-            "x.duration_ms,COALESCE(o.artist,x.artist),COALESCE(o.album,x.album),COALESCE(ao.artwork_uri,x.artwork_uri)," +
-            "COALESCE(o.album_artist,x.album_artist),COALESCE(o.genre,x.genre),x.video_width,x.video_height,x.frame_rate," +
-            "x.bitrate,COALESCE(o.track_number,x.track_number),COALESCE(o.disc_number,x.disc_number),COALESCE(o.release_year,x.release_year) " +
-            "FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
-            "LEFT JOIN user_metadata_overrides o ON o.media_id=m.id " +
-            "LEFT JOIN user_artwork_overrides ao ON ao.media_id=m.id " +
-            "WHERE m.available=1 AND m.kind=?"
+        val baseSql = "SELECT $BASE_SELECT_COLUMNS $BASE_JOINS WHERE m.available=1 AND m.kind=?"
 
         if (trimmed.isEmpty()) {
             connection.prepareStatement("$baseSql ORDER BY COALESCE(o.title,NULLIF(x.title,''),m.title) COLLATE NOCASE LIMIT 500").use { statement ->
@@ -98,14 +91,7 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
     fun allMedia(kind: MediaKind? = null): List<MediaItem> = database.transaction { connection ->
         val kindFilter = if (kind != null) " AND m.kind=?" else ""
         connection.prepareStatement(
-            "SELECT m.id,m.uri,COALESCE(o.title,NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
-                "x.duration_ms,COALESCE(o.artist,x.artist),COALESCE(o.album,x.album),COALESCE(ao.artwork_uri,x.artwork_uri)," +
-                "COALESCE(o.album_artist,x.album_artist),COALESCE(o.genre,x.genre),x.video_width,x.video_height,x.frame_rate," +
-                "x.bitrate,COALESCE(o.track_number,x.track_number),COALESCE(o.disc_number,x.disc_number),COALESCE(o.release_year,x.release_year) " +
-                "FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
-                "LEFT JOIN user_metadata_overrides o ON o.media_id=m.id " +
-                "LEFT JOIN user_artwork_overrides ao ON ao.media_id=m.id " +
-                "WHERE m.available=1$kindFilter ORDER BY COALESCE(o.title,NULLIF(x.title,''),m.title) COLLATE NOCASE",
+            "SELECT $BASE_SELECT_COLUMNS $BASE_JOINS WHERE m.available=1$kindFilter ORDER BY COALESCE(o.title,NULLIF(x.title,''),m.title) COLLATE NOCASE",
         ).use { statement ->
             if (kind != null) statement.setString(1, kind.name)
             statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
@@ -118,14 +104,16 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         return database.transaction { connection ->
             val placeholders = orderedIds.distinct().joinToString(",") { "?" }
             connection.prepareStatement(
-                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
-                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
-                    "x.bitrate,x.track_number,x.disc_number,x.release_year,m.available FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                "SELECT $BASE_SELECT_COLUMNS,m.available $BASE_JOINS " +
                     "WHERE (m.available=1 OR ?) AND m.id IN ($placeholders)",
             ).use { statement ->
                 statement.setInt(1, if (includeUnavailable) 1 else 0)
                 orderedIds.distinct().forEachIndexed { index, id -> statement.setString(index + 2, id) }
-                val byId = statement.executeQuery().use { rows -> buildMap { while (rows.next()) put(rows.getString(1), rows.toMedia().copy(isAvailable = rows.getInt(22) != 0)) } }
+                val byId = statement.executeQuery().use { rows ->
+                    buildMap {
+                        while (rows.next()) put(rows.getString(1), rows.toMedia().copy(isAvailable = rows.getInt(22) != 0))
+                    }
+                }
                 orderedIds.mapNotNull(byId::get)
             }
         }
@@ -133,9 +121,7 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
 
     fun findMediaByUriOrFileName(value: String): MediaItem? = database.transaction { connection ->
         connection.prepareStatement(
-            "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
-                "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
-                "x.bitrate,x.track_number,x.disc_number,x.release_year,m.available FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+            "SELECT $BASE_SELECT_COLUMNS,m.available $BASE_JOINS " +
                 "WHERE m.available=1 AND (m.uri=? OR m.file_name=? OR m.uri LIKE ?) LIMIT 1",
         ).use { statement ->
             statement.setString(1, value)
@@ -156,14 +142,16 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         } else {
             val loaded = database.transaction { connection ->
                 connection.prepareStatement(
-                    "SELECT COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album') AS album_title, " +
-                        "COALESCE(NULLIF(TRIM(x.album_artist), ''), NULLIF(TRIM(x.artist), ''), 'Unknown Artist') AS album_artist, " +
+                    "SELECT COALESCE(o.album, NULLIF(TRIM(x.album), ''), 'Unknown Album') AS album_title, " +
+                        "COALESCE(o.album_artist, NULLIF(TRIM(x.album_artist), ''), o.artist, NULLIF(TRIM(x.artist), ''), 'Unknown Artist') AS album_artist, " +
                         "COUNT(m.id) AS track_count, " +
                         "COALESCE(SUM(COALESCE(x.duration_ms, 0)), 0) AS total_duration, " +
-                        "MAX(x.artwork_uri) AS artwork_uri, " +
-                        "MAX(x.release_year) AS release_year " +
+                        "MAX(COALESCE(ao.artwork_uri, x.artwork_uri)) AS artwork_uri, " +
+                        "MAX(COALESCE(o.release_year, x.release_year)) AS release_year " +
                         "FROM media_items m " +
                         "LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                        "LEFT JOIN user_metadata_overrides o ON o.media_id=m.id " +
+                        "LEFT JOIN user_artwork_overrides ao ON ao.media_id=m.id " +
                         "WHERE m.available=1 AND m.kind='AUDIO' " +
                         "GROUP BY 1, 2 " +
                         "ORDER BY album_title COLLATE NOCASE",
@@ -205,12 +193,10 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         val album = albums().firstOrNull { it.id == albumId } ?: return null
         val tracks = database.transaction { connection ->
             connection.prepareStatement(
-                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
-                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
-                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
-                    "WHERE m.available=1 AND m.kind='AUDIO' AND COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album')=? " +
-                    "AND COALESCE(NULLIF(TRIM(x.album_artist), ''), NULLIF(TRIM(x.artist), ''), 'Unknown Artist')=? " +
-                    "ORDER BY COALESCE(x.disc_number, 999999) ASC, COALESCE(x.track_number, 999999) ASC, COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE",
+                "SELECT $BASE_SELECT_COLUMNS $BASE_JOINS " +
+                    "WHERE m.available=1 AND m.kind='AUDIO' AND COALESCE(o.album, NULLIF(TRIM(x.album), ''), 'Unknown Album')=? " +
+                    "AND COALESCE(o.album_artist, NULLIF(TRIM(x.album_artist), ''), o.artist, NULLIF(TRIM(x.artist), ''), 'Unknown Artist')=? " +
+                    "ORDER BY COALESCE(o.disc_number, x.disc_number, 999999) ASC, COALESCE(o.track_number, x.track_number, 999999) ASC, COALESCE(o.title, NULLIF(x.title,''), m.title) COLLATE NOCASE",
             ).use { statement ->
                 statement.setString(1, album.title)
                 statement.setString(2, album.albumArtist ?: album.artist ?: "Unknown Artist")
@@ -229,12 +215,14 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         } else {
             val loaded = database.transaction { connection ->
                 connection.prepareStatement(
-                    "SELECT COALESCE(NULLIF(TRIM(x.artist), ''), NULLIF(TRIM(x.album_artist), ''), 'Unknown Artist') AS artist_name, " +
-                        "COUNT(DISTINCT COALESCE(NULLIF(TRIM(x.album), ''), 'Unknown Album')) AS album_count, " +
+                    "SELECT COALESCE(o.artist, NULLIF(TRIM(x.artist), ''), o.album_artist, NULLIF(TRIM(x.album_artist), ''), 'Unknown Artist') AS artist_name, " +
+                        "COUNT(DISTINCT COALESCE(o.album, NULLIF(TRIM(x.album), ''), 'Unknown Album')) AS album_count, " +
                         "COUNT(m.id) AS track_count, " +
-                        "MAX(x.artwork_uri) AS artwork_uri " +
+                        "MAX(COALESCE(ao.artwork_uri, x.artwork_uri)) AS artwork_uri " +
                         "FROM media_items m " +
                         "LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                        "LEFT JOIN user_metadata_overrides o ON o.media_id=m.id " +
+                        "LEFT JOIN user_artwork_overrides ao ON ao.media_id=m.id " +
                         "WHERE m.available=1 AND m.kind='AUDIO' " +
                         "GROUP BY 1 " +
                         "ORDER BY artist_name COLLATE NOCASE",
@@ -274,12 +262,11 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
         }
         val tracks = database.transaction { connection ->
             connection.prepareStatement(
-                "SELECT m.id,m.uri,COALESCE(NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
-                    "x.duration_ms,x.artist,x.album,x.artwork_uri,x.album_artist,x.genre,x.video_width,x.video_height,x.frame_rate," +
-                    "x.bitrate,x.track_number,x.disc_number,x.release_year FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                "SELECT $BASE_SELECT_COLUMNS $BASE_JOINS " +
                     "WHERE m.available=1 AND m.kind='AUDIO' AND (" +
-                    "COALESCE(NULLIF(TRIM(x.artist), ''), '')=? OR COALESCE(NULLIF(TRIM(x.album_artist), ''), '')=? " +
-                    ") ORDER BY COALESCE(NULLIF(x.title,''),m.title) COLLATE NOCASE",
+                    "COALESCE(o.artist, NULLIF(TRIM(x.artist), ''), o.album_artist, NULLIF(TRIM(x.album_artist), ''), 'Unknown Artist')=? OR " +
+                    "COALESCE(o.album_artist, NULLIF(TRIM(x.album_artist), ''), o.artist, NULLIF(TRIM(x.artist), ''), 'Unknown Artist')=?) " +
+                    "ORDER BY COALESCE(o.album, x.album, 'Unknown Album') COLLATE NOCASE, COALESCE(o.track_number, x.track_number, 999999) ASC",
             ).use { statement ->
                 statement.setString(1, artist.name)
                 statement.setString(2, artist.name)
@@ -327,6 +314,17 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
     private fun java.sql.ResultSet.nullableFloat(column: Int) = getFloat(column).takeIf { !wasNull() }
 
     companion object {
+        private const val BASE_SELECT_COLUMNS =
+            "m.id,m.uri,COALESCE(o.title,NULLIF(x.title,''),m.title),m.kind,m.file_name,m.size_bytes,m.mime_type,m.modified_ms," +
+                "x.duration_ms,COALESCE(o.artist,x.artist),COALESCE(o.album,x.album),COALESCE(ao.artwork_uri,x.artwork_uri)," +
+                "COALESCE(o.album_artist,x.album_artist),COALESCE(o.genre,x.genre),x.video_width,x.video_height,x.frame_rate," +
+                "x.bitrate,COALESCE(o.track_number,x.track_number),COALESCE(o.disc_number,x.disc_number),COALESCE(o.release_year,x.release_year)"
+
+        private const val BASE_JOINS =
+            "FROM media_items m LEFT JOIN media_metadata x ON x.media_id=m.id " +
+                "LEFT JOIN user_metadata_overrides o ON o.media_id=m.id " +
+                "LEFT JOIN user_artwork_overrides ao ON ao.media_id=m.id"
+
         fun normalizeForSearch(text: String): String =
             Normalizer.normalize(text.trim().lowercase(), Normalizer.Form.NFC)
 

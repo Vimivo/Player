@@ -211,4 +211,22 @@ class StreamValidatorTest {
         assertEquals(dev.vimivo.core.model.MediaKind.STREAM, mediaItem.kind)
         assertEquals(dev.vimivo.core.model.MediaSource.NETWORK, mediaItem.source)
     }
+
+    @Test
+    fun testPercentDecodedUrlDisplayTitle() {
+        // Space decoding: %20 -> space
+        val res1 = StreamValidator.validate("https://example.com/audio/Acoustic%20Session%2001.mp3")
+        assertIs<StreamValidationResult.Valid>(res1)
+        assertEquals("Acoustic Session 01", res1.displayTitle)
+
+        // Bengali UTF-8 decoding: %E0%A6%97%E0%A6%BE%E0%A6%A8 -> গান
+        val resBengali = StreamValidator.validate("https://example.com/songs/%E0%A6%97%E0%A6%BE%E0%A6%A8.mp3")
+        assertIs<StreamValidationResult.Valid>(resBengali)
+        assertEquals("গান", resBengali.displayTitle)
+
+        // Direct percentDecode helper verification
+        assertEquals("Hello World", StreamValidator.percentDecode("Hello%20World"))
+        assertEquals("PlainTitle", StreamValidator.percentDecode("PlainTitle"))
+        assertEquals("বাংলা", StreamValidator.percentDecode("%E0%A6%AC%E0%A6%BE%E0%A6%82%E0%A6%B2%E0%A6%BE"))
+    }
 }

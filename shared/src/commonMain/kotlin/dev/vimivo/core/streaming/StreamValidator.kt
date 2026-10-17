@@ -172,6 +172,32 @@ object StreamValidator {
         return lower.contains("/live") || lower.contains("live.m3u8") || lower.contains("live.mpd")
     }
 
+    fun percentDecode(input: String): String {
+        if (!input.contains('%')) return input
+        val bytes = mutableListOf<Byte>()
+        var i = 0
+        while (i < input.length) {
+            val c = input[i]
+            if (c == '%' && i + 2 < input.length) {
+                val hex = input.substring(i + 1, i + 3)
+                val byteVal = hex.toIntOrNull(16)
+                if (byteVal != null) {
+                    bytes.add(byteVal.toByte())
+                    i += 3
+                    continue
+                }
+            }
+            val charBytes = c.toString().encodeToByteArray()
+            for (b in charBytes) bytes.add(b)
+            i++
+        }
+        return try {
+            bytes.toByteArray().decodeToString()
+        } catch (_: Exception) {
+            input
+        }
+    }
+
     private fun generateDisplayTitle(path: String, hostPart: String, protocol: StreamProtocol): String {
         val lastSegment = path.trimEnd('/').substringAfterLast('/')
         val cleanedSegment = lastSegment.substringBefore('?').substringBefore('#')
@@ -179,7 +205,8 @@ object StreamValidator {
         if (cleanedSegment.isNotBlank() && cleanedSegment.length >= 3) {
             val titleNoExt = cleanedSegment.substringBeforeLast('.')
             if (titleNoExt.isNotBlank()) {
-                return SafeLogger.sanitize(titleNoExt.replace('_', ' ').replace('-', ' '))
+                val decoded = percentDecode(titleNoExt)
+                return SafeLogger.sanitize(decoded.replace('_', ' ').replace('-', ' '))
             }
         }
 

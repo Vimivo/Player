@@ -131,4 +131,76 @@ class DesktopLibraryIntegrationTest {
             }
         }
     }
+
+    @Test
+    fun userMetadataOverridesArePreservedAcrossAllProjectionsAndQueries() = runTest {
+        val directory = Files.createTempDirectory("vimivo-overrides-consistency-test")
+        val library = Files.createDirectories(directory.resolve("Music"))
+        val song = library.resolve("raw_song.mp3")
+        song.writeText("audio payload")
+
+        DesktopDatabase.open(directory.resolve("vimivo.sqlite")).use { database ->
+            val repository = DesktopLibraryRepository(database)
+            val root = repository.addRoot(library).getOrThrow()
+            DesktopMediaScanner(database).scan(root.id, library).getOrThrow()
+
+            val rawItem = repository.media(MediaKind.AUDIO).single()
+            assertEquals("raw_song", rawItem.title)
+
+            // Insert user metadata overrides and artwork override
+            database.transaction { conn ->
+                conn.createStatement().execute(
+                    "INSERT INTO user_metadata_overrides(" +
+                        "media_id, title, artist, album, album_artist, genre, track_number, updated_at_ms) " +
+                        "VALUES ('${rawItem.id.value}', 'Overridden Title', 'Custom Artist', " +
+                        "'Remastered Album', 'Custom Artist', 'Acoustic', 7, 5000)",
+                )
+                conn.createStatement().execute(
+                    "INSERT INTO user_artwork_overrides(media_id, artwork_uri, updated_at_ms) " +
+                        "VALUES ('${rawItem.id.value}', 'file:///custom/art.png', 5000)",
+                )
+            }
+            repository.invalidate()
+
+            // 1. media(kind, query)
+            val byKind = repository.media(MediaKind.AUDIO).single()
+            assertEquals("Overridden Title", byKind.title)
+            assertEquals("Custom Artist", byKind.artist)
+            assertEquals("Remastered Album", byKind.album)
+            assertEquals("file:///custom/art.png", byKind.artworkUri)
+
+            // 2. media(ids) lookup (used by queue and playlist details)
+            val byId = repository.media(listOf(rawItem.id)).single()
+            assertEquals("Overridden Title", byId.title)
+            assertEquals("Custom Artist", byId.artist)
+            assertEquals("Remastered Album", byId.album)
+            assertEquals("file:///custom/art.png", byId.artworkUri)
+
+            // 3. findMediaByUriOrFileName
+            val byUri = repository.findMediaByUriOrFileName(rawItem.uri)
+            assertEquals("Overridden Title", byUri?.title)
+            assertEquals("Custom Artist", byUri?.artist)
+
+            // 4. albums() projection
+            val albumList = repository.albums()
+            assertEquals(1, albumList.size)
+            assertEquals("Remastered Album", albumList[0].title)
+            assertEquals("Custom Artist", albumList[0].artist)
+
+            // 5. albumDetails() lookup
+            val albumDet = repository.albumDetails(albumList[0].id)
+            assertEquals(1, albumDet?.tracks?.size)
+            assertEquals("Overridden Title", albumDet?.tracks?.get(0)?.title)
+
+            // 6. artists() projection
+            val artistList = repository.artists()
+            assertEquals(1, artistList.size)
+            assertEquals("Custom Artist", artistList[0].name)
+
+            // 7. artistDetails() lookup
+            val artistDet = repository.artistDetails(artistList[0].id)
+            assertEquals(1, artistDet?.tracks?.size)
+            assertEquals("Overridden Title", artistDet?.tracks?.get(0)?.title)
+        }
+    }
 }
