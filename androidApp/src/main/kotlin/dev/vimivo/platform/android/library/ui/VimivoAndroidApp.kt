@@ -632,10 +632,10 @@ private fun LibraryChrome(
 ) {
     val context = LocalContext.current
     val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { viewModel.permissionsChanged() }
-    val file = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let {
-            runCatching { context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            viewModel.importFile(it.toString())
+    val file = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        uris.forEach { uri ->
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            viewModel.importFile(uri.toString())
         }
     }
     val folder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -655,9 +655,27 @@ private fun LibraryChrome(
                             val perms = (if (kind == MediaKind.AUDIO) permissions.audioRequest() else permissions.videoRequest()) + permissions.notificationRequest()
                             request.launch(perms)
                         }) { Text("Allow access") }
-                        OutlinedButton({ file.launch(arrayOf("audio/*", "video/*")) }) { Text("Open file") }
+                        OutlinedButton({ file.launch(arrayOf("audio/*", "video/*")) }) { Text("Open files") }
                         OutlinedButton({ folder.launch(null) }) { Text("Add folder") }
                     }
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { file.launch(arrayOf("audio/*", "video/*")) },
+                    modifier = Modifier.semantics { contentDescription = "Import local audio or video files" },
+                ) {
+                    Text("Import files")
+                }
+                OutlinedButton(
+                    onClick = { folder.launch(null) },
+                    modifier = Modifier.semantics { contentDescription = "Add and scan a folder" },
+                ) {
+                    Text("Add folder")
                 }
             }
         }
@@ -889,6 +907,7 @@ private fun PlaylistDetail(
                         SongRow(item, thumbnails, { playback.playQueue(media, index) }, onMore = { onMore(item) })
                     }
                     IconButton({ if (index > 0) viewModel.move(playlist, index, index - 1) }, enabled = index > 0) { Icon(Icons.Outlined.ArrowUpward, "Move up") }
+                    IconButton({ if (index < media.lastIndex) viewModel.move(playlist, index, index + 1) }, enabled = index < media.lastIndex) { Icon(Icons.Outlined.ArrowDownward, "Move down") }
                     IconButton({ viewModel.remove(playlist, index) }) { Icon(Icons.Outlined.Delete, "Remove from playlist") }
                 }
             }

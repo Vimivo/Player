@@ -159,3 +159,10 @@ reported separately and must not be inferred from this inventory.
 - **End-to-End User Journeys**: `EndToEndPlaybackUserJourneysTest` covering direct video URLs, live HLS reconnection, internet radio background controls, and local JSON backup export/restore integrity.
 - **Streaming Security & Five-Platform Audit**: Security threat model (`docs/STREAMING_SECURITY_AUDIT.md`), media parser audit (`docs/MEDIA_PARSER_SECURITY.md`), and independent five-platform GO/NO-GO reports (`docs/FINAL_GO_NO_GO.md`).
 
+### Milestones 67 & 68 Highlights:
+- **Unified Import Experience**: Simultaneous multi-file selection on Desktop and Android (`OpenMultipleDocuments`), with persistable SAF read permissions.
+- **Dedicated Playlist Import**: Desktop M3U file dialog (`choosePlaylistFile()`) filtering `.m3u` / `.m3u8` files, wired to MenuBar (`File -> Import Playlist…`) and library chrome.
+- **Multi-Select Library Management**: Aurora Glass batch action surface (`VimivoGlassVariant.CONTROL`) in `DesktopLibraryPanel` supporting Play Selected, Queue Selected, Batch Metadata Editing, and Deselect All.
+- **Track Reordering**: Bidirectional track reordering (`ArrowUpward` and `ArrowDownward`) in Android `PlaylistDetail`.
+- **Automated Verification**: End-to-end integration test `journey8MultiSelectLibraryWorkflowAndBatchActions` covering selection toggling, select-all, clearing, and batch playlist creation.
+

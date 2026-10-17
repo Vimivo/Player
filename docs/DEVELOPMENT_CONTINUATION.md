@@ -44,20 +44,27 @@ Milestones completed:
 - **Milestone 64**: Battery/Energy Efficiency, Native Resource Hardening & Long-Session Stability
 - **Milestone 65**: Complete Product Consolidation & Functional Quality
 - **Milestone 66**: Premium Aurora Glass UI/UX, Native Platform Integration, Playback Quality & Final Refinement
+- **Milestone 67**: Advanced Local Media Workflows, Unified Import Experience & Library Management
+- **Milestone 68**: Direct URL Streaming Workflows, Professional Aurora Glass UI/UX & Cross-Platform Completion
 
 ## Resume point
 
-Milestones 65 and 66 (Complete Product Consolidation, Premium Aurora Glass UI/UX, Native ActivityKit Dynamic Island & Live Activities, Playback Quality & Final Refinement) are complete, verified, and passing all quality gates.
+Milestones 67 and 68 (Advanced Local Media Workflows, Unified Import Experience, Media Library Management, Metadata and Artwork Management, Advanced Playlists, Playback Queue Improvements, Direct URL Streaming Workflows, Professional Aurora Glass UI/UX, Cross-Platform Feature Completion) are complete, verified, and passing all quality gates.
 
-- **Native Dynamic Island & Live Activities (Apple ActivityKit)**:
-  - Added `VimivoPlaybackActivityAttributes` with codable `ContentState` in `WidgetPlaybackIntents.swift`.
-  - Implemented `VimivoPlaybackLiveActivity` in `VimivoWidgets.swift` with `compactLeading`, `compactTrailing`, `minimal`, and `expanded` Dynamic Island layouts, plus Lock Screen/StandBy Aurora Glass cards.
-  - Interactive playback intents (`PreviousWidgetTrackIntent`, `ToggleWidgetPlaybackIntent`, `NextWidgetTrackIntent`) wired to `AVPlayerPlaybackEngine.shared`.
-  - `WidgetPlaybackSnapshotStore.swift` starts, updates, and dismisses Live Activities based on authoritative playback state and battery-conscious 15-second update intervals.
-  - Enabled `NSSupportsLiveActivities` in both `iosApp/Info.plist` and `VimivoWidgets/Info.plist`.
-  - Added unit test `MediaModelsTests.testPlaybackActivityAttributesRoundTrip` (passing 100% on iOS Simulator).
-  - Xcode 27.1 build and test on iPhone 17 Pro simulator: **9/9 tests passed**.
-- **Product Consolidation & UI/UX Refinement**:
+- **Unified Import & Multi-File Workflows (Desktop & Android)**:
+  - Upgraded desktop "Open media" dialog and action buttons to process multiple files simultaneously (`chooseMediaFiles().let { if (it.isNotEmpty()) queue.play(it.map { f -> f.toMediaItem() }) }`).
+  - Added dedicated M3U playlist import dialog (`choosePlaylistFile()`) filtering `.m3u` / `.m3u8` files, wired into MenuBar (`File -> Import Playlist…`) and the library chrome.
+  - Upgraded Android SAF import in `LibraryChrome` to `ActivityResultContracts.OpenMultipleDocuments()`, enabling batch selection with persistable URI permissions across modern scoped storage.
+  - Added persistent "Import files" and "Add folder" action chips in Android `LibraryChrome` for immediate access regardless of permission grant state.
+- **Media Library Management & Multi-Select Aurora Glass UI**:
+  - Implemented multi-select capabilities in `DesktopLibraryPanel` with an Aurora Glass control bar (`VimivoGlassVariant.CONTROL`) offering batch actions: "Play Selected", "Queue", "Edit Metadata", and "Clear".
+  - Added selection checkboxes and `primaryContainer` subtle highlighting to `DesktopMediaListRow` and `DesktopMediaGridCard`.
+  - Added bidirectional track reordering (`ArrowUpward` and `ArrowDownward`) in Android `PlaylistDetail`.
+  - Verified non-destructive database overrides (`user_metadata_overrides`) and M3U8 import/export pipelines.
+- **Testing & Verification**:
+  - Added automated test `journey8MultiSelectLibraryWorkflowAndBatchActions` in `DesktopUserJourneysTest.kt`, verifying select-all, selective toggling, clearing, and batch playlist creation.
+  - Total automated tests: **347 passing tests** across shared, desktop, Android, and iOS suites (0 failures, 100% pass rate).
+  - All quality gates verified via `./scripts/verify_all.sh` and `./scripts/validate_docs.sh`.
   - Offline-first local library with zero cloud dependencies, zero remote catalogs, zero trackers.
   - Apple Music-inspired audio player: ambient backdrop, queue sheet, lyrics, sleep timer, playback speed, and memoized mini-player.
   - VLC/MX-inspired video player: auto-hiding controls, double-tap seek, aspect ratio options (Fit, Fill, 16:9, 4:3, Crop), subtitle/audio track picker, PiP.
@@ -100,10 +107,10 @@ Milestones 65 and 66 (Complete Product Consolidation, Premium Aurora Glass UI/UX
 
 Test & Static Analysis Verification:
 - `:shared:desktopTest`: 102 passing tests (100% pass rate).
-- `:desktopApp:desktopTest`: 214 passing tests (100% pass rate).
+- `:desktopApp:desktopTest`: 215 passing tests (100% pass rate).
 - `:androidApp:testDebugUnitTest`: 21 passing tests (100% pass rate).
 - `iosAppTests` (Xcode 27.1 / iPhone 17 Pro): 9 passing tests (100% pass rate).
-- Total automated tests: 346 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
+- Total automated tests: 347 passing tests (0 failures, 0 errors, 0 skipped, 100% pass rate).
 - Detekt static analysis: 0 weighted violations across all modules.
 - Android debug build: `:androidApp:assembleDebug` SUCCESS.
 - Relative documentation links: 100% verified via `./scripts/validate_docs.sh`.

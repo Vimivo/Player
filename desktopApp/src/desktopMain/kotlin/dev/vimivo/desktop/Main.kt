@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -153,6 +154,10 @@ fun main(args: Array<String>) = application {
                         shift = true,
                     ),
                     onClick = { library.addFolder() },
+                )
+                Item(
+                    "Import Playlist…",
+                    onClick = { choosePlaylistFile()?.let { library.importPlaylistM3u(it) } },
                 )
             }
             Menu("Playback") {
@@ -430,6 +435,14 @@ private fun DesktopPlayer(
                     onAddToPlaylist = library::addToPlaylist,
                     gridView = gridView,
                     descendingSort = descendingSort,
+                    onOpenFile = { chooseMediaFiles().let(openFileHandler::submit) },
+                    onImportPlaylist = { choosePlaylistFile()?.let { library.importPlaylistM3u(it) } },
+                    onToggleSelect = library::toggleMediaSelection,
+                    onSelectAll = library::selectAll,
+                    onClearSelection = library::clearSelection,
+                    onPlaySelected = { items -> scope.launch { queue.play(items) } },
+                    onQueueSelected = { items -> queue.addToQueue(items) },
+                    onEditSelectedMetadata = { destination = DesktopDestination.MetadataEditor },
                 )
             }
             if (destination == DesktopDestination.Albums) {
@@ -707,8 +720,9 @@ private fun DesktopPlayer(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = {
-                        chooseMediaFiles().firstOrNull()?.let { file ->
-                            scope.launch { queue.play(listOf(file.toMediaItem())) }
+                        val files = chooseMediaFiles()
+                        if (files.isNotEmpty()) {
+                            scope.launch { queue.play(files.map { it.toMediaItem() }) }
                         }
                     },
                     modifier = Modifier.semantics { contentDescription = "Open local media files" },
@@ -1013,9 +1027,19 @@ private fun DesktopLibraryPanel(
     onAddToPlaylist: (String, MediaItem) -> Unit,
     gridView: Boolean,
     descendingSort: Boolean,
+    onOpenFile: () -> Unit,
+    onImportPlaylist: () -> Unit,
+    onToggleSelect: (MediaId) -> Unit,
+    onSelectAll: (List<MediaItem>) -> Unit,
+    onClearSelection: () -> Unit,
+    onPlaySelected: (List<MediaItem>) -> Unit,
+    onQueueSelected: (List<MediaItem>) -> Unit,
+    onEditSelectedMetadata: () -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onAddFolder) { Text("Add Folder") }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Button(onClick = onOpenFile) { Text("Open File(s)") }
+        OutlinedButton(onClick = onAddFolder) { Text("Add Folder") }
+        OutlinedButton(onClick = onImportPlaylist) { Text("Import M3U…") }
         OutlinedButton(onClick = onRefreshAvailability) { Text("Refresh Availability") }
     }
     state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -1041,17 +1065,73 @@ private fun DesktopLibraryPanel(
             }
         }
     } else {
-        OutlinedTextField(
-            value = state.search,
-            onValueChange = onSearch,
-            label = { Text("Search library") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
         val source = if (destination == DesktopDestination.Music) state.audio else state.video
         val media = remember(source, descendingSort) {
             if (descendingSort) source.sortedByDescending { it.title.lowercase() } else source.sortedBy { it.title.lowercase() }
         }
+        val selectedItems = remember(media, state.selectedMediaIds) {
+            media.filter { it.id in state.selectedMediaIds }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = state.search,
+                onValueChange = onSearch,
+                label = { Text("Search library") },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+            )
+            if (media.isNotEmpty()) {
+                if (state.selectedMediaIds.isEmpty()) {
+                    OutlinedButton(onClick = { onSelectAll(media) }) {
+                        Text("Select All")
+                    }
+                } else {
+                    OutlinedButton(onClick = onClearSelection) {
+                        Text("Deselect (${state.selectedMediaIds.size})")
+                    }
+                }
+            }
+        }
+
+        if (state.selectedMediaIds.isNotEmpty() && selectedItems.isNotEmpty()) {
+            VimivoGlassSurface(
+                variant = VimivoGlassVariant.CONTROL,
+                modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+                    contentDescription = "Batch actions for ${selectedItems.size} selected items"
+                },
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "${selectedItems.size} selected",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Button(onClick = { onPlaySelected(selectedItems) }) {
+                        Text("Play Selected")
+                    }
+                    OutlinedButton(onClick = { onQueueSelected(selectedItems) }) {
+                        Text("Queue")
+                    }
+                    OutlinedButton(onClick = onEditSelectedMetadata) {
+                        Text("Edit Metadata")
+                    }
+                    OutlinedButton(onClick = onClearSelection) {
+                        Text("Clear")
+                    }
+                }
+            }
+        }
+
         if (!state.loading && media.isEmpty()) Text(if (state.search.isBlank()) "No media found. Add and scan a folder." else "No matching media.")
         if (gridView) {
             LazyVerticalGrid(
@@ -1061,13 +1141,36 @@ private fun DesktopLibraryPanel(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 gridItems(media, key = { it.id.value }) { item ->
-                    DesktopMediaGridCard(item, destination, state, onPlay, onAddToQueue, onToggleFavorite, onAddToPlaylist)
+                    val isSelected = item.id in state.selectedMediaIds
+                    DesktopMediaGridCard(
+                        item = item,
+                        destination = destination,
+                        state = state,
+                        isSelected = isSelected,
+                        onToggleSelect = onToggleSelect,
+                        onPlay = onPlay,
+                        onAddToQueue = onAddToQueue,
+                        onToggleFavorite = onToggleFavorite,
+                        onAddToPlaylist = onAddToPlaylist,
+                    )
                 }
             }
         } else {
             LazyColumn(Modifier.fillMaxWidth().height(360.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(media, key = { it.id.value }) { item ->
-                    DesktopMediaListRow(item, destination, state, onPlay, onPlayNext, onAddToQueue, onToggleFavorite, onAddToPlaylist)
+                    val isSelected = item.id in state.selectedMediaIds
+                    DesktopMediaListRow(
+                        item = item,
+                        destination = destination,
+                        state = state,
+                        isSelected = isSelected,
+                        onToggleSelect = onToggleSelect,
+                        onPlay = onPlay,
+                        onPlayNext = onPlayNext,
+                        onAddToQueue = onAddToQueue,
+                        onToggleFavorite = onToggleFavorite,
+                        onAddToPlaylist = onAddToPlaylist,
+                    )
                 }
             }
         }
@@ -1079,6 +1182,8 @@ private fun DesktopMediaListRow(
     item: MediaItem,
     destination: DesktopDestination,
     state: DesktopLibraryUiState,
+    isSelected: Boolean,
+    onToggleSelect: (MediaId) -> Unit,
     onPlay: (MediaItem) -> Unit,
     onPlayNext: (MediaItem) -> Unit,
     onAddToQueue: (MediaItem) -> Unit,
@@ -1088,8 +1193,20 @@ private fun DesktopMediaListRow(
     val subtitle = remember(item.artist, item.album, item.durationMillis) {
         listOfNotNull(item.artist, item.album, item.durationMillis?.let(::formatTime)).joinToString(" · ")
     }
-    Card(Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = if (isSelected) {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
+        } else {
+            CardDefaults.cardColors()
+        },
+    ) {
         Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggleSelect(item.id) },
+                modifier = Modifier.semantics { contentDescription = "Select ${item.title}" },
+            )
             DesktopArtwork(item.artworkUri, item.title, if (destination == DesktopDestination.Videos) 80.dp else 48.dp)
             Column(Modifier.weight(1f)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium)
@@ -1109,15 +1226,35 @@ private fun DesktopMediaGridCard(
     item: MediaItem,
     destination: DesktopDestination,
     state: DesktopLibraryUiState,
+    isSelected: Boolean,
+    onToggleSelect: (MediaId) -> Unit,
     onPlay: (MediaItem) -> Unit,
     onAddToQueue: (MediaItem) -> Unit,
     onToggleFavorite: (MediaItem) -> Unit,
     onAddToPlaylist: (String, MediaItem) -> Unit,
 ) {
     val subtitle = remember(item.artist, item.album) { item.artist ?: item.album ?: "Local media" }
-    Card(Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = if (isSelected) {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
+        } else {
+            CardDefaults.cardColors()
+        },
+    ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            DesktopArtwork(item.artworkUri, item.title, if (destination == DesktopDestination.Videos) 120.dp else 88.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DesktopArtwork(item.artworkUri, item.title, if (destination == DesktopDestination.Videos) 120.dp else 88.dp)
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onToggleSelect(item.id) },
+                    modifier = Modifier.semantics { contentDescription = "Select ${item.title}" },
+                )
+            }
             Text(item.title, style = MaterialTheme.typography.titleMedium)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1251,6 +1388,13 @@ private fun chooseMediaFiles(): List<File> {
     dialog.isMultipleMode = true
     dialog.isVisible = true
     return dialog.files.orEmpty().toList()
+}
+
+private fun choosePlaylistFile(): File? {
+    val dialog = FileDialog(null as Frame?, "Import M3U Playlist", FileDialog.LOAD)
+    dialog.setFilenameFilter { _, name -> name.endsWith(".m3u", true) || name.endsWith(".m3u8", true) }
+    dialog.isVisible = true
+    return dialog.files?.firstOrNull() ?: dialog.file?.let { File(dialog.directory, it) }
 }
 
 private fun File.toMediaItem() = MediaItem(

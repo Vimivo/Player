@@ -274,6 +274,57 @@ class DesktopUserJourneysTest {
             }
         }
     }
+
+    @Test
+    fun journey8MultiSelectLibraryWorkflowAndBatchActions() = runTest {
+        val tempDir = Files.createTempDirectory("vimivo-journey-8")
+        val dbPath = tempDir.resolve("vimivo.sqlite")
+
+        DesktopDatabase.open(dbPath).use { database ->
+            val libraryRepo = DesktopLibraryRepository(database)
+            val personalRepo = DesktopPersonalMediaRepository(database)
+
+            val rootDir = Files.createDirectories(tempDir.resolve("Music"))
+            rootDir.resolve("track_a.mp3").writeText("audio a")
+            rootDir.resolve("track_b.mp3").writeText("audio b")
+            rootDir.resolve("track_c.mp3").writeText("audio c")
+
+            val root = libraryRepo.addRoot(rootDir).getOrThrow()
+            DesktopMediaScanner(database).scan(root.id, rootDir).getOrThrow()
+
+            val media = libraryRepo.media(MediaKind.AUDIO)
+            assertEquals(3, media.size)
+
+            val controller = DesktopLibraryController(database)
+            controller.selectAll(media)
+            assertEquals(3, controller.state.value.selectedMediaIds.size)
+
+            // Deselect one item
+            val firstId = media.first().id
+            controller.toggleMediaSelection(firstId)
+            assertEquals(2, controller.state.value.selectedMediaIds.size)
+            assertFalse(firstId in controller.state.value.selectedMediaIds)
+
+            // Re-select that item
+            controller.toggleMediaSelection(firstId)
+            assertEquals(3, controller.state.value.selectedMediaIds.size)
+            assertTrue(firstId in controller.state.value.selectedMediaIds)
+
+            // Clear selection
+            controller.clearSelection()
+            assertTrue(controller.state.value.selectedMediaIds.isEmpty())
+
+            // Create playlist and add batch items
+            val playlist = personalRepo.createPlaylist("Batch Playlist")
+            media.forEach { item ->
+                personalRepo.addToPlaylist(playlist.id, item.id)
+            }
+            val storedPlaylist = personalRepo.playlists().single { it.id == playlist.id }
+            assertEquals(3, storedPlaylist.items.size)
+
+            controller.close()
+        }
+    }
 }
 
 private class FakeJourneyEngine : PlayerEngine {

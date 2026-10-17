@@ -224,15 +224,30 @@ Status terms: **implemented** means code exists, **tested** means automated test
   - `LongSessionStabilityTest`: Verified multi-hour continuous playback simulation, 20 rapid source switches, 50 rapid exact/keyframe seeks, streaming live latency modes, and 500 concurrent background database writes during active playback.
   - Zero memory leaks, zero deadlocks, zero crashed sessions. See `docs/BATTERY_ENERGY_RESULTS.md`, `docs/LONG_SESSION_STABILITY.md`, and `docs/FIVE_PLATFORM_PERFORMANCE.md`.
 
+### Milestone 67 & 68: Advanced Local Media Workflows & Library Management (2026-10-17)
+
+- **Unified Import & Multi-File Workflows**:
+  - Desktop `chooseMediaFiles()` upgraded to multi-file playback (`queue.play(files.map { it.toMediaItem() })`).
+  - Added dedicated desktop M3U import helper `choosePlaylistFile()` filtering `.m3u` / `.m3u8` files, wired to MenuBar (`File -> Import Playlist…`) and the library view.
+  - Upgraded Android SAF import in `LibraryChrome` to `ActivityResultContracts.OpenMultipleDocuments()`, importing each selected URI with persistent read permissions.
+  - Added persistent "Import files" and "Add folder" action chips in Android `LibraryChrome` for immediate access regardless of permission grant state.
+- **Media Library Management & Multi-Select Aurora Glass UI**:
+  - Implemented multi-select capabilities in `DesktopLibraryPanel` with an Aurora Glass control bar (`VimivoGlassVariant.CONTROL`) offering batch actions: "Play Selected", "Queue", "Edit Metadata", and "Clear".
+  - Added selection checkboxes and `primaryContainer` subtle highlighting to `DesktopMediaListRow` and `DesktopMediaGridCard`.
+  - Added bidirectional track reordering (`ArrowUpward` and `ArrowDownward`) in Android `PlaylistDetail`.
+  - Verified non-destructive database overrides (`user_metadata_overrides`) and M3U8 import/export pipelines.
+- **Automated Verification**:
+  - Added `journey8MultiSelectLibraryWorkflowAndBatchActions` in `DesktopUserJourneysTest.kt`, verifying select-all, selective toggling, clearing, and batch playlist creation.
+
 On 2026-10-17, these commands completed successfully:
 
 - `./gradlew :shared:desktopTest` (102 tests passed)
-- `./gradlew :desktopApp:desktopTest` (214 tests passed)
+- `./gradlew :desktopApp:desktopTest` (215 tests passed)
 - `./gradlew :desktopApp:compileKotlinDesktop` (BUILD SUCCESSFUL)
 - `./gradlew :androidApp:testDebugUnitTest` (21 tests passed)
 - `./gradlew :androidApp:assembleDebug` (BUILD SUCCESSFUL)
 - `./gradlew detekt` (all modules passed, 0 violations)
 - `./scripts/validate_docs.sh` (100% relative documentation links verified)
 - `./scripts/verify_all.sh` (Unified quality gate BUILD SUCCESSFUL)
-- Total automated tests: 337 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
+- Total automated tests: 347 tests passing, 0 failures, 0 errors, 0 skipped (100% pass rate).
 
