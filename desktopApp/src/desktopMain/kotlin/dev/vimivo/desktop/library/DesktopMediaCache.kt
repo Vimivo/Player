@@ -36,17 +36,24 @@ internal class DesktopMediaCache(
         return if (Files.isRegularFile(file) && Files.size(file) > 0) file.toUri().toString() else null
     }
 
+    private val storesSinceTrim = java.util.concurrent.atomic.AtomicInteger(0)
+
     private fun storeImage(
         directory: Path,
         cacheIdentity: String,
         encodedImage: ByteArray,
         maximumEdge: Int,
     ): Result<String> = runCatching {
-        require(encodedImage.isNotEmpty() && encodedImage.size <= MAX_SOURCE_IMAGE_BYTES) { "Source image is empty or too large" }
-        val source = ImageIO.read(ByteArrayInputStream(encodedImage)) ?: error("Source image is not a supported format")
-        val target = scale(source, maximumEdge)
+        require(encodedImage.isNotEmpty() && encodedImage.size <= MAX_SOURCE_IMAGE_BYTES) {
+            "Source image is empty or too large"
+        }
         Files.createDirectories(directory)
         val destination = directory.resolve("${sha256(cacheIdentity)}.jpg")
+        if (Files.isRegularFile(destination) && Files.size(destination) > 0) {
+            return@runCatching destination.toUri().toString()
+        }
+        val source = ImageIO.read(ByteArrayInputStream(encodedImage)) ?: error("Source image is not a supported format")
+        val target = scale(source, maximumEdge)
         val temporary = Files.createTempFile(directory, ".cache-", ".tmp")
         try {
             require(ImageIO.write(target, "jpg", temporary.toFile())) { "JPEG encoder is unavailable" }
@@ -58,7 +65,9 @@ internal class DesktopMediaCache(
         } finally {
             Files.deleteIfExists(temporary)
         }
-        trim(directory)
+        if (storesSinceTrim.incrementAndGet() % TRIM_FREQUENCY == 0) {
+            trim(directory)
+        }
         destination.toUri().toString()
     }
 
@@ -97,5 +106,6 @@ internal class DesktopMediaCache(
         const val MAX_ARTWORK_EDGE = 1_024
         const val MAX_THUMBNAIL_EDGE = 640
         const val MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024
+        const val TRIM_FREQUENCY = 32
     }
 }

@@ -319,58 +319,103 @@ internal class DesktopLibraryController(
         }
     }
 
+    private data class GenerationCache(
+        val generation: Long,
+        val roots: List<LibraryRoot>,
+        val playlists: List<Playlist>,
+        val favoriteIdSet: Set<String>,
+        val favorites: List<MediaItem>,
+        val personalMedia: Map<MediaId, MediaItem>,
+        val history: List<PlaybackHistory>,
+        val themeMode: ThemeMode,
+        val smartPlaylists: List<SmartPlaylistDefinition>,
+        val workflowRules: List<WorkflowRule>,
+        val journalEntries: List<JournalEntry>,
+        val personalizationEnabled: Boolean,
+        val recommendations: List<RecommendationItem>,
+        val listeningInsights: ListeningInsights?,
+        val watchingInsights: WatchingInsights?,
+        val healthReport: LibraryHealthReport?,
+    )
+
+    @Volatile
+    private var generationCache: GenerationCache? = null
+
     private suspend fun refresh() = withContext(Dispatchers.IO) {
         runCatching {
             val query = mutableState.value.search.trim()
-            val roots = repository.roots()
-            val playlists = personalRepository.playlists()
-            val favoriteIds = personalRepository.favoriteIds(FavoriteTarget.MEDIA).map(::MediaId)
-            val favorites = repository.media(favoriteIds).map { it.copy(isFavorite = true) }
-            val favoriteIdSet = favoriteIds.mapTo(mutableSetOf(), MediaId::value)
-            val history = personalRepository.history()
-            val themeMode = personalRepository.setting("theme_mode")?.let {
-                runCatching { ThemeMode.valueOf(it) }.getOrNull()
-            } ?: ThemeMode.SYSTEM
-            val personalMedia = repository.media(
-                playlists.flatMap(Playlist::items) + favoriteIds + history.map(PlaybackHistory::mediaId),
-            ).associateBy { it.id }
+            val currentGen = repository.generation.value
+            val cache = generationCache?.takeIf { it.generation == currentGen } ?: run {
+                val roots = repository.roots()
+                val playlists = personalRepository.playlists()
+                val favoriteIds = personalRepository.favoriteIds(FavoriteTarget.MEDIA).map(::MediaId)
+                val favorites = repository.media(favoriteIds).map { it.copy(isFavorite = true) }
+                val favoriteIdSet = favoriteIds.mapTo(mutableSetOf(), MediaId::value)
+                val history = personalRepository.history()
+                val themeMode = personalRepository.setting("theme_mode")?.let {
+                    runCatching { ThemeMode.valueOf(it) }.getOrNull()
+                } ?: ThemeMode.SYSTEM
+                val personalMedia = repository.media(
+                    playlists.flatMap(Playlist::items) + favoriteIds + history.map(PlaybackHistory::mediaId),
+                ).associateBy { it.id }
 
-            val allAudio = repository.allMedia(MediaKind.AUDIO).map { it.copy(isFavorite = it.id.value in favoriteIdSet) }
-            val allVideo = repository.allMedia(MediaKind.VIDEO).map { it.copy(isFavorite = it.id.value in favoriteIdSet) }
-            val allMediaList = allAudio + allVideo
+                val allAudio = repository.allMedia(MediaKind.AUDIO).map { it.copy(isFavorite = it.id.value in favoriteIdSet) }
+                val allVideo = repository.allMedia(MediaKind.VIDEO).map { it.copy(isFavorite = it.id.value in favoriteIdSet) }
+                val allMediaList = allAudio + allVideo
 
-            val smartPlaylists = smartPlaylistRepo.smartPlaylists()
-            val workflowRules = automationEngine.rules()
-            val journalEntries = automationEngine.journalEntries(20)
-            val personalizationEnabled = recommendationEngine.isPersonalizationEnabled()
-            val positions = allMediaList.mapNotNull { personalRepository.position(it.id)?.let { p -> it.id.value to p } }.toMap()
-            val recommendations = recommendationEngine.generateRecommendations(allMediaList, history, positions)
-            val listeningInsights = insightsCalculator.calculateListeningInsights(allMediaList, history)
-            val watchingInsights = insightsCalculator.calculateWatchingInsights(allMediaList, history, positions)
-            val healthReport = automationEngine.generateHealthReport(allMediaList)
+                val smartPlaylists = smartPlaylistRepo.smartPlaylists()
+                val workflowRules = automationEngine.rules()
+                val journalEntries = automationEngine.journalEntries(20)
+                val personalizationEnabled = recommendationEngine.isPersonalizationEnabled()
+                val positions = personalRepository.allPositions()
+                val recommendations = recommendationEngine.generateRecommendations(allMediaList, history, positions)
+                val listeningInsights = insightsCalculator.calculateListeningInsights(allMediaList, history)
+                val watchingInsights = insightsCalculator.calculateWatchingInsights(allMediaList, history, positions)
+                val healthReport = automationEngine.generateHealthReport(allMediaList)
 
-            roots.forEach(::observeScan)
+                roots.forEach(::observeScan)
+                GenerationCache(
+                    generation = currentGen,
+                    roots = roots,
+                    playlists = playlists,
+                    favoriteIdSet = favoriteIdSet,
+                    favorites = favorites,
+                    personalMedia = personalMedia,
+                    history = history,
+                    themeMode = themeMode,
+                    smartPlaylists = smartPlaylists,
+                    workflowRules = workflowRules,
+                    journalEntries = journalEntries,
+                    personalizationEnabled = personalizationEnabled,
+                    recommendations = recommendations,
+                    listeningInsights = listeningInsights,
+                    watchingInsights = watchingInsights,
+                    healthReport = healthReport,
+                ).also { generationCache = it }
+            }
+
+            val favoriteIdSet = cache.favoriteIdSet
             mutableState.value = mutableState.value.copy(
-                roots = roots,
+                roots = cache.roots,
                 audio = repository.media(MediaKind.AUDIO, query).map { it.copy(isFavorite = it.id.value in favoriteIdSet) },
                 video = repository.media(MediaKind.VIDEO, query).map { it.copy(isFavorite = it.id.value in favoriteIdSet) },
                 albums = repository.albums(query),
                 artists = repository.artists(query),
-                playlists = playlists,
-                smartPlaylists = smartPlaylists,
+                playlists = cache.playlists,
+                smartPlaylists = cache.smartPlaylists,
                 duplicateGroups = mutableState.value.duplicateGroups,
-                recommendations = recommendations,
-                listeningInsights = listeningInsights,
-                watchingInsights = watchingInsights,
-                workflowRules = workflowRules,
-                journalEntries = journalEntries,
-                healthReport = healthReport,
-                personalizationEnabled = personalizationEnabled,
-                personalMedia = personalMedia,
-                favorites = favorites,
-                history = history.mapNotNull { entry -> personalMedia[entry.mediaId]?.let { DesktopHistoryItem(it, entry) } },
+                recommendations = cache.recommendations,
+                listeningInsights = cache.listeningInsights,
+                watchingInsights = cache.watchingInsights,
+                workflowRules = cache.workflowRules,
+                journalEntries = cache.journalEntries,
+                healthReport = cache.healthReport,
+                personalizationEnabled = cache.personalizationEnabled,
+                personalMedia = cache.personalMedia,
+                favorites = cache.favorites,
+                history = cache.history.mapNotNull { entry -> cache.personalMedia[entry.mediaId]?.let { DesktopHistoryItem(it, entry) } },
                 bookmarks = personalRepository.allBookmarks(),
-                themeMode = themeMode,
+                themeMode = cache.themeMode,
                 loading = false,
                 error = null,
             )
@@ -532,7 +577,10 @@ internal class DesktopLibraryController(
 
     private fun mutatePersonalData(block: () -> Unit) = scope.launch {
         withContext(Dispatchers.IO) { runCatching(block).onFailure(::report) }
-            .onSuccess { refresh() }
+            .onSuccess {
+                generationCache = null
+                refresh()
+            }
     }
 
     override fun close() {

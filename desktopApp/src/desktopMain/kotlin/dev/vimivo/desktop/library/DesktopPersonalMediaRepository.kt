@@ -193,6 +193,30 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
         }
     }
 
+    fun allPositions(): Map<String, ResumePosition> = database.transaction { connection ->
+        connection.prepareStatement(
+            "SELECT media_id,position_ms,duration_ms,completed,updated_at_ms FROM playback_positions",
+        ).use { statement ->
+            statement.executeQuery().use { rows ->
+                buildMap {
+                    while (rows.next()) {
+                        val idStr = rows.getString(1)
+                        put(
+                            idStr,
+                            ResumePosition(
+                                mediaId = MediaId(idStr),
+                                positionMillis = rows.getLong(2),
+                                durationMillis = rows.getLong(3).takeIf { !rows.wasNull() },
+                                completed = rows.getInt(4) != 0,
+                                updatedAtMillis = rows.getLong(5),
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun addBookmark(mediaId: MediaId, positionMillis: Long, label: String?, now: Long = System.currentTimeMillis()): Bookmark {
         require(positionMillis >= 0) { "Bookmark position cannot be negative" }
         val bookmark = Bookmark(UUID.randomUUID().toString(), mediaId, label?.trim().orEmpty(), positionMillis, now)

@@ -1048,7 +1048,9 @@ private fun DesktopLibraryPanel(
             singleLine = true,
         )
         val source = if (destination == DesktopDestination.Music) state.audio else state.video
-        val media = if (descendingSort) source.sortedByDescending { it.title.lowercase() } else source.sortedBy { it.title.lowercase() }
+        val media = remember(source, descendingSort) {
+            if (descendingSort) source.sortedByDescending { it.title.lowercase() } else source.sortedBy { it.title.lowercase() }
+        }
         if (!state.loading && media.isEmpty()) Text(if (state.search.isBlank()) "No media found. Add and scan a folder." else "No matching media.")
         if (gridView) {
             LazyVerticalGrid(
