@@ -69,6 +69,8 @@ import androidx.compose.ui.window.rememberWindowState
 import javax.imageio.ImageIO
 import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.ui.components.VimivoGlassSurface
+import dev.vimivo.ui.components.VimivoErrorBanner
+import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.ui.theme.VimivoGlassVariant
 import dev.vimivo.ui.theme.LocalReducedMotion
 import dev.vimivo.ui.theme.VimivoMotion
@@ -1113,13 +1115,38 @@ private fun DesktopPlayer(
                 }
             }
             (state.status as? PlaybackStatus.Error)?.let { error ->
-                Text(error.error.message, color = MaterialTheme.colorScheme.error)
-                Text(
-                    "Install libmpv (for example with Homebrew) or set -Dvimivo.mpv.library=/absolute/path/to/libmpv.dylib.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                val errorMessage = error.error.message
+                val advice = when (error.error.code) {
+                    PlaybackErrorCode.ENGINE_INITIALIZATION ->
+                        "Install libmpv (for example with Homebrew) or set -Dvimivo.mpv.library=/absolute/path/to/libmpv.dylib."
+                    PlaybackErrorCode.NETWORK ->
+                        "Network error encountered. Check your internet connection or verify the stream URL."
+                    PlaybackErrorCode.UNSUPPORTED_CONTAINER, PlaybackErrorCode.UNSUPPORTED_CODEC ->
+                        "This media format or codec is not supported by the active playback engine."
+                    else ->
+                        "The media could not be played. Check that the source file is accessible."
+                }
+                VimivoErrorBanner(
+                    title = "Playback Error",
+                    message = "$errorMessage — $advice",
+                    recoveryActionLabel = "Retry",
+                    onRecoveryAction = { scope.launch { queue.retryCurrent() } },
                 )
-                OutlinedButton(onClick = { showFeedbackDialog = true }) {
-                    Text("Report Playback Issue")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    if (queue.state.value.items.size > 1) {
+                        OutlinedButton(onClick = { scope.launch { queue.next() } }) {
+                            Text("Skip to Next")
+                        }
+                    }
+                    OutlinedButton(onClick = { engine.stop() }) {
+                        Text("Dismiss")
+                    }
+                    OutlinedButton(onClick = { showFeedbackDialog = true }) {
+                        Text("Report Issue")
+                    }
                 }
             }
                     }

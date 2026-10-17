@@ -119,6 +119,18 @@ class PlaybackQueueController(
         }
     }
 
+    /** Attempts to open and play the active entry specifically without auto-advancing. */
+    suspend fun retryCurrent(startPositionMillis: Long = 0): Result<Unit> = mutex.withLock {
+        val current = mutableState.value.current
+            ?: return@withLock Result.failure(IllegalStateException("No media item is currently active in queue"))
+        val result = engine.open(current.media, startPositionMillis)
+        if (result.isSuccess) {
+            engine.play()
+        } else {
+            result
+        }
+    }
+
     /** Opens a specific queue entry selected by the user, keeping the remaining queue intact. */
     suspend fun playAt(index: Int, startPositionMillis: Long = 0): Result<Unit> = mutex.withLock {
         if (index !in mutableState.value.items.indices) {
@@ -298,6 +310,7 @@ class PlaybackQueueController(
             index += direction
             attempts++
         }
+        engine.stop()
         return Result.failure(lastFailure ?: IllegalStateException("No available media remains in the queue"))
     }
 

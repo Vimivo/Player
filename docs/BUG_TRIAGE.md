@@ -137,16 +137,53 @@ We do not artificially downgrade defects to permit unverified releases, nor do w
 - **Regression Test**: `DesktopUiAccessibilityTest.kt`. Verified passing.
 - **Status**: **VERIFIED FIXED**.
 
+### Defect VIM-BUG-014 (P1): Metadata Extraction Pipeline Capped at 200 Items Without Incremental Processing Loop
+- **Platform**: Desktop (`DesktopMetadataCoordinator.kt`).
+- **Subsystem**: Metadata Discovery & Extraction Subsystem.
+- **Symptom**: For folders with >200 media files, background metadata extraction ran once for the first 200 candidates and never processed remaining items (e.g., items 201..1000 remained without extracted artist, album, duration, or cover artwork).
+- **Root Cause**: `DesktopMetadataCoordinator.start()` invoked `repository.candidates(rootId)` without a continuous loop (`while (isActive)`), and `candidates(rootId)` query was hardcoded with `LIMIT 200`.
+- **Correction**: Implemented `while (isActive)` chunked processing loop in `DesktopMetadataCoordinator.kt`, added `cancel(rootId)` cooperative cancellation, and invoked `onMetadataUpdated()` / `repository.invalidate()` between chunks to stream updates to UI.
+- **Regression Test**: `IncrementalMediaScannerTest.kt` -> `testMetadataCoordinatorMultiBatchLoopAndCancellation()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-015 (P1): Full Rescans Performed Redundant Database Writes and Redundant Stat Syscalls Without Incremental Change Tracking
+- **Platform**: Desktop (`DesktopMediaScanner.kt`).
+- **Subsystem**: Media Library Scanner & Change Detection.
+- **Symptom**: Rescanning large media libraries repeatedly executed full database updates for all files, re-extracted all attributes via separate syscalls, and did not detect when files were removed from disk (leaving unavailable items marked active).
+- **Root Cause**: `DesktopMediaScanner.scan` performed blind `INSERT OR REPLACE` for every discovered file, used `Files.walk` without reusing `BasicFileAttributes`, and lacked diffing against `SELECT uri, size_bytes, modified_ms, available FROM media_items`.
+- **Correction**: Implemented `Files.walkFileTree` with direct `BasicFileAttributes` reuse, partitioned candidates into `added`, `updated`, and `unchanged`, and identified deleted files to set `available = 0`.
+- **Regression Test**: `IncrementalMediaScannerTest.kt` -> `testIncrementalScanningLifecycleAcrossModifications()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-016 (P2): Artwork Cache Produced Corrupted Black Artifacts on Transparent PNG Cover Art
+- **Platform**: Desktop (`DesktopMediaCache.kt`).
+- **Subsystem**: Artwork Extraction & Cache Pipeline.
+- **Symptom**: When embedded or external cover images were transparent PNGs, downscaling and compressing to JPEG resulted in black background blocks around alpha edges instead of smooth dark theme compositing.
+- **Root Cause**: `DesktopMediaCache.scale()` drew transparent image directly onto an RGB BufferedImage without initializing the canvas with a background fill, causing JPEG encoder to render uninitialized alpha regions as pure black.
+- **Correction**: Checked `source.colorModel.hasAlpha()`, and rendered a solid background fill with theme-matching `Color(24, 24, 27)` before drawing the scaled image.
+- **Regression Test**: `DesktopMediaCacheTest.kt` -> `handlesTransparentPngCompositedOntoDarkBackground()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
+### Defect VIM-BUG-017 (P1): Playback Error Banner Lacked Contextual Diagnostic Remediation and Retry Mechanics
+- **Platform**: Desktop UI (`Main.kt`, `PlaybackQueueController.kt`).
+- **Subsystem**: Playback Recovery & User Journey.
+- **Symptom**: When playback failed due to missing native libraries or unreadable media, the desktop UI displayed a generic error text without actionable controls ("Retry", "Skip to Next") or guidance for missing engines, leaving the user stranded.
+- **Root Cause**: `Main.kt` rendered an ad-hoc inline text box for playback error; `PlaybackQueueController` lacked an explicit `retryCurrent()` method.
+- **Correction**: Integrated `VimivoErrorBanner` with categorized troubleshooting (missing engine, network timeout, format error, I/O error) and actionable "Retry", "Skip to Next", "Dismiss", and "Report Issue" controls; added `retryCurrent(startPositionMillis)` to `PlaybackQueueController`.
+- **Regression Test**: `PlaybackQueueControllerTest.kt` -> `retriesCurrentTrackWithoutAdvancingToNext()`. Verified passing.
+- **Status**: **VERIFIED FIXED**.
+
 ---
 
 ## 4. Defect Metrics & Statistics
 
-- **Total Defects Triaged**: 13
+- **Total Defects Triaged**: 17
 - **Total P0 Defects**: 1 (Fixed: 1, Remaining: 0)
-- **Total P1 Defects**: 7 (Fixed: 7, Remaining: 0)
-- **Total P2 Defects**: 5 (Fixed: 5, Remaining: 0)
+- **Total P1 Defects**: 10 (Fixed: 10, Remaining: 0)
+- **Total P2 Defects**: 6 (Fixed: 6, Remaining: 0)
 - **Total P3 Defects**: 0 open blockers
 - **Unresolved Release Blockers**: **0**
+
 
 
 

@@ -53,8 +53,8 @@ This runs:
 1. `./gradlew detekt` (0 violations required)
 2. `./gradlew :shared:desktopTest` (domain contracts & models, 126 tests)
 3. `./gradlew :desktopApp:compileKotlinDesktop` (desktop compile check)
-4. `./gradlew :desktopApp:desktopTest` (all 224 desktop, database, queue, metadata, and regression tests)
-5. `./gradlew :androidApp:testDebugUnitTest` (Android unit tests, 147 tests)
+4. `./gradlew :desktopApp:desktopTest` (all 227 desktop, database, queue, metadata, and regression tests)
+5. `./gradlew :androidApp:testDebugUnitTest` (Android unit tests)
 6. `./gradlew :androidApp:assembleDebug` (Android debug APK build)
 7. `./scripts/validate_docs.sh` (validates 100% of documentation cross-links)
 

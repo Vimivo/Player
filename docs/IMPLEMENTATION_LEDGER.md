@@ -517,6 +517,46 @@ On 2026-10-17, these commands completed successfully:
   - Detekt static analysis: 0 weighted violations.
   - All 7 verification gates in `./scripts/verify_all.sh` passing cleanly.
 
+### Milestone 85: Advanced Media Library Scalability, Incremental Scanning, Metadata Pipeline Optimization & Artwork Cache Engineering
+
+- **Incremental Scanning Architecture & Filesystem Optimization (VIM-BUG-015)**:
+  - In `desktopApp/.../DesktopMediaScanner.kt`, refactored library scanning to be truly incremental. Replaced `Files.walk` with `Files.walkFileTree` implementing `SimpleFileVisitor<Path>`, reusing `BasicFileAttributes` directly and avoiding redundant `stat()` syscalls. Handled `visitFileFailed` by incrementing error counters and continuing traversal without aborting scans.
+  - Queried existing media records (`SELECT uri, size_bytes, modified_ms, available FROM media_items WHERE root_id=?`) and partitioned candidate files into:
+    - `added`: newly discovered items inserted via chunked batch `INSERT`.
+    - `updated`: existing items whose size or modification timestamp changed, or which were previously marked unavailable, updated via chunked batch `UPDATE`.
+    - `unchanged`: existing items with matching size, timestamp, and active availability, skipping database writes entirely.
+    - `unavailable`: existing database records no longer present on the filesystem, updated in batches to `available = 0` without deleting user metadata or playlist associations.
+  - Refactored database operations into modular batch helpers (`loadExisting`, `insertBatch`, `updateBatch`, `markUnavailable`) reducing method complexity and meeting strict Detekt cyclomatic limits.
+- **Continuous Multi-Batch Metadata Discovery Loop & Cooperative Cancellation (VIM-BUG-014)**:
+  - In `desktopApp/.../DesktopMetadataCoordinator.kt`, replaced the single-batch extraction with a continuous `while (isActive)` loop that processes candidate items in batches of 200 until all unextracted items in large libraries (>200 tracks) are fully enriched.
+  - Added cooperative `cancel(rootId)` allowing background metadata extraction jobs to be halted cleanly on demand without corrupting partial progress.
+  - Emitted `onMetadataUpdated()` and triggered `repository.invalidate()` between batches so the UI reactively reflects newly extracted album art, artist tags, and durations as they arrive.
+  - Decoupled `DesktopMetadataCoordinator` to accept `MediaMetadataExtractor` interface for deterministic testing and injection.
+- **Artwork Cache Compositing for Transparent Covers (VIM-BUG-016)**:
+  - In `desktopApp/.../DesktopMediaCache.kt`, added alpha channel detection (`source.colorModel.hasAlpha()`) during image scaling. When scaling transparent PNG covers, fills the background with a dark-theme composite tone `Color(24, 24, 27)` prior to drawing, preventing DCT JPEG encoding from rendering transparent borders as corrupt pure black artifacts.
+- **Automated Regression Protection**:
+  - Added `IncrementalMediaScannerTest.kt` verifying the full incremental scanning lifecycle: initial discovery, unchanged rescans, file modification detection, deletion tracking (`available = 0`), and new file addition.
+  - Added metadata coordinator multi-batch loop and cancellation test in `IncrementalMediaScannerTest.kt`.
+  - Added `handlesTransparentPngCompositedOntoDarkBackground` test in `DesktopMediaCacheTest.kt`.
+
+### Milestone 86: Playback Recovery Engineering, End-to-End Product Validation, Data Integrity, Failure Resilience & Cross-Platform Quality Assurance
+
+- **Contextual Playback Recovery & Error Remediation (VIM-BUG-017)**:
+  - Integrated `VimivoErrorBanner` into desktop playback UI (`desktopApp/.../Main.kt`) with contextual troubleshooting advice distinguishing missing native engines (`libmpv` / dynamic libraries), network streaming timeouts, unsupported media formats, and local I/O errors.
+  - Provided actionable user controls: "Retry", "Skip to Next", "Dismiss", and "Report Issue" to prevent users from being stranded when media fails.
+  - In `shared/.../PlaybackQueueController.kt`, added `retryCurrent(startPositionMillis: Long = 0): Result<Unit>` enabling explicit user-initiated retries of the active media item without advancing or mutating queue order.
+  - In `PlaybackQueueController.openAvailable()`, added explicit `engine.stop()` cleanup when all queue items fail to open, ensuring native resources are released and preventing zombie playback state.
+- **Cross-Platform Quality Gate & Test Suite Growth**:
+  - Maintained 100% pass rate across all suites:
+    - `:desktopApp:desktopTest`: 227 tests passing, 0 failures.
+    - `:shared:desktopTest`: 117 tests passing, 0 failures.
+    - `:androidApp:testDebugUnitTest`: 23 tests passing, 0 failures.
+    - `iosApp` XCTest Simulator Suite: 9 tests passing, 0 failures.
+  - Detekt static analysis: 0 weighted violations across all modules (`:androidApp:detekt`, `:shared:detekt`, `:desktopApp:detekt`).
+  - Android debug package assembled successfully (`:androidApp:assembleDebug`).
+  - Documentation relative links verified 100% via `./scripts/validate_docs.sh`.
+
+
 
 
 

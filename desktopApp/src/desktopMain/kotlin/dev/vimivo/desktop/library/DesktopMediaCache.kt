@@ -3,6 +3,7 @@
 package dev.vimivo.desktop.library
 
 import dev.vimivo.desktop.platform.DesktopDirectories
+import java.awt.Color
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
@@ -91,6 +92,10 @@ internal class DesktopMediaCache(
         val target = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
         val graphics = target.createGraphics()
         try {
+            if (source.colorModel.hasAlpha()) {
+                graphics.color = Color(24, 24, 27)
+                graphics.fillRect(0, 0, width, height)
+            }
             graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
             graphics.drawImage(source, 0, 0, width, height, null)
         } finally {

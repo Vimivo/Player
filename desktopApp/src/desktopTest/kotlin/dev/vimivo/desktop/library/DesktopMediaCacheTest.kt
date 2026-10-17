@@ -46,4 +46,33 @@ class DesktopMediaCacheTest {
         assertTrue(result.isFailure)
         assertTrue(Files.notExists(directory) || Files.list(directory).use { it.findAny().isEmpty })
     }
+
+    @Test
+    fun handlesTransparentPngCompositedOntoDarkBackground() {
+        val directory = Files.createTempDirectory("vimivo-transparent-artwork")
+        val source = BufferedImage(500, 500, BufferedImage.TYPE_INT_ARGB).also { image ->
+            val graphics = image.createGraphics()
+            try {
+                graphics.color = Color(255, 0, 0, 180)
+                graphics.fillOval(50, 50, 400, 400)
+            } finally {
+                graphics.dispose()
+            }
+        }
+        val encoded = ByteArrayOutputStream().use { output ->
+            ImageIO.write(source, "png", output)
+            output.toByteArray()
+        }
+        val cache = DesktopMediaCache(directory)
+        val uri = cache.storeArtwork("transparent-test", encoded).getOrThrow()
+        val cached = ImageIO.read(java.net.URI(uri).toURL())
+        assertTrue(cached.width == 500 && cached.height == 500)
+        val rgb = cached.getRGB(10, 10)
+        val r = (rgb shr 16) and 0xFF
+        val g = (rgb shr 8) and 0xFF
+        val b = rgb and 0xFF
+        assertTrue(r in 20..30, "Red channel should be near 24, was $r")
+        assertTrue(g in 20..30, "Green channel should be near 24, was $g")
+        assertTrue(b in 20..35, "Blue channel should be near 27, was $b")
+    }
 }

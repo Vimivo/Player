@@ -103,7 +103,9 @@ internal class DesktopLibraryController(
     private val coordinator = LibraryScanCoordinator(
         repository,
         DesktopMediaScanner(database),
-        DesktopMetadataCoordinator(DesktopMetadataRepository(database), DesktopMediaMetadataExtractor(), scope),
+        DesktopMetadataCoordinator(DesktopMetadataRepository(database), DesktopMediaMetadataExtractor(), scope) {
+            repository.invalidate()
+        },
         scope,
     )
     private val mutableState = MutableStateFlow(DesktopLibraryUiState())

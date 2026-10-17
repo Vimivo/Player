@@ -19,7 +19,19 @@ internal class LibraryScanCoordinator(private val repository: DesktopLibraryRepo
         if (jobs[rootId]?.isActive == true) return
         val state = states.getOrPut(rootId) { MutableStateFlow(LibraryScanState.Idle) }
         val root = repository.root(rootId) ?: run { state.value = LibraryScanState.Failed("Library folder no longer exists"); return }
-        jobs[rootId] = scope.launch(Dispatchers.IO) { scanner.scan(rootId, root.path) { state.value = LibraryScanState.Scanning(it) }.onSuccess { state.value = LibraryScanState.Completed(it); repository.invalidate(); metadata.start(rootId) }.onFailure { state.value = LibraryScanState.Failed(it.message ?: "Scan failed") } }
+        jobs[rootId] = scope.launch(Dispatchers.IO) {
+            scanner.scan(rootId, root.path) { state.value = LibraryScanState.Scanning(it) }
+                .onSuccess {
+                    state.value = LibraryScanState.Completed(it)
+                    repository.invalidate()
+                    metadata.start(rootId) { repository.invalidate() }
+                }
+                .onFailure { state.value = LibraryScanState.Failed(it.message ?: "Scan failed") }
+        }
     }
-    fun cancel(rootId: String) { jobs.remove(rootId)?.cancel(); states[rootId]?.value = LibraryScanState.Idle }
+    fun cancel(rootId: String) {
+        jobs.remove(rootId)?.cancel()
+        metadata.cancel(rootId)
+        states[rootId]?.value = LibraryScanState.Idle
+    }
 }

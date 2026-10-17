@@ -242,6 +242,44 @@ class PlaybackQueueControllerTest {
         assertTrue(controller.state.value.items.isEmpty())
     }
 
+    @Test
+    fun retriesCurrentTrackWithoutAdvancingToNext() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        val items = listOf(media("retry_item"), media("second_item"))
+
+        controller.play(items).getOrThrow()
+        runCurrent()
+        assertEquals("retry_item", controller.state.value.currentMedia?.id?.value)
+        assertEquals(1, engine.opened.size)
+
+        // Simulate retry
+        val retryResult = controller.retryCurrent(startPositionMillis = 5000L)
+        assertTrue(retryResult.isSuccess)
+        assertEquals("retry_item", controller.state.value.currentMedia?.id?.value)
+        assertEquals(2, engine.opened.size)
+
+        // Simulate open failure on retry - should not advance to second_item
+        engine.failOnOpen = true
+        val failedRetry = controller.retryCurrent()
+        assertTrue(failedRetry.isFailure)
+        assertEquals("retry_item", controller.state.value.currentMedia?.id?.value, "Must remain on retry_item")
+    }
+
+    @Test
+    fun stopsEngineWhenAllQueueItemsFailToOpen() = runTest {
+        val engine = FakeQueueEngine()
+        engine.failOnOpen = true
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        val items = listOf(media("bad1"), media("bad2"))
+
+        val result = controller.play(items)
+        runCurrent()
+
+        assertTrue(result.isFailure)
+        assertTrue(engine.stopped, "Engine must be stopped when all items fail to open")
+    }
+
     private fun media(id: String) = MediaItem(MediaId(id), "file:///$id.mp3", id, MediaKind.AUDIO)
 }
 
@@ -260,10 +298,14 @@ private class FakeQueueEngine : PlayerEngine {
     val opened = mutableListOf<String>()
     val seeks = mutableListOf<Long>()
     var openHook: (() -> Unit)? = null
+    var failOnOpen = false
     var stopped = false
 
     override fun supportFor(media: MediaItem) = SupportLevel.PREFERRED
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> {
+        if (failOnOpen) {
+            return Result.failure(IllegalStateException("Simulated decoder open failure"))
+        }
         openHook?.invoke()
         opened += media.id.value
         mutableState.value = PlaybackState(
