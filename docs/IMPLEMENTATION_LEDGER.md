@@ -121,6 +121,8 @@ Status terms: **implemented** means code exists, **tested** means automated test
 - `test(playback): add comprehensive source switching, failure injection, and end-to-end user journeys` — Implemented `PlaybackSourceSwitchingTest`, `PlaybackFailureInjectionTest`, and `EndToEndPlaybackUserJourneysTest` in `desktopApp`, verifying seamless transitions between local audio/video and direct URL streams, fault injection (401, 403, 404, 408, 429, 500, redirect loops, CRLF injection), background audio controls, and JSON backup export and restore integrity preserving foreign keys (Milestone 57).
 - `docs(release): publish complete playback verification, security audit, and five-platform GO/NO-GO verdicts` — Published `docs/LOCAL_PLAYBACK_VERIFICATION.md`, `docs/URL_PLAYBACK_VERIFICATION.md`, `docs/FINAL_PLAYBACK_TEST_MATRIX.md`, `docs/PLAYBACK_STATE_REGRESSION.md`, `docs/NATIVE_LIFECYCLE_VERIFICATION.md`, `docs/STREAMING_SECURITY_AUDIT.md`, `docs/MEDIA_PARSER_SECURITY.md`, `docs/PRIVACY_VERIFICATION.md`, `docs/FINAL_PERFORMANCE_RESULTS.md`, `docs/INSTALLATION_VERIFICATION.md`, `docs/DISTRIBUTION_ARTIFACTS.md`, `docs/LICENSE_AND_DEPENDENCY_AUDIT.md`, `docs/FINAL_GO_NO_GO.md`, and updated `docs/DEVELOPMENT_CONTINUATION.md`, `docs/RELEASE_CANDIDATE_STATUS.md`, and `docs/PRODUCTION_READINESS.md` (Milestone 58).
 - `c3eccf9` — `perf(ui,library,playback): optimize Aurora Glass rendering, 50K library queries, and native power efficiency` (Milestones 63 & 64).
+- `3f69cf0` — `docs(perf): publish complete performance, memory, scanner, and regression specifications for M63-M64`.
+
 
 
 ## Quality record
