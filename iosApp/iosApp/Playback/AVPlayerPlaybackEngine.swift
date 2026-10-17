@@ -122,6 +122,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         state.positionMillis = 0
         state.durationMillis = 0
         state.currentItem = nil
+        state.errorMessage = nil
         if let url = activeSecurityUrl {
             SecurityScopedMediaManager.shared.stopAccessing(url: url)
             activeSecurityUrl = nil
@@ -177,6 +178,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
 
         state.currentItem = item
         state.status = .buffering
+        state.errorMessage = nil
         state.positionMillis = 0
         state.durationMillis = item.durationMillis ?? 0
 

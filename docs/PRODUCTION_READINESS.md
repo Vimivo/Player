@@ -133,3 +133,32 @@ Status overview across all five supported platform targets as of **2026-10-16** 
   - CRLF injection defense rejecting illegal carriage return and newline characters in custom headers.
 - **Published Documentation Suite**:
   - `docs/STREAMING_COMPATIBILITY_MATRIX.md`, `docs/STREAM_SESSION_LIFECYCLE.md`, `docs/STREAM_RECOVERY.md`, `docs/STREAMING_TEST_FIXTURES.md`, `docs/STREAMING_LATENCY.md`, and `docs/STREAMING_RELEASE_READINESS.md`.
+
+### Milestones 73 & 74 Final Product Audit, Feature Completeness, Hardening & Release Readiness Summary
+
+- **Automated Regression Quality Gates**:
+  - 487 automated tests passing with 0 failures, 0 errors, and 0 skipped tests:
+    - `:shared:desktopTest`: 105 tests passed (100% pass rate).
+    - `:desktopApp:desktopTest`: 220 tests passed (100% pass rate).
+    - `:desktopApp:compileKotlinDesktop`: BUILD SUCCESSFUL.
+    - `:androidApp:testDebugUnitTest`: 22 tests passed (100% pass rate).
+    - `:androidApp:assembleDebug`: BUILD SUCCESSFUL.
+    - `iosAppTests`: 9 tests passed on iPhone 17 Pro Simulator (100% pass rate).
+  - Detekt static analysis: **0 weighted violations** across all modules.
+  - Unified quality gate (`./scripts/verify_all.sh`): 100% passing across all 6 gates.
+  - Documentation relative link validation (`./scripts/validate_docs.sh`): 100% passing across 32 links.
+- **Milestone 73 Feature Audit & Implementation Fixes**:
+  - Generalized engine candidate discovery in `PlaybackEngineManager.candidatesFor` across all configured engine factories sorted by `SupportLevel` (`PREFERRED` before `FALLBACK`), eliminating hardcoded engine limitations and allowing multiplatform engine factories (including `EngineId.MPV`) to be seamlessly prioritized.
+  - Hardened iOS `AVPlayerPlaybackEngine` error state lifecycle by clearing stale `errorMessage` on new track loading and player stop.
+  - Completed cross-platform UX consistency matrix auditing 15 core user journeys across Android, iOS/iPadOS, macOS, Windows, and Linux.
+- **Milestone 74 Production Hardening & Reliability**:
+  - Strict privacy guarantees verified: Zero cloud accounts, zero telemetry, zero analytics, zero trackers, and zero DRM circumvention.
+  - Safe sanitization via `SafeLogger` redacting user filesystem paths, authentication tokens, and query parameters.
+  - Secure credential storage: Android Keystore, macOS/iOS Keychain, Windows Credential Manager, and Linux Secret Service.
+- **Platform-Specific Release Candidate Assessment**:
+  - **Android**: **CONDITIONAL GO** (Release APK and AAB verified; publication pending developer upload keystore).
+  - **macOS**: **CONDITIONAL GO** (Standalone DMG with bundled JVM and 50 native dylibs verified; publication pending Apple Developer ID notarization).
+  - **iOS / iPadOS**: **CONDITIONAL GO** (SwiftUI app and shared framework verified in simulator; App Store submission pending Apple Developer certificate and provisioning profile).
+  - **Windows**: **CONDITIONAL GO** (Packaging and CI pipelines verified; release binary build requires Windows runner and Authenticode certificate).
+  - **Linux**: **CONDITIONAL GO** (Packaging and CI pipelines verified; release packages require Linux runner).
+

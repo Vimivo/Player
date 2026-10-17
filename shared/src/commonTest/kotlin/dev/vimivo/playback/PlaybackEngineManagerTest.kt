@@ -78,7 +78,37 @@ class PlaybackEngineManagerTest {
         assertEquals(listOf(subtitle), vlc.latest.externalSubtitles)
     }
 
+    @Test
+    fun selectsConfiguredEnginePrioritizingPreferredSupport() = runTest {
+        val fallbackVlc = CustomFactory(EngineId.LIBVLC, SupportLevel.FALLBACK)
+        val preferredMpv = CustomFactory(EngineId.MPV, SupportLevel.PREFERRED)
+        val manager = PlaybackEngineManager(
+            mapOf(fallbackVlc.id to fallbackVlc, preferredMpv.id to preferredMpv),
+            backgroundScope,
+        )
+
+        assertTrue(manager.open(media("stream.mkv")).isSuccess)
+        runCurrent()
+
+        assertEquals(EngineId.MPV, manager.state.value.engine)
+        assertEquals(1, preferredMpv.created)
+        assertEquals(0, fallbackVlc.created)
+    }
+
     private fun media(name: String) = MediaItem(MediaId(name), "file:///tmp/$name", name, MediaKind.VIDEO)
+}
+
+private class CustomFactory(
+    override val id: EngineId,
+    private val level: SupportLevel,
+) : PlayerEngineFactory {
+    var created = 0
+    lateinit var latest: FakeEngine
+    override fun supportFor(media: MediaItem) = level
+    override fun create(): PlayerEngine = FakeEngine(id).also {
+        latest = it
+        created++
+    }
 }
 
 private class FakeFactory(

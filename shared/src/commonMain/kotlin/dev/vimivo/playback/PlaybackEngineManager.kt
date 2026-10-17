@@ -91,9 +91,18 @@ class PlaybackEngineManager(
     }
 
     private fun candidatesFor(media: MediaItem): List<EngineId> =
-        listOf(EngineId.MEDIA3, EngineId.LIBVLC).filter { id ->
-            id !in attemptedEngines && factories[id]?.supportFor(media) != SupportLevel.UNSUPPORTED
-        }
+        factories.entries
+            .filter { (id, factory) ->
+                id !in attemptedEngines && factory.supportFor(media) != SupportLevel.UNSUPPORTED
+            }
+            .sortedBy { (_, factory) ->
+                when (factory.supportFor(media)) {
+                    SupportLevel.PREFERRED -> 0
+                    SupportLevel.FALLBACK -> 1
+                    SupportLevel.UNSUPPORTED -> 2
+                }
+            }
+            .map { it.key }
 
     private suspend fun switchTo(engineId: EngineId, queue: QueueContext, positionMillis: Long): Result<Unit> {
         attemptedEngines += engineId

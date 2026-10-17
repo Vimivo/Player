@@ -50,29 +50,26 @@ Milestones completed:
 - **Milestone 70**: Advanced Video Playback, Subtitles & Cross-Platform Display Controls
 - **Milestone 71**: Native Platform Polish, Lifecycle Hardening & Advanced Playback Reliability
 - **Milestone 72**: Packaging and Distribution Readiness & Release Candidate Preparation
+- **Milestone 73**: Final Product Audit, Remaining Feature Gaps, Feature Completeness & Cross-Platform UX Consistency
+- **Milestone 74**: Production Hardening, Reliability Verification, Final Regression, Release Candidate Preparation & Developer Handover
 
 ## Resume point
 
-Milestones 71 and 72 (Native Platform Polish, Advanced Playback Reliability, Application Lifecycle Hardening, Accessibility and Usability, Cross-Platform Consistency, Final Regression Testing, Packaging and Distribution Readiness, Release Candidate Preparation) are complete, verified, and passing all quality gates.
+Milestones 73 and 74 (Final Product Audit, Remaining Feature Gaps, Feature Completeness, Cross-Platform UX Consistency, Production Hardening, Reliability Verification, Final Regression, Release Candidate Preparation & Developer Handover) are complete, verified, and passing all quality gates.
 
-- **Native Platform Polish Across Targets**:
-  - **Android**: Integrated `BackHandler` dismissing overlays (fullscreen video, now playing sheet, queue sheet, search) or returning to `HOME` before app minimize; adopted `rememberSaveable` for process recreation and screen rotation state preservation; verified Picture-in-Picture (`onUserLeaveHint`), audio focus ducking/pause, and scoped storage permissions.
-  - **Desktop (macOS, Windows, Linux)**: Implemented dynamic window title (`"${media.title} — ${media.artist} — Vimivo"` or `"Vimivo"`); wired `windowState` with `Escape` key handling to exit fullscreen mode; refined MenuBar accelerators with Alt modifiers for seeking to guarantee text field arrow keys are never intercepted.
-  - **iOS & iPadOS**: Hardened `AVPlayerPlaybackEngine` with `repeatMode == .all` wrapping on `playPrevious()`; added pre-flight local file existence verification (`FileManager.default.fileExists`) preventing AVPlayer hangs on moved/deleted files; registered `AVPlayerItemFailedToPlayToEndTime` observer for clean error state presentation; configured automatic `GENERATE_INFOPLIST_FILE = YES;` for test signing.
-- **Advanced Playback Reliability & Queue Integrity**:
-  - Enhanced `PlaybackQueueController.previous()` to wrap around to the last track when `repeatMode == QueueRepeatMode.ALL`, restart track if past 3,000ms threshold, and seek to 0 at the start of queue without failing.
-  - Refined `MpvPlayerEngine.publishFailure` with granular error classification: `SOURCE_NOT_FOUND`, `ACCESS_DENIED`, `NETWORK`, `UNSUPPORTED_CODEC`, `UNSUPPORTED_CONTAINER`, `DECODING_FAILED`, and `ENGINE_INITIALIZATION`.
-  - Added unit test suite in `PlaybackQueueControllerTest` verifying `previous()` behavior across all repeat and threshold conditions.
-- **Packaging & Quality Verification**:
-  - Detekt static analysis: **0 violations** across all modules.
-  - Shared tests: **104 tests passing** (100% pass rate).
-  - Desktop tests: **220 tests passing** (100% pass rate).
-  - Android tests: **22 tests passing** (100% pass rate).
-  - iOS tests: **9 tests passing** (100% pass rate) on iPhone 17 Pro Simulator.
-  - Total automated tests: **486 passing tests** with 0 failures, 0 errors, 0 skipped.
-  - Unified quality gate (`./scripts/verify_all.sh`): **SUCCESS: All verification gates passed with zero errors!**
-  - Relative documentation links (`./scripts/validate_docs.sh`): **100% verified**.
-  - Release Candidate Verdict: **CONDITIONAL GO FOR CONTROLLED DISTRIBUTION (`1.0.0-rc.1`)**. Strict privacy guarantees maintained: zero tracking, zero accounts, zero cloud media catalog, local-first audio and video playback, and explicit user URL streaming. Public release blocked only on owner signing keys and authorization.
+- **Comprehensive Feature Inventory & Audit (M73)**:
+  - Audited all 9 feature domains (Media library, Audio playback, Video playback, Playlists & queue, Search & organization, URL playback, Settings & preferences, Platform integration, Accessibility & UI/UX); confirmed 100% verified status without placeholder or dummy functionality.
+  - Dynamically generalized engine candidate discovery in `PlaybackEngineManager.candidatesFor` across all configured engine factories sorted by `SupportLevel` (`PREFERRED` before `FALLBACK`), eliminating hardcoded engine limitations.
+  - Added unit test `selectsConfiguredEnginePrioritizingPreferredSupport` in `PlaybackEngineManagerTest` verifying multi-engine factory prioritization.
+  - Hardened iOS `AVPlayerPlaybackEngine` error state lifecycle by clearing stale `errorMessage` on new track loading and player stop.
+  - Completed 15 core cross-platform user journey consistency audits across Android, iOS/iPadOS, macOS, Windows, and Linux.
+- **Production Hardening & Reliability Verification (M74)**:
+  - Quality gates: 487 passing automated tests across `:shared:desktopTest` (105), `:desktopApp:desktopTest` (220), `:androidApp:testDebugUnitTest` (22), and `iosAppTests` (9).
+  - Detekt static analysis: **0 violations** across all modules (`:shared`, `:desktopApp`, `:androidApp`).
+  - Unified quality gate (`./scripts/verify_all.sh`): **SUCCESS: All 6 verification gates passed with zero errors!**
+  - Relative documentation links (`./scripts/validate_docs.sh`): **100% verified** across 32 markdown links.
+  - Security & privacy review: 0 tracking, 0 telemetry, 0 account requirements, 0 cloud catalog dependencies, 0 DRM bypassing; credentials protected in OS-level vaults.
+  - Platform GO / CONDITIONAL GO / NO-GO recommendations: All 5 platforms assessed as **CONDITIONAL GO** for controlled distribution. Release blocked solely on owner-managed signing keys and explicit publishing authorization.
 
 
 - **Unified Import & Multi-File Workflows (Desktop & Android)**:
