@@ -73,7 +73,7 @@ jobs:
           echo "Vimivo-1.0.0.dmg SHA-256: $(cat build/artifacts/Vimivo-1.0.0.dmg.sha256)"
 
       - name: Upload macOS distribution artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vimivo-macos-dmg
           path: build/artifacts/*

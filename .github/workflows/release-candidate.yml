@@ -35,7 +35,7 @@ jobs:
           aab=$(find androidApp/build/outputs/bundle/release -name "*.aab" | head -n 1)
           [ -f "$apk" ] && cp "$apk" staging/
           [ -f "$aab" ] && cp "$aab" staging/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rc-android
           path: staging/*
@@ -63,7 +63,7 @@ jobs:
         run: |
           mkdir -p staging
           cp desktopApp/build/compose/binaries/main/dmg/Vimivo-*.dmg staging/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rc-macos
           path: staging/*
@@ -93,7 +93,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
           (cd staging && zip -r Vimivo.xcarchive.zip Vimivo.xcarchive && rm -rf Vimivo.xcarchive)
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rc-ios
           path: staging/*
@@ -131,7 +131,7 @@ jobs:
         run: |
           mkdir -p staging
           find desktopApp/build/compose/binaries/main -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) ! -path "*/temp/*" -exec cp {} staging/ \;
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rc-linux
           path: staging/*
@@ -170,7 +170,7 @@ jobs:
           Get-ChildItem -Path "desktopApp/build/compose/binaries/main" -Recurse -Include *.exe, *.msi | Where-Object { $_.FullName -notmatch "temp" } | ForEach-Object {
             Copy-Item $_.FullName -Destination "staging"
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rc-windows
           path: staging/*
@@ -251,7 +251,7 @@ jobs:
               json.dump(sbom, f, indent=2)
           "
       - name: Upload Complete Release Candidate Bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vimivo-${{ github.event.inputs.candidate_version }}-release-candidate
           path: dist/*
