@@ -1,0 +1,14 @@
+VIMIVO_SMOKE PASS h264.mp4 position=1633ms videoTracks=1
+VIMIVO_SMOKE PASS vp9.webm position=1533ms videoTracks=1
+VIMIVO_SMOKE PASS av1.mkv position=1533ms videoTracks=1
+VIMIVO_SMOKE PASS hdr10.mkv position=1500ms videoTracks=1
+VIMIVO_SMOKE PASS interlaced.ts position=1510ms videoTracks=1
+VIMIVO_SMOKE PASS good.avi position=1520ms videoTracks=1
+VIMIVO_SMOKE PASS broken_index.avi position=1520ms videoTracks=1
+VIMIVO_SMOKE FAIL truncated.mp4 reason=timed out (status=none position=0ms)
+VIMIVO_SMOKE PASS multiaudio.mkv position=1520ms videoTracks=1
+VIMIVO_SMOKE PASS ac3.ac3 position=1507ms videoTracks=0
+VIMIVO_SMOKE PASS hires.flac position=1500ms videoTracks=0
+VIMIVO_SMOKE PASS flv.flv position=1560ms videoTracks=1
+VIMIVO_SMOKE PASS opus.ogg position=1500ms videoTracks=0
+VIMIVO_SMOKE PASS mov.mov position=1520ms videoTracks=1

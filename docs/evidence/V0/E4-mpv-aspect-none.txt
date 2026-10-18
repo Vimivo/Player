@@ -1,0 +1,4 @@
+$ mpv --no-config --vo=null --ao=null --frames=1 --video-aspect-override=none h264.mp4
+Error parsing option video-aspect-override (option parameter could not be parsed)
+Setting commandline option --video-aspect-override=none failed.
+Exiting... (Fatal error)

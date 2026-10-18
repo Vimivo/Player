@@ -1,234 +1,194 @@
-# VLC feature parity: five-platform matrix
+# VLC feature parity: V0 audit
 
-Matrix date: 2026-10-18. This compares Vimivo with the VLC feature list the product owner asked for, across the five
-first-class apps, plus the later TV/ChromeOS targets. Every cell comes from reading the current source. It is **not**
-runtime evidence: runtime proof per platform is tracked in [FINAL_PREMIUM_AUDIT_PHASE_7.md](FINAL_PREMIUM_AUDIT_PHASE_7.md)
-and the phase reports. The desktop apps share one libmpv code path. Only macOS has been run locally; Windows and Linux are
-built and smoke-tested in CI.
+Audit date: 2026-10-19. Baseline: branch `desktop/d0.5-d1` at `a0262fd` plus the uncommitted working tree (desktop
+startup changes). This replaces the earlier source-only matrix: every ✅ below is backed by an entry in the
+[evidence register](#evidence-register). Feature numbers follow the VLC-parity brief (65 items, phases V1–V8).
 
-**Key:** ✅ in source · 🟡 partial (see note) · ❌ not built yet, in scope · ⛔ excluded by decision · 🔜 later phase
-(TV/ChromeOS, after the five apps ship) · — does not apply to the platform.
+**Status key:** ✅ verified (evidence listed) · ❓ present in source, no evidence yet · ⚠️ partial, or claimed done but
+broken (root cause in [Done but broken](#done-but-broken-root-causes)) · ❌ not built · N/A OS limitation (closest
+alternative named) · ⏳ later phase · ⛔ excluded by decision.
 
-**Engines:** Android uses Media3 (ExoPlayer) with a LibVLC 3.7 fallback. iOS uses AVFoundation (`AVPlayer`).
-macOS, Windows and Linux use libmpv (FFmpeg) through JNA.
+**Platforms:** D = desktop (macOS, Windows, Linux), A = Android, I = iOS. **A D cell describes macOS**, the only desktop
+OS run locally. Windows and Linux share the libmpv code path, but CI is currently red on `main` and has never run on
+this branch (E8). Treat every D ✅ as ❓ for Windows and Linux until `windows.yml` and `linux.yml` pass.
 
-**TV / ChromeOS:** Android TV and ChromeOS reuse the Android app (leanback launcher entry, D-pad focus, large-screen
-and keyboard/mouse layouts). tvOS comes last. The column is 🔜 throughout and is listed once per section.
+**Engines today:** D libmpv 0.41.0 through JNA · A Media3 with LibVLC fallback through the shared
+`PlaybackEngineManager` · I `AVPlayer` only. The decided iOS fallback (MPVKit/libmpv) does not exist yet.
 
-## Decisions (2026-10-18)
+## Evidence register
 
-| Topic | Decision |
-|---|---|
-| Encrypted DVD / Blu-ray | ⛔ No DRM bypass (AGENTS.md). |
-| Unencrypted DVD, VCD, Audio CD, Blu-ray | In scope: every libmpv build ships libdvdnav/libdvdread, libcdio (+paranoia) and libbluray. |
-| YouTube and other extraction scripts | ⛔ Excluded. In scope: direct HTTP(S), HLS, DASH, RTSP/RTP/UDP/MMS, podcast RSS. |
-| Web remote and streaming server | In scope, off by default, LAN-only, pairing code/QR plus token auth, firewall prompt explained. Telnet is excluded; a local JSON IPC socket replaces it. |
-| OpenSubtitles | In scope, opt-in: runs only on an explicit Search with the user's own API key or account, and shows exactly what is sent (hash, name, size, language). |
-| Discover (internet radio, podcasts) | In scope as an opt-in section (Radio Browser open API plus a podcast directory), disabled until the user enables it. |
-| Skins | A theme system (tokens JSON import/export, accent, glass, layout options) plus a customizable toolbar. No arbitrary skin engine. |
-| Extensions | mpv's built-in Lua/JavaScript scripts from a user "Scripts" folder, disabled by default with a clear warning; the script API exposure is documented. |
-| Visualizer | projectM as an optional module. |
-| Embeddable engine (libVLC-like) | Backlog: expose VimivoCore and the engine as a library later. |
+Raw logs: [docs/evidence/V0/](evidence/V0/README.md). Media pack: `scripts/generate_test_media.sh`.
 
-## Open questions found while building this matrix
+| ID | What ran | Result |
+|---|---|---|
+| E1 | `./gradlew :shared:desktopTest --rerun :desktopApp:desktopTest --rerun :androidApp:testDebugUnitTest --rerun` | Pass. shared 158 tests / 26 suites, desktopApp 305 / 68, androidApp 27 / 10; 0 failures, 0 skipped |
+| E2 | Live libmpv tests inside E1 (`MpvLiveEngineTest`, `MpvContinuousPlaybackTest`), real Homebrew libmpv 0.41.0 | Pass. 200 % volume accepted and 201 % rejected; sidecar `movie.en.srt` plus `Subs/movie.fr.srt` auto-loaded, unrelated `.srt` ignored, dropped file added; embedded tags published; starting at item 2 auto-advances to item 3 |
+| E3 | Desktop `--smoke-test` (real window and renderer, macOS) on a generated pack: H.264 MP4, VP9/Opus WebM, AV1 MKV, HEVC 10-bit HDR10 MKV, interlaced MPEG-2 TS, MPEG-4 AVI, AVI with `idx1` stripped, MP4 truncated to 60 %, MKV with 3 audio tracks (eng/ben/jpn), AC3, FLAC 24-bit/96 kHz, FLV, Opus OGG, MJPEG MOV | 13/14 PASS (playback advanced ≥ 1.5 s, video track decoded). FAIL `truncated.mp4`: timed out after 20 s with no error state (moov atom missing; see B6) |
+| E4 | `mpv --video-aspect-override=none` and the same property set at runtime | Rejected: "must be a floating point number or a ratio" |
+| E5 | mpv 0.41 on the HDR10 file: `colormatrix`, `video-params/colormatrix`, `video-params/gamma` | `bt.2020-ncl`, `bt.2020-ncl`, `pq`: the transfer function is only in `video-params/gamma` |
+| E6 | `mpv --list-protocols` (0.41.0 build) and a listing of the bundled `Vimivo.app/Contents/Frameworks` | `bd://`, `rtp://`, `udp://`, `mms://`, `ftp://`, `rtsp://` available; no `dvd://`, no `cdda://`, no `smb://`/`sftp://`. Bundle has libbluray, libass + HarfBuzz + FriBidi, uchardet, LuaJIT, mujs, **GPL** libx264/libx265; no libdvdnav/libdvdread/libcdio |
+| E7 | `xcodebuild test` (iosApp scheme, iPhone simulator, iOS 26.5) after `:shared:linkDebugFrameworkIosSimulatorArm64` | `TEST SUCCEEDED`: 24 tests, 0 failures |
+| E8 | `gh run list` | Last runs on `main` (`5e417ac`): Shared, Android, macOS, Windows, Linux **failed**, iOS passed. Windows failures include `DesktopDiagnosticExporterTest.refusesToExportToProtectedSystemLocations` and `DesktopVideoMetadataExtractorTest.extractsVideoWithoutAudio`. This branch is 5 commits ahead of origin with no CI runs |
+| E9 | Android runtime | **Not run**: no emulator or device attached. Instrumentation tests (`androidTest`) not run |
+| S | Source reading | File references in the notes; never counted as ✅ on its own |
 
-1. **iOS container coverage.** `AVPlayer` cannot play MKV, AVI, FLV, WebM, OGG, MPEG-TS files, DASH, RTSP or most
-   VLC-only codecs, and cannot host an equalizer. VLC parity on iOS needs a second engine (libmpv or MobileVLCKit,
-   both LGPL and both shipped in App Store apps through dynamic frameworks). This needs a decision and an ADR.
-2. **Conversion, recording, screen capture and webcam input** are on the requested list but have no decision yet.
-   Screen and camera capture need OS permissions (macOS Screen Recording/Camera, Android MediaProjection/CAMERA, iOS
-   ReplayKit/camera). The matrix marks them ❌ pending a decision.
-3. **Equalizer in the player window.** Since ADR-030 the desktop equalizer panel is reachable only from the library
-   window's playback bar. It should move into the player window's side panel (S2).
+## Done but broken: root causes
 
-## Playback and formats
+| # | Claim (where) | What is actually true | Root cause |
+|---|---|---|---|
+| B1 | Gapless audio "Implemented, tested" on Android, macOS, Windows, Linux ([FEATURE_MATRIX.md](FEATURE_MATRIX.md)) | No platform is gapless across files | Every item is opened on its own after the previous one reports `Completed`. Desktop: `keep-open=yes` pauses on the last frame; a 250 ms poll sees `eof-reached`; then `loadfile … replace` with `pause=yes` and a later `play()`. `gapless-audio=yes` only works inside mpv's own playlist, which Vimivo never uses. Android: `Media3PlayerEngine.open` calls `setMediaItem` + `prepare()` per item through `SessionPlayerAdapter` → `PlaybackEngineManager`, so ExoPlayer never sees a playlist to pre-buffer. iOS: single `AVPlayer`, no `AVQueuePlayer`. The capability flag `gapless = true` in `MpvPlayerEngine.capabilitiesFor` is the only "evidence" |
+| B2 | Aspect presets ✅ on desktop | Choosing **Fill** (side panel, or pressing A three times) fails, and the queue then **skips the file** | `VideoAspectRatio.FILL` sends `video-aspect-override=none`, which libmpv rejects (E4). `MpvPlayerEngine.action()` routes every control failure to `publishFailure`, which sets `PlaybackStatus.Error` on the loaded media; `PlaybackQueueController` treats an error on the current item as unplayable and skips it. Any failing control (not only aspect) can skip a file |
+| B3 | HDR ✅ on desktop diagnostics | HDR content is never reported as HDR | `getDiagnosticsSnapshot` reads the top-level `colormatrix` property and looks for `2084`/`pq`/`hlg`; the transfer function is in `video-params/gamma` (E5), so HDR10 and HLG map to `UNKNOWN`. No tone-mapping or `target-*` options are set either |
+| B4 | Desktop zoom/pan ✅ "side panel" (previous matrix) | Engine supports `video-zoom`/`video-pan-*`; no control in any desktop UI | `DesktopVideoControlsPanel` exposes aspect, rotate, brightness, contrast, saturation only; gamma is engine-only too |
+| B5 | "Windows and Linux are built and smoke-tested in CI" (previous matrix) | Not true today | CI red on `main` since `5e417ac`; branch never pushed (E8) |
+| B6 | Damaged/incomplete files "tolerated" | Truncated MP4 shows nothing for 20 s | libmpv fails with "moov atom not found", but no error reached the UI state within the smoke timeout; the load-failure path (`idle && !everLoaded` after 1.5 s) did not publish for this file. Needs a regression test |
+| B7 | Android ReplayGain "Partial (metadata only)" | No ReplayGain code in `androidApp/src/main` | Matrix entry not backed by source |
+| B8 | iOS lyrics, sleep timer (corrected earlier in FEATURE_MATRIX.md) | Still absent | No iOS implementation; shared `SleepTimer`/`LrcLyricsParser` are not used from Swift |
+| B9 | Rule: native libraries pinned by version + SHA-256 | Only Windows is pinned (shinchiro `20261016`, SHA-256 checked) | macOS CI runs `brew install mpv` (whatever is current); Linux uses the runner's `libmpv2` apt package |
+| B10 | Rule: LGPL/GPL obligations shown in About | Desktop "About Vimivo" opens Settings with no notices, while the macOS bundle ships GPL x264/x265 (E6) | Licence screen exists only on Android (`VimivoAndroidApp.kt`); not on desktop or iOS |
+| B11 | AGENTS.md: iOS persistence and non-UI logic in `shared` | `iosApp/Storage/IOSDatabase.swift` (580 lines) is a Swift SQLite store; queue, shuffle and bookmarks live in `AVPlayerPlaybackEngine.swift` | iOS predates the shared-framework rule; only `AppRouter`, `MediaModels`, `PlaybackPreferences` import `VimivoShared` |
 
-| Feature | Android | iOS | macOS | Windows | Linux | Where in UI | Notes |
+## Decisions in force
+
+⛔ Encrypted DVD/Blu-ray (no DRM bypass); unencrypted DVD/VCD/Audio CD/Blu-ray in scope. ⛔ YouTube/site extraction;
+direct HTTP(S), HLS, DASH, RTSP/RTP/UDP/MMS, podcast RSS in scope. Web remote and streaming server: off by default,
+LAN-only, pairing code/QR + token. Telnet replaced by a desktop JSON IPC socket. OpenSubtitles, Discover (Radio Browser +
+podcasts) opt-in only. Themes + customizable toolbar instead of skins. Desktop mpv Lua/JS scripts, off by default with a
+warning. iOS fallback engine: MPVKit (libmpv). Automatic primary → fallback routing that **remembers the choice** per
+file: routing exists on Android (`PlaybackEngineManager`), memory does not (`attemptedEngines` is cleared on every
+open). tvOS, Android TV, ChromeOS ⏳ V7. Embeddable engine: backlog.
+
+## Matrix
+
+Priority: M = must-have, L = later. "UI" is today's location, then → the target from the brief where it differs.
+
+### 2.1 Playback and formats
+
+| # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| Common containers and codecs (MKV, MP4, AVI, MOV, FLV, WebM, TS, OGG, FLAC, MP3, AAC) | ✅ | 🟡 | ✅ | ✅ | ✅ | Open file, library, OS "Open with" | Android: Media3 with LibVLC fallback. iOS: AVFoundation formats only (MP4/MOV/M4A/MP3/AAC/ALAC/FLAC/WAV, HLS); see open question 1 |
-| DVD, VCD, Audio CD, unencrypted Blu-ray | — | — | ❌ | ❌ | ❌ | File ▸ Open Disc… (planned) | libmpv `dvd://`, `cdda://`, `bd://` need the decided libraries in every bundled build. Phones have no optical drive; disc images (ISO, VIDEO_TS) on Android via LibVLC are a possible follow-up |
-| Damaged, incomplete or still-downloading files | 🟡 | ❌ | 🟡 | 🟡 | 🟡 | — | FFmpeg/LibVLC tolerate broken streams, but there are no fixtures or tests yet; `AVPlayer` refuses most damaged files |
-| Speed control with pitch correction | ✅ | ✅ | ✅ | ✅ | ✅ | Desktop: control-bar speed button, `[` `]`; Android: player sheet; iOS: player Speed sheet, hold for 2× | Desktop 0.25–4× ladder (`PlaybackControlPolicy`); iOS uses `audioTimePitchAlgorithm` |
-| Frame-by-frame stepping | ❌ | ❌ | ✅ | ✅ | ✅ | Desktop: E / Shift+E, Video menu, side panel | Media3 has no frame step; LibVLC `nextFrame` and AVFoundation `step(byCount:)` both exist |
-| A-B repeat loop | ✅ | ❌ | ✅ | ✅ | ✅ | Desktop: Shift+L; Android: video player options | Android: `abRepeatStartMillis/EndMillis` in `PlaybackViewModel` |
-| Resume where you left off | ✅ | ✅ | ✅ | ✅ | ✅ | Automatic; desktop shows a "Start over" toast | Shared `ResumePolicy`; desktop files opened outside the library resume too (`DesktopPlaybackStore`) |
-| Hardware-accelerated decoding | ✅ | ✅ | ✅ | ✅ | ✅ | Settings (desktop diagnostics show the active decoder) | Android MediaCodec / LibVLC; iOS VideoToolbox (implicit); libmpv `hwdec=auto-safe` (VideoToolbox, D3D11/DXVA2, VA-API/VDPAU) |
-| HDR playback | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | — | Engines advertise HDR; tone-mapping is untested on desktop (the overlay ADR measures 4K HDR) |
-| 360° video | ❌ | ❌ | ❌ | ❌ | ❌ | Player: drag to look around (planned) | LibVLC has viewpoints; libmpv needs the lavfi `v360` filter; iOS needs a custom renderer |
-| Gapless audio | ✅ | ❌ | ✅ | ✅ | ✅ | Automatic | **Correction:** FEATURE_MATRIX.md lists iOS as implemented, but `AVPlayerPlaybackEngine` uses a single `AVPlayer` with no `AVQueuePlayer` or preroll |
+| 1 | Nearly every A/V format | ✅ | ❓ | ⚠️ | M | Open file, library, OS "Open with" | D: E3 (13 containers/codecs incl. AV1, HDR10 HEVC, FLV, TS). A: Media3 → LibVLC fallback via `PlaybackEngineManager` (fallback logic unit-tested, `PlaybackEngineManagerTest`, E1); no runtime (E9); fallback choice not remembered. I: `AVPlayer` only; MKV/AVI/WebM/FLV/OGG/TS unsupported until MPVKit |
+| 2 | DVD, Audio CD, VCD, unencrypted Blu-ray | ❌ | ❌ | ❌ | M (D) / L | → Open ▸ Disc | `MpvPlayerEngine.SUPPORTED_SCHEMES` = file/http/https/rtsp/rtsps, so `bd://` is rejected although the bundle has libbluray (E6). No libdvdnav/libdvdread/libcdio in the bundle. A/I: no ISO path |
+| 3 | Damaged, incomplete, growing files | ⚠️ | ❓ | ❌ | M | automatic → + Settings ▸ Playback ("Repair index") | D: index-less AVI plays (E3); truncated MP4 fails silently (B6); growing-file duration refresh and repair prompt not built |
+| 4 | Speed 0.25–4× with pitch correction | ⚠️ | ⚠️ | ⚠️ | M | D: speed button, `[` `]`, side panel; A: player Speed panel; I: Speed sheet | Ladder `PlaybackSpeeds`/`PlaybackControlPolicy` unit-tested (E1). D `audio-pitch-correction=yes`; I `audioTimePitchAlgorithm`. ±0.05 fine steps and long-press 2× (A) missing; engine application not runtime-verified |
+| 5 | Frame-by-frame | ❓ | ❌ | ❌ | M | D: E / Shift+E, Video menu, side panel | D: `frame-step`/`frame-back-step`. A/I: no step API wired (LibVLC `nextFrame`, `AVPlayerItem.step(byCount:)` unused) |
+| 6 | A–B repeat | ⚠️ | ❓ | ❌ | M | D: Shift+L, Video menu, side panel; A: video options | Step logic unit-tested (`PlaybackControlPolicyTest`, E1); engine `ab-loop-a/b`; no timeline region on any platform |
+| 7 | Resume from last position | ✅ | ✅ | ❓ | M | D: "Start over" toast; A/I: automatic | Shared `ResumePolicyTest` + Android `VideoResumePolicyTest` (E1). Toast UI not screenshotted. I: own Swift store (B11) |
+| 8 | Hardware decoding | ❓ | ❓ | ❓ | M | Settings; desktop diagnostics | D: `hwdec=auto-safe`, per-OS API in `setHardwareAccelerationMode`. A: MediaCodec/LibVLC; HW / HW+ / SW selector missing. I: implicit VideoToolbox |
+| 9 | HDR playback | ⚠️ | ❓ | ❓ | M | automatic | D: HDR10 file plays (E3), detection broken (B3), no tone-mapping/passthrough config |
+| 10 | 360° video | ❌ | ❌ | ❌ | L | → "360°" badge, reset view | Not built |
+| 11 | Gapless audio | ⚠️ | ⚠️ | ❌ | M | automatic | B1. Crossfade not built anywhere |
 
-TV / ChromeOS: 🔜 for every row.
+### 2.2 Video controls
 
-## Video controls
-
-| Feature | Android | iOS | macOS | Windows | Linux | Where in UI | Notes |
+| # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| Aspect-ratio presets | ✅ | ✅ | ✅ | ✅ | ✅ | Desktop: A key, side panel; Android: resize mode; iOS: fit/crop/stretch/16:9/4:3 | |
-| Crop presets | 🟡 | 🟡 | ❌ | ❌ | ❌ | Side panel Video tab (planned) | Android/iOS have a fill-crop mode only; mpv `video-crop` needs mpv ≥ 0.38 in every bundled build |
-| Zoom / pan | ✅ | ✅ | ✅ | ✅ | ✅ | Pinch on mobile; desktop side panel | |
-| Deinterlacing (several modes) | ❌ | — | 🟡 | 🟡 | 🟡 | Desktop: D key, side panel | Desktop is on/off only; mode choice (yadif, bwdif) still to come. LibVLC on Android supports modes. AVFoundation deinterlaces automatically with no control |
-| Brightness, contrast, saturation, hue, gamma | ❌ | ❌ | 🟡 | 🟡 | 🟡 | Desktop side panel Video tab | Desktop lacks hue. Mobile "brightness" is the screen-brightness gesture, not a video filter |
-| Effects: sharpen, rotate/transform, mirror, blur, film grain, colour threshold | ❌ | ❌ | 🟡 | 🟡 | 🟡 | Side panel ▸ Effects (planned) | Desktop has rotate only; the rest via mpv `vf` lavfi. LibVLC video filters on Android |
-| Snapshot | ❌ | ❌ | ✅ | ✅ | ✅ | Desktop: Shift+S, saved to `~/Pictures/Vimivo` | LibVLC `takeSnapshot`; iOS `AVPlayerItemVideoOutput` |
-| Always on top | — | — | ❌ | ❌ | ❌ | View ▸ Always on Top (planned) | `ComposeWindow.isAlwaysOnTop`; mobile equivalent is PiP |
-| Fullscreen | ✅ | ✅ | ✅ | ✅ | ✅ | Desktop: F, double-click, control bar | |
-| Wallpaper mode | — | — | ❌ | ❌ | ❌ | View menu (planned) | Platform-specific; needs per-OS research before committing |
-| Multiple video tracks | ✅ | 🟡 | ✅ | ✅ | ✅ | Desktop: Video menu, side panel | iOS selection is limited to what `AVMediaSelection` exposes |
+| 12 | Aspect, crop presets + black-bar detection, zoom & pan | ⚠️ | ⚠️ | ⚠️ | M | D: A key, side panel; A: resize mode + pinch; I: fit/crop/stretch/16:9/4:3 + pinch | D: Fill broken (B2), zoom/pan no UI (B4), crop and auto-crop not built. A/I: no crop presets or black-bar detection |
+| 13 | Deinterlacing modes | ⚠️ | ❌ | ❌ | M | D: D key, Video menu, side panel | D on/off only (`deinterlace` yes/no); no yadif/bwdif choice. A/I need LibVLC/MPVKit routing for interlaced files |
+| 14 | Brightness, contrast, saturation, hue, gamma | ⚠️ | ❌ | ❌ | M | D: side panel | D UI has B/C/S; gamma engine-only; hue missing. Mobile "brightness" is the screen gesture |
+| 15 | Effects (sharpen, mirror, blur, grain…) | ⚠️ | ❌ | ❌ | L | D: side panel Rotate | D rotate only |
+| 16 | Snapshot | ⚠️ | ❌ | ❌ | M | D: Shift+S, Video menu, side panel → `~/Pictures/Vimivo` | D: `screenshot-to-file … video` (no "with subtitles" choice), PNG only, no folder setting; no test |
+| 17 | Always-on-top, fullscreen, wallpaper | ⚠️ | ❓ | ❓ | M (wallpaper L) | D: F, double-click, View menu | D fullscreen in source; always-on-top and wallpaper not built. A/I equivalent = PiP (#62) |
+| 18 | Multiple video tracks | ❓ | ❓ | ⚠️ | M | D: side panel | D `vid`; I limited to `AVMediaSelection` groups |
 
-## Audio
+### 2.3 Audio
 
-| Feature | Android | iOS | macOS | Windows | Linux | Where in UI | Notes |
+| # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| 10-band equalizer with presets | ✅ | ❌ | ✅ | ✅ | ✅ | Desktop: Equalizer panel (library window; move to player side panel, open question 3) | iOS blocked by `AVPlayer` (open question 1) |
-| Compressor, spatializer, stereo widener | 🟡 | ❌ | ❌ | ❌ | ❌ | Equalizer panel ▸ Effects (planned) | Android has BassBoost/Virtualizer (`AndroidAudioEnhancementController`); desktop via lavfi `acompressor`, `extrastereo`, `haas` |
-| Volume boost to 200% | ❌ | ❌ | ✅ | ✅ | ✅ | Desktop control-bar volume (red tint above 100%) | Android `LoudnessEnhancer` is possible; iOS has no supported route |
-| Audio track switching | ✅ | ✅ | ✅ | ✅ | ✅ | Desktop: B key, Audio menu; iOS: Audio sheet | |
-| Audio / subtitle sync offset | ✅ | ❌ | ✅ | ✅ | ✅ | Desktop: G/H and Shift+G/H; Android: player sheet | |
-| Normalization | 🟡 | ❌ | ✅ | ✅ | ✅ | Desktop: Equalizer panel ▸ Normalize (`dynaudnorm`) | Android has ReplayGain metadata only |
-| Visualizations (spectrum, scope, projectM) | 🟡 | ❌ | ❌ | ❌ | ❌ | Audio player layout (planned, S4) | Android shows a low-rate activity indicator, deliberately without the `Visualizer` permission; projectM is an optional module |
-| Passthrough (S/PDIF, HDMI) for Dolby/DTS | ❌ | — | ❌ | ❌ | ❌ | Settings ▸ Audio output (planned) | mpv `audio-spdif`; Media3 passthrough via `AudioCapabilities`; iOS has no app control |
+| 19 | 10-band EQ + presets + preamp | ✅ | ⚠️ | ❌ | M | D: Equalizer panel, **library window only** → player side panel | D filter chain unit-tested (`DesktopAudioEffectsTest`, `MpvAdvancedPlaybackTest`, E1); preamp is attenuation-only. A: platform `Equalizer` effect, band count is device-defined (often 5); mapping tested (`AndroidAudioEnhancementTest`). I needs AVAudioEngine or MPVKit |
+| 20 | Compressor, spatializer, widener | ❌ | ⚠️ | ❌ | L | — | A: BassBoost/Virtualizer only |
+| 21 | Volume boost to 200 % | ⚠️ | ❌ | ❌ | M | D: control-bar slider, red above 100 % → amber | D: 200 % verified live (E2), but no limiter (clipping possible) |
+| 22 | Audio track switching | ❓ | ❓ | ❓ | M | D: B key, Audio menu, side panel; I: Audio sheet | 3-track MKV plays (E3), switching not exercised. Labels show title/language/codec, not channels; no default-language preference on any platform |
+| 23 | Audio/subtitle sync offset | ❓ | ❓ | ❌ | M | D: G/H, Shift+G/H, side panel; A: player sheet | D: `sub-delay`/`audio-delay`, delay steps unit-tested (`PlaybackControlPolicyTest`) |
+| 24 | Normalization + ReplayGain | ✅ | ❌ | ❌ | M | D: Equalizer panel ▸ Normalize | D `dynaudnorm` chain unit-tested (E1); `replaygain` track/album in source only. A: B7 |
+| 25 | Visualizations | ❌ | ⚠️ | ❌ | L | → Audio player ▸ Visualizer | A: settings switch and low-rate activity indicator only |
+| 26 | S/PDIF/HDMI passthrough | ❌ | ❌ | N/A | M (D, A) | → Audio ▸ Output | No `audio-spdif`, no Media3 passthrough. I: N/A, AirPlay carries multichannel |
 
-## Subtitles
+### 2.4 Subtitles
 
-| Feature | Android | iOS | macOS | Windows | Linux | Where in UI | Notes |
+| # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| SRT, ASS/SSA, VTT, SUB/IDX, DVB, embedded | ✅ | 🟡 | ✅ | ✅ | ✅ | Desktop: Subtitle menu, V key | Media3 plus LibVLC; libmpv/libass. iOS shows embedded legible tracks only, with no external SRT loading |
-| Auto-load matching subtitle files | ✅ | ❌ | ✅ | ✅ | ✅ | Automatic | Desktop `sub-auto=fuzzy` plus per-file `sub-file-paths`; Android `AndroidSubtitleRepository` |
-| Drag-and-drop subtitle loading | — | — | ✅ | ✅ | ✅ | Drop on the player window | Mobile equivalent: "Load subtitle file" picker (Android ✅, iOS ❌) |
-| Delay, font, size, colour, outline | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | Desktop: side panel; Android: subtitle settings | Desktop has delay, size, colour and position, with font and outline still to come. iOS follows system caption settings (the native alternative) |
-| OpenSubtitles search | ❌ | ❌ | ❌ | ❌ | ❌ | Subtitle menu ▸ Search Online… (opt-in, planned) | Decided: explicit Search only, user's own key, show what is sent |
+| 27 | SRT, ASS, VTT, SUB/IDX, DVB, PGS, embedded, CEA-608/708, complex scripts | ⚠️ | ❓ | ⚠️ | M | D: Subtitle menu, V key, side panel; I: Subtitles sheet | D: SRT verified live (E2); libass + HarfBuzz/FriBidi bundled (E6) but no Bangla/Arabic/CJK render test; CEA-608 off (`sub-create-cc-track` unset). I: embedded legible tracks only |
+| 28 | Auto-load matching files | ✅ | ✅ | ❌ | M | automatic | D: E2 (`name.lang.srt`, `Subs/`). A: `SubtitleMatchingTest` (E1) |
+| 29 | Drag-and-drop / picker loading | ✅ | ❓ | ❌ | M | D: drop on player, side panel "Add File"; A: picker | D load path verified (E2); the drop gesture itself is not automated. Side-panel picker hard-codes the SRT MIME type for every file |
+| 30 | Font, size, colour, outline, shadow, background, position, secondary, encoding | ⚠️ | ⚠️ | ⚠️ | M | D: side panel; A: subtitle settings; I: system caption style | D: size, colour, position only; no font, outline, shadow, secondary track or ASS override. Encoding auto-detect relies on bundled uchardet (untested) |
+| 31 | Sync panel | ⚠️ | ⚠️ | ❌ | M | → Sync panel / sheet | Audio + subtitle delay only; no secondary delay, `sub-speed`, `sub-fps` or "Sync to now" |
+| 32 | OpenSubtitles (opt-in) | ❌ | ❌ | ❌ | L | → Subtitles ▸ Search online | Not built |
 
-## Streaming and network
+### 2.5 Streaming and network
 
-| Feature | Android | iOS | macOS | Windows | Linux | Where in UI | Notes |
+| # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| HTTP(S) media URLs | ✅ | ✅ | ✅ | ✅ | ✅ | Desktop: File ▸ Open Network Stream (Cmd/Ctrl+U), paste a link | |
-| HLS | ✅ | ✅ | ✅ | ✅ | ✅ | Same | |
-| DASH | ✅ | ❌ | ✅ | ✅ | ✅ | Same | `AVPlayer` has no DASH |
-| RTSP / RTP / UDP / MMS | 🟡 | ❌ | 🟡 | 🟡 | 🟡 | Same | RTSP is in source on Android and desktop; RTP/UDP/MMS via FFmpeg/LibVLC are untested |
-| SMB / FTP / DLNA-UPnP browsing | 🟡 | ❌ | ❌ | ❌ | ❌ | Network page | Android models SMB/UPnP/DLNA, but the SMB transport is not packaged; FTP is deliberately off in favour of SFTP/WebDAV |
-| Stream to the network (streaming server) | ❌ | ❌ | ❌ | ❌ | ❌ | Settings ▸ Sharing (planned) | Decided: off by default, LAN-only, pairing plus token |
-| YouTube and site extraction scripts | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | — | Excluded |
-| Internet radio and podcast directory | ❌ | ❌ | ❌ | ❌ | ❌ | Opt-in "Discover" section (planned) | Radio Browser API, podcast RSS |
-| Chromecast casting | ❌ | ❌ | ❌ | ❌ | ❌ | Player ▸ Cast (planned) | iOS's native alternative is AirPlay (`AVRoutePickerView`), not yet added |
+| 33 | HTTP(S), HLS, DASH, RTSP, RTP, UDP, MMS | ⚠️ | ⚠️ | ⚠️ | M | D: File ▸ Open Network Stream (Cmd/Ctrl+U), Network page; A: Network page; I: Videos ▸ Open URL | Validation and session lifecycle unit-tested (`StreamValidatorTest`, `StreamSessionLifecycleTest` with a local test server, E1). RTP/UDP/MMS rejected by scheme allow-lists although libmpv supports them (E6). I: HTTP(S)/HLS only |
+| 34 | SMB, FTP/SFTP, NFS, DLNA/UPnP | ❌ | ⚠️ | ❌ | M | A: Network page | A: SMB model present, transport "not packaged"; FTP deliberately off |
+| 35 | Stream to the network | ❌ | ❌ | ❌ | L | → Tools ▸ Share on network | Not built |
+| 36 | Web URL playback | ❓ | ❓ | ⚠️ | M | as #33 | No live URL run in this audit (`stream_urls.txt` not played) |
+| 37 | Internet radio + podcasts (opt-in) | ❌ | ❌ | ❌ | L | → Library ▸ Discover | `DesktopDiscoveryPanel` is duplicate detection, not Discover |
+| 38 | Chromecast / AirPlay / DLNA casting | ❌ | ❌ | ❌ | M | → Cast button | No AirPlay route picker on iOS either |
 
-## Conversion and recording
+### 2.6 Conversion and recording
 
-| Feature | Android | iOS | macOS | Windows | Linux | Where in UI | Notes |
+| # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| Convert / transcode | ❌ | ❌ | ❌ | ❌ | ❌ | File ▸ Convert… (planned) | Pending decision (open question 2); desktop could use FFmpeg via libmpv `encode` options |
-| Record playback or streams | ❌ | ❌ | ❌ | ❌ | ❌ | Player ▸ Record (planned) | libmpv `stream-record` |
-| Screen capture / desktop recording | ❌ | ❌ | ❌ | ❌ | ❌ | — | Pending decision; needs OS capture permissions |
-| Webcam and capture-card input | ❌ | ❌ | ❌ | ❌ | ❌ | — | Pending decision; needs camera permission |
+| 39 | Convert/transcode | ❌ | ❌ | ❌ | L | → Tools ▸ Convert | Encoders already in the macOS bundle (E6), licence impact per B10 |
+| 40 | Record playback/streams | ❌ | ❌ | ❌ | L | → Tools ▸ Record | — |
+| 41 | Screen capture | ❌ | ❌ | ❌ | L | → Open ▸ Capture ▸ Screen | — |
+| 42 | Webcam / capture card | ❌ | ❌ | ❌ | L | → Open ▸ Capture ▸ Device | — |
 
-## Library and playlists
+### 2.7 Library and playlists
 
-| Feature | Android | iOS | macOS | Windows | Linux | Where in UI | Notes |
+| # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| Create and save playlists | ✅ | ✅ | ✅ | ✅ | ✅ | Playlists page | |
-| M3U / XSPF / PLS | 🟡 | 🟡 | ✅ | ✅ | ✅ | Desktop: File ▸ Import Playlist, open with | Shared `PlaylistFormats` parses all three, but only desktop uses it; Android and iOS handle M3U only |
-| Media library | ✅ | ✅ | ✅ | ✅ | ✅ | Desktop: library window; mobile: tabs | |
-| Shuffle, repeat, sort | ✅ | ✅ | ✅ | ✅ | ✅ | Queue and playback bar | iOS repeat/shuffle persistence is still open (Q1) |
-| Bookmarks within media | ✅ | ✅ | ✅ | ✅ | ✅ | Desktop: player side panel ▸ Bookmarks; iOS: player sheet | |
-| Recently played | ✅ | ✅ | ✅ | ✅ | ✅ | Desktop: File ▸ Open Recent, History page | |
+| 43 | Playlists: M3U/M3U8, XSPF, PLS, CUE | ✅ | ⚠️ | ⚠️ | M | D: File ▸ Import Playlist, Playlists page | Shared parsers tested (`PlaylistM3uHandlerTest`, `PlaylistXspfHandlerTest`, `PlaylistPlsHandlerTest`) and used by desktop only; CUE handed to libmpv (untested). A: M3U only (`PlaylistDocumentsTest`). I: playlists without import/export |
+| 44 | Media library + search | ⚠️ | ✅ | ⚠️ | M | D: library window; A/I: tabs | Desktop library integration, migration, Bengali search tests pass (E1), but search is `LIKE`, not FTS5. A: `LibraryQueryBuilderTest`; DAO instrumentation not run. I: `IOSDatabaseTests` (E7) pass, persistence outside `shared` (B11) |
+| 45 | Shuffle, repeat, sort, continuous auto-next | ✅ | ❓ | ✅ | M | Transport + queue | D: `PlaybackQueueControllerTest` + live auto-advance (E2). I: `ContinuousPlaybackTests` (E7). A: own session queue, no runtime run |
+| 46 | Bookmarks | ⚠️ | ❓ | ❓ | M | D: player side panel ▸ Bookmarks; I: player sheet | No thumbnails or timeline markers on any platform |
+| 47 | History / Recent | ✅ | ❓ | ❓ | M | D: File ▸ Open Recent, Home | `DesktopRecentMediaRepositoryTest`, `MediaInfoAndRecentMediaTest` (E1) |
 
-## Interface and customization
+### 2.8 Interface and customization
 
-| Feature | Android | iOS | macOS | Windows | Linux | Where in UI | Notes |
+| # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| Themes (light, dark, AMOLED) | ✅ | ✅ | ✅ | ✅ | ✅ | Settings ▸ Appearance | |
-| Theme tokens import/export, accent, glass, layout | ❌ | ❌ | ❌ | ❌ | ❌ | Settings ▸ Appearance (planned, S6) | Decided replacement for skins |
-| Customizable toolbar | ❌ | ❌ | ❌ | ❌ | ❌ | Player control bar ▸ Customize (planned) | |
-| Hotkeys / customizable hotkeys | — | — | 🟡 | 🟡 | 🟡 | Settings ▸ Shortcuts (planned) | Fixed map in `DesktopPlayerShortcuts`; OS media keys work through Now Playing, SMTC and MPRIS |
-| Mouse gestures | — | — | ❌ | ❌ | ❌ | Player window (planned) | |
-| Touch gestures (volume, brightness, seek, zoom) | ✅ | ✅ | — | — | — | Video player | |
-| Mini / compact player | ✅ | ✅ | ❌ | ❌ | ❌ | Desktop: View ▸ Mini Player (planned) | Mobile has a now-playing bar and PiP |
-| Extensions (mpv Lua/JS scripts) | — | — | ❌ | ❌ | ❌ | Settings ▸ Scripts (opt-in, planned) | Desktop only, because mpv scripts exist only there; the mobile gap is documented, with no equivalent planned |
-| Web interface and remote control | ❌ | ❌ | ❌ | ❌ | ❌ | Settings ▸ Remote (planned) | Decided: LAN-only, pairing plus token; desktop also gets a local JSON IPC socket; no telnet |
-| Command-line interface | — | — | 🟡 | 🟡 | 🟡 | Terminal | `LaunchArguments`: files, start position, fullscreen, single instance; no playback commands yet (the IPC socket covers that) |
+| 48 | Themes (tokens import/export) | ❌ | ❌ | ❌ | L | Settings ▸ Appearance | Light/dark/AMOLED exist (`VimivoDesignSystemTest`); token import/export not built |
+| 49 | Customizable toolbar | ❌ | ❌ | ❌ | M | → Settings ▸ Controls | — |
+| 50 | Global + custom hotkeys | ⚠️ | ❌ | ❌ | M | → Settings ▸ Shortcuts | D: fixed map, `DesktopPlayerCommandsTest` (E1); no remapping, presets or global hotkeys. A/I: no hardware-key handling |
+| 51 | Mouse gestures | ❌ | — | — | L | → Settings ▸ Mouse | — |
+| 52 | Mini / compact player | ❌ | ❓ | ❓ | M | A/I: now-playing bar | D: no compact window, tray or menu-bar player |
+| 53 | Scripts (D) / intents (A, I) | ❌ | ❌ | ❌ | L | → Settings ▸ Advanced ▸ Scripts | D: LuaJIT/mujs are bundled, but `config=no` and no script folder |
+| 54 | Web remote / remote client | ❌ | ❌ | ❌ | L | → Settings ▸ Remote | — |
+| 55 | CLI + JSON IPC | ⚠️ | — | — | M | Terminal | `--start`, `--fullscreen`, files, single-instance forwarding (`LaunchArgumentsTest`, `LaunchPlannerTest`, E1); no `--end`, `--volume`, `--speed`, `--sub`, `--audio-track`, `--loop`, `--enqueue`, `--audio-only`, `--help`; no IPC socket |
+| 56 | Command palette | ❌ | — | — | M | → Ctrl/⌘+K | — |
 
-## Platform and mobile extras
+### 2.9 Platform and mobile extras
 
-| Feature | Android | iOS | macOS | Windows | Linux | Where in UI | Notes |
+| # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| Free, no ads, no tracking | ✅ | ✅ | ✅ | ✅ | ✅ | — | Product rule |
-| Picture-in-picture | ✅ | ✅ | ❌ | ❌ | ❌ | Player | Desktop's closest native alternative is an always-on-top mini player |
-| Background audio | ✅ | ✅ | ✅ | ✅ | ✅ | — | |
-| Wi-Fi file sharing | ❌ | 🟡 | — | — | — | Settings ▸ Sharing (planned) | iOS exposes Documents to the Files app; there is no Wi-Fi upload server yet |
-| Folder browsing | ✅ | ✅ | ✅ | ✅ | ✅ | Library | |
-| Network share browsing | 🟡 | ❌ | ❌ | ❌ | ❌ | Network page | See SMB row |
-| Sleep timer | ✅ | ❌ | ✅ | ✅ | ✅ | Playback bar | **Correction:** FEATURE_MATRIX.md lists iOS as implemented; no iOS source implements it |
-| Synchronized lyrics | ✅ | ❌ | ✅ | ✅ | ✅ | Desktop: playback bar ▸ Lyrics | **Correction:** FEATURE_MATRIX.md lists iOS as implemented; no iOS source implements it |
-| Embeddable engine | — | — | — | — | — | — | Backlog |
+| 57 | Five apps | ⚠️ | ⚠️ | ✅ | M | — | macOS runs locally (E3). CI red for Android, Windows, Linux, Shared (E8). iOS CI green and local tests pass (E7) |
+| 58 | tvOS, Android TV, ChromeOS | — | ⏳ | ⏳ | L | — | V7 |
+| 59 | Free, no ads/tracking, licence notices | ⚠️ | ❓ | ⚠️ | M | About | No analytics or telemetry dependencies found; notices missing on desktop and iOS (B10) |
+| 60 | Touch gestures | — | ❓ | ❓ | M | Player | A: `AdvancedVideoPlayer.kt`; I: `VideoPlayerGestures.swift`; long-press 2× not on Android |
+| 61 | Wi-Fi file sharing | ❌ | ❌ | ❌ | M | → Settings ▸ Wi-Fi transfer | I: Files-app sharing of Documents is the current alternative |
+| 62 | Picture-in-picture | ❌ | ❓ | ❓ | M | Player button | A: manifest + `enterPictureInPictureMode`; I: `AVPictureInPictureController` |
+| 63 | Background audio / play video as audio | ❌ | ❓ | ❓ | M | → Player "Play as audio" | D: no audio-only mode for video; A: playback service; I: `.playback` audio session |
+| 64 | Folder browsing | ✅ | ❓ | ⚠️ | M | D: Add Folder…; A: SAF folders; I: document picker | D: `IncrementalMediaScannerTest`, `DesktopLibraryIntegrationTest` (E1). I: app Documents + picked files only |
+| 65 | Network share browsing | ❌ | ⚠️ | ❌ | M | = #34 | — |
 
-## Appendix: desktop audit detail (first pass, 2026-10-18)
+## Totals
 
-Status key for this appendix: **Done** = available before the audit · **Added** = implemented in that pass ·
-**Partial** · **Gap** = not implemented.
+| Status | D | A | I |
+|---|---|---|---|
+| ✅ verified | 10 | 3 | 2 |
+| ❓ source only | 6 | 21 | 11 |
+| ⚠️ partial / broken | 22 | 13 | 12 |
+| ❌ not built | 25 | 24 | 35 |
+| N/A, —, ⏳ | 2 | 4 | 5 |
 
-### Playback
+Of the 49 M-items (counting "M (D) / L" rows), only these are verified: D #1, 7, 19, 24, 28, 29, 43, 45, 47, 64; A #7, 28, 44; I #45, 57.
 
-| Feature | VLC | Vimivo desktop | Status | Implementation / note |
-|---|---|---|---|---|
-| Play, pause, stop, seek | ✓ | ✓ | Done | `pause`, `stop`, `seek absolute+exact` |
-| Jump 5 s / 10 s / 30 s | ✓ | ✓ | Added | ←/→ (5 s), J/L (10 s), Shift+←/→ (30 s); seeks are clamped by `PlaybackControlPolicy.seekTarget` |
-| Frame step forward / back | E | ✓ | Added | mpv `frame-step` / `frame-back-step`; keys E / Shift+E, Video menu, buttons in the video panel |
-| A-B loop | ✓ | ✓ | Done + fixed | `ab-loop-a/b`. Added a single Shift+L command (A → B → clear) and reset loop points on every new file (they are global mpv options and previously leaked into the next file) |
-| Speed 0.25–4× | ✓ | ✓ | Fixed | Menu was capped at 3×; now `[`/`]` walk the 0.25…4× ladder in `PlaybackControlPolicy`, ⌫/= resets, panel chips cover 0.25–4× |
-| Snapshot | Shift+S | ✓ | Added shortcut | `screenshot-to-file … video`; Shift+S saves to `~/Pictures/Vimivo` (home directory fallback) |
-| Deinterlace | ✓ | ✓ | Added | mpv `deinterlace` property; D key, Video menu, panel chip |
-| Video adjustments (brightness, contrast, saturation, gamma) | ✓ | ✓ | Done | mpv video equalizer properties |
-| Zoom / pan / rotate | ✓ | ✓ | Done | `video-zoom`, `video-pan-*`, `video-rotate` |
-| Aspect ratio | ✓ | ✓ | Done + shortcut | `video-aspect-override`; A cycles ratios |
-| Crop | ✓ | – | Gap | mpv `video-crop` needs mpv ≥ 0.38 on every platform build; deferred until the bundled libmpv version is pinned |
-| Video filters (sharpen, denoise, etc.) | ✓ | – | Gap | Possible through mpv `vf` with lavfi; not exposed |
-| Chapters | ✓ | ✓ | Done | `chapter`, `add chapter ±1` |
+## What V0 could not verify
 
-### Tracks and synchronization
-
-| Feature | VLC | Vimivo desktop | Status | Implementation / note |
-|---|---|---|---|---|
-| Audio / video / subtitle track selection | ✓ | ✓ | Done | `aid`, `vid`, `sid` |
-| Cycle audio / subtitle track | B / V | ✓ | Added | `PlaybackControlPolicy.nextTrack`; subtitle cycle passes through "off" |
-| External subtitles | ✓ | ✓ | Done | `sub-add … select`; sibling `.srt/.ass/.vtt` detection |
-| Subtitle delay | G / H | ✓ | Added shortcut | G/H ±100 ms; delay now lives in `PlaybackState.subtitleDelayMillis`, so panel and shortcuts agree; reset on new file |
-| Audio delay | ✓ | ✓ | Added shortcut | Shift+G/Shift+H ±50 ms; `PlaybackState.audioDelayMillis`; reset on new file |
-| Subtitle styling (size, colour, position) | ✓ | ✓ | Done | `sub-font-size`, `sub-color`, `sub-pos` |
-| Subtitle font / outline choice | ✓ | – | Partial | Size and colour only |
-
-### Audio
-
-| Feature | VLC | Vimivo desktop | Status | Implementation / note |
-|---|---|---|---|---|
-| 10-band equalizer + presets | ✓ | ✓ | Done | FFmpeg `equalizer` chain via mpv `af` |
-| Volume normalizer | ✓ | ✓ | Added | `dynaudnorm` stage, independent of the EQ switch ("Normalize" in the equalizer panel); `AudioEnhancementSettings.volumeNormalization` |
-| ReplayGain, balance, output device | partial | ✓ | Done | `replaygain`, `balance`, `audio-device` |
-| Mute that restores the previous volume | ✓ | ✓ | Fixed | M / menu remember the pre-mute level (menu previously restored to 100%) |
-
-### Playlists, media, and windows
-
-| Feature | VLC | Vimivo desktop | Status | Implementation / note |
-|---|---|---|---|---|
-| Shuffle / repeat | ✓ | ✓ | Done + shortcuts | S / R as documented |
-| Save/load M3U | ✓ | ✓ | Done | `PlaylistM3uHandler` |
-| Save/load XSPF | ✓ | ✓ | Added | `PlaylistXspfHandler` (shared); import/export picks the format by extension. DTD/entity declarations are rejected to avoid entity-expansion attacks |
-| Open Network Stream | Ctrl+N | ✓ | Done | File ▸ Open Network Stream (Cmd/Ctrl+U), redacted stream history |
-| Media information / codec details | Ctrl+I | ✓ | Added | File ▸ Media Information (Cmd/Ctrl+I, or I): container, size, duration, per-track codec/resolution/fps/channels/sample rate, output video/audio params, container metadata via `file-format`, `file-size`, `metadata/list/*`, `video-params/*`, `audio-params/*` |
-| Recent media | ✓ | ✓ | Added | File ▸ Open Recent (15 local files, on-device JSON, clearable). Streams stay in the redacted stream history |
-| Drag and drop | ✓ | ✓ | Done | AWT `DropTarget` on the window |
-| Fullscreen | F / double-click | ✓ | Added | F toggles, Esc exits, double-click on the video toggles. Fullscreen video now hides sidebar, header, pages, and panels and gives the video all the space above the playback bar |
-| Auto-hiding fullscreen controls overlay | ✓ | – | Gap | The libmpv canvas is a heavyweight AWT component, so Compose cannot draw over it; controls stay docked below the video |
-| Keyboard shortcuts | ✓ | ✓ | Fixed | Most entries in `KEYBOARD_SHORTCUTS.md` were not wired (only Space/J/K/L/Esc worked). All documented keys now work; menu shortcuts use Cmd on macOS as documented (they used Control before) |
-| Customizable hotkeys | ✓ | – | Gap | Fixed map in `DesktopPlayerShortcuts` |
-| Convert / stream out / record | ✓ | – | Superseded | Was out of scope; now on the requested list, see "Conversion and recording" above |
-
-### Where the logic lives
-
-- `shared/commonMain`: `PlaybackControlPolicy` (speed ladder, volume/seek/delay steps, track cycling, A-B steps), `MediaInfoFormatter`, `RecentMediaList`, `PlaylistXspfHandler`, and new `PlayerEngine.frameStep` / `setDeinterlace` contract methods (default: explicit unsupported failure) with `EngineCapabilities.frameStepping` / `deinterlacing`.
-- `desktopApp`: `DesktopPlayerShortcuts` + `DesktopPlayerCommandExecutor` (key → command → engine, with failures shown on screen instead of being swallowed), `DesktopMediaInfoDialog` (a real `DialogWindow`, because an in-window popup would be painted over by the video canvas), `DesktopRecentMediaRepository`, and the libmpv calls in `MpvPlayerEngine`.
-
-### Verification
-
-- `./gradlew :shared:desktopTest :desktopApp:desktopTest :desktopApp:compileKotlinDesktop` and `./gradlew detekt` pass.
-- New tests: `PlaybackControlPolicyTest`, `MediaInfoAndRecentMediaTest`, `PlaylistXspfHandlerTest`, `DesktopPlayerCommandsTest`, `DesktopRecentMediaRepositoryTest`.
-- Not verified: an interactive run against real media. Frame stepping, deinterlacing, `dynaudnorm`, fullscreen re-layout of the video canvas, and canvas double-click (which may not reach AWT on macOS, where the Cocoa renderer owns the view) still need a manual check on each OS.
+- Android anything at runtime (E9). Next run: boot `Medium_Phone_API_36.1`, push the E3 pack, open each file with
+  `am start -a android.intent.action.VIEW`, read state with `dumpsys media_session`.
+- iOS playback at runtime (only unit tests ran). Route: `simctl launch … -VimivoOpenURL`, then `simctl io booted screenshot`.
+- Windows and Linux, until CI is green (E8).
+- Optical discs and ISO images, CEA-608 captions, PGS, Bangla SRT in two encodings, live HLS/RTSP URLs: no fixtures
+  yet. Missing fixtures are added to `scripts/generate_test_media.sh` in V1.
