@@ -242,7 +242,26 @@ compose.desktop {
     }
 }
 
+/**
+ * Generates the JDK's base class-data-sharing archive inside the bundled runtime (`-Xshare:dump` through the
+ * app's own launcher, which exits right after dumping). jlink drops this archive; restoring it shortens JVM
+ * startup and is location-independent, unlike JDK 17 application archives. Runs before macOS signing.
+ */
+val dumpBaseCdsArchive by tasks.registering(Exec::class) {
+    dependsOn("createDistributable")
+    val os = org.gradle.internal.os.OperatingSystem.current()
+    val appRoot = layout.buildDirectory.dir("compose/binaries/main/app").get().asFile
+    val launcher = when {
+        os.isMacOsX -> File(appRoot, "Vimivo.app/Contents/MacOS/Vimivo")
+        os.isWindows -> File(appRoot, "Vimivo/Vimivo.exe")
+        else -> File(appRoot, "Vimivo/bin/Vimivo")
+    }
+    environment("JAVA_TOOL_OPTIONS", "-Xshare:dump")
+    commandLine(launcher.absolutePath)
+}
+
 val bundleMacosMpv by tasks.registering(Exec::class) {
+    dependsOn(dumpBaseCdsArchive)
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isMacOsX }
     dependsOn("createDistributable")
     dependsOn(macosMpvBridge)
@@ -259,6 +278,7 @@ val bundleMacosMpv by tasks.registering(Exec::class) {
 }
 
 val bundleWindowsMpv by tasks.registering(Exec::class) {
+    dependsOn(dumpBaseCdsArchive)
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
     dependsOn("createDistributable")
     val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")
@@ -280,6 +300,7 @@ val bundleWindowsMediaControls by tasks.registering(Copy::class) {
 }
 
 val bundleLinuxMpv by tasks.registering(Exec::class) {
+    dependsOn(dumpBaseCdsArchive)
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isLinux }
     dependsOn("createDistributable")
     val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")

@@ -163,3 +163,29 @@
 **Decision:** `--smoke-test <files…>` launches the real window and renderer with an in-memory database, plays each file until it advances 1.5 s (requiring a decoded video track for video), prints `VIMIVO_SMOKE PASS|FAIL` lines (also written to `VIMIVO_SMOKE_REPORT`), and exits non-zero on any failure. `scripts/verify_all.sh` runs it locally, and the macOS, Windows, and Linux workflows run it against the packaged app. iOS exposes a Debug-only `-VimivoOpenURL` launch argument for the same purpose.
 
 **Reason:** Unit tests passed while launch-time playback was broken on macOS. Exercising the packaged binary catches bundling, loader, and renderer defects that only appear in a real process, without screen-recording permissions or user data.
+
+## ADR-026: Desktop player layer with Koin, typed HUD and localized strings
+
+**Decision:** `PlayerViewModel` owns playback, queue, launch handling, HUD feedback and OS media-control updates for the desktop app; the UI renders a single immutable `PlayerState` and sends `PlayerIntent`s. Koin (`desktopPlayerModule`, koin-core only) builds the graph; `isolated = true` swaps in in-memory stores for verification runs. HUD messages are typed (`HudMessage`) and rendered from Compose resources in English and Bangla (`composeResources/values`, `values-bn`); a test keeps both languages in sync. `kotlinx-coroutines-swing` makes `Dispatchers.Main` the Swing event thread.
+
+**Reason:** Business logic lived in `Main.kt` composables, which made launch, single-instance and queue behaviour untestable. koin-compose 4.2.2 is excluded because it upgrades Compose to 1.10 and mismatches Skiko's 1.9.3 natives (verified: `UnsatisfiedLinkError` in `MetalApiKt`).
+
+## ADR-027: Files from the OS open in one instance, straight into the player
+
+**Decision:** The first desktop process holds `instance.lock` and listens on a Unix-domain socket (macOS, Linux, Windows 10+) in the per-user data folder, or in the temp folder when that path exceeds 100 bytes. Later launches forward `files`, `--start` and `--fullscreen` as JSON and exit. Opened video goes directly to the player stage, audio to the Now Playing card; one file brings its same-kind folder siblings in natural order ("ep2" before "ep10"); several files keep their order; M3U/M3U8/PLS/XSPF expand; CUE goes to libmpv. Local files resume through the shared `ResumePolicy` (schema v7 stores positions for files outside the library) with a 4-second "Start over" toast. File types come from one table, `media-types.tsv`, used by Gradle (macOS UTIs and imported types, Windows/Linux associations) and at runtime. Windows registers per user under HKCU (ProgIDs, OpenWithProgids, Capabilities, RegisteredApplications) on every start; `--unregister-file-types` removes it. "Make Vimivo the default player" opens Default Apps on Windows, runs `xdg-mime` after confirmation on Linux, and shows Finder steps on macOS.
+
+**Reason:** Operating systems never let apps take default-handler status silently, and per-user registration needs no administrator rights. Verified: macOS forwarding (second launch exits 0, running app opens the file, socket removed on quit); Linux forwarding through `playerctl` in Docker; macOS "Open With" lists Vimivo for mkv/mp4/mp3/flac/opus/srt/m3u8.
+
+## ADR-028: libmpv runtime requirements found on Linux
+
+**Decision:** Before every `mpv_create` the engine resets `LC_NUMERIC` to "C" through libc (`MpvLocale`), sets `audio-fallback-to-null=yes`, keeps the video surface composed (collapsed) for the engine's lifetime, stops video output instead of changing `wid` on detach, and closes the player before any window is disposed. Embedded tags (`metadata/by-key/*`) are published as `PlaybackState.metadata` so Now Playing, SMTC and MPRIS show artist/album for files opened outside the library.
+
+**Reason:** Each was a reproduced failure in a Linux container: libmpv refuses non-C numeric locales (every user with e.g. `en_US.UTF-8`), playback stalled without an audio device, and destroying the embedded X11 window under libmpv aborted the process with `BadWindow`.
+
+**Known issue:** after video was shown, process exit under Xvfb still prints an X11 `BadWindow` and exits with status 1. libmpv is already destroyed at that point (traced), and the error persists with Skiko's software renderer and with `vo=null` before teardown, so the remaining X client is not yet identified. Playback, persistence and shutdown ordering are unaffected; CI judges smoke tests by their PASS lines. Needs a real Linux desktop (X11 and Wayland) to confirm.
+
+## ADR-029: Startup measurement and the base CDS archive
+
+**Decision:** `VIMIVO_STARTUP_TRACE=1` prints `window` and `firstFrame` milestones relative to process start. Packaging runs `-Xshare:dump` through the app's launcher (`dumpBaseCdsArchive`) to restore the JDK base archive jlink drops; no speculative heap or GC flags are added.
+
+**Reason:** JDK 17 application archives (`-XX:ArchiveClassesAtExit`) record absolute classpath paths and are silently ignored once the app is installed elsewhere; automatic, relocatable archives need JDK 19+, which is a toolchain change for a later decision. On 2026-10-18 the development Mac was under a load average of 16–20 from other applications, so timings varied 2–3× between runs and are not reported as measurements.
