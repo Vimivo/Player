@@ -26,6 +26,7 @@
     <string name="hud_unavailable">unavailable</string>
     <string name="hud_stream_opened">Opening stream</string>
     <string name="hud_clipboard_not_url">The clipboard does not contain a playable link</string>
+    <string name="hud_skipped">Skipped: %1$s (could not be played)</string>
     <string name="hud_added_to_queue">Added %1$d to Up Next</string>
 
     <!-- Launch and resume -->

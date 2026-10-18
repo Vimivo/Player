@@ -56,6 +56,12 @@ internal sealed interface PlayerIntent {
 
     /** A library item: resumes through the library's rules. */
     data class PlayLibraryItem(val media: MediaItem) : PlayerIntent
+
+    /**
+     * Starts [items] at [index] in the order shown on screen; the rest of the list continues automatically
+     * and earlier items stay reachable with Previous.
+     */
+    data class PlayFrom(val items: List<MediaItem>, val index: Int, val label: String? = null) : PlayerIntent
     data class SetFullscreen(val enabled: Boolean) : PlayerIntent
     data object DismissMediaInfo : PlayerIntent
     data object StartOver : PlayerIntent

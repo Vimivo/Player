@@ -25,6 +25,7 @@
     <string name="hud_unavailable">উপলব্ধ নয়</string>
     <string name="hud_stream_opened">স্ট্রিম খোলা হচ্ছে</string>
     <string name="hud_clipboard_not_url">ক্লিপবোর্ডে চালানোর মতো কোনো লিংক নেই</string>
+    <string name="hud_skipped">বাদ দেওয়া হয়েছে: %1$s (চালানো যায়নি)</string>
     <string name="hud_added_to_queue">পরবর্তী তালিকায় %1$dটি যোগ হয়েছে</string>
 
     <string name="player_loading">%1$s খোলা হচ্ছে…</string>

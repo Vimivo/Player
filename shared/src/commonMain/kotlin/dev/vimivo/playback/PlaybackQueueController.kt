@@ -6,8 +6,11 @@ import dev.vimivo.core.model.MediaItem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -75,16 +78,51 @@ class PlaybackQueueController(
     private var nextQueueId = 0L
     private var sessionGeneration = 0L
     private var lastHandledCompletionQueueId: Long? = null
+    private var consecutiveSkips = 0
+    private val mutableSkipped = MutableSharedFlow<MediaItem>(extraBufferCapacity = SKIP_BUFFER)
+
+    /** Items that failed while playing and were skipped, so the UI can say "Skipped: name". */
+    val skipped: SharedFlow<MediaItem> = mutableSkipped.asSharedFlow()
+
     private val observer: Job = scope.launch {
         engine.state.collect { playback ->
             val current = mutableState.value.current
-            if (playback.status == PlaybackStatus.Completed) {
-                if (shouldHandleCompletion(playback, current)) {
+            val status = playback.status
+            when {
+                status == PlaybackStatus.Completed && shouldHandleCompletion(playback, current) -> {
                     lastHandledCompletionQueueId = current?.queueId
+                    consecutiveSkips = 0
                     advance(automatic = true)
                 }
-            } else if (playback.status == PlaybackStatus.Playing) {
-                lastHandledCompletionQueueId = null
+                status is PlaybackStatus.Error && !status.error.recoverableByFallback &&
+                    shouldHandleCompletion(playback, current) -> skipFailed(checkNotNull(current))
+                status == PlaybackStatus.Playing -> {
+                    lastHandledCompletionQueueId = null
+                    consecutiveSkips = 0
+                }
+            }
+        }
+    }
+
+    /**
+     * An item that cannot be played never stops the queue: it is reported and the next one starts. Repeat-one
+     * is ignored for failures, and once every item has failed in a row the queue stops instead of looping.
+     */
+    private suspend fun skipFailed(failed: QueueItem) {
+        lastHandledCompletionQueueId = failed.queueId
+        mutableSkipped.tryEmit(failed.media)
+        consecutiveSkips++
+        if (consecutiveSkips >= mutableState.value.items.size) {
+            engine.stop()
+            return
+        }
+        mutex.withLock {
+            val current = mutableState.value
+            val next = current.currentIndex + 1
+            when {
+                next <= current.items.lastIndex -> openAvailable(next, 1, 0)
+                current.repeatMode == QueueRepeatMode.ALL -> openAvailable(0, 1, 0)
+                else -> engine.stop()
             }
         }
     }
@@ -349,5 +387,6 @@ class PlaybackQueueController(
 
     private companion object {
         const val PREVIOUS_RESTART_THRESHOLD_MILLIS = 3_000L
+        private const val SKIP_BUFFER = 8
     }
 }

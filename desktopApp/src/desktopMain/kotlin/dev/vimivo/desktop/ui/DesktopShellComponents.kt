@@ -718,6 +718,7 @@ internal fun DesktopPlaybackErrorCard(
 internal fun DesktopHomeScreenView(
     state: DesktopLibraryUiState,
     onPlay: (MediaItem) -> Unit,
+    onPlayFrom: (List<MediaItem>, Int) -> Unit = { items, index -> onPlay(items[index]) },
     onOpenFile: () -> Unit,
     onAddFolder: () -> Unit,
     onOpenStreamDialog: () -> Unit,
@@ -871,7 +872,10 @@ internal fun DesktopHomeScreenView(
                         Card(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { onPlay(media) },
+                                .clickable {
+                                    val recent = state.history.take(4).map { it.media }
+                                    onPlayFrom(recent, recent.indexOf(media))
+                                },
                             shape = RoundedCornerShape(10.dp),
                             colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLow),
                         ) {

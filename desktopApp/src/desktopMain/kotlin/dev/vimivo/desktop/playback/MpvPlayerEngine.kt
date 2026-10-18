@@ -532,8 +532,12 @@ class MpvPlayerEngine : PlayerEngine {
                     // Track lists only exist once a demuxer opened the file, so this separates "loading" from "failed".
                     if (duration != null || (!idle && currentTrackCount > 0)) everLoaded = true
                     val loadFailed = idle && !everLoaded && openedAt.elapsedNow() >= LOAD_FAILURE_GRACE
+                    // With keep-open=yes libmpv pauses on the last frame at end of file and never goes idle;
+                    // eof-reached is its end-of-file signal. Without it the queue never advanced (Q1).
+                    val eofReached = flagProperty("eof-reached") ?: false
                     val status = when {
                         loadFailed -> PlaybackStatus.Error(loadFailure(mutableState.value.media))
+                        eofReached && everLoaded -> PlaybackStatus.Completed
                         idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
                         idle -> PlaybackStatus.Ready
                         pausedForCache -> PlaybackStatus.Buffering

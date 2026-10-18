@@ -102,6 +102,7 @@ internal class PlayerViewModel(
             externalFiles.collect { files -> openFiles(PlayerIntent.OpenFiles(files, fromRunningInstance = true)) }
         }
         scope.launch { clearLoadingOnceMediaPlays() }
+        scope.launch { queue.skipped.collect { commands.report(HudMessage.Skipped(it.fileName ?: it.title)) } }
         scope.launch { library.observePlayback(engine.state) }
         scope.launch { recordRecentMedia() }
         scope.launch { loadLyricsForCurrentMedia() }
@@ -134,7 +135,8 @@ internal class PlayerViewModel(
         when (intent) {
             is PlayerIntent.OpenFiles -> scope.launch { openFiles(intent) }
             is PlayerIntent.OpenLink -> scope.launch { openLink(intent.text) }
-            is PlayerIntent.PlayLibraryItem -> scope.launch { playLibraryItem(intent.media) }
+            is PlayerIntent.PlayLibraryItem -> scope.launch { playFrom(listOf(intent.media), 0, null) }
+            is PlayerIntent.PlayFrom -> scope.launch { playFrom(intent.items, intent.index, intent.label) }
             is PlayerIntent.SetFullscreen -> local.update { it.copy(fullscreen = intent.enabled) }
             PlayerIntent.DismissMediaInfo -> commands.dismissMediaInfo()
             PlayerIntent.StartOver -> {
@@ -284,11 +286,11 @@ internal class PlayerViewModel(
         }
     }
 
-    private suspend fun playLibraryItem(media: MediaItem) {
-        if (media.kind == MediaKind.VIDEO) local.update { it.copy(presentation = PlayerPresentation.VIDEO) }
-        library.preparePlayback(media).onSuccess { request ->
-            queue.play(listOf(request.media), startPositionMillis = request.startPositionMillis)
-        }
+    private suspend fun playFrom(items: List<MediaItem>, index: Int, label: String?) {
+        val start = items.getOrNull(index) ?: return
+        if (start.kind == MediaKind.VIDEO) local.update { it.copy(presentation = PlayerPresentation.VIDEO) }
+        val resumeAt = library.preparePlayback(start).getOrNull()?.startPositionMillis ?: 0
+        queue.play(items, startIndex = index, startPositionMillis = resumeAt, sourceLabel = label)
     }
 
     private suspend fun recordRecentMedia() {

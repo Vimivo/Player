@@ -18,6 +18,7 @@ import dev.vimivo.desktop.resources.hud_no_audio_tracks
 import dev.vimivo.desktop.resources.hud_no_subtitle_tracks
 import dev.vimivo.desktop.resources.hud_repeat_changed
 import dev.vimivo.desktop.resources.hud_shuffle_toggled
+import dev.vimivo.desktop.resources.hud_skipped
 import dev.vimivo.desktop.resources.hud_snapshot_saved
 import dev.vimivo.desktop.resources.hud_speed
 import dev.vimivo.desktop.resources.hud_stream_opened
@@ -57,6 +58,7 @@ internal sealed interface HudMessage {
     data class SubtitleLoaded(val label: String) : HudMessage
     data class SubtitleFailed(val label: String) : HudMessage
     data class AddedToQueue(val count: Int) : HudMessage
+    data class Skipped(val title: String) : HudMessage
     data object StreamOpened : HudMessage
     data object ClipboardNotUrl : HudMessage
 
@@ -89,6 +91,7 @@ private fun HudMessage.formatted(): Pair<StringResource, Array<Any>> = when (thi
     is HudMessage.SubtitleLoaded -> Res.string.hud_subtitle_loaded to arrayOf(label)
     is HudMessage.SubtitleFailed -> Res.string.hud_subtitle_failed to arrayOf(label)
     is HudMessage.AddedToQueue -> Res.string.hud_added_to_queue to arrayOf(count)
+    is HudMessage.Skipped -> Res.string.hud_skipped to arrayOf(title)
     is HudMessage.Deinterlace ->
         (if (enabled) Res.string.hud_deinterlace_on else Res.string.hud_deinterlace_off) to emptyArray()
     is HudMessage.Failed -> Res.string.hud_command_failed to arrayOf(action, reason.orEmpty())

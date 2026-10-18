@@ -8,6 +8,7 @@ import dev.vimivo.core.model.MediaKind
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.random.Random
@@ -60,6 +61,44 @@ class PlaybackQueueControllerTest {
         assertTrue(controller.state.value.shuffleEnabled)
         controller.remove(controller.state.value.items.indexOfFirst { it.media.id.value == "three" })
         assertEquals(4, controller.state.value.items.size)
+    }
+
+    /** Q1 regression: a file that fails while playing must not stop the rest of the list. */
+    @Test
+    fun skipsItemsThatFailWhilePlayingAndReportsThem() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        val skipped = mutableListOf<String>()
+        backgroundScope.launch { controller.skipped.collect { skipped += it.id.value } }
+        controller.play(listOf(media("one"), media("broken"), media("three"))).getOrThrow()
+        runCurrent()
+
+        engine.complete()
+        runCurrent()
+        engine.fail()
+        runCurrent()
+
+        assertEquals("three", controller.state.value.currentMedia?.id?.value)
+        assertEquals(listOf("broken"), skipped)
+    }
+
+    @Test
+    fun stopsInsteadOfLoopingWhenEveryItemFailsUnderRepeatAll() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("a"), media("b"))).getOrThrow()
+        controller.cycleRepeat()
+        controller.cycleRepeat()
+        assertEquals(QueueRepeatMode.ALL, controller.state.value.repeatMode)
+        runCurrent()
+
+        repeat(2) {
+            engine.fail()
+            runCurrent()
+        }
+
+        assertTrue(engine.stopped)
+        assertEquals(listOf("a", "b"), engine.opened)
     }
 
     @Test
@@ -336,6 +375,11 @@ private class FakeQueueEngine : PlayerEngine {
 
     fun complete() {
         mutableState.value = state.value.copy(status = PlaybackStatus.Completed)
+    }
+
+    fun fail() {
+        val error = PlaybackError(PlaybackErrorCode.UNSUPPORTED_CODEC, "no decoder", engine = id)
+        mutableState.value = state.value.copy(status = PlaybackStatus.Error(error))
     }
 
     fun setPosition(pos: Long) {

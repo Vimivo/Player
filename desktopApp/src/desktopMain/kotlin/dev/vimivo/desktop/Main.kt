@@ -598,6 +598,10 @@ private fun DesktopPlayer(
 
     val videoCanvas = remember { Canvas() }
     val playMedia: (MediaItem) -> Unit = { media -> viewModel.dispatch(PlayerIntent.PlayLibraryItem(media)) }
+    val playFrom: (
+        List<MediaItem>,
+        Int
+    ) -> Unit = { items, index -> viewModel.dispatch(PlayerIntent.PlayFrom(items, index)) }
     DisposableEffect(videoCanvas) {
         engine.attachVideoSurface(videoCanvas)
         val doubleClickListener = object : java.awt.event.MouseAdapter() {
@@ -714,6 +718,7 @@ private fun DesktopPlayer(
                                     DesktopHomeScreenView(
                                         state = libraryState,
                                         onPlay = playMedia,
+                                        onPlayFrom = playFrom,
                                         onOpenFile = {
                                             val files = chooseMediaFiles()
                                             if (files.isNotEmpty()) {
@@ -747,7 +752,7 @@ private fun DesktopPlayer(
                     onRemoveRoot = library::removeRoot,
                     onRefreshAvailability = library::refreshAvailability,
                     onSearch = library::setSearch,
-                    onPlay = playMedia,
+                    onPlay = playFrom,
                     onPlayNext = { queue.playNext(listOf(it)) },
                     onAddToQueue = { queue.addToQueue(listOf(it)) },
                     onToggleFavorite = library::toggleFavorite,
@@ -776,7 +781,7 @@ private fun DesktopPlayer(
                             onShufflePlay = { tracks, title -> scope.launch { queue.play(tracks, shuffle = true, sourceLabel = title) } },
                             onPlayNext = { tracks -> queue.playNext(tracks) },
                             onAddToQueue = { tracks -> queue.addToQueue(tracks) },
-                            onPlayTrack = playMedia,
+                            onPlayTrack = playFrom,
                             onToggleFavorite = library::toggleFavorite,
                             onAddToPlaylist = library::addToPlaylist,
                         )
@@ -810,7 +815,7 @@ private fun DesktopPlayer(
                             onShufflePlay = { tracks, title -> scope.launch { queue.play(tracks, shuffle = true, sourceLabel = title) } },
                             onPlayNext = { tracks -> queue.playNext(tracks) },
                             onAddToQueue = { tracks -> queue.addToQueue(tracks) },
-                            onPlayTrack = playMedia,
+                            onPlayTrack = playFrom,
                             onToggleFavorite = library::toggleFavorite,
                             onAddToPlaylist = library::addToPlaylist,
                         )
@@ -869,7 +874,7 @@ private fun DesktopPlayer(
                             }
                         }
                     },
-                    onPlayMedia = playMedia,
+                    onPlayMedia = playFrom,
                     onPlayMediaNext = { queue.playNext(listOf(it)) },
                     onAddMediaToQueue = { queue.addToQueue(listOf(it)) },
                     onExportM3u = { playlistId, file -> library.exportPlaylistM3u(playlistId, file) },
@@ -879,7 +884,7 @@ private fun DesktopPlayer(
             if (libraryVisible && destination == DesktopDestination.Favorites) {
                 DesktopFavoritesPanel(
                     items = libraryState.favorites,
-                    onPlay = playMedia,
+                    onPlay = playFrom,
                     onPlayNext = { queue.playNext(listOf(it)) },
                     onAddToQueue = { queue.addToQueue(listOf(it)) },
                     onToggle = library::toggleFavorite,
@@ -888,7 +893,7 @@ private fun DesktopPlayer(
             if (libraryVisible && destination == DesktopDestination.History) {
                 DesktopHistoryPanel(
                     items = libraryState.history,
-                    onPlay = playMedia,
+                    onPlay = playFrom,
                     onPlayNext = { queue.playNext(listOf(it)) },
                     onAddToQueue = { queue.addToQueue(listOf(it)) },
                     onRemove = library::removeHistory,
@@ -899,7 +904,7 @@ private fun DesktopPlayer(
                 DesktopSmartPlaylistsPanel(
                     state = libraryState,
                     controller = library,
-                    onPlay = playMedia,
+                    onPlay = playFrom,
                 )
             }
             if (libraryVisible && destination == DesktopDestination.Duplicates) {
@@ -1286,7 +1291,7 @@ private fun DesktopLibraryPanel(
     onRemoveRoot: (String) -> Unit,
     onRefreshAvailability: () -> Unit,
     onSearch: (String) -> Unit,
-    onPlay: (MediaItem) -> Unit,
+    onPlay: (List<MediaItem>, Int) -> Unit,
     onPlayNext: (MediaItem) -> Unit,
     onAddToQueue: (MediaItem) -> Unit,
     onToggleFavorite: (MediaItem) -> Unit,
@@ -1414,7 +1419,7 @@ private fun DesktopLibraryPanel(
                         state = state,
                         isSelected = isSelected,
                         onToggleSelect = onToggleSelect,
-                        onPlay = onPlay,
+                        onPlay = { item -> onPlay(media, media.indexOf(item)) },
                         onAddToQueue = onAddToQueue,
                         onToggleFavorite = onToggleFavorite,
                         onAddToPlaylist = onAddToPlaylist,
@@ -1431,7 +1436,7 @@ private fun DesktopLibraryPanel(
                         state = state,
                         isSelected = isSelected,
                         onToggleSelect = onToggleSelect,
-                        onPlay = onPlay,
+                        onPlay = { item -> onPlay(media, media.indexOf(item)) },
                         onPlayNext = onPlayNext,
                         onAddToQueue = onAddToQueue,
                         onToggleFavorite = onToggleFavorite,
