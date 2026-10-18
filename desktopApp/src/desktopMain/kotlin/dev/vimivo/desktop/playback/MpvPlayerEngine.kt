@@ -148,6 +148,7 @@ class MpvPlayerEngine : PlayerEngine {
         } else {
             setProperty("start", "none")
         }
+        setProperty("sub-file-paths", subtitleFolders(media).joinToString(File.pathSeparator))
         // A-B loop points and sync offsets are global mpv options; a new file must not inherit them.
         setProperty("ab-loop-a", "no")
         setProperty("ab-loop-b", "no")
@@ -417,19 +418,6 @@ class MpvPlayerEngine : PlayerEngine {
         )
     }
 
-    /** Finds sibling subtitles only for file URIs the user has already opened. */
-    fun detectAssociatedSubtitles(media: MediaItem): List<ExternalSubtitle> = runCatching {
-        val mediaFile = File(URI(media.uri))
-        val stem = mediaFile.nameWithoutExtension.lowercase()
-        mediaFile.parentFile?.listFiles()
-            .orEmpty()
-            .asSequence()
-            .filter { it.isFile && it.extension.lowercase() in SUBTITLE_EXTENSIONS }
-            .filter { it.nameWithoutExtension.lowercase() == stem || it.nameWithoutExtension.lowercase().startsWith("$stem.") }
-            .map { file -> ExternalSubtitle(file.toPath().toUri().toString(), file.name, languageFromSubtitleName(file.name), subtitleMimeType(file.extension)) }
-            .toList()
-    }.getOrDefault(emptyList())
-
     override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> = action {
         val effective = DesktopAudioEffects.effectiveSettings(settings)
         setProperty("af", DesktopAudioEffects.filter(effective).orEmpty())
@@ -493,6 +481,9 @@ class MpvPlayerEngine : PlayerEngine {
         loaded.mpv_set_option_string(created, "user-agent", "Vimivo/1.0.0 (Universal Media Player)")
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
         checkCode(loaded.mpv_set_option_string(created, "gapless-audio", "yes"))
+        // Sidecar subtitles load with the file: "movie.srt", "movie.en.srt", and the same names in Subs/ or
+        // Subtitles/. Letting libmpv match at load time avoids racing sub-add against an unfinished load.
+        checkCode(loaded.mpv_set_option_string(created, "sub-auto", "fuzzy"))
         // Software amplification up to 200%; the UI marks the range above 100% as boosted.
         checkCode(loaded.mpv_set_option_string(created, "volume-max", (capabilities.maxVolume * 100).toInt().toString()))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
@@ -722,7 +713,27 @@ class MpvPlayerEngine : PlayerEngine {
         private const val MPV_FORMAT_FLAG = 3
         private const val MPV_FORMAT_INT64 = 4
         private const val MPV_FORMAT_DOUBLE = 5
-        private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "webvtt")
+        val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "webvtt", "sub")
+        private val SUBTITLE_FOLDERS = listOf("Subs", "Subtitles", "subs", "subtitles")
+
+        /**
+         * Subtitle folders that exist beside a local file, once each: on case-insensitive filesystems
+         * (macOS, Windows) "Subs" and "subs" are the same folder and must not load its files twice.
+         */
+        internal fun subtitleFolders(media: MediaItem): List<String> {
+            val directory = runCatching { File(URI(media.uri)).parentFile }.getOrNull() ?: return emptyList()
+            return SUBTITLE_FOLDERS
+                .map { File(directory, it) }
+                .filter(File::isDirectory)
+                .distinctBy { runCatching { it.canonicalPath }.getOrDefault(it.path).lowercase() }
+                .map(File::getName)
+        }
+
+        /** A subtitle file the user dropped or chose; null for anything that is not a subtitle. */
+        fun externalSubtitleFor(file: File): ExternalSubtitle? =
+            file.takeIf { it.extension.lowercase() in SUBTITLE_EXTENSIONS }?.let {
+                ExternalSubtitle(it.toPath().toUri().toString(), it.name, languageFromSubtitleName(it.name), subtitleMimeType(it.extension))
+            }
         private val SUPPORTED_SCHEMES = setOf("file", "http", "https", "rtsp", "rtsps")
 
         /**

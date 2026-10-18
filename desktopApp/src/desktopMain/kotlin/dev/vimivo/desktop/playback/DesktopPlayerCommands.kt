@@ -251,7 +251,8 @@ internal class DesktopPlayerCommandExecutor(
         return true
     }
 
-    private fun report(message: String): Boolean {
+    /** Shows [message] on the HUD; returns true so command handlers can use it as their result. */
+    fun report(message: String): Boolean {
         mutableStatus.value = message
         return true
     }

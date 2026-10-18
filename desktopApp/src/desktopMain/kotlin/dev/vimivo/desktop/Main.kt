@@ -611,7 +611,16 @@ private fun DesktopPlayer(
             queue.play(files.map(File::toMediaItem))
         }
         openFileHandler.files.collect { files ->
-            val valid = files.filter(File::isFile).map(File::toMediaItem)
+            // Subtitle files dropped or opened while something plays attach to it instead of replacing it.
+            val (subtitles, media) = files.filter(File::isFile).partition { MpvPlayerEngine.externalSubtitleFor(it) != null }
+            if (engine.state.value.media != null) {
+                subtitles.mapNotNull(MpvPlayerEngine::externalSubtitleFor).forEach { subtitle ->
+                    engine.addExternalSubtitle(subtitle)
+                        .onSuccess { commands.report("Subtitles: ${subtitle.label}") }
+                        .onFailure { commands.report("Could not load ${subtitle.label}") }
+                }
+            }
+            val valid = media.map(File::toMediaItem)
             if (valid.isNotEmpty()) {
                 queue.play(valid)
             }
