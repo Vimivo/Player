@@ -125,3 +125,41 @@
 **Decision:** Keep libmpv controls in the JNA `MpvPlayerEngine`, but render its frames through a locally built Objective-C++ bridge. The bridge obtains Compose's AWT surface through JAWT, installs a `CAOpenGLLayer`, creates one libmpv OpenGL render context, and releases that context before the engine handle. It is arm64-tested against Homebrew libmpv 0.41.0.
 
 **Reason:** Cocoa's supported `wid` embedding expects an `NSView`, whereas AWT's supported macOS embedding surface is Core Animation based. The libmpv render API is the supported way to render into that surface without launching a second player window. OpenGL is deprecated by macOS, so this is intentionally a feasibility bridge, not a promise of a future Metal renderer.
+
+## ADR-020: iOS is a first-class release target with native SwiftUI over shared Kotlin logic
+
+**Decision:** iOS ships alongside Android, macOS, Windows, and Linux. The iOS UI stays native SwiftUI; all non-UI logic moves into the `VimivoShared` framework and is consumed from Swift (thin Swift wrappers today; SKIE remains an option once Flows and suspend functions cross the boundary). Xcode links the framework from `shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)` via `embedAndSignAppleFrameworkForXcode`, never a hard-coded simulator path. The first shared pieces are `ResumePolicy` and `PlaybackSpeeds`, used by Android, desktop, and iOS.
+
+**Reason:** The SwiftUI app already covers most of the mobile UX, so rewriting it in Compose Multiplatform would cost months without user benefit, while divergent business rules (three different resume rules existed) are a correctness problem. Sharing rules, persistence, and indexing removes that divergence without touching the native UI.
+
+## ADR-021: Shared persistence uses Room KMP with the bundled SQLite driver (proposed)
+
+**Decision (proposed, pending review):** Move playback history, resume positions, bookmarks, queue, playlists, smart-playlist rules, per-media preferences, and FTS search into a Room 2.8.5 database in `shared/commonMain`, using `androidx.sqlite:sqlite-bundled` 2.6.2 (the SQLite line Room 2.8.5 depends on) for iOS and JVM. Android keeps its existing Room database until its entities move, with a migration test per step. iOS imports its legacy `vimivo.db` rows once, non-destructively, then stops writing them.
+
+**Reason:** Room is already the Android persistence layer, is maintained by Google, and publishes iOS and JVM artifacts, so one schema with exported JSON migrations can serve every platform. A spike on 2026-10-18 compiled a Room entity, DAO, and `@ConstructedBy` database into the iOS simulator framework with Kotlin 2.3.20 and KSP 2.3.12, passed a JVM round-trip test with `BundledSQLiteDriver`, and exported its schema; it added about 4.7 MB to the unstripped debug static framework. SQLDelight was the alternative, but it would introduce a second persistence stack next to Android's Room. Desktop keeps its JDBC schema (ADR-003) until the shared schema reaches parity. Licenses: Room and androidx.sqlite are Apache-2.0; bundled SQLite is public domain.
+
+**Known cost:** `shared/commonMain` exports Compose Material 3 and the extended icon set, which inflates the iOS debug framework (~322 MB unstripped) although the SwiftUI app does not use them. Moving shared Compose UI into a UI-only source set is tracked separately.
+
+## ADR-022: macOS ships one signed, notarized DMG per architecture
+
+**Decision:** CI builds `Vimivo-<version>-arm64.dmg` on `macos-15` and `Vimivo-<version>-x86_64.dmg` on `macos-15-intel`, each bundling that runner's Homebrew libmpv (prefix detected or set through `VIMIVO_MPV_PREFIX`). When the signing secrets exist, every bundled dylib, the launcher, and the app are signed inside-out with the Developer ID, the hardened runtime, and `desktopApp/macos/Vimivo.entitlements`; the DMG is then notarized and stapled.
+
+**Reason:** A universal DMG is not technically feasible with Compose Desktop: `jpackage` bundles an architecture-specific Java runtime, and libmpv's ~50 Homebrew dependencies would each need a fat build. Two native DMGs is the supported Compose Desktop approach and keeps every binary tested on its own architecture. The entitlements are the minimum the JVM (JIT) and JNA (runtime-extracted dispatcher) need; the app is not sandboxed because it is distributed outside the App Store.
+
+## ADR-023: libmpv renders lazily and receives filesystem paths
+
+**Decision:** `MpvPlayerEngine` initializes libmpv without a renderer. A renderer is attached only when the video canvas is displayable: video waits up to five seconds after publishing its Preparing state (so the UI composes the surface), while audio and streams never block. Local `file:` URIs of any form are handed to libmpv as filesystem paths (`mpvTarget`), and a file that never loads is reported as a playback error instead of an idle "Ready" state. The macOS bridge creates and owns the CGL context it shares with Core Animation, makes it current while creating and freeing the libmpv render context, and is compiled with ARC.
+
+**Reason:** Verification on 2026-10-18 showed four defects on the path users take when opening a file from Finder or the command line: JAWT crashed the JVM on a canvas without a peer, the render context could never be created because no OpenGL context was current (so in-window macOS video had never rendered), `File.toURI()`'s `file:/path` form is rejected by libmpv, and the non-ARC bridge sent messages to released objects on shutdown.
+
+## ADR-024: Windows media controls use a C++/WinRT bridge
+
+**Decision:** `WindowsMediaControlsService` drives the System Media Transport Controls (media flyout, lock screen, hardware media keys) through `native/windows/VimivoMediaControls.cpp`, compiled with MSVC in CI and bundled next to libmpv. It uses a `Windows.Media.Playback.MediaPlayer` with its command manager disabled, so no window handle is required, and is created only on Windows. Any failure leaves playback working and is recorded in the local diagnostic buffer.
+
+**Reason:** SMTC is a WinRT API. C++/WinRT type-checks every call against the Windows SDK, which is far safer than hand-written COM vtables through JNA. The bridge is compiled in CI but has not yet been exercised on a Windows desktop; it stays in the release checklist until it has.
+
+## ADR-025: Every desktop build is smoke-tested by playing real media
+
+**Decision:** `--smoke-test <files…>` launches the real window and renderer with an in-memory database, plays each file until it advances 1.5 s (requiring a decoded video track for video), prints `VIMIVO_SMOKE PASS|FAIL` lines (also written to `VIMIVO_SMOKE_REPORT`), and exits non-zero on any failure. `scripts/verify_all.sh` runs it locally, and the macOS, Windows, and Linux workflows run it against the packaged app. iOS exposes a Debug-only `-VimivoOpenURL` launch argument for the same purpose.
+
+**Reason:** Unit tests passed while launch-time playback was broken on macOS. Exercising the packaged binary catches bundling, loader, and renderer defects that only appear in a real process, without screen-recording permissions or user data.

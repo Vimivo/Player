@@ -48,3 +48,20 @@ Desktop platform adapters are selected at runtime via `DesktopPlatform.detect()`
   - Application icon: `desktopApp/src/desktopMain/resources/windows/icon.ico`
 - **Native Dependency Bundling**: `desktopApp/scripts/bundle_windows_mpv.py` bundles `mpv-2.dll` and companion DLLs into the app image and validates the 64-bit AMD64 PE header.
 - **CI Pipeline**: `.github/workflows/windows.yml` runs compilation, detekt, desktop tests, libmpv bundling, and builds genuine signed/checksummed EXE and MSI installer packages on `windows-latest`.
+
+## Media controls, file associations and native libraries (2026-10-18)
+
+- **System Media Transport Controls.** `WindowsMediaControlsService` publishes title, artist, album, timeline, and
+  play state to the Windows media flyout, lock screen, and hardware media keys, and handles Play, Pause, Next,
+  Previous, and seek requests. It uses the C++/WinRT bridge `native/windows/VimivoMediaControls.cpp`
+  (`vimivo_media_controls.dll`), built by `:desktopApp:windowsMediaControlsBridge` inside a Visual Studio developer
+  environment and bundled next to libmpv (ADR-024). It is compiled in CI but has not yet been exercised on a Windows
+  desktop; that check is on the release checklist.
+- **File associations.** The EXE/MSI installers register Vimivo as an "Open with" handler for the audio and video
+  types listed in `desktopApp/build.gradle.kts`. Windows does not let installers set themselves as the default player
+  (since Windows 8); users choose Vimivo in Settings › Apps › Default apps.
+- **libmpv.** CI downloads a pinned `mpv-dev-x86_64` release from `shinchiro/mpv-winbuild-cmake`, verifies its
+  SHA-256 against the digest GitHub publishes, and fails if `libmpv-2.dll` is missing from the archive or from the
+  distributable. The previous SourceForge download returned an HTML stub without failing the build.
+- **Smoke test.** CI launches the packaged `Vimivo.exe --smoke-test …` and reads `VIMIVO_SMOKE_REPORT`, because GUI
+  executables built by `jpackage` have no console attached.

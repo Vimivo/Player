@@ -44,6 +44,26 @@ val macosMpvBridge by tasks.registering(Exec::class) {
     commandLine(cmd)
 }
 
+/** Builds the Windows media controls (SMTC) bridge; needs MSVC, e.g. a Visual Studio developer prompt. */
+val windowsMediaControlsBridge by tasks.registering(Exec::class) {
+    val buildable = org.gradle.internal.os.OperatingSystem.current().isWindows &&
+        providers.environmentVariable("VCINSTALLDIR").isPresent
+    onlyIf { buildable }
+    val javaHome = providers.environmentVariable("JAVA_HOME").orElse(System.getProperty("java.home")).get()
+    val source = file("src/desktopMain/native/windows/VimivoMediaControls.cpp")
+    val outputDir = layout.buildDirectory.dir("native").get().asFile
+    inputs.file(source)
+    outputs.file(File(outputDir, "vimivo_media_controls.dll"))
+    doFirst { outputDir.mkdirs() }
+    commandLine(
+        "cl", "/nologo", "/std:c++17", "/EHsc", "/O2", "/LD", "/permissive-",
+        "/I$javaHome\\include", "/I$javaHome\\include\\win32",
+        source.absolutePath, "windowsapp.lib",
+        "/Fe:${File(outputDir, "vimivo_media_controls.dll").absolutePath}",
+        "/Fo:${outputDir.absolutePath}\\",
+    )
+}
+
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
     dependsOn(macosMpvBridge)
 }
@@ -197,6 +217,14 @@ val bundleWindowsMpv by tasks.registering(Exec::class) {
     )
 }
 
+val bundleWindowsMediaControls by tasks.registering(Copy::class) {
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
+    dependsOn(windowsMediaControlsBridge)
+    mustRunAfter("createDistributable")
+    from(layout.buildDirectory.file("native/vimivo_media_controls.dll"))
+    into(layout.buildDirectory.dir("compose/binaries/main/app/Vimivo"))
+}
+
 val bundleLinuxMpv by tasks.registering(Exec::class) {
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isLinux }
     dependsOn("createDistributable")
@@ -226,7 +254,7 @@ val packageAppImage by tasks.registering(Exec::class) {
 tasks.matching { it.name == "createDistributable" }.configureEach {
     when {
         org.gradle.internal.os.OperatingSystem.current().isMacOsX -> finalizedBy(bundleMacosMpv)
-        org.gradle.internal.os.OperatingSystem.current().isWindows -> finalizedBy(bundleWindowsMpv)
+        org.gradle.internal.os.OperatingSystem.current().isWindows -> finalizedBy(bundleWindowsMpv, bundleWindowsMediaControls)
         org.gradle.internal.os.OperatingSystem.current().isLinux -> finalizedBy(bundleLinuxMpv)
     }
 }
@@ -254,7 +282,7 @@ tasks.matching {
         "packageReleaseDistributionForCurrentOS",
     )
 }.configureEach {
-    dependsOn(bundleWindowsMpv)
+    dependsOn(bundleWindowsMpv, bundleWindowsMediaControls)
 }
 
 tasks.matching {
