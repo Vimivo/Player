@@ -20,6 +20,12 @@ internal interface MpvNative : Library {
     fun mpv_error_string(code: Int): String?
 
     companion object {
+        /** The macOS JAWT/Core Animation and Now Playing bridge (links libmpv); loading it again is a no-op. */
+        fun loadCocoaBridge() {
+            val bridge = findBundledFrameworksDir()?.resolve("libvimivo_mpv_cocoa.dylib")
+            if (bridge?.exists() == true) System.load(bridge.absolutePath) else System.loadLibrary("vimivo_mpv_cocoa")
+        }
+
         fun findBundledFrameworksDir(): File? {
             val codeSource = MpvNative::class.java.protectionDomain?.codeSource?.location ?: return null
             val contentsDir = runCatching { File(codeSource.toURI()) }.getOrNull()?.parentFile?.parentFile

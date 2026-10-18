@@ -37,6 +37,7 @@ import dev.vimivo.desktop.diagnostics.DesktopDiagnosticExporter
 import dev.vimivo.desktop.diagnostics.StartupTrace
 import dev.vimivo.desktop.integration.mpris.MprisService
 import dev.vimivo.desktop.platform.DesktopSingleInstance
+import dev.vimivo.desktop.platform.NativePreload
 import dev.vimivo.desktop.platform.WindowsFileAssociations
 import dev.vimivo.desktop.player.LaunchArguments
 import dev.vimivo.desktop.player.LaunchSettingsSection
@@ -158,6 +159,7 @@ fun main(args: Array<String>) {
     val instance = if (launch.smokeTest) null else DesktopSingleInstance.forCurrentUser()
     val primary = runCatching { instance?.becomePrimary { forwarded.trySend(it) } }.getOrNull()
     if (instance != null && primary == null && instance.forward(launch)) exitProcess(0)
+    NativePreload.start()
     val exit = ExitStatus()
     try {
         desktopApplication(args, exit, forwarded.receiveAsFlow())
@@ -188,11 +190,14 @@ private fun desktopApplication(
     exit: ExitStatus,
     forwardedLaunches: Flow<LaunchArguments>,
 ) = application {
+    StartupTrace.mark("compose")
     val smokeTest = remember { DesktopSmokeTest.parse(args) }
     val launch = remember { if (smokeTest != null) LaunchArguments() else LaunchArguments.parse(args) }
-    val koin = remember { startKoin { modules(desktopPlayerModule(isolated = smokeTest != null)) }.koin }
-    val viewModel = remember { koin.get<PlayerViewModel>() }
-    val engine = remember { koin.get<MpvPlayerEngine>() }
+    val koin = remember {
+        startKoin { modules(desktopPlayerModule(isolated = smokeTest != null)) }.koin.also { StartupTrace.mark("koin") }
+    }
+    val engine = remember { koin.get<MpvPlayerEngine>().also { StartupTrace.mark("engine") } }
+    val viewModel = remember { koin.get<PlayerViewModel>().also { StartupTrace.mark("viewModel") } }
     val queue = remember { koin.get<PlaybackQueueController>() }
     val recentMedia = remember { koin.get<dev.vimivo.desktop.library.DesktopRecentMediaRepository>() }
     val openFileHandler = remember { MacOpenFileHandler().also { it.install() } }

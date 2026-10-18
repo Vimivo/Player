@@ -39,6 +39,17 @@ internal object LaunchPlanner {
         return LaunchPlan(items, start, presentation)
     }
 
+    /**
+     * The window layout for files handed over at launch, from their extensions alone (no I/O), so the player
+     * window can show in the first frame while the full [plan] (folder listing, resume position) is prepared.
+     */
+    fun initialPresentation(files: List<File>): PlayerPresentation? =
+        when (files.map(DesktopMediaTypes::familyOf).firstOrNull { it != MediaFamily.SUBTITLE }) {
+            MediaFamily.AUDIO, MediaFamily.PLAYLIST -> PlayerPresentation.AUDIO
+            MediaFamily.VIDEO -> PlayerPresentation.VIDEO
+            else -> null
+        }
+
     /** The opened file plus every playable file of the same kind beside it, in natural order. */
     fun withSiblings(file: File): Pair<List<MediaItem>, Int> {
         val family = DesktopMediaTypes.familyOf(file)

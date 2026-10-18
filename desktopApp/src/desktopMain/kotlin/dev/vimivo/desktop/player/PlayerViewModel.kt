@@ -10,6 +10,7 @@ import dev.vimivo.core.streaming.StreamValidationResult
 import dev.vimivo.core.streaming.StreamValidator
 import dev.vimivo.desktop.diagnostics.DesktopSmokeResult
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
+import dev.vimivo.desktop.diagnostics.StartupTrace
 import dev.vimivo.desktop.integration.mpris.MprisService
 import dev.vimivo.desktop.library.DesktopPlaybackStore
 import dev.vimivo.desktop.library.DesktopRecentMediaRepository
@@ -97,10 +98,18 @@ internal class PlayerViewModel(
      * hands over later ([externalFiles]: Finder/"Open with", drag and drop, the Open menu).
      */
     fun start(launch: LaunchArguments, externalFiles: Flow<List<File>>) {
+        LaunchPlanner.initialPresentation(launch.files)?.let { presentation ->
+            // The player window shows in the first frame; the plan and resume position follow.
+            val title = launch.files.first().nameWithoutExtension
+            local.update { it.copy(presentation = presentation, loadingTitle = title) }
+        }
         scope.launch {
+            StartupTrace.mark("startRunning")
             loadPreferences()
+            StartupTrace.mark("preferences")
             // Restore first so explicitly opened files replace, rather than race with, the saved paused queue.
             store.restoredQueue()?.let { snapshot -> runCatching { queue.restore(snapshot) } }
+            StartupTrace.mark("restoredQueue")
             launch { queue.state.drop(1).collect { store.saveQueue(queue.snapshot()) } }
             if (launch.files.isNotEmpty()) {
                 openFiles(PlayerIntent.OpenFiles(launch.files, launch.startPositionMillis, launch.fullscreen))
@@ -235,7 +244,9 @@ internal class PlayerViewModel(
     private suspend fun openFiles(request: PlayerIntent.OpenFiles) {
         val files = request.files.filter(File::isFile)
         attachSubtitles(files)
-        val plan = LaunchPlanner.plan(files, local.value.folderSiblings) ?: return
+        val plan = LaunchPlanner.plan(files, local.value.folderSiblings)
+            ?: return local.update { it.copy(loadingTitle = null, loadingUri = null) }
+        StartupTrace.mark("plan")
         if (request.fromRunningInstance) local.update { it.copy(focusRequest = it.focusRequest + 1) }
         val enqueue = request.fromRunningInstance && local.value.openMode == OpenMode.ADD_TO_QUEUE
         if (enqueue && engine.state.value.media != null) {
@@ -245,6 +256,7 @@ internal class PlayerViewModel(
         }
         val first = plan.items[plan.startIndex]
         val resumeAt = request.startPositionMillis ?: savedPosition(first)
+        StartupTrace.mark("resume")
         local.update {
             it.copy(
                 presentation = plan.presentation,
@@ -325,6 +337,7 @@ internal class PlayerViewModel(
 
     private suspend fun loadPreferences() {
         val (mode, siblings) = withContext(Dispatchers.IO) {
+            StartupTrace.mark("preferencesIo")
             store.uiSetting(OPEN_MODE_KEY) to store.uiSetting(FOLDER_SIBLINGS_KEY)
         }
         local.update {

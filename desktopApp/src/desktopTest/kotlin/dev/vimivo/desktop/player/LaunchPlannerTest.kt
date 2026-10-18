@@ -68,4 +68,14 @@ class LaunchPlannerTest {
         assertEquals(listOf(cue.toPath().toUri().toString()), cuePlan.items.map { it.uri })
         assertNull(LaunchPlanner.plan(listOf(touch("only.srt")), true))
     }
+
+    @Test
+    fun initialPresentationComesFromTheFirstMediaFileWithoutReadingIt() {
+        val subtitleThenVideo = listOf(File("/nope/movie.srt"), File("/nope/movie.mkv"))
+        assertEquals(PlayerPresentation.VIDEO, LaunchPlanner.initialPresentation(subtitleThenVideo))
+        assertEquals(PlayerPresentation.AUDIO, LaunchPlanner.initialPresentation(listOf(File("/nope/song.flac"))))
+        assertEquals(PlayerPresentation.AUDIO, LaunchPlanner.initialPresentation(listOf(File("/nope/mix.m3u"))))
+        assertNull(LaunchPlanner.initialPresentation(listOf(File("/nope/notes.txt"))))
+        assertNull(LaunchPlanner.initialPresentation(emptyList()))
+    }
 }
