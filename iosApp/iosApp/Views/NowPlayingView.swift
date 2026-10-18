@@ -127,7 +127,7 @@ public struct NowPlayingView: View {
                 // Bottom Controls: Speed & Queue
                 HStack {
                     Menu {
-                        ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { speed in
+                        ForEach(PlaybackPreferences.speedPresets.map(Double.init), id: \.self) { speed in
                             Button(action: { engine.setPlaybackRate(Float(speed)) }) {
                                 HStack {
                                     Text("\(String(format: "%.2fx", speed))")

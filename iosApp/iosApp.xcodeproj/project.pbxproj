@@ -11,13 +11,16 @@
 		1042 /* VideoPlayerSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2042 /* VideoPlayerSheets.swift */; };
 		1041 /* VideoPlayerGestures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2041 /* VideoPlayerGestures.swift */; };
 		1040 /* VideoPlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2040 /* VideoPlayerModel.swift */; };
+		1191 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2191 /* AppRouter.swift */; };
 		1001 /* VimivoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2001 /* VimivoApp.swift */; };
 		1002 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2002 /* MediaModels.swift */; };
 		1003 /* PlaybackModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2003 /* PlaybackModels.swift */; };
 		1004 /* KeychainCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2004 /* KeychainCredentialStore.swift */; };
 		1005 /* SecurityScopedMediaManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2005 /* SecurityScopedMediaManager.swift */; };
+		1190 /* DocumentsLibraryImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2190 /* DocumentsLibraryImporter.swift */; };
 		1006 /* IOSDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2006 /* IOSDatabase.swift */; };
 		1007 /* AudioSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2007 /* AudioSessionController.swift */; };
+		1100 /* PlaybackPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2100 /* PlaybackPreferences.swift */; };
 		1008 /* NowPlayingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2008 /* NowPlayingManager.swift */; };
 		1009 /* RemoteCommandController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2009 /* RemoteCommandController.swift */; };
 		1010 /* AVPlayerPlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2010 /* AVPlayerPlaybackEngine.swift */; };
@@ -35,7 +38,6 @@
 		1021 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2021 /* SettingsView.swift */; };
 		1022 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2022 /* MainTabView.swift */; };
 		1023 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2023 /* Assets.xcassets */; };
-		1024 /* VimivoShared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2024 /* VimivoShared.framework */; };
 		1025 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2025 /* libsqlite3.tbd */; };
 		1026 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2026 /* AVFoundation.framework */; };
 		1027 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2027 /* AVKit.framework */; };
@@ -95,13 +97,16 @@
 		2040 /* VideoPlayerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerModel.swift; sourceTree = "<group>"; };
 		0001 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2001 /* VimivoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VimivoApp.swift; sourceTree = "<group>"; };
+		2191 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		2002 /* MediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModels.swift; sourceTree = "<group>"; };
 		2003 /* PlaybackModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackModels.swift; sourceTree = "<group>"; };
 		2004 /* KeychainCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainCredentialStore.swift; sourceTree = "<group>"; };
 		2005 /* SecurityScopedMediaManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityScopedMediaManager.swift; sourceTree = "<group>"; };
 		2006 /* IOSDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDatabase.swift; sourceTree = "<group>"; };
+		2190 /* DocumentsLibraryImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentsLibraryImporter.swift; sourceTree = "<group>"; };
 		2007 /* AudioSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionController.swift; sourceTree = "<group>"; };
 		2008 /* NowPlayingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingManager.swift; sourceTree = "<group>"; };
+		2100 /* PlaybackPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPreferences.swift; sourceTree = "<group>"; };
 		2009 /* RemoteCommandController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteCommandController.swift; sourceTree = "<group>"; };
 		2010 /* AVPlayerPlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVPlayerPlaybackEngine.swift; sourceTree = "<group>"; };
 		2011 /* ArtworkThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkThumbnailView.swift; sourceTree = "<group>"; };
@@ -118,7 +123,6 @@
 		2021 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2022 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		2023 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2024 /* VimivoShared.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VimivoShared.framework; path = "../../shared/build/bin/iosSimulatorArm64/debugFramework/VimivoShared.framework"; sourceTree = "<group>"; };
 		2025 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		2026 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		2027 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
@@ -142,7 +146,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1024 /* VimivoShared.framework in Frameworks */,
 				1025 /* libsqlite3.tbd in Frameworks */,
 				1026 /* AVFoundation.framework in Frameworks */,
 				1027 /* AVKit.framework in Frameworks */,
@@ -197,6 +200,7 @@
 			isa = PBXGroup;
 			children = (
 				2001 /* VimivoApp.swift */,
+				2191 /* AppRouter.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -216,6 +220,7 @@
 				2004 /* KeychainCredentialStore.swift */,
 				2005 /* SecurityScopedMediaManager.swift */,
 				2006 /* IOSDatabase.swift */,
+				2190 /* DocumentsLibraryImporter.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -225,6 +230,7 @@
 			children = (
 				2007 /* AudioSessionController.swift */,
 				2008 /* NowPlayingManager.swift */,
+				2100 /* PlaybackPreferences.swift */,
 				2009 /* RemoteCommandController.swift */,
 				2010 /* AVPlayerPlaybackEngine.swift */,
 				2031 /* WidgetPlaybackSnapshotStore.swift */,
@@ -236,7 +242,6 @@
 		4007 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				2024 /* VimivoShared.framework */,
 				2025 /* libsqlite3.tbd */,
 				2026 /* AVFoundation.framework */,
 				2027 /* AVKit.framework */,
@@ -454,13 +459,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				1001 /* VimivoApp.swift in Sources */,
+				1191 /* AppRouter.swift in Sources */,
 				1002 /* MediaModels.swift in Sources */,
 				1003 /* PlaybackModels.swift in Sources */,
 				1004 /* KeychainCredentialStore.swift in Sources */,
 				1005 /* SecurityScopedMediaManager.swift in Sources */,
 				1006 /* IOSDatabase.swift in Sources */,
+				1190 /* DocumentsLibraryImporter.swift in Sources */,
 				1007 /* AudioSessionController.swift in Sources */,
 				1008 /* NowPlayingManager.swift in Sources */,
+				1100 /* PlaybackPreferences.swift in Sources */,
 				1009 /* RemoteCommandController.swift in Sources */,
 				1010 /* AVPlayerPlaybackEngine.swift in Sources */,
 				1011 /* ArtworkThumbnailView.swift in Sources */,
@@ -574,8 +582,12 @@
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/../shared/build/bin/iosSimulatorArm64/debugFramework",
-					"$(CONFIGURATION_BUILD_DIR)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					VimivoShared,
 				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
@@ -604,8 +616,12 @@
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/../shared/build/bin/iosSimulatorArm64/releaseFramework",
-					"$(CONFIGURATION_BUILD_DIR)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					VimivoShared,
 				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;

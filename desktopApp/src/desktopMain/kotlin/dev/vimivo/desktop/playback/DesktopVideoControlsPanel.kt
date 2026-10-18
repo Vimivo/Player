@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.ExternalSubtitle
+import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.SubtitleStyle
@@ -145,7 +146,7 @@ internal fun DesktopVideoControlsPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Speed:", style = MaterialTheme.typography.labelMedium)
-                listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f, 4.0f).forEach { speed ->
+                PlaybackSpeeds.PRESETS.forEach { speed ->
                     val isSelected = kotlin.math.abs(state.speed - speed) < 0.05f
                     FilterChip(
                         selected = isSelected,

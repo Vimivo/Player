@@ -153,6 +153,7 @@ import dev.vimivo.settings.SubtitleEdgeStyle
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import dev.vimivo.playback.PlaybackSpeeds
 
 private enum class VideoAspect(val label: String) {
     FIT("Fit to screen"), FILL("Stretch"), ORIGINAL("Original size"), RATIO_16_9("16:9"), RATIO_4_3("4:3"), CROP("Crop")
@@ -170,7 +171,6 @@ private sealed interface GestureFeedback {
     data class Message(val icon: ImageVector?, val text: String) : GestureFeedback
 }
 
-private val PlayerSpeeds = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.5f, 3f, 4f)
 private const val HOLD_SPEED = 2f
 private const val CONTROLS_TIMEOUT_MILLIS = 3_500L
 private const val FEEDBACK_TIMEOUT_MILLIS = 700L
@@ -954,8 +954,8 @@ private fun SpeedControls(speed: Float, onSpeed: (Float) -> Unit, showHeading: B
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(PlayerSpeeds.size) { index ->
-            val value = PlayerSpeeds[index]
+        items(PlaybackSpeeds.PRESETS.size) { index ->
+            val value = PlaybackSpeeds.PRESETS[index]
             FilterChip(selected = abs(speed - value) < 0.01f, onClick = { onSpeed(value) }, label = { Text(formatSpeed(value)) })
         }
     }

@@ -173,7 +173,7 @@ class DesktopBatchRenameTest {
                     stmt.setString(1, mediaId.value)
                     stmt.executeQuery().use { rows ->
                         assertTrue(rows.next())
-                        assertEquals(targetFile.toURI().toString(), rows.getString(1))
+                        assertEquals(targetFile.toPath().toUri().toString(), rows.getString(1))
                         assertEquals("Polished Track.mp3", rows.getString(2))
                     }
                 }

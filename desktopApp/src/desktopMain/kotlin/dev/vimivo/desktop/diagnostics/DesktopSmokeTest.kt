@@ -1,0 +1,93 @@
+package dev.vimivo.desktop.diagnostics
+
+import dev.vimivo.core.model.MediaItem
+import dev.vimivo.core.model.MediaKind
+import dev.vimivo.playback.PlaybackState
+import dev.vimivo.playback.PlaybackStatus
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
+
+/**
+ * `--smoke-test <file>...` launches the real window and renderer, plays each file, and reports
+ * whether playback actually advanced. It exists so the release gate can verify launch + playback
+ * on every desktop OS (including headless CI runners) without screen-recording permissions.
+ */
+internal data class DesktopSmokeTestRequest(val files: List<File>)
+
+internal sealed interface DesktopSmokeResult {
+    val file: File
+
+    data class Passed(override val file: File, val positionMillis: Long, val videoTracks: Int) : DesktopSmokeResult
+    data class Failed(override val file: File, val reason: String) : DesktopSmokeResult
+}
+
+internal object DesktopSmokeTest {
+    const val FLAG = "--smoke-test"
+    const val DEFAULT_TIMEOUT_MILLIS = 20_000L
+    const val MIN_POSITION_MILLIS = 1_500L
+
+    fun parse(args: Array<String>): DesktopSmokeTestRequest? =
+        if (FLAG in args) DesktopSmokeTestRequest(args.filterNot { it == FLAG }.map(::File)) else null
+
+    suspend fun run(
+        files: List<File>,
+        state: StateFlow<PlaybackState>,
+        toMedia: (File) -> MediaItem,
+        play: suspend (MediaItem) -> Result<Unit>,
+        timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
+    ): List<DesktopSmokeResult> = files.map { file ->
+        if (!file.isFile) return@map DesktopSmokeResult.Failed(file, "file not found")
+        val media = toMedia(file)
+        play(media).exceptionOrNull()?.let { error ->
+            return@map DesktopSmokeResult.Failed(file, "open failed: ${error.message ?: error::class.simpleName}")
+        }
+        val reached = withTimeoutOrNull(timeoutMillis) {
+            state.first { playback -> playback.media?.uri == media.uri && playback.isTerminalFor() }
+        }
+        val latest = reached ?: state.value.takeIf { it.media?.uri == media.uri }
+        evaluate(file, media, latest, timedOut = reached == null)
+    }
+
+    /**
+     * Prints each result and, when [reportPath] is set, also writes them to that file: Windows GUI executables
+     * have no console attached, so CI reads the report file there.
+     */
+    fun publish(results: List<DesktopSmokeResult>, reportPath: String?, print: (String) -> Unit = ::println) {
+        val lines = results.map(::format)
+        lines.forEach(print)
+        val report = lines.joinToString(separator = "\n", postfix = "\n")
+        reportPath?.takeIf(String::isNotBlank)?.let { File(it).writeText(report) }
+    }
+
+    fun format(result: DesktopSmokeResult): String = when (result) {
+        is DesktopSmokeResult.Passed -> with(result) {
+            "VIMIVO_SMOKE PASS ${file.name} position=${positionMillis}ms videoTracks=$videoTracks"
+        }
+        is DesktopSmokeResult.Failed -> "VIMIVO_SMOKE FAIL ${result.file.name} reason=${result.reason}"
+    }
+
+    private fun PlaybackState.isTerminalFor(): Boolean =
+        status is PlaybackStatus.Error || (status == PlaybackStatus.Playing && positionMillis >= MIN_POSITION_MILLIS)
+
+    private fun evaluate(
+        file: File,
+        media: MediaItem,
+        playback: PlaybackState?,
+        timedOut: Boolean,
+    ): DesktopSmokeResult {
+        val status = playback?.status
+        return when {
+            status is PlaybackStatus.Error ->
+                DesktopSmokeResult.Failed(file, "${status.error.code}: ${status.error.message}")
+            timedOut || playback == null -> {
+                val position = playback?.positionMillis ?: 0
+                DesktopSmokeResult.Failed(file, "timed out (status=${status ?: "none"} position=${position}ms)")
+            }
+            media.kind == MediaKind.VIDEO && playback.videoTracks.isEmpty() ->
+                DesktopSmokeResult.Failed(file, "playback advanced but no video track was decoded")
+            else -> DesktopSmokeResult.Passed(file, playback.positionMillis, playback.videoTracks.size)
+        }
+    }
+}

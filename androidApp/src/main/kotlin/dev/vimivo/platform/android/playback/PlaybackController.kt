@@ -11,6 +11,7 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import dev.vimivo.core.model.MediaItem as VimivoMediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.playback.ResumePolicy
 import dev.vimivo.settings.AppSettings
 import dev.vimivo.settings.ResumeBehavior
 import dev.vimivo.settings.SettingsRepository
@@ -111,10 +112,14 @@ class PlaybackController(
     }
 }
 
-internal fun VimivoMediaItem.safeResumePosition(): Long {
-    val duration = durationMillis ?: return lastPlaybackPositionMillis
-    return lastPlaybackPositionMillis.takeUnless { it >= duration - 10_000 } ?: 0
-}
+/** Only called when the user chose to always resume this kind of media, so songs are included. */
+internal fun VimivoMediaItem.safeResumePosition(): Long = ResumePolicy.startPositionMillis(
+    kind = kind,
+    savedPositionMillis = lastPlaybackPositionMillis,
+    durationMillis = durationMillis,
+    completed = false,
+    includeShortAudio = true,
+)
 
 fun VimivoMediaItem.toMedia3(): MediaItem = MediaItem.Builder()
     .setMediaId(id.value)

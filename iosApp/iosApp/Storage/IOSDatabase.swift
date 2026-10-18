@@ -79,6 +79,11 @@ public final class IOSDatabase {
             position INTEGER PRIMARY KEY,
             media_id TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS queue_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            current_index INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS bookmarks_media ON bookmarks(media_id, position_millis);
         """
         sqlite3_exec(db, sql, nil, nil, nil)
         addMissingMediaColumns()
@@ -159,6 +164,20 @@ public final class IOSDatabase {
                 sqlite3_step(stmt)
             }
             sqlite3_finalize(stmt)
+        }
+    }
+
+    /// Re-points an app-owned file at its current container path, which changes when the app is updated.
+    public func updateMediaUri(id: String, uri: String) {
+        queue.sync {
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, "UPDATE media_items SET uri = ? WHERE id = ?;", -1, &stmt, nil) == SQLITE_OK else { return }
+            sqlite3_bind_text(stmt, 1, (uri as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 2, (id as NSString).utf8String, -1, nil)
+            if sqlite3_step(stmt) != SQLITE_DONE {
+                NSLog("Vimivo: media uri update failed: %@", lastErrorMessage())
+            }
         }
     }
 
@@ -369,30 +388,172 @@ public final class IOSDatabase {
         }
     }
 
-    // MARK: - History & Resume
-    public func recordPlayback(mediaId: String, positionMillis: Int64, completed: Bool) {
+    // MARK: - Bookmarks
+
+    public func addBookmark(_ bookmark: Bookmark) {
         queue.sync {
-            let now = Int64(Date().timeIntervalSince1970 * 1000)
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            let sql = "INSERT OR REPLACE INTO bookmarks (id, media_id, name, position_millis, created_at_millis) VALUES (?, ?, ?, ?, ?);"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            sqlite3_bind_text(stmt, 1, (bookmark.id as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 2, (bookmark.mediaId as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 3, (bookmark.name as NSString).utf8String, -1, nil)
+            sqlite3_bind_int64(stmt, 4, bookmark.positionMillis)
+            sqlite3_bind_int64(stmt, 5, bookmark.createdAtMillis)
+            if sqlite3_step(stmt) != SQLITE_DONE {
+                NSLog("Vimivo: bookmark write failed: %@", lastErrorMessage())
+            }
+        }
+    }
+
+    public func bookmarks(mediaId: String) -> [Bookmark] {
+        queue.sync {
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            var result: [Bookmark] = []
+            let sql = "SELECT id, media_id, name, position_millis, created_at_millis FROM bookmarks WHERE media_id = ? ORDER BY position_millis;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return result }
+            sqlite3_bind_text(stmt, 1, (mediaId as NSString).utf8String, -1, nil)
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                result.append(Bookmark(
+                    id: String(cString: sqlite3_column_text(stmt, 0)),
+                    mediaId: String(cString: sqlite3_column_text(stmt, 1)),
+                    name: String(cString: sqlite3_column_text(stmt, 2)),
+                    positionMillis: sqlite3_column_int64(stmt, 3),
+                    createdAtMillis: sqlite3_column_int64(stmt, 4)
+                ))
+            }
+            return result
+        }
+    }
+
+    public func deleteBookmark(id: String) {
+        queue.sync {
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, "DELETE FROM bookmarks WHERE id = ?;", -1, &stmt, nil) == SQLITE_OK else { return }
+            sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
+            sqlite3_step(stmt)
+        }
+    }
+
+    // MARK: - Playback Queue
+
+    /// Replaces the persisted queue atomically so a crash never leaves a half-written queue.
+    public func saveQueue(mediaIds: [String], currentIndex: Int) {
+        queue.sync {
+            sqlite3_exec(db, "BEGIN IMMEDIATE;", nil, nil, nil)
+            var ok = sqlite3_exec(db, "DELETE FROM queue_items; DELETE FROM queue_state;", nil, nil, nil) == SQLITE_OK
+            var stmt: OpaquePointer?
+            if ok, sqlite3_prepare_v2(db, "INSERT INTO queue_items (position, media_id) VALUES (?, ?);", -1, &stmt, nil) == SQLITE_OK {
+                for (position, id) in mediaIds.enumerated() where ok {
+                    sqlite3_bind_int(stmt, 1, Int32(position))
+                    sqlite3_bind_text(stmt, 2, (id as NSString).utf8String, -1, nil)
+                    ok = sqlite3_step(stmt) == SQLITE_DONE
+                    sqlite3_reset(stmt)
+                }
+            }
+            sqlite3_finalize(stmt)
+            if ok && !mediaIds.isEmpty {
+                ok = sqlite3_exec(db, "INSERT INTO queue_state (id, current_index) VALUES (1, \(max(0, currentIndex)));", nil, nil, nil) == SQLITE_OK
+            }
+            if ok {
+                sqlite3_exec(db, "COMMIT;", nil, nil, nil)
+            } else {
+                NSLog("Vimivo: queue save failed: %@", lastErrorMessage())
+                sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+            }
+        }
+    }
+
+    public func loadQueue() -> (mediaIds: [String], currentIndex: Int) {
+        queue.sync {
+            var ids: [String] = []
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, "SELECT media_id FROM queue_items ORDER BY position;", -1, &stmt, nil) == SQLITE_OK {
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    ids.append(String(cString: sqlite3_column_text(stmt, 0)))
+                }
+            }
+            sqlite3_finalize(stmt)
+            var index = 0
+            if sqlite3_prepare_v2(db, "SELECT current_index FROM queue_state WHERE id = 1;", -1, &stmt, nil) == SQLITE_OK,
+               sqlite3_step(stmt) == SQLITE_ROW {
+                index = Int(sqlite3_column_int(stmt, 0))
+            }
+            sqlite3_finalize(stmt)
+            return (ids, ids.isEmpty ? 0 : min(max(index, 0), ids.count - 1))
+        }
+    }
+
+    // MARK: - History & Resume
+
+    /// Counts a play and refreshes recency without touching the saved resume position.
+    public func recordPlayStart(mediaId: String) {
+        queue.sync {
             let sql = """
             INSERT INTO playback_history (id, media_id, last_played_at_millis, position_millis, completed, play_count)
-            VALUES (?, ?, ?, ?, ?, 1)
+            VALUES (?, ?, ?, 0, 0, 1)
+            ON CONFLICT(id) DO UPDATE SET
+                last_played_at_millis = excluded.last_played_at_millis,
+                play_count = play_count + 1;
+            """
+            executeHistoryUpsert(sql, mediaId: mediaId)
+        }
+    }
+
+    /// Persists the resume position; never counts as an additional play.
+    public func savePosition(mediaId: String, positionMillis: Int64, completed: Bool) {
+        queue.sync {
+            let sql = """
+            INSERT INTO playback_history (id, media_id, last_played_at_millis, position_millis, completed, play_count)
+            VALUES (?, ?, ?, ?, ?, 0)
             ON CONFLICT(id) DO UPDATE SET
                 last_played_at_millis = excluded.last_played_at_millis,
                 position_millis = excluded.position_millis,
-                completed = excluded.completed,
-                play_count = play_count + 1;
+                completed = excluded.completed;
             """
-            var stmt: OpaquePointer?
-            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-                sqlite3_bind_text(stmt, 1, (mediaId as NSString).utf8String, -1, nil)
-                sqlite3_bind_text(stmt, 2, (mediaId as NSString).utf8String, -1, nil)
-                sqlite3_bind_int64(stmt, 3, now)
-                sqlite3_bind_int64(stmt, 4, positionMillis)
-                sqlite3_bind_int(stmt, 5, completed ? 1 : 0)
-                sqlite3_step(stmt)
-            }
-            sqlite3_finalize(stmt)
+            executeHistoryUpsert(sql, mediaId: mediaId, positionMillis: positionMillis, completed: completed)
         }
+    }
+
+    public func resumeState(mediaId: String) -> ResumeState? {
+        queue.sync {
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            let sql = "SELECT position_millis, completed FROM playback_history WHERE id = ?;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            sqlite3_bind_text(stmt, 1, (mediaId as NSString).utf8String, -1, nil)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            return ResumeState(
+                positionMillis: sqlite3_column_int64(stmt, 0),
+                durationMillis: nil,
+                completed: sqlite3_column_int(stmt, 1) != 0
+            )
+        }
+    }
+
+    private func executeHistoryUpsert(_ sql: String, mediaId: String, positionMillis: Int64? = nil, completed: Bool? = nil) {
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            NSLog("Vimivo: history statement failed: %@", lastErrorMessage())
+            return
+        }
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        sqlite3_bind_text(stmt, 1, (mediaId as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 2, (mediaId as NSString).utf8String, -1, nil)
+        sqlite3_bind_int64(stmt, 3, now)
+        if let positionMillis { sqlite3_bind_int64(stmt, 4, positionMillis) }
+        if let completed { sqlite3_bind_int(stmt, 5, completed ? 1 : 0) }
+        if sqlite3_step(stmt) != SQLITE_DONE {
+            NSLog("Vimivo: history write failed: %@", lastErrorMessage())
+        }
+    }
+
+    private func lastErrorMessage() -> String {
+        db.flatMap { sqlite3_errmsg($0) }.map { String(cString: $0) } ?? "unknown error"
     }
 
     public func getHistory() -> [PlaybackHistory] {

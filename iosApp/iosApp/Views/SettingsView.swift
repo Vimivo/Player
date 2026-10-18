@@ -2,8 +2,8 @@ import SwiftUI
 
 public struct SettingsView: View {
     @AppStorage("vimivo_theme") private var theme: String = "system"
-    @AppStorage("vimivo_gapless") private var gapless: Bool = true
-    @AppStorage("vimivo_hardware_decode") private var hardwareDecode: Bool = true
+    @AppStorage(PlaybackPreferences.resumeVideoKey) private var resumeVideo: Bool = true
+    @AppStorage(PlaybackPreferences.resumeSongsKey) private var resumeSongs: Bool = false
     @State private var cacheSizeFormatted: String = "Calculating..."
     @State private var showCacheAlert = false
 
@@ -21,9 +21,12 @@ public struct SettingsView: View {
                     }
                 }
 
-                Section(header: Text("Playback")) {
-                    Toggle("Gapless Audio Playback", isOn: $gapless)
-                    Toggle("Hardware Video Decoding", isOn: $hardwareDecode)
+                Section(
+                    header: Text("Playback"),
+                    footer: Text("Videos, audiobooks and other long recordings continue where you left off. Songs start from the beginning unless you turn on Resume Songs.")
+                ) {
+                    Toggle("Resume Videos & Long Audio", isOn: $resumeVideo)
+                    Toggle("Resume Songs", isOn: $resumeSongs)
                 }
 
                 Section(header: Text("Storage & Cache")) {
@@ -66,7 +69,7 @@ public struct SettingsView: View {
                     HStack {
                         Text("Version")
                         Spacer()
-                        Text("1.0.0 (1)")
+                        Text(Self.versionLabel)
                             .foregroundColor(.secondary)
                     }
                 }
@@ -74,6 +77,13 @@ public struct SettingsView: View {
             .navigationTitle("Settings")
             .onAppear(perform: calculateCacheSize)
         }
+    }
+
+    private static var versionLabel: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(version) (\(build))"
     }
 
     private func calculateCacheSize() {

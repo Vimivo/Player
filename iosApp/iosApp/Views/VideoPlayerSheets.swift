@@ -7,8 +7,9 @@ struct PlayerSheetView: View {
     @ObservedObject var engine: AVPlayerPlaybackEngine
     @ObservedObject var model: VideoPlayerModel
     @Environment(\.dismiss) private var dismiss
+    @State private var bookmarks: [Bookmark] = []
 
-    static let speedPresets: [Float] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+    static let speedPresets = PlaybackPreferences.speedPresets
 
     var body: some View {
         NavigationStack {
@@ -55,13 +56,13 @@ struct PlayerSheetView: View {
                         get: { Double(rate) },
                         set: { engine.setPlaybackRate(Float(($0 * 20).rounded() / 20)) }
                     ),
-                    in: 0.25...3.0
+                    in: PlaybackPreferences.speedRange
                 ) {
                     Text("Playback speed")
                 } minimumValueLabel: {
                     Text("0.25×").font(.caption)
                 } maximumValueLabel: {
-                    Text("3×").font(.caption)
+                    Text(MediaFormatting.speed(PlaybackPreferences.speedPresets.last ?? 4)).font(.caption)
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 8)], spacing: 8) {
                     ForEach(Self.speedPresets, id: \.self) { preset in
@@ -152,6 +153,30 @@ struct PlayerSheetView: View {
                 }
             }
             .foregroundColor(.primary)
+            Section("Bookmarks") {
+                Button {
+                    if engine.addBookmarkAtCurrentPosition() != nil {
+                        bookmarks = engine.bookmarksForCurrentItem()
+                    }
+                } label: {
+                    Label("Add bookmark at \(MediaFormatting.clock(millis: engine.state.positionMillis))", systemImage: "bookmark")
+                }
+                ForEach(bookmarks) { bookmark in
+                    Button {
+                        engine.seek(toMillis: bookmark.positionMillis)
+                        dismiss()
+                    } label: {
+                        LabeledContent(bookmark.name, value: MediaFormatting.clock(millis: bookmark.positionMillis))
+                    }
+                    .accessibilityHint("Jumps to this position")
+                }
+                .onDelete { offsets in
+                    offsets.map { bookmarks[$0] }.forEach(engine.deleteBookmark)
+                    bookmarks.remove(atOffsets: offsets)
+                }
+            }
+            .foregroundColor(.primary)
+            .onAppear { bookmarks = engine.bookmarksForCurrentItem() }
             Section("Gestures") {
                 GestureHint(icon: "hand.tap", text: "Double-tap left or right to skip 10 s; keep tapping to add more")
                 GestureHint(icon: "hand.point.up.left", text: "Hold for \(MediaFormatting.speed(VideoPlayerModel.holdSpeed)) speed")

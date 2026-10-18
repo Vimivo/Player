@@ -16,34 +16,42 @@ static void *get_proc_address(void *, const char *name) {
     return address;
 }
 
-@interface VimivoMpvLayer : CAOpenGLLayer
-@property(nonatomic) mpv_render_context *renderContext;
-@end
-
-@implementation VimivoMpvLayer
-- (CGLPixelFormatObj)copyCGLPixelFormatForDisplayMask:(uint32_t)mask {
+static CGLPixelFormatObj createPixelFormat(void) {
     CGLPixelFormatAttribute attributes[] = {
         kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute)kCGLOGLPVersion_3_2_Core,
         kCGLPFAColorSize, (CGLPixelFormatAttribute)24,
         kCGLPFAAlphaSize, (CGLPixelFormatAttribute)8,
+        kCGLPFAAccelerated,
         kCGLPFADoubleBuffer, (CGLPixelFormatAttribute)0,
     };
     CGLPixelFormatObj format = NULL;
     GLint count = 0;
-    CGLChoosePixelFormat(attributes, &format, &count);
+    if (CGLChoosePixelFormat(attributes, &format, &count) != kCGLNoError) return NULL;
     return format;
 }
 
+// libmpv's render context owns GL objects (FBOs, shaders) that belong to the context it was created on,
+// so Core Animation must draw with that same context rather than a fresh one per layer.
+@interface VimivoMpvLayer : CAOpenGLLayer
+@property(nonatomic) mpv_render_context *renderContext;
+@property(nonatomic) CGLPixelFormatObj sharedPixelFormat;
+@property(nonatomic) CGLContextObj sharedContext;
+@end
+
+@implementation VimivoMpvLayer
+- (CGLPixelFormatObj)copyCGLPixelFormatForDisplayMask:(uint32_t)mask {
+    return CGLRetainPixelFormat(self.sharedPixelFormat);
+}
+
 - (CGLContextObj)copyCGLContextForPixelFormat:(CGLPixelFormatObj)pixelFormat {
-    CGLContextObj context = NULL;
-    CGLCreateContext(pixelFormat, NULL, &context);
-    return context;
+    return CGLRetainContext(self.sharedContext);
 }
 
 - (void)drawInCGLContext:(CGLContextObj)cglContext
              pixelFormat:(CGLPixelFormatObj)pixelFormat
                   forLayerTime:(CFTimeInterval)timeInterval
                    displayTime:(const CVTimeStamp *)timeStamp {
+    CGLLockContext(cglContext);
     CGLSetCurrentContext(cglContext);
     const CGFloat scale = self.contentsScale > 0 ? self.contentsScale : 1;
     const int width = MAX(1, (int)(self.bounds.size.width * scale));
@@ -63,6 +71,7 @@ static void *get_proc_address(void *, const char *name) {
         glClear(GL_COLOR_BUFFER_BIT);
     }
     glFlush();
+    CGLUnlockContext(cglContext);
 }
 @end
 
@@ -188,25 +197,44 @@ static void on_mpv_update(void *context) {
     dispatch_async(dispatch_get_main_queue(), ^{ [layer setNeedsDisplay]; });
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
+// Bridge-specific failures use values below libmpv's error range so Kotlin can report the exact cause.
+static const jint VIMIVO_ATTACH_ALREADY_ATTACHED = -1001;
+static const jint VIMIVO_ATTACH_NO_JAWT = -1002;
+static const jint VIMIVO_ATTACH_SURFACE_LOCK = -1003;
+static const jint VIMIVO_ATTACH_NO_LAYER_HOST = -1004;
+static const jint VIMIVO_ATTACH_NO_GL_CONTEXT = -1005;
+
+extern "C" JNIEXPORT jint JNICALL
 Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_attachNative(JNIEnv *env, jobject self, jobject canvas, jlong mpvHandle) {
-    if (activeLayer || !mpvHandle) return JNI_FALSE;
+    if (activeLayer || !mpvHandle) return VIMIVO_ATTACH_ALREADY_ATTACHED;
     JAWT awt;
     awt.version = JAWT_VERSION_1_7;
-    if (!JAWT_GetAWT(env, &awt)) return JNI_FALSE;
+    if (!JAWT_GetAWT(env, &awt)) return VIMIVO_ATTACH_NO_JAWT;
     JAWT_DrawingSurface *surface = awt.GetDrawingSurface(env, canvas);
-    if (!surface || surface->Lock(surface) & JAWT_LOCK_ERROR) return JNI_FALSE;
+    if (!surface) return VIMIVO_ATTACH_SURFACE_LOCK;
+    if (surface->Lock(surface) & JAWT_LOCK_ERROR) {
+        awt.FreeDrawingSurface(surface);
+        return VIMIVO_ATTACH_SURFACE_LOCK;
+    }
     JAWT_DrawingSurfaceInfo *info = surface->GetDrawingSurfaceInfo(surface);
     id<JAWT_SurfaceLayers> target = info ? (__bridge id<JAWT_SurfaceLayers>)info->platformInfo : nil;
     if (info) surface->FreeDrawingSurfaceInfo(info);
     surface->Unlock(surface);
     awt.FreeDrawingSurface(surface);
-    if (!target) return JNI_FALSE;
+    if (!target) return VIMIVO_ATTACH_NO_LAYER_HOST;
 
     __block int result = MPV_ERROR_GENERIC;
     dispatch_sync(dispatch_get_main_queue(), ^{
-        VimivoMpvLayer *layer = [VimivoMpvLayer layer];
-        layer.contentsScale = NSScreen.mainScreen.backingScaleFactor;
+        CGLPixelFormatObj pixelFormat = createPixelFormat();
+        CGLContextObj glContext = NULL;
+        if (!pixelFormat || CGLCreateContext(pixelFormat, NULL, &glContext) != kCGLNoError) {
+            if (pixelFormat) CGLReleasePixelFormat(pixelFormat);
+            result = VIMIVO_ATTACH_NO_GL_CONTEXT;
+            return;
+        }
+        // mpv_render_context_create requires the OpenGL context to be current on the calling thread.
+        CGLContextObj previous = CGLGetCurrentContext();
+        CGLSetCurrentContext(glContext);
         mpv_opengl_init_params init = { .get_proc_address = get_proc_address, .get_proc_address_ctx = NULL };
         mpv_render_param params[] = {
             { MPV_RENDER_PARAM_API_TYPE, (void *)MPV_RENDER_API_TYPE_OPENGL },
@@ -215,26 +243,49 @@ Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_attachNative(JNIEnv *env, jobj
         };
         mpv_render_context *renderContext = NULL;
         result = mpv_render_context_create(&renderContext, (mpv_handle *)mpvHandle, params);
-        if (result >= 0) {
-            layer.renderContext = renderContext;
-            mpv_render_context_set_update_callback(layer.renderContext, on_mpv_update, (__bridge void *)layer);
-            target.layer = layer;
-            activeLayer = layer;
-            activeSurface = target;
+        CGLSetCurrentContext(previous);
+        if (result < 0) {
+            CGLReleaseContext(glContext);
+            CGLReleasePixelFormat(pixelFormat);
+            return;
         }
+        VimivoMpvLayer *layer = [VimivoMpvLayer layer];
+        layer.contentsScale = NSScreen.mainScreen.backingScaleFactor;
+        layer.sharedPixelFormat = pixelFormat;
+        layer.sharedContext = glContext;
+        layer.renderContext = renderContext;
+        mpv_render_context_set_update_callback(layer.renderContext, on_mpv_update, (__bridge void *)layer);
+        target.layer = layer;
+        activeLayer = layer;
+        activeSurface = target;
     });
-    return result >= 0 ? JNI_TRUE : JNI_FALSE;
+    return result >= 0 ? 0 : result;
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_detachNative(JNIEnv *, jobject) {
     dispatch_sync(dispatch_get_main_queue(), ^{
+        // Keep the layer alive locally: clearing the host's layer drops what may be the last reference.
+        VimivoMpvLayer *layer = activeLayer;
         if (activeSurface) activeSurface.layer = nil;
-        if (activeLayer.renderContext) {
-            mpv_render_context_set_update_callback(activeLayer.renderContext, NULL, NULL);
-            mpv_render_context_free(activeLayer.renderContext);
-            activeLayer.renderContext = NULL;
+        CGLContextObj glContext = layer.sharedContext;
+        if (layer.renderContext) {
+            // The render context must be freed with its OpenGL context current.
+            CGLContextObj previous = CGLGetCurrentContext();
+            if (glContext) {
+                CGLLockContext(glContext);
+                CGLSetCurrentContext(glContext);
+            }
+            mpv_render_context_set_update_callback(layer.renderContext, NULL, NULL);
+            mpv_render_context_free(layer.renderContext);
+            layer.renderContext = NULL;
+            CGLSetCurrentContext(previous);
+            if (glContext) CGLUnlockContext(glContext);
         }
+        if (glContext) CGLReleaseContext(glContext);
+        if (layer.sharedPixelFormat) CGLReleasePixelFormat(layer.sharedPixelFormat);
+        layer.sharedContext = NULL;
+        layer.sharedPixelFormat = NULL;
         activeLayer = nil;
         activeSurface = nil;
     });

@@ -42,7 +42,7 @@ public struct HomeView: View {
                             horizontalRow {
                                 ForEach(Array(continueWatching.enumerated()), id: \.element.item.id) { index, entry in
                                     VideoCard(item: entry.item, width: 220, progress: progress(entry)) {
-                                        onOpenVideo(continueWatching.map(\.item), index, entry.history.positionMillis)
+                                        onOpenVideo(continueWatching.map(\.item), index)
                                     }
                                 }
                             }
@@ -144,6 +144,7 @@ public struct HomeView: View {
                 handleImport(result: result)
             }
             .onAppear(perform: loadData)
+            .onReceive(NotificationCenter.default.publisher(for: .vimivoLibraryDidChange)) { _ in loadData() }
             .onChange(of: engine.state.currentItem?.id) { _ in loadData() }
         }
         .navigationViewStyle(.stack)
@@ -234,7 +235,7 @@ public struct HomeView: View {
         let sameKind = list.filter { $0.kind == item.kind }
         let index = sameKind.firstIndex(where: { $0.id == item.id }) ?? 0
         if item.kind == .video {
-            onOpenVideo(sameKind, index, 0)
+            onOpenVideo(sameKind, index)
         } else {
             engine.playQueue(items: sameKind, startIndex: index)
         }

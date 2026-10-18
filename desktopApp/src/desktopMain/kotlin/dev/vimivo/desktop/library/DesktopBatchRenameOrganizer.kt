@@ -50,7 +50,7 @@ internal class DesktopBatchRenameOrganizer(private val database: DesktopDatabase
             val newFileName = if (ext.isNotEmpty()) "$sanitized.$ext" else sanitized
             val parentDir = sourceFile.parentFile ?: File(".")
             val targetFile = File(parentDir, newFileName)
-            val targetUri = targetFile.toURI().toString()
+            val targetUri = targetFile.toPath().toUri().toString()
 
             val normalizedKey = targetFile.absolutePath.lowercase()
             val hasCollision = when {
@@ -115,7 +115,7 @@ internal class DesktopBatchRenameOrganizer(private val database: DesktopDatabase
                     connection.prepareStatement(
                         "UPDATE media_items SET uri=?, file_name=?, modified_ms=? WHERE id=?",
                     ).use { statement ->
-                        statement.setString(1, target.toURI().toString())
+                        statement.setString(1, target.toPath().toUri().toString())
                         statement.setString(2, target.name)
                         statement.setLong(3, target.lastModified())
                         statement.setString(4, plan.mediaId.value)
@@ -206,7 +206,7 @@ internal class DesktopBatchRenameOrganizer(private val database: DesktopDatabase
                         connection.prepareStatement(
                             "UPDATE media_items SET uri=?, file_name=?, modified_ms=? WHERE id=?",
                         ).use { statement ->
-                            statement.setString(1, target.toURI().toString())
+                            statement.setString(1, target.toPath().toUri().toString())
                             statement.setString(2, target.name)
                             statement.setLong(3, target.lastModified())
                             statement.setString(4, plan.mediaId.value)

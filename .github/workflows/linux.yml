@@ -32,7 +32,10 @@ jobs:
       - name: Install Linux packaging tools and libmpv
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev
+          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev ffmpeg xvfb
+
+      - name: Generate smoke-test media
+        run: python3 testmedia/generate_media.py
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -44,6 +47,13 @@ jobs:
         run: |
           ./gradlew :desktopApp:createDistributable
           python3 desktopApp/scripts/bundle_linux_mpv.py desktopApp/build/compose/binaries/main/app/Vimivo /usr/lib/x86_64-linux-gnu
+
+      - name: Smoke-test the packaged app (launch + local video and audio playback)
+        run: |
+          xvfb-run -a -s "-screen 0 1280x800x24" desktopApp/build/compose/binaries/main/app/Vimivo/bin/Vimivo --smoke-test \
+            "$PWD/testmedia/video_landscape.mp4" "$PWD/testmedia/video_sample.mkv" \
+            "$PWD/testmedia/track2_lunar.mp3" "$PWD/testmedia/track1_solaris.flac" | tee smoke.log
+          test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 4
 
       - name: Package DEB and RPM
         run: ./gradlew :desktopApp:packageDeb :desktopApp:packageRpm

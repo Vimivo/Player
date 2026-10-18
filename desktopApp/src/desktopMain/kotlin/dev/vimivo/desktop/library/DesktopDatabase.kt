@@ -213,6 +213,12 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             return DesktopDatabase(DriverManager.getConnection("jdbc:sqlite:${path.toAbsolutePath()}"))
         }
 
+        /** A throwaway database for `--smoke-test` runs so verification never touches the user's library. */
+        fun inMemory(): DesktopDatabase {
+            Class.forName("org.sqlite.JDBC")
+            return DesktopDatabase(DriverManager.getConnection("jdbc:sqlite::memory:"))
+        }
+
         fun defaultPath(): Path = DesktopDirectories.resolve().database
     }
 }

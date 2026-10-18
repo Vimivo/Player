@@ -110,6 +110,12 @@ internal interface MpvNative : Library {
                     }
                 }
             }
+            // Distributions ship only the versioned soname unless the -dev package is installed.
+            if (System.getProperty("os.name").orEmpty().startsWith("Linux")) {
+                for (soname in listOf("libmpv.so.2", "libmpv.so.1")) {
+                    runCatching { return Native.load(soname, MpvNative::class.java) }
+                }
+            }
             return Native.load("mpv", MpvNative::class.java)
         }
 

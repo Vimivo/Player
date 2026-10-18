@@ -5,23 +5,41 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
+val isMacHost = org.gradle.internal.os.OperatingSystem.current().isMacOsX
+
+/**
+ * libmpv comes from Homebrew, whose prefix differs by architecture (/opt/homebrew on Apple Silicon,
+ * /usr/local on Intel). VIMIVO_MPV_PREFIX overrides it for custom libmpv builds.
+ */
+val macosMpvPrefix: Provider<String> = providers.environmentVariable("VIMIVO_MPV_PREFIX")
+    .orElse(providers.environmentVariable("HOMEBREW_PREFIX"))
+    .orElse(if (System.getProperty("os.arch") == "aarch64") "/opt/homebrew" else "/usr/local")
+
 val macosMpvBridge by tasks.registering(Exec::class) {
-    onlyIf { org.gradle.internal.os.OperatingSystem.current().isMacOsX }
-    val javaHome = providers.environmentVariable("JAVA_HOME").orElse("/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home")
+    // A local copy keeps the configuration cache from capturing the build script object.
+    val macHost = isMacHost
+    onlyIf { macHost }
+    // JNI/JAWT headers come from the JDK running Gradle unless JAVA_HOME names another one.
+    val javaHome = providers.environmentVariable("JAVA_HOME").orElse(System.getProperty("java.home"))
+    val mpvPrefix = macosMpvPrefix.get()
     val output = layout.buildDirectory.file("native/libvimivo_mpv_cocoa.dylib")
     inputs.file("src/desktopMain/native/macos/MpvCocoaRenderer.mm")
+    inputs.property("mpvPrefix", mpvPrefix)
     outputs.file(output)
     val commandLineToolsCompiler = file("/Library/Developer/CommandLineTools/usr/bin/clang++")
     val compiler = if (commandLineToolsCompiler.canExecute()) commandLineToolsCompiler.absolutePath else "clang++"
     val cmd = mutableListOf(
-        compiler, "-dynamiclib", "-std=c++17",
-        "-I${javaHome.get()}/include", "-I${javaHome.get()}/include/darwin", "-I/opt/homebrew/include",
+        // ARC is required: the bridge keeps Objective-C objects in static strong references.
+        compiler, "-dynamiclib", "-std=c++17", "-fobjc-arc",
+        "-I${javaHome.get()}/include", "-I${javaHome.get()}/include/darwin", "-I$mpvPrefix/include",
         "src/desktopMain/native/macos/MpvCocoaRenderer.mm", "-o", output.get().asFile.absolutePath,
-        "-L/opt/homebrew/lib", "-L${javaHome.get()}/lib", "-lmpv", "-ljawt", "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "QuartzCore", "-framework", "MediaPlayer",
+        "-L$mpvPrefix/lib", "-L${javaHome.get()}/lib", "-lmpv", "-ljawt", "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "QuartzCore", "-framework", "MediaPlayer",
     )
-    val stableSdk = file("/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk")
-    if (stableSdk.exists()) {
-        cmd.addAll(listOf("-isysroot", stableSdk.absolutePath))
+    // VIMIVO_MACOS_SDK pins an SDK; otherwise a locally installed stable Command Line Tools SDK is preferred.
+    val pinnedSdk = providers.environmentVariable("VIMIVO_MACOS_SDK").orNull?.let(::file)
+        ?: file("/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk")
+    if (pinnedSdk.exists()) {
+        cmd.addAll(listOf("-isysroot", pinnedSdk.absolutePath))
     }
     commandLine(cmd)
 }
@@ -32,7 +50,8 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
 
 tasks.matching { it.name == "run" }.configureEach {
     dependsOn(macosMpvBridge)
-    (this as JavaExec).jvmArgs("-Djava.library.path=${layout.buildDirectory.dir("native").get().asFile.absolutePath}")
+    // The Compose plugin replaces the run task's jvmArgs, so the bridge path must be a system property.
+    (this as JavaExec).systemProperty("java.library.path", layout.buildDirectory.dir("native").get().asFile.absolutePath)
 }
 
 kotlin {
@@ -80,6 +99,33 @@ compose.desktop {
                 else -> emptyArray()
             }
             targetFormats(*formats)
+            // Registers Vimivo as an "Open With" handler without taking over the user's default player.
+            listOf(
+                Triple("video/mp4", "mp4", "MPEG-4 video"),
+                Triple("video/x-m4v", "m4v", "MPEG-4 video"),
+                Triple("video/x-matroska", "mkv", "Matroska video"),
+                Triple("video/webm", "webm", "WebM video"),
+                Triple("video/quicktime", "mov", "QuickTime movie"),
+                Triple("video/x-msvideo", "avi", "AVI video"),
+                Triple("video/mp2t", "ts", "MPEG transport stream"),
+                Triple("video/mp2t", "m2ts", "MPEG transport stream"),
+                Triple("video/x-ms-wmv", "wmv", "Windows Media video"),
+                Triple("video/x-flv", "flv", "Flash video"),
+                Triple("video/ogg", "ogv", "Ogg video"),
+                Triple("video/3gpp", "3gp", "3GPP video"),
+                Triple("video/mpeg", "mpg", "MPEG video"),
+                Triple("audio/mpeg", "mp3", "MP3 audio"),
+                Triple("audio/mp4", "m4a", "MPEG-4 audio"),
+                Triple("audio/aac", "aac", "AAC audio"),
+                Triple("audio/flac", "flac", "FLAC audio"),
+                Triple("audio/wav", "wav", "WAVE audio"),
+                Triple("audio/aiff", "aiff", "AIFF audio"),
+                Triple("audio/ogg", "ogg", "Ogg audio"),
+                Triple("audio/opus", "opus", "Opus audio"),
+                Triple("audio/x-ms-wma", "wma", "Windows Media audio"),
+                Triple("audio/x-ape", "ape", "Monkey's Audio"),
+                Triple("audio/x-dsf", "dsf", "DSD audio"),
+            ).forEach { (mimeType, extension, label) -> fileAssociation(mimeType, extension, label) }
             packageName = "Vimivo"
             packageVersion = "1.0.0"
             description = "Privacy-first music and video player"
@@ -128,11 +174,13 @@ val bundleMacosMpv by tasks.registering(Exec::class) {
     dependsOn(macosMpvBridge)
     val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo.app")
     val bridgeDylib = layout.buildDirectory.file("native/libvimivo_mpv_cocoa.dylib")
+    environment("VIMIVO_MPV_PREFIX", macosMpvPrefix.get())
     commandLine(
         "python3",
         project.file("scripts/bundle_macos_mpv.py").absolutePath,
         appPath.get().asFile.absolutePath,
         bridgeDylib.get().asFile.absolutePath,
+        project.file("macos/Vimivo.entitlements").absolutePath,
     )
 }
 

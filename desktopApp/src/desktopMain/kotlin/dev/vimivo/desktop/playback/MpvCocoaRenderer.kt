@@ -14,6 +14,8 @@ internal class MpvCocoaRenderer : DesktopVideoRenderer {
 
     override fun attach(canvas: Canvas, context: Pointer) {
         check(!attached) { "A render target is already attached" }
+        // JAWT dereferences the canvas peer; calling it before the canvas is displayable crashes the JVM.
+        check(canvas.isDisplayable) { "The video surface is not displayable yet" }
         val frameworks = MpvNative.findBundledFrameworksDir()
         val bundledBridge = frameworks?.resolve("libvimivo_mpv_cocoa.dylib")
         if (bundledBridge != null && bundledBridge.exists()) {
@@ -21,9 +23,8 @@ internal class MpvCocoaRenderer : DesktopVideoRenderer {
         } else {
             System.loadLibrary("vimivo_mpv_cocoa")
         }
-        require(attachNative(canvas, Pointer.nativeValue(context))) {
-            "Unable to attach libmpv to the Cocoa render target"
-        }
+        val result = attachNative(canvas, Pointer.nativeValue(context))
+        check(result == 0) { "Unable to attach libmpv to the Cocoa render target: ${describeAttachFailure(result)}" }
         attached = true
     }
 
@@ -32,6 +33,18 @@ internal class MpvCocoaRenderer : DesktopVideoRenderer {
         attached = false
     }
 
-    private external fun attachNative(canvas: Canvas, mpvHandle: Long): Boolean
+    private external fun attachNative(canvas: Canvas, mpvHandle: Long): Int
     private external fun detachNative()
+
+    private companion object {
+        // Mirrors the VIMIVO_ATTACH_* codes in MpvCocoaRenderer.mm; other negatives are libmpv error codes.
+        fun describeAttachFailure(code: Int): String = when (code) {
+            -1001 -> "a render target is already attached"
+            -1002 -> "the JAWT interface is unavailable"
+            -1003 -> "the video surface could not be locked"
+            -1004 -> "the video surface has no Core Animation layer host"
+            -1005 -> "an OpenGL context could not be created"
+            else -> "libmpv render context error $code"
+        }
+    }
 }

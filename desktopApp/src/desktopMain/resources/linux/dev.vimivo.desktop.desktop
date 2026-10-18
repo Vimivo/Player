@@ -7,6 +7,6 @@ Exec=vimivo %U
 Icon=vimivo
 Terminal=false
 Categories=AudioVideo;Audio;Video;Player;
-MimeType=audio/mpeg;audio/flac;audio/mp4;audio/aac;audio/x-wav;audio/ogg;audio/opus;video/mp4;video/x-matroska;video/quicktime;video/webm;video/x-msvideo;
+MimeType=audio/mpeg;audio/flac;audio/mp4;audio/aac;audio/x-wav;audio/wav;audio/aiff;audio/ogg;audio/opus;audio/x-ms-wma;audio/x-ape;audio/x-dsf;video/mp4;video/x-m4v;video/x-matroska;video/quicktime;video/webm;video/x-msvideo;video/mp2t;video/x-ms-wmv;video/x-flv;video/ogg;video/3gpp;video/mpeg;
 StartupWMClass=dev.vimivo.desktop.MainKt
 Keywords=Music;Video;Player;Audio;Media;mpv;

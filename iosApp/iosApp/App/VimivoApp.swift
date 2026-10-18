@@ -5,15 +5,35 @@ import UIKit
 public struct VimivoApp: App {
     @UIApplicationDelegateAdaptor(VimivoAppDelegate.self) private var appDelegate
     @StateObject private var engine = AVPlayerPlaybackEngine.shared
+    @StateObject private var router = AppRouter.shared
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("vimivo_theme") private var theme: String = "system"
 
     public init() {}
 
     public var body: some Scene {
         WindowGroup {
-            MainTabView(engine: engine)
+            MainTabView(engine: engine, router: router)
                 .preferredColorScheme(colorScheme)
                 .tint(Color.accentColor)
+                .onOpenURL { url in
+                    Task { await router.handle(url, engine: engine) }
+                }
+                .task {
+                    #if DEBUG
+                    // Lets simulator and CI smoke tests drive playback without the system "Open in" prompt.
+                    if let link = UserDefaults.standard.string(forKey: "VimivoOpenURL"), let url = URL(string: link) {
+                        await DocumentsLibraryImporter.shared.importDocuments()
+                        await router.handle(url, engine: engine)
+                    }
+                    #endif
+                }
+                .onChange(of: scenePhase) { phase in
+                    // Files may be added through Finder or the Files app while Vimivo is in the background.
+                    if phase == .active {
+                        Task { await DocumentsLibraryImporter.shared.importDocuments() }
+                    }
+                }
         }
     }
 

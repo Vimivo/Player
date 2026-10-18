@@ -202,6 +202,7 @@ import dev.vimivo.ui.theme.VimivoGlassVariant
 import dev.vimivo.ui.theme.VimivoShell
 import dev.vimivo.ui.theme.VimivoPlayer
 import org.koin.compose.viewmodel.koinViewModel
+import dev.vimivo.playback.PlaybackSpeeds
 
 private enum class AppDestination(val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
     HOME("Home", Icons.Outlined.Home, Icons.Filled.Home),
@@ -234,6 +235,7 @@ fun VimivoAndroidApp(
     permissions: MediaPermissionPolicy,
     onVideoPlayerState: (Boolean, Boolean) -> Unit = { _, _ -> },
     enterPictureInPicture: () -> Unit = {},
+    externalOpen: ExternalOpenRequest? = null,
     settingsViewModel: SettingsViewModel = koinViewModel(),
     playbackViewModel: PlaybackViewModel = koinViewModel(),
 ) {
@@ -252,9 +254,13 @@ fun VimivoAndroidApp(
             settingsViewModel,
             onVideoPlayerState,
             enterPictureInPicture,
+            externalOpen,
         )
     }
 }
+
+/** Brings the matching player forward after another app asked Vimivo to open a file; [id] makes repeats distinct. */
+data class ExternalOpenRequest(val id: Long, val kind: MediaKind)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -270,6 +276,7 @@ private fun AppShell(
     settingsViewModel: SettingsViewModel,
     onVideoPlayerState: (Boolean, Boolean) -> Unit,
     enterPictureInPicture: () -> Unit,
+    externalOpen: ExternalOpenRequest?,
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.HOME) }
     var searchVisible by rememberSaveable { mutableStateOf(false) }
@@ -279,6 +286,14 @@ private fun AppShell(
     var openUrlVisible by rememberSaveable { mutableStateOf(false) }
     var overflowVisible by remember { mutableStateOf(false) }
     val hazeState = rememberHazeState()
+
+    LaunchedEffect(externalOpen?.id) {
+        when (externalOpen?.kind) {
+            MediaKind.VIDEO -> videoPlayerVisible = true
+            null -> Unit
+            else -> nowPlayingVisible = true
+        }
+    }
 
     BackHandler(
         enabled = videoPlayerVisible || nowPlayingVisible || queueVisible || searchVisible || destination != AppDestination.HOME,
@@ -1609,9 +1624,9 @@ private fun settingLabel(value: Enum<*>): String = stringResource(
         else -> R.string.value_automatic
     },
 )
-private fun nextSpeed(value: Float): Float = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f).let { values ->
-    val current = values.indexOf(value).coerceAtLeast(1)
-    values[(current + 1) % values.size]
+private fun nextSpeed(value: Float): Float = PlaybackSpeeds.PRESETS.let { values ->
+    val current = values.indexOf(value)
+    if (current < 0) 1f else values[(current + 1) % values.size]
 }
 private fun nextSeek(value: Int) = listOf(5, 10, 15, 30, 60).let { it[(it.indexOf(value).coerceAtLeast(0) + 1) % it.size] }
 private fun nextDelay(value: Long) = if (value >= 2_000) -2_000 else value + 500

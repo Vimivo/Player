@@ -44,8 +44,11 @@ public final class SecurityScopedMediaManager {
         }
     }
 
-    public func extractMediaItem(from url: URL, bookmark: Data? = nil) async -> MediaItem {
-        let bookmarkData = bookmark ?? (try? createBookmark(for: url))
+    /// - Parameters:
+    ///   - id: a stable identifier; files the app owns pass one so re-importing never duplicates them.
+    ///   - createsBookmark: false for files inside the app container, which are re-resolved by path instead.
+    public func extractMediaItem(from url: URL, bookmark: Data? = nil, id: String? = nil, createsBookmark: Bool = true) async -> MediaItem {
+        let bookmarkData = bookmark ?? (createsBookmark ? try? createBookmark(for: url) : nil)
         let asset = AVURLAsset(url: url)
         var durationMillis: Int64? = nil
         if let duration = try? await asset.load(.duration) {
@@ -84,7 +87,7 @@ public final class SecurityScopedMediaManager {
 
         let fallbackTitle = url.deletingPathExtension().lastPathComponent
         return MediaItem(
-            id: UUID().uuidString,
+            id: id ?? UUID().uuidString,
             uri: url.absoluteString,
             title: title ?? fallbackTitle,
             kind: isVideo ? .video : .audio,

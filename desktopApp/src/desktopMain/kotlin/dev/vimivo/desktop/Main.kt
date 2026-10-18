@@ -75,6 +75,10 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import dev.vimivo.desktop.diagnostics.DesktopSmokeResult
+import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
+import dev.vimivo.desktop.diagnostics.DesktopSmokeTestRequest
+import dev.vimivo.desktop.library.DesktopDatabase
 import javax.imageio.ImageIO
 import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.ui.components.VimivoGlassSurface
@@ -116,12 +120,16 @@ import java.awt.Canvas
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
+import kotlin.system.exitProcess
 
 fun main(args: Array<String>) = application {
+    val smokeTest = remember { DesktopSmokeTest.parse(args) }
     val engine = remember { MpvPlayerEngine() }
     val openFileHandler = remember { MacOpenFileHandler().also { it.install() } }
     val applicationScope = rememberCoroutineScope()
-    val library = remember { DesktopLibraryController() }
+    val library = remember {
+        if (smokeTest != null) DesktopLibraryController(DesktopDatabase.inMemory()) else DesktopLibraryController()
+    }
     val queue = remember(engine, applicationScope) {
         PlaybackQueueController(engine, applicationScope, isAvailable = { media ->
             media.isAvailable && (!media.uri.startsWith("file:") || runCatching { File(java.net.URI(media.uri)).isFile }.getOrDefault(false))
@@ -155,7 +163,9 @@ fun main(args: Array<String>) = application {
         }.getOrNull()
     }
     val windowState = rememberWindowState()
-    val recentMedia = remember { dev.vimivo.desktop.library.DesktopRecentMediaRepository() }
+    val recentMedia = remember {
+        dev.vimivo.desktop.library.DesktopRecentMediaRepository(persistent = smokeTest == null)
+    }
     val recentEntries by recentMedia.entries.collectAsState()
     val toggleFullscreen: () -> Unit = {
         windowState.placement = if (windowState.placement == WindowPlacement.Fullscreen) WindowPlacement.Floating else WindowPlacement.Fullscreen
@@ -399,9 +409,17 @@ fun main(args: Array<String>) = application {
             engine,
             queue,
             library,
-            args.map(::File),
+            if (smokeTest != null) emptyList() else args.map(::File),
             openFileHandler,
             mpris,
+            smokeTest = smokeTest,
+            onSmokeTestFinished = { passed ->
+                mpris.close()
+                queue.close()
+                engine.close()
+                openFileHandler.close()
+                exitProcess(if (passed) 0 else 1)
+            },
             openStreamRequested = openStreamRequested,
             onOpenStreamHandled = { openStreamRequested = false },
             requestedDestination = requestedDestination,
@@ -466,6 +484,8 @@ private fun DesktopPlayer(
     recentMedia: dev.vimivo.desktop.library.DesktopRecentMediaRepository,
     isFullscreen: Boolean = false,
     onToggleFullscreen: () -> Unit = {},
+    smokeTest: DesktopSmokeTestRequest? = null,
+    onSmokeTestFinished: (Boolean) -> Unit = {},
 ) {
     val state by engine.state.collectAsState()
     val commandStatus by commands.status.collectAsState()
@@ -555,6 +575,16 @@ private fun DesktopPlayer(
         }
         videoCanvas.addMouseListener(doubleClickListener)
         onDispose { videoCanvas.removeMouseListener(doubleClickListener) }
+    }
+    if (smokeTest != null) {
+        // Declared after the surface is attached so video smoke runs exercise the real renderer.
+        LaunchedEffect(smokeTest) {
+            val results = DesktopSmokeTest.run(smokeTest.files, engine.state, File::toMediaItem, play = { media ->
+                queue.play(listOf(media))
+            })
+            DesktopSmokeTest.publish(results, System.getenv("VIMIVO_SMOKE_REPORT"))
+            onSmokeTestFinished(results.isNotEmpty() && results.all { it is DesktopSmokeResult.Passed })
+        }
     }
     LaunchedEffect(engine, recentMedia) {
         // Only local files the user opened are remembered; stream URLs stay in the redacted stream history.
@@ -1505,8 +1535,8 @@ private fun choosePlaylistFile(): File? {
 }
 
 private fun File.toMediaItem() = MediaItem(
-    id = MediaId(toURI().toString()),
-    uri = toURI().toString(),
+    id = MediaId(toPath().toUri().toString()),
+    uri = toPath().toUri().toString(),
     title = nameWithoutExtension,
     kind = if (extension.lowercase() in VIDEO_EXTENSIONS) MediaKind.VIDEO else MediaKind.AUDIO,
     fileName = name,

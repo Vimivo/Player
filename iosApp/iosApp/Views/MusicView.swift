@@ -116,6 +116,7 @@ public struct MusicView: View {
                 handleImport(result: result)
             }
             .onAppear(perform: loadData)
+            .onReceive(NotificationCenter.default.publisher(for: .vimivoLibraryDidChange)) { _ in loadData() }
         }
     }
 

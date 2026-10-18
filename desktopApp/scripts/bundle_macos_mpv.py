@@ -4,7 +4,11 @@ bundle_macos_mpv.py
 
 Discovers, copies, rewrites install names, and bundles all native libmpv and
 Cocoa bridge dylib dependencies into Vimivo.app/Contents/Frameworks.
-Ensures zero runtime dependency on /opt/homebrew or external tools.
+Ensures zero runtime dependency on the Homebrew prefix or external tools.
+
+The Homebrew prefix comes from VIMIVO_MPV_PREFIX (/opt/homebrew on Apple Silicon, /usr/local on Intel).
+Bundled code is signed with VIMIVO_MAC_SIGN_IDENTITY (a Developer ID, using the hardened runtime and the
+given entitlements) when set, and ad-hoc otherwise.
 """
 
 import os
@@ -15,6 +19,18 @@ import subprocess
 CLT_PATH = "/Library/Developer/CommandLineTools/usr/bin"
 OTOOL = os.path.join(CLT_PATH, "otool") if os.path.exists(os.path.join(CLT_PATH, "otool")) else "otool"
 INSTALL_NAME_TOOL = os.path.join(CLT_PATH, "install_name_tool") if os.path.exists(os.path.join(CLT_PATH, "install_name_tool")) else "install_name_tool"
+HOMEBREW = os.environ.get("VIMIVO_MPV_PREFIX", "/opt/homebrew").rstrip("/")
+SIGN_IDENTITY = os.environ.get("VIMIVO_MAC_SIGN_IDENTITY", "").strip() or "-"
+
+
+def codesign(path, entitlements=None):
+    """Ad-hoc signs for local builds; Developer ID signing adds the hardened runtime and a secure timestamp."""
+    cmd = ["codesign", "--force", "--sign", SIGN_IDENTITY]
+    if SIGN_IDENTITY != "-":
+        cmd += ["--options", "runtime", "--timestamp"]
+        if entitlements:
+            cmd += ["--entitlements", entitlements]
+    subprocess.run(cmd + [path], check=True)
 
 def run_cmd(cmd):
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -51,7 +67,7 @@ def add_rpath_if_missing(binary_path, new_rpath):
     if new_rpath not in existing:
         subprocess.run([INSTALL_NAME_TOOL, "-add_rpath", new_rpath, binary_path], check=False)
 
-def bundle(app_path, cocoa_bridge_dylib):
+def bundle(app_path, cocoa_bridge_dylib, entitlements=None):
     if not os.path.exists(app_path):
         print(f"Error: app path does not exist: {app_path}", file=sys.stderr)
         sys.exit(1)
@@ -60,7 +76,7 @@ def bundle(app_path, cocoa_bridge_dylib):
     os.makedirs(frameworks_dir, exist_ok=True)
 
     initial_binaries = [
-        "/opt/homebrew/opt/mpv/lib/libmpv.2.dylib",
+        f"{HOMEBREW}/opt/mpv/lib/libmpv.2.dylib",
         cocoa_bridge_dylib,
     ]
 
@@ -77,7 +93,7 @@ def bundle(app_path, cocoa_bridge_dylib):
         discovered[basename] = real_curr
         deps = get_dependencies(real_curr)
         for dep in deps:
-            if dep.startswith("/opt/homebrew"):
+            if dep.startswith(HOMEBREW + "/"):
                 real_dep = os.path.realpath(dep)
                 dep_name = os.path.basename(real_dep)
                 if dep_name not in discovered and real_dep not in to_visit:
@@ -120,9 +136,6 @@ def bundle(app_path, cocoa_bridge_dylib):
     path_mapping = {}
     for name, real_src in discovered.items():
         path_mapping[real_src] = f"@rpath/{name}"
-        # Also map unversioned and versioned homebrew opt paths
-        for hb_prefix in ["/opt/homebrew/opt/", "/opt/homebrew/lib/", "/opt/homebrew/Cellar/"]:
-            pass
 
     # Fix install names and dependencies for all dylibs in Frameworks
     for name, dylib_path in bundled_files.items():
@@ -134,7 +147,7 @@ def bundle(app_path, cocoa_bridge_dylib):
         # Rewrite dependencies
         deps = get_dependencies(dylib_path)
         for dep in deps:
-            if dep.startswith("/opt/homebrew"):
+            if dep.startswith(HOMEBREW + "/"):
                 real_dep = os.path.realpath(dep) if os.path.exists(dep) else dep
                 dep_basename = os.path.basename(real_dep)
                 # Find matching bundled library
@@ -152,22 +165,24 @@ def bundle(app_path, cocoa_bridge_dylib):
         add_rpath_if_missing(main_executable, "@executable_path/../runtime/Contents/Home/lib/server")
 
     # Codesign all dylibs and the app bundle
-    print("Re-signing bundled libraries with ad-hoc signature...")
+    print("Signing bundled libraries with " + ("an ad-hoc signature" if SIGN_IDENTITY == "-" else "Developer ID") + "...")
     for dylib_path in bundled_files.values():
-        subprocess.run(["codesign", "--force", "--sign", "-", dylib_path], check=True)
+        if not os.path.islink(dylib_path):
+            codesign(dylib_path)
 
     if os.path.exists(main_executable):
-        subprocess.run(["codesign", "--force", "--sign", "-", main_executable], check=True)
+        codesign(main_executable, entitlements)
 
-    subprocess.run(["codesign", "--force", "--deep", "--sign", "-", app_path], check=True)
+    # Inside-out signing: --deep is deprecated for distribution and would not apply the entitlements.
+    codesign(app_path, entitlements)
 
-    # Verification: Ensure zero /opt/homebrew dependencies remain in any bundled dylib
+    # Verification: ensure no Homebrew dependencies remain in any bundled dylib
     print("Verifying bundled dependencies...")
     homebrew_references = []
     for name, dylib_path in bundled_files.items():
         deps = get_dependencies(dylib_path)
         for dep in deps:
-            if "/opt/homebrew" in dep:
+            if dep.startswith(HOMEBREW + "/"):
                 homebrew_references.append((name, dep))
 
     if homebrew_references:
@@ -176,10 +191,10 @@ def bundle(app_path, cocoa_bridge_dylib):
             print(f"  {name} -> {dep}", file=sys.stderr)
         sys.exit(1)
     else:
-        print("Verification SUCCESS: All native libraries bundled with @rpath. Zero /opt/homebrew references!")
+        print(f"Verification SUCCESS: All native libraries bundled with @rpath. Zero {HOMEBREW} references!")
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: bundle_macos_mpv.py <path_to_Vimivo.app> <path_to_libvimivo_mpv_cocoa.dylib>")
+        print("Usage: bundle_macos_mpv.py <path_to_Vimivo.app> <path_to_libvimivo_mpv_cocoa.dylib> [entitlements.plist]")
         sys.exit(1)
-    bundle(sys.argv[1], sys.argv[2])
+    bundle(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)

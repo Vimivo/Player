@@ -2,13 +2,19 @@ import Foundation
 import AVFoundation
 import AVKit
 import Combine
+import UIKit
 
 public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSessionDelegate, RemoteCommandDelegate, AVPictureInPictureControllerDelegate {
     public static let shared = AVPlayerPlaybackEngine()
 
     @Published public private(set) var state = PlaybackState()
-    @Published public var queue: [MediaItem] = []
-    @Published public var currentIndex: Int = 0
+    @Published public var queue: [MediaItem] = [] {
+        didSet { persistQueue() }
+    }
+    @Published public var currentIndex: Int = 0 {
+        didSet { persistQueue() }
+    }
+    private var isRestoringQueue = false
 
     public let player = AVPlayer()
     /// Delivers subtitle cues for custom rendering. It is attached to every item before playback
@@ -23,6 +29,9 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     private var itemEndObserver: Any?
     private var activeSecurityUrl: URL?
     private var pipController: AVPictureInPictureController?
+    private var itemStatusObservation: NSKeyValueObservation?
+    private var lifecycleObservers: [NSObjectProtocol] = []
+    private var lastCheckpointMillis: Int64 = 0
 
     public override init() {
         super.init()
@@ -32,6 +41,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         RemoteCommandController.shared.configureCommands()
         setupTimeObserver()
         setupEndObserver()
+        setupLifecycleObservers()
+        restoreQueue()
     }
 
     deinit {
@@ -41,6 +52,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         if let obs = itemEndObserver {
             NotificationCenter.default.removeObserver(obs)
         }
+        lifecycleObservers.forEach(NotificationCenter.default.removeObserver)
+        itemStatusObservation?.invalidate()
         if let url = activeSecurityUrl {
             SecurityScopedMediaManager.shared.stopAccessing(url: url)
         }
@@ -102,6 +115,11 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     }
 
     public func resume() {
+        // A queue restored at launch has no player item yet; load it so resume rules apply.
+        if player.currentItem == nil, let item = state.currentItem {
+            loadItem(item)
+            return
+        }
         AudioSessionController.shared.configureSession()
         player.play()
         state.status = .playing
@@ -124,6 +142,9 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     }
 
     public func stop() {
+        checkpoint()
+        itemStatusObservation?.invalidate()
+        itemStatusObservation = nil
         player.pause()
         player.replaceCurrentItem(with: nil)
         detachLegibleOutput()
@@ -182,6 +203,10 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     // MARK: - Internal Loading
 
     private func loadItem(_ item: MediaItem) {
+        // Persist where the outgoing item stopped before its state is replaced.
+        checkpoint()
+        itemStatusObservation?.invalidate()
+        itemStatusObservation = nil
         if let url = activeSecurityUrl {
             SecurityScopedMediaManager.shared.stopAccessing(url: url)
             activeSecurityUrl = nil
@@ -220,15 +245,55 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             activeSecurityUrl = playUrl
         }
 
+        let startMillis = PlaybackPreferences.startPositionMillis(
+            for: item,
+            saved: IOSDatabase.shared.resumeState(mediaId: item.id)
+        )
+        IOSDatabase.shared.recordPlayStart(mediaId: item.id)
+        lastCheckpointMillis = startMillis
+
         let playerItem = AVPlayerItem(url: playUrl)
+        // Pitch-corrected and valid for the whole 0.25×–4× range; low-latency algorithms stop at 2×.
+        playerItem.audioTimePitchAlgorithm = .timeDomain
         attachLegibleOutput(to: playerItem)
         player.replaceCurrentItem(with: playerItem)
         AudioSessionController.shared.configureSession()
-        player.play()
-        state.status = .playing
+        observeReadiness(of: playerItem, startMillis: startMillis)
+        if startMillis > 0 {
+            // Seeking is only reliable once the item is ready, so playback starts from the observer.
+            state.positionMillis = startMillis
+        } else {
+            player.play()
+            state.status = .playing
+        }
         updateNowPlaying()
+    }
 
-        IOSDatabase.shared.recordPlayback(mediaId: item.id, positionMillis: 0, completed: false)
+    private func observeReadiness(of playerItem: AVPlayerItem, startMillis: Int64) {
+        itemStatusObservation = playerItem.observe(\.status, options: [.initial, .new]) { [weak self] observedItem, _ in
+            DispatchQueue.main.async {
+                guard let self, self.player.currentItem === observedItem else { return }
+                switch observedItem.status {
+                case .readyToPlay:
+                    self.itemStatusObservation = nil
+                    guard startMillis > 0 else { return }
+                    let target = CMTime(seconds: Double(startMillis) / 1000.0, preferredTimescale: 600)
+                    self.player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+                        guard let self, self.player.currentItem === observedItem else { return }
+                        self.player.play()
+                        self.state.status = .playing
+                        self.updateNowPlaying()
+                    }
+                case .failed:
+                    self.itemStatusObservation = nil
+                    self.state.status = .error
+                    self.state.errorMessage = observedItem.error?.localizedDescription ?? "This file could not be played"
+                    self.updateNowPlaying()
+                default:
+                    break
+                }
+            }
+        }
     }
 
     /// Re-attaches the subtitle output to the current item. AVFoundation stops pushing cues to an
@@ -257,6 +322,9 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             let seconds = CMTimeGetSeconds(time)
             if !seconds.isNaN && seconds >= 0 {
                 self.state.positionMillis = Int64(seconds * 1000)
+            }
+            if abs(self.state.positionMillis - self.lastCheckpointMillis) >= PlaybackPreferences.checkpointIntervalMillis {
+                self.checkpoint()
             }
             if let currentItem = self.player.currentItem {
                 let durSeconds = CMTimeGetSeconds(currentItem.duration)
@@ -287,7 +355,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         ) { [weak self] _ in
             guard let self = self else { return }
             if let item = self.state.currentItem {
-                IOSDatabase.shared.recordPlayback(mediaId: item.id, positionMillis: self.state.durationMillis, completed: true)
+                IOSDatabase.shared.savePosition(mediaId: item.id, positionMillis: self.state.durationMillis, completed: true)
+                self.lastCheckpointMillis = self.state.durationMillis
             }
             if self.state.repeatMode == .one {
                 self.seek(toMillis: 0)
@@ -323,8 +392,64 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     }
 
     private func checkpoint() {
-        if let item = state.currentItem, state.positionMillis > 0 {
-            IOSDatabase.shared.recordPlayback(mediaId: item.id, positionMillis: state.positionMillis, completed: false)
+        guard let item = state.currentItem, state.positionMillis > 0, state.status != .error else { return }
+        IOSDatabase.shared.savePosition(mediaId: item.id, positionMillis: state.positionMillis, completed: false)
+        lastCheckpointMillis = state.positionMillis
+    }
+
+    // MARK: - Queue persistence
+
+    private func persistQueue() {
+        guard !isRestoringQueue else { return }
+        IOSDatabase.shared.saveQueue(mediaIds: queue.map(\.id), currentIndex: currentIndex)
+    }
+
+    /// Restores the last queue paused, so nothing plays until the user asks.
+    private func restoreQueue() {
+        let saved = IOSDatabase.shared.loadQueue()
+        guard !saved.mediaIds.isEmpty else { return }
+        let library = Dictionary(IOSDatabase.shared.getAllMediaItems().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let items = saved.mediaIds.compactMap { library[$0] }
+        guard !items.isEmpty else { return }
+        let currentId = saved.mediaIds[saved.currentIndex]
+        isRestoringQueue = true
+        queue = items
+        currentIndex = items.firstIndex { $0.id == currentId } ?? 0
+        isRestoringQueue = false
+        let current = items[currentIndex]
+        state.currentItem = current
+        state.status = .paused
+        state.durationMillis = current.durationMillis ?? 0
+    }
+
+    // MARK: - Bookmarks
+
+    @discardableResult
+    public func addBookmarkAtCurrentPosition() -> Bookmark? {
+        guard let item = state.currentItem else { return nil }
+        let bookmark = Bookmark(
+            mediaId: item.id,
+            name: MediaFormatting.clock(millis: state.positionMillis),
+            positionMillis: state.positionMillis
+        )
+        IOSDatabase.shared.addBookmark(bookmark)
+        return bookmark
+    }
+
+    public func bookmarksForCurrentItem() -> [Bookmark] {
+        guard let item = state.currentItem else { return [] }
+        return IOSDatabase.shared.bookmarks(mediaId: item.id)
+    }
+
+    public func deleteBookmark(_ bookmark: Bookmark) {
+        IOSDatabase.shared.deleteBookmark(id: bookmark.id)
+    }
+
+    /// The app can be suspended or terminated without warning once backgrounded, so save the position first.
+    private func setupLifecycleObservers() {
+        let center = NotificationCenter.default
+        lifecycleObservers = [UIApplication.willResignActiveNotification, UIApplication.didEnterBackgroundNotification].map { name in
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.checkpoint() }
         }
     }
 

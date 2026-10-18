@@ -2,13 +2,15 @@ import SwiftUI
 
 public struct MainTabView: View {
     @ObservedObject public var engine: AVPlayerPlaybackEngine
+    @ObservedObject var router: AppRouter
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedTab = 0
     @State private var showNowPlayingModal = false
     @State private var showVideoPlayer = false
 
-    public init(engine: AVPlayerPlaybackEngine) {
+    init(engine: AVPlayerPlaybackEngine, router: AppRouter) {
         self.engine = engine
+        self.router = router
     }
 
     public var body: some View {
@@ -28,14 +30,12 @@ public struct MainTabView: View {
                 engine.pause()
             }
         }
+        .onChange(of: router.playerRequest) { _ in expandNowPlaying() }
     }
 
-    /// Starts a video queue and opens the full-screen player, resuming where the viewer left off.
-    private func openVideo(_ items: [MediaItem], _ index: Int, _ resumeMillis: Int64) {
+    /// Starts a video queue and opens the full-screen player; the engine resumes where the viewer left off.
+    private func openVideo(_ items: [MediaItem], _ index: Int) {
         engine.playQueue(items: items, startIndex: index)
-        if resumeMillis > 0 {
-            engine.seek(toMillis: resumeMillis)
-        }
         showVideoPlayer = true
     }
 

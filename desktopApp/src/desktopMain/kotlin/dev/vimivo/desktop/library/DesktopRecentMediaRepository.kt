@@ -21,6 +21,8 @@ import kotlin.io.path.writeText
 class DesktopRecentMediaRepository(
     private val storageDir: Path = DesktopDirectories.resolve().data,
     private val capacity: Int = RecentMediaList.DEFAULT_CAPACITY,
+    /** False keeps entries in memory only, which `--smoke-test` runs use. */
+    private val persistent: Boolean = true,
 ) {
     private val file: Path get() = storageDir.resolve(FILE_NAME)
     private val json = Json { ignoreUnknownKeys = true }
@@ -33,7 +35,7 @@ class DesktopRecentMediaRepository(
         synchronized(lock) {
             val updated = RecentMediaList.record(mutableEntries.value, entry, capacity)
             if (updated == mutableEntries.value) return@runCatching
-            persist(updated)
+            if (persistent) persist(updated)
             mutableEntries.value = updated
         }
     }
@@ -46,7 +48,7 @@ class DesktopRecentMediaRepository(
     }
 
     private fun load(): List<RecentMediaEntry> = runCatching {
-        if (!file.exists()) return emptyList()
+        if (!persistent || !file.exists()) return emptyList()
         json.decodeFromString<List<Map<String, String>>>(file.readText()).mapNotNull { row ->
             val uri = row[KEY_URI]?.takeIf(String::isNotBlank) ?: return@mapNotNull null
             RecentMediaEntry(uri, row[KEY_TITLE].orEmpty().ifBlank { uri }, row[KEY_VIDEO] == "true")

@@ -10,7 +10,24 @@ permissions:
 
 jobs:
   build-and-package:
-    runs-on: macos-latest
+    # jpackage bundles an architecture-specific Java runtime, so Vimivo ships one DMG per architecture,
+    # each built natively (see docs/MACOS_DISTRIBUTION.md).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    env:
+      MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+      MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+      MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+      MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,6 +50,30 @@ jobs:
         run: |
           brew update
           brew install mpv
+          echo "VIMIVO_MPV_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
+
+      - name: Generate smoke-test media
+        # ffmpeg is installed as an mpv dependency.
+        run: python3 testmedia/generate_media.py
+
+      - name: Verify runner architecture
+        run: |
+          test "$(uname -m)" = "${{ matrix.arch }}" || { echo "Expected ${{ matrix.arch }}, got $(uname -m)"; exit 1; }
+
+      - name: Import Developer ID certificate
+        if: env.MACOS_CERTIFICATE_P12 != ''
+        run: |
+          keychain="$RUNNER_TEMP/vimivo-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+          echo "$MACOS_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$MACOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+          echo "VIMIVO_MAC_SIGN_IDENTITY=$MACOS_SIGN_IDENTITY" >> "$GITHUB_ENV"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -45,36 +86,50 @@ jobs:
 
       - name: Verify standalone package dependencies
         run: |
-          appPath="desktopApp/build/compose/binaries/main/app/Vimivo.app"
-          frameworksDir="$appPath/Contents/Frameworks"
-          if [ ! -d "$frameworksDir" ]; then
-            echo "Error: Frameworks directory not found in $appPath"
-            exit 1
-          fi
-          echo "Verifying zero /opt/homebrew references in bundled dylibs..."
-          find "$frameworksDir" -name "*.dylib" | while read -r dylib; do
-            if otool -L "$dylib" | grep -q "/opt/homebrew"; then
-              echo "Error: Found /opt/homebrew reference in $dylib"
+          frameworksDir="desktopApp/build/compose/binaries/main/app/Vimivo.app/Contents/Frameworks"
+          test -d "$frameworksDir" || { echo "Error: $frameworksDir not found"; exit 1; }
+          echo "Verifying zero $VIMIVO_MPV_PREFIX references in bundled dylibs..."
+          find "$frameworksDir" -name "*.dylib" -type f | while read -r dylib; do
+            if otool -L "$dylib" | grep -q "$VIMIVO_MPV_PREFIX/"; then
+              echo "Error: Found $VIMIVO_MPV_PREFIX reference in $dylib"
               exit 1
             fi
+            lipo -archs "$dylib" | grep -qw "${{ matrix.arch }}" || { echo "Error: $dylib lacks ${{ matrix.arch }}"; exit 1; }
           done
-          echo "Verification passed: All dylibs relocatable."
+          codesign --verify --strict "desktopApp/build/compose/binaries/main/app/Vimivo.app"
+          echo "Verification passed: all dylibs relocatable, ${{ matrix.arch }}, and signed."
 
-      - name: Verify DMG and calculate SHA-256
+      - name: Smoke-test the packaged app (launch + local video and audio playback)
         run: |
-          dmgPath="desktopApp/build/compose/binaries/main/dmg/Vimivo-1.0.0.dmg"
-          if [ ! -f "$dmgPath" ]; then
-            echo "Error: DMG file not found at $dmgPath"
-            exit 1
-          fi
+          ./desktopApp/build/compose/binaries/main/app/Vimivo.app/Contents/MacOS/Vimivo --smoke-test \
+            "$PWD/testmedia/video_landscape.mp4" "$PWD/testmedia/video_sample.mkv" \
+            "$PWD/testmedia/track2_lunar.mp3" "$PWD/testmedia/track1_solaris.flac" | tee smoke.log
+          test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 4
+
+      - name: Collect DMG
+        run: |
           mkdir -p build/artifacts
-          cp "$dmgPath" "build/artifacts/Vimivo-1.0.0.dmg"
-          shasum -a 256 "build/artifacts/Vimivo-1.0.0.dmg" | awk '{print $1}' > "build/artifacts/Vimivo-1.0.0.dmg.sha256"
-          echo "Vimivo-1.0.0.dmg SHA-256: $(cat build/artifacts/Vimivo-1.0.0.dmg.sha256)"
+          dmg="build/artifacts/Vimivo-1.0.0-${{ matrix.arch }}.dmg"
+          cp desktopApp/build/compose/binaries/main/dmg/Vimivo-1.0.0.dmg "$dmg"
+          echo "DMG_PATH=$dmg" >> "$GITHUB_ENV"
+
+      - name: Sign, notarize and staple DMG
+        if: env.MACOS_CERTIFICATE_P12 != '' && env.MACOS_NOTARY_APPLE_ID != ''
+        run: |
+          codesign --force --timestamp --sign "$MACOS_SIGN_IDENTITY" "$DMG_PATH"
+          xcrun notarytool submit "$DMG_PATH" --apple-id "$MACOS_NOTARY_APPLE_ID" \
+            --password "$MACOS_NOTARY_PASSWORD" --team-id "$MACOS_NOTARY_TEAM_ID" --wait
+          xcrun stapler staple "$DMG_PATH"
+          spctl --assess --type open --context context:primary-signature --verbose "$DMG_PATH"
+
+      - name: Calculate SHA-256
+        run: |
+          shasum -a 256 "$DMG_PATH" | awk '{print $1}' > "$DMG_PATH.sha256"
+          echo "$(basename "$DMG_PATH") SHA-256: $(cat "$DMG_PATH.sha256")"
 
       - name: Upload macOS distribution artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: vimivo-macos-dmg
+          name: vimivo-macos-dmg-${{ matrix.arch }}
           path: build/artifacts/*
           if-no-files-found: error

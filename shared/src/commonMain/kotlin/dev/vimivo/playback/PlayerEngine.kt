@@ -113,7 +113,7 @@ data class EngineCapabilities(
     val screenshots: Boolean = false,
     val frameStepping: Boolean = false,
     val deinterlacing: Boolean = false,
-    val supportedSpeedRange: ClosedFloatingPointRange<Float> = 0.25f..4f,
+    val supportedSpeedRange: ClosedFloatingPointRange<Float> = PlaybackSpeeds.RANGE,
     val audioEnhancements: AudioEnhancementCapabilities = AudioEnhancementCapabilities(
         limitation = "Audio enhancements are unavailable with this engine",
     ),

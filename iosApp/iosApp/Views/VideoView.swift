@@ -1,6 +1,7 @@
 import SwiftUI
 
-public typealias OpenVideoAction = (_ items: [MediaItem], _ index: Int, _ resumeMillis: Int64) -> Void
+/// Opens the full-screen player; the engine decides the start position using the shared resume rules.
+public typealias OpenVideoAction = (_ items: [MediaItem], _ index: Int) -> Void
 
 enum VideoFilter: String, CaseIterable {
     case all = "All videos"
@@ -92,10 +93,11 @@ public struct VideoView: View {
             .sheet(isPresented: $showOpenURL) {
                 OpenURLSheet { item in
                     showOpenURL = false
-                    onOpenVideo([item], 0, 0)
+                    onOpenVideo([item], 0)
                 }
             }
             .onAppear(perform: loadData)
+            .onReceive(NotificationCenter.default.publisher(for: .vimivoLibraryDidChange)) { _ in loadData() }
             .onChange(of: engine.state.currentItem?.id) { _ in loadData() }
             .task { await backfillMetadata() }
         }
@@ -184,9 +186,7 @@ public struct VideoView: View {
     }
 
     private func play(_ videos: [MediaItem], _ index: Int) {
-        let entry = historyMap[videos[index].id]
-        let resume = (entry?.completed == false) ? (entry?.positionMillis ?? 0) : 0
-        onOpenVideo(videos, index, resume)
+        onOpenVideo(videos, index)
     }
 
     private func loadData() {

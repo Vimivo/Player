@@ -35,7 +35,9 @@ import dev.vimivo.core.model.SmartRuleCondition
 import dev.vimivo.core.model.WatchingInsights
 import dev.vimivo.core.model.WorkflowRule
 import dev.vimivo.playback.PlaybackQueueSnapshot
+import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
+import dev.vimivo.playback.ResumePolicy
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.QueueItem
 import dev.vimivo.settings.LibraryViewMode
@@ -256,7 +258,7 @@ internal class DesktopLibraryController(
         return mutatePersonalData { personalRepository.putSetting("resume_playback", enabled.toString()) }
     }
     fun setDefaultSpeed(speed: Float): Job {
-        val clamped = speed.coerceIn(0.25f, 3.0f)
+        val clamped = speed.coerceIn(PlaybackSpeeds.MIN, PlaybackSpeeds.MAX)
         mutableState.value = mutableState.value.copy(defaultSpeed = clamped)
         return mutatePersonalData { personalRepository.putSetting("default_speed", clamped.toString()) }
     }
@@ -744,11 +746,13 @@ internal class DesktopLibraryController(
         private const val PLAYBACK_SAVE_INTERVAL_MILLIS = 10_000L
 
         internal fun resumePositionMillis(media: MediaItem, saved: ResumePosition?): Long {
-            if (saved == null || saved.completed || saved.positionMillis < 10_000) return 0
-            val duration = saved.durationMillis ?: media.durationMillis
-            if (duration != null && (saved.positionMillis >= duration - 15_000 || saved.positionMillis * 100 >= duration * 95)) return 0
-            val isLongAudio = media.kind == MediaKind.AUDIO && (duration ?: 0) >= 20 * 60_000
-            return if (media.kind == MediaKind.VIDEO || isLongAudio) saved.positionMillis else 0
+            if (saved == null) return 0
+            return ResumePolicy.startPositionMillis(
+                kind = media.kind,
+                savedPositionMillis = saved.positionMillis,
+                durationMillis = saved.durationMillis ?: media.durationMillis,
+                completed = saved.completed,
+            )
         }
     }
 }

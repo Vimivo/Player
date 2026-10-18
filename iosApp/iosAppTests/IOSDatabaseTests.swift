@@ -53,13 +53,79 @@ final class IOSDatabaseTests: XCTestCase {
         let db = IOSDatabase.shared
         let testId = "hist-\(UUID().uuidString)"
 
-        db.recordPlayback(mediaId: testId, positionMillis: 45000, completed: false)
+        db.savePosition(mediaId: testId, positionMillis: 45000, completed: false)
 
         let history = db.getHistory()
         let found = history.first { $0.mediaId == testId }
         XCTAssertNotNil(found)
         XCTAssertEqual(found?.positionMillis, 45000)
         XCTAssertFalse(found?.completed ?? true)
+    }
+
+    /// Regression: starting playback used to overwrite the saved position with 0, so nothing could resume.
+    func testPlayStartKeepsResumePositionAndCountsOnePlay() {
+        let db = IOSDatabase.shared
+        let testId = "resume-\(UUID().uuidString)"
+
+        db.recordPlayStart(mediaId: testId)
+        db.savePosition(mediaId: testId, positionMillis: 120_000, completed: false)
+        db.savePosition(mediaId: testId, positionMillis: 130_000, completed: false)
+        db.recordPlayStart(mediaId: testId)
+
+        XCTAssertEqual(db.resumeState(mediaId: testId), ResumeState(positionMillis: 130_000, durationMillis: nil, completed: false))
+        XCTAssertEqual(db.getHistory().first { $0.mediaId == testId }?.playCount, 2)
+    }
+
+    func testBookmarksPersistInPositionOrderAndDelete() {
+        let db = IOSDatabase.shared
+        let mediaId = "bm-\(UUID().uuidString)"
+        let late = Bookmark(mediaId: mediaId, name: "Late", positionMillis: 90_000)
+        let early = Bookmark(mediaId: mediaId, name: "Early", positionMillis: 10_000)
+        db.addBookmark(late)
+        db.addBookmark(early)
+
+        XCTAssertEqual(db.bookmarks(mediaId: mediaId).map(\.name), ["Early", "Late"])
+        db.deleteBookmark(id: early.id)
+        XCTAssertEqual(db.bookmarks(mediaId: mediaId).map(\.id), [late.id])
+    }
+
+    func testQueueRoundTripsAndClampsIndex() {
+        let db = IOSDatabase.shared
+        let saved = db.loadQueue()
+        defer { db.saveQueue(mediaIds: saved.mediaIds, currentIndex: saved.currentIndex) }
+
+        db.saveQueue(mediaIds: ["a", "b", "c"], currentIndex: 1)
+        XCTAssertEqual(db.loadQueue().mediaIds, ["a", "b", "c"])
+        XCTAssertEqual(db.loadQueue().currentIndex, 1)
+
+        db.saveQueue(mediaIds: ["a"], currentIndex: 5)
+        XCTAssertEqual(db.loadQueue().currentIndex, 0)
+
+        db.saveQueue(mediaIds: [], currentIndex: 0)
+        XCTAssertTrue(db.loadQueue().mediaIds.isEmpty)
+    }
+
+    func testSpeedPresetsComeFromSharedModuleAndReachFourTimes() {
+        XCTAssertEqual(PlaybackPreferences.speedPresets.first, 0.25)
+        XCTAssertEqual(PlaybackPreferences.speedPresets.last, 4)
+        XCTAssertEqual(PlaybackPreferences.speedRange.upperBound, 4)
+    }
+
+    func testResumeStartPositionUsesSharedPolicy() {
+        let defaults = UserDefaults(suiteName: "resume-\(UUID().uuidString)")!
+        let video = MediaItem(id: "v", uri: "file:///v.mp4", title: "V", kind: .video, durationMillis: 600_000)
+        let song = MediaItem(id: "s", uri: "file:///s.mp3", title: "S", kind: .audio, durationMillis: 240_000)
+        let midway = ResumeState(positionMillis: 120_000, durationMillis: nil, completed: false)
+
+        XCTAssertEqual(PlaybackPreferences.startPositionMillis(for: video, saved: midway, defaults: defaults), 120_000)
+        XCTAssertEqual(PlaybackPreferences.startPositionMillis(for: song, saved: midway, defaults: defaults), 0)
+        XCTAssertEqual(PlaybackPreferences.startPositionMillis(for: video, saved: nil, defaults: defaults), 0)
+
+        defaults.set(true, forKey: PlaybackPreferences.resumeSongsKey)
+        XCTAssertEqual(PlaybackPreferences.startPositionMillis(for: song, saved: midway, defaults: defaults), 120_000)
+
+        defaults.set(false, forKey: PlaybackPreferences.resumeVideoKey)
+        XCTAssertEqual(PlaybackPreferences.startPositionMillis(for: video, saved: midway, defaults: defaults), 0)
     }
 
     func testVideoMetadataRoundTripAndBackfill() {

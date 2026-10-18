@@ -35,6 +35,7 @@ import dev.vimivo.playback.PlaybackDiagnosticsSnapshot
 import dev.vimivo.playback.PlaybackError
 import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackMetadata
+import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
@@ -57,9 +58,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.awt.Canvas
 import java.io.File
 import java.net.URI
+import java.nio.file.Paths
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /** Desktop libmpv adapter with advanced audio and video controls. */
 class MpvPlayerEngine : PlayerEngine {
@@ -133,6 +138,8 @@ class MpvPlayerEngine : PlayerEngine {
             metadata = PlaybackMetadata(media.title, media.artist, media.album, media.artworkUri),
             sessionId = currentSession,
         )
+        // Published Preparing state lets the UI compose the video surface before the renderer needs it.
+        attachRendererIfPossible(media)
         if (media.kind == MediaKind.STREAM) {
             applyLatencySettings(liveLatencyMode)
         }
@@ -146,7 +153,7 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("ab-loop-b", "no")
         setProperty("sub-delay", "0")
         setProperty("audio-delay", "0")
-        command("loadfile", media.uri, "replace")
+        command("loadfile", mpvTarget(media.uri), "replace")
         setProperty("pause", "yes")
         setProperty("deinterlace", if (previousDeinterlace) "yes" else "no")
         mutableState.update { it.copy(deinterlace = previousDeinterlace) }
@@ -202,7 +209,7 @@ class MpvPlayerEngine : PlayerEngine {
     override fun selectAudioTrack(trackId: String?) = action { setProperty("aid", trackId ?: "no") }
     override fun selectVideoTrack(trackId: String?) = action { setProperty("vid", trackId ?: "no") }
     override fun selectSubtitleTrack(trackId: String?) = action { setProperty("sid", trackId ?: "no") }
-    override fun addExternalSubtitle(subtitle: ExternalSubtitle) = action { command("sub-add", subtitle.uri, "select") }
+    override fun addExternalSubtitle(subtitle: ExternalSubtitle) = action { command("sub-add", mpvTarget(subtitle.uri), "select") }
     override fun setSubtitleDelay(delayMillis: Long) = action {
         setProperty("sub-delay", (delayMillis / 1_000.0).toString())
         mutableState.update { it.copy(subtitleDelayMillis = delayMillis) }
@@ -360,7 +367,7 @@ class MpvPlayerEngine : PlayerEngine {
         attemptedSoftwareFallback = true
         hwdecMode = HardwareAccelerationMode.SOFTWARE
         setProperty("hwdec", "no")
-        command("loadfile", media.uri, "replace")
+        command("loadfile", mpvTarget(media.uri), "replace")
         if (resumePosition > 0) {
             command("seek", (resumePosition / 1_000.0).toString(), "absolute+exact")
         }
@@ -419,7 +426,7 @@ class MpvPlayerEngine : PlayerEngine {
             .asSequence()
             .filter { it.isFile && it.extension.lowercase() in SUBTITLE_EXTENSIONS }
             .filter { it.nameWithoutExtension.lowercase() == stem || it.nameWithoutExtension.lowercase().startsWith("$stem.") }
-            .map { file -> ExternalSubtitle(file.toURI().toString(), file.name, languageFromSubtitleName(file.name), subtitleMimeType(file.extension)) }
+            .map { file -> ExternalSubtitle(file.toPath().toUri().toString(), file.name, languageFromSubtitleName(file.name), subtitleMimeType(file.extension)) }
             .toList()
     }.getOrDefault(emptyList())
 
@@ -435,6 +442,27 @@ class MpvPlayerEngine : PlayerEngine {
             active = active,
             message = if (active) "libmpv audio filters active" else null,
         )
+    }
+
+    /**
+     * Native renderers read the canvas peer, which only exists once the canvas is in a showing window, so the
+     * renderer is attached lazily: video waits briefly for the surface, audio and streams never block on it.
+     * A failed attach leaves the libmpv context usable and is retried on the next open.
+     */
+    private suspend fun attachRendererIfPossible(media: MediaItem) {
+        val surface = videoSurface
+        val created = context
+        if (renderer != null || surface == null || created == null) return
+        if (!surface.isDisplayable && media.kind == MediaKind.VIDEO) {
+            val ready = withTimeoutOrNull(SURFACE_READY_TIMEOUT_MILLIS) {
+                while (!surface.isDisplayable) delay(SURFACE_POLL_MILLIS)
+            }
+            checkNotNull(ready) { "The video window was not ready in time; try opening the file again" }
+        }
+        if (!surface.isDisplayable) return
+        val videoRenderer = DesktopVideoRendererFactory.create(desktopPlatform)
+        synchronized(nativeLock) { videoRenderer.attach(surface, created) }
+        renderer = videoRenderer
     }
 
     private fun ensureInitialized() = synchronized(nativeLock) {
@@ -467,9 +495,6 @@ class MpvPlayerEngine : PlayerEngine {
         checkCode(loaded.mpv_set_option_string(created, "gapless-audio", "yes"))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
         checkCode(loaded.mpv_initialize(created))
-        videoSurface?.let { surface ->
-            DesktopVideoRendererFactory.create(desktopPlatform).also { renderer = it }.attach(surface, created)
-        }
     }
 
     private fun startPolling(expectedSession: Long) {
@@ -482,6 +507,8 @@ class MpvPlayerEngine : PlayerEngine {
                 var cachedVideo: List<TrackInfo> = emptyList()
                 var cachedSubtitle: List<TrackInfo> = emptyList()
                 var iteration = 0L
+                var everLoaded = false
+                val openedAt = TimeSource.Monotonic.markNow()
 
                 while (isActive && !closed && sessionGeneration == expectedSession) {
                     iteration++
@@ -501,7 +528,11 @@ class MpvPlayerEngine : PlayerEngine {
                         cachedSubtitle = tracks(TrackType.SUBTITLE)
                     }
 
+                    // Track lists only exist once a demuxer opened the file, so this separates "loading" from "failed".
+                    if (duration != null || (!idle && currentTrackCount > 0)) everLoaded = true
+                    val loadFailed = idle && !everLoaded && openedAt.elapsedNow() >= LOAD_FAILURE_GRACE
                     val status = when {
+                        loadFailed -> PlaybackStatus.Error(loadFailure(mutableState.value.media))
                         idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
                         idle -> PlaybackStatus.Ready
                         pausedForCache -> PlaybackStatus.Buffering
@@ -625,6 +656,23 @@ class MpvPlayerEngine : PlayerEngine {
         if (code < 0) error(native?.mpv_error_string(code) ?: "libmpv error $code")
     }
 
+    private fun loadFailure(media: MediaItem?): PlaybackError {
+        val localFile = media?.uri?.takeIf { it.startsWith("file:") }?.let { runCatching { File(URI(it)) }.getOrNull() }
+        val code = when {
+            localFile != null && !localFile.exists() -> PlaybackErrorCode.SOURCE_NOT_FOUND
+            localFile != null && !localFile.canRead() -> PlaybackErrorCode.ACCESS_DENIED
+            localFile == null -> PlaybackErrorCode.NETWORK
+            else -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
+        }
+        val message = when (code) {
+            PlaybackErrorCode.SOURCE_NOT_FOUND -> "The file no longer exists"
+            PlaybackErrorCode.ACCESS_DENIED -> "Vimivo does not have permission to read this file"
+            PlaybackErrorCode.NETWORK -> "The stream could not be opened"
+            else -> "This file could not be opened; it may be damaged or in an unsupported format"
+        }
+        return PlaybackError(code, message, engine = id)
+    }
+
     private fun publishFailure(error: Throwable) {
         val message = error.message.orEmpty()
         val lower = message.lowercase()
@@ -665,11 +713,24 @@ class MpvPlayerEngine : PlayerEngine {
     }
 
     companion object {
+        private val LOAD_FAILURE_GRACE = 1.5.seconds
+        private const val SURFACE_READY_TIMEOUT_MILLIS = 5_000L
+        private const val SURFACE_POLL_MILLIS = 16L
         private const val MPV_FORMAT_FLAG = 3
         private const val MPV_FORMAT_INT64 = 4
         private const val MPV_FORMAT_DOUBLE = 5
         private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "webvtt")
         private val SUPPORTED_SCHEMES = setOf("file", "http", "https", "rtsp", "rtsps")
+
+        /**
+         * libmpv rejects single-slash `file:/path` URIs (what `File.toURI()` produces), so local media is always
+         * handed over as a filesystem path; network URLs pass through unchanged.
+         */
+        internal fun mpvTarget(uri: String): String {
+            if (!uri.startsWith("file:", ignoreCase = true)) return uri
+            return runCatching { Paths.get(URI(uri)).toString() }
+                .getOrElse { error -> throw IllegalArgumentException("Invalid local file URI", error) }
+        }
         internal fun capabilitiesFor(platform: DesktopPlatform) = EngineCapabilities(
             localAudio = true,
             localVideo = platform != DesktopPlatform.UNKNOWN,
@@ -695,7 +756,7 @@ class MpvPlayerEngine : PlayerEngine {
             screenshots = true,
             frameStepping = platform != DesktopPlatform.UNKNOWN,
             deinterlacing = platform != DesktopPlatform.UNKNOWN,
-            supportedSpeedRange = 0.25f..4f,
+            supportedSpeedRange = PlaybackSpeeds.RANGE,
             audioEnhancements = AudioEnhancementCapabilities(
                 graphicEqualizer = true,
                 bassEnhancement = true,
