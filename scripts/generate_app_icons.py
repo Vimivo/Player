@@ -6,7 +6,7 @@ Derives all official application icons from docs/brand/vimivo-icon-source.png:
 - macOS icon.icns (Retina 16 to 1024 via iconutil)
 - Desktop Compose Window icon (512x512)
 - Linux icons (512x512 and hicolor theme sizes 16 to 512)
-- Windows icon.ico (embedded PNGs at 16, 32, 48, 64, 128, 256)
+- Windows icon.ico (embedded PNGs at 16, 20, 24, 32, 40, 48, 64, 128, 256 — every size Windows shell surfaces request)
 - Android legacy mipmaps (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi)
 """
 
@@ -125,7 +125,7 @@ def generate_windows_ico():
         "icon.ico",
     )
     os.makedirs(os.path.dirname(dst), exist_ok=True)
-    sizes = [16, 32, 48, 64, 128, 256]
+    sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
     with tempfile.TemporaryDirectory() as tmpdir:
         blobs = []
         for s in sizes:
