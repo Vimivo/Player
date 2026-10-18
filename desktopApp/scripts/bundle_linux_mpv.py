@@ -47,8 +47,13 @@ def bundle(app_dir, source_lib_dir=None):
             os.makedirs(d, exist_ok=True)
             target_dirs.append(d)
 
+    if not source_lib_dir:
+        # Packages declare libmpv2 as a dependency; the loader then uses the system library.
+        print("No libmpv directory given: the app will load the system libmpv (libmpv.so.2).")
+        return True
+
     copied = []
-    if source_lib_dir and os.path.exists(source_lib_dir):
+    if os.path.exists(source_lib_dir):
         print(f"Copying native shared libraries from {source_lib_dir} to {app_dir}...")
         for root, _, files in os.walk(source_lib_dir):
             for file in files:

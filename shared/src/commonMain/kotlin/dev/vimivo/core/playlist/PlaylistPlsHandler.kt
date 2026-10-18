@@ -10,7 +10,7 @@ object PlaylistPlsHandler {
     fun isPls(fileName: String): Boolean = fileName.endsWith(".pls", ignoreCase = true)
 
     fun parse(content: String, defaultName: String = "Imported Playlist"): ParsedPlaylist {
-        val files = sortedMapOf<Int, String>()
+        val files = mutableMapOf<Int, String>()
         val titles = mutableMapOf<Int, String>()
         val lengths = mutableMapOf<Int, Int>()
         content.lineSequence().map(String::trim).filter { '=' in it }.forEach { line ->
@@ -23,7 +23,9 @@ object PlaylistPlsHandler {
                 "length" -> value.toIntOrNull()?.takeIf { it >= 0 }?.let { lengths[index] = it }
             }
         }
-        val entries = files.map { (index, uri) -> PlaylistItemEntry(uri, titles[index], lengths[index]) }
+        val entries = files.keys.sorted().map { index ->
+            PlaylistItemEntry(files.getValue(index), titles[index], lengths[index])
+        }
         return ParsedPlaylist(defaultName, entries)
     }
 }

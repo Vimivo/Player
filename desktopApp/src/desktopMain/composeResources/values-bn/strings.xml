@@ -34,4 +34,16 @@
     <string name="player_back_to_library">লাইব্রেরি</string>
     <string name="player_back_to_library_description">লাইব্রেরিতে ফিরে যান</string>
     <string name="player_now_playing">এখন চলছে</string>
+    <string name="launch_settings_title">ফাইল খোলা</string>
+    <string name="launch_open_mode_replace">Vimivo খোলা থাকলে নতুন ফাইলটি চালান</string>
+    <string name="launch_open_mode_queue">Vimivo খোলা থাকলে পরবর্তী তালিকায় যোগ করুন</string>
+    <string name="launch_folder_siblings">একই ফোল্ডারের অন্য ফাইলগুলো পরপর চালান</string>
+    <string name="launch_make_default">Vimivo-কে ডিফল্ট প্লেয়ার করুন</string>
+    <string name="launch_make_default_confirm_title">মিডিয়া ফাইলের জন্য Vimivo ব্যবহার করবেন?</string>
+    <string name="launch_make_default_confirm_body">আপনার অ্যাকাউন্টে ভিডিও, অডিও ও প্লেলিস্ট ফাইলের ডিফল্ট অ্যাপ হবে Vimivo। পরে সিস্টেম সেটিংসে এটি বদলানো যাবে।</string>
+    <string name="launch_make_default_confirm">Vimivo ব্যবহার করুন</string>
+    <string name="launch_make_default_cancel">বাতিল</string>
+    <string name="launch_make_default_opened">Default apps-এ Vimivo বেছে নিন, তারপর উইন্ডোটি বন্ধ করুন।</string>
+    <string name="launch_make_default_applied">এখন %1$dটি ফাইল টাইপের ডিফল্ট Vimivo।</string>
+    <string name="launch_make_default_failed">ডিফল্ট প্লেয়ার বদলানো যায়নি: %1$s</string>
 </resources>

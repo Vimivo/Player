@@ -49,6 +49,19 @@ class DesktopSingleInstanceTest {
         DesktopSingleInstance(directory).becomePrimary {}.use { assertNotNull(it) }
     }
 
+    /** Regression: a long data directory made bind() fail and leaked the lock, so every launch ran separately. */
+    @Test
+    fun deepDataDirectoriesStillForward() {
+        val deep = directory.resolve("a".repeat(60)).resolve("Library/Application Support/Vimivo")
+        val received = LinkedBlockingQueue<LaunchArguments>()
+        val primary = assertNotNull(DesktopSingleInstance(deep).becomePrimary(received::put))
+        primary.use {
+            assertTrue(DesktopSingleInstance.socketPathFor(deep).toString().length <= 100)
+            assertTrue(DesktopSingleInstance(deep).forward(LaunchArguments(listOf(File("/x.mp3")))))
+            assertNotNull(received.poll(2, TimeUnit.SECONDS))
+        }
+    }
+
     @Test
     fun launchRequestsRoundTripThroughJson() {
         val launch =

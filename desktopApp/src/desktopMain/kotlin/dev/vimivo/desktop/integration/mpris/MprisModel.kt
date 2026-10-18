@@ -119,7 +119,7 @@ internal object MprisModel {
             "LoopStatus" to MprisValue.Str(toLoopStatusString(queue.repeatMode)),
             "Rate" to MprisValue.Dbl(state.speed.toDouble()),
             "Shuffle" to MprisValue.Bool(queue.shuffleEnabled),
-            "Metadata" to MprisValue.Dict(metadata(state.media, state.durationMillis)),
+            "Metadata" to MprisValue.Dict(metadata(state.media?.withTags(state.metadata), state.durationMillis)),
             // MPRIS volume is linear with 1.0 as "normal"; values above 1.0 are amplification.
             "Volume" to MprisValue.Dbl(state.volume.coerceIn(0f, maxVolume).toDouble()),
             "Position" to MprisValue.Int64(millisToMicroseconds(state.positionMillis)),
@@ -183,3 +183,10 @@ internal object MprisModel {
         </node>
     """.trimIndent()
 }
+
+/** The media item as clients should see it: embedded tags from the engine over file-name defaults. */
+internal fun MediaItem.withTags(tags: dev.vimivo.playback.PlaybackMetadata) = copy(
+    title = tags.title ?: title,
+    artist = tags.artist ?: artist,
+    album = tags.album ?: album,
+)

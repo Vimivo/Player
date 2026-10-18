@@ -456,6 +456,7 @@ class MpvPlayerEngine : PlayerEngine {
     private fun ensureInitialized() = synchronized(nativeLock) {
         if (context != null) return@synchronized
         val loaded = MpvNative.load()
+        MpvLocale.ensureCNumeric(desktopPlatform)
         val created = checkNotNull(loaded.mpv_create()) { "libmpv could not create a playback context" }
         native = loaded
         context = created
@@ -481,6 +482,9 @@ class MpvPlayerEngine : PlayerEngine {
         loaded.mpv_set_option_string(created, "user-agent", "Vimivo/1.0.0 (Universal Media Player)")
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
         checkCode(loaded.mpv_set_option_string(created, "gapless-audio", "yes"))
+        // Without any working audio output (no device, device unplugged, headless machine) keep playing
+        // the picture instead of stalling the whole player.
+        checkCode(loaded.mpv_set_option_string(created, "audio-fallback-to-null", "yes"))
         // Sidecar subtitles load with the file: "movie.srt", "movie.en.srt", and the same names in Subs/ or
         // Subtitles/. Letting libmpv match at load time avoids racing sub-add against an unfinished load.
         checkCode(loaded.mpv_set_option_string(created, "sub-auto", "fuzzy"))
@@ -499,6 +503,7 @@ class MpvPlayerEngine : PlayerEngine {
                 var cachedAudio: List<TrackInfo> = emptyList()
                 var cachedVideo: List<TrackInfo> = emptyList()
                 var cachedSubtitle: List<TrackInfo> = emptyList()
+                var cachedTags = PlaybackMetadata()
                 var iteration = 0L
                 var everLoaded = false
                 val openedAt = TimeSource.Monotonic.markNow()
@@ -519,7 +524,10 @@ class MpvPlayerEngine : PlayerEngine {
                         cachedAudio = tracks(TrackType.AUDIO)
                         cachedVideo = tracks(TrackType.VIDEO)
                         cachedSubtitle = tracks(TrackType.SUBTITLE)
+                        cachedTags = fileTags()
                     }
+                    // Tags appear a moment after the track list; retry until they do so integrations update promptly.
+                    if (cachedTags == PlaybackMetadata() && currentTrackCount > 0) cachedTags = fileTags()
 
                     // Track lists only exist once a demuxer opened the file, so this separates "loading" from "failed".
                     if (duration != null || (!idle && currentTrackCount > 0)) everLoaded = true
@@ -552,6 +560,7 @@ class MpvPlayerEngine : PlayerEngine {
                             audioTracks = cachedAudio,
                             videoTracks = cachedVideo,
                             subtitleTracks = cachedSubtitle,
+                            metadata = current.metadata.withTags(cachedTags),
                             sessionId = expectedSession,
                         )
                     }
@@ -648,6 +657,13 @@ class MpvPlayerEngine : PlayerEngine {
     private fun checkCode(code: Int) {
         if (code < 0) error(native?.mpv_error_string(code) ?: "libmpv error $code")
     }
+
+    /** Title/artist/album tags of the loaded file, so files opened outside the library still show them. */
+    private fun fileTags(): PlaybackMetadata = PlaybackMetadata(
+        title = stringProperty("metadata/by-key/title")?.takeIf(String::isNotBlank),
+        artist = stringProperty("metadata/by-key/artist")?.takeIf(String::isNotBlank),
+        album = stringProperty("metadata/by-key/album")?.takeIf(String::isNotBlank),
+    )
 
     private fun loadFailure(media: MediaItem?): PlaybackError {
         val localFile = media?.uri?.takeIf { it.startsWith("file:") }?.let { runCatching { File(URI(it)) }.getOrNull() }
@@ -814,4 +830,11 @@ data class DesktopContainerInfo(
     val videoParameters: String?,
     val audioParameters: String?,
     val metadata: List<Pair<String, String>>,
+)
+
+/** Embedded tags win over values derived from the file name; missing tags keep what was there. */
+internal fun PlaybackMetadata.withTags(tags: PlaybackMetadata) = copy(
+    title = tags.title ?: title,
+    artist = tags.artist ?: artist,
+    album = tags.album ?: album,
 )

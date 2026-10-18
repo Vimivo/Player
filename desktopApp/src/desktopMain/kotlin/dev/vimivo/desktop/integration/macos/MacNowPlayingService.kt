@@ -46,9 +46,9 @@ internal class MacNowPlayingService(
         if (!configured) return
         val media = playback.media
         updateNative(
-            title = media?.title,
-            artist = media?.artist,
-            album = media?.album,
+            title = media?.let { playback.metadata.title ?: it.title },
+            artist = media?.let { playback.metadata.artist ?: it.artist },
+            album = media?.let { playback.metadata.album ?: it.album },
             durationMillis = playback.durationMillis ?: 0L,
             positionMillis = playback.positionMillis,
             playing = playback.status == PlaybackStatus.Playing,

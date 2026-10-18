@@ -55,6 +55,15 @@ class MpvLiveEngineTest {
         }
     }
 
+    /** Regression: files opened from the OS had no artist/album in Now Playing, SMTC or MPRIS. */
+    @Test
+    fun publishesEmbeddedTagsForFilesOpenedOutsideTheLibrary() = withLiveEngine { engine ->
+        val tagged = awaitState(engine) { it.metadata.artist != null }
+        assertEquals("Lunar Horizon", tagged.metadata.title)
+        assertEquals("Calyx", tagged.metadata.artist)
+        assertEquals("Atmospheric Explorations", tagged.metadata.album)
+    }
+
     @Test
     fun recognisesOnlySubtitleFilesAsDroppable() {
         assertEquals("en", MpvPlayerEngine.externalSubtitleFor(File("Movie.en.srt"))?.language)

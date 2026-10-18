@@ -317,7 +317,12 @@ internal class PlayerViewModel(
         }
     }
 
+    private var closed = false
+
+    /** Idempotent: called explicitly at exit and again by Koin when the graph closes. */
     override fun close() {
+        if (closed) return
+        closed = true
         mediaControls?.close()
         queue.close()
         engine.close()

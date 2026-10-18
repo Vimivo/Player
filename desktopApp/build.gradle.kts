@@ -88,6 +88,8 @@ kotlin {
                 // Makes Dispatchers.Main the Swing event thread, where Compose Desktop and AWT already run.
                 implementation(libs.coroutines.swing)
                 implementation(libs.jna)
+                // Win32 registry access for per-user file associations (same project and license as JNA).
+                implementation(libs.jna.platform)
                 implementation(libs.sqlite.jdbc)
                 implementation(libs.jaudiotagger)
                 implementation(libs.coil.compose)

@@ -4,6 +4,7 @@ package dev.vimivo.desktop.playback
 
 import com.sun.jna.Native
 import com.sun.jna.Pointer
+import com.sun.jna.StringArray
 import java.awt.Canvas
 import java.awt.GraphicsEnvironment
 
@@ -34,11 +35,10 @@ internal class MpvX11Renderer : DesktopVideoRenderer {
 
     override fun detach() {
         if (attached) {
+            // Stop video output while the embedded window still exists. Changing "wid" at runtime makes
+            // libmpv re-create its output against the old window, which X11 reports as a fatal BadWindow.
             activeContext?.let { ctx ->
-                runCatching {
-                    val mpv = MpvNative.load()
-                    mpv.mpv_set_property_string(ctx, "wid", "0")
-                }
+                runCatching { MpvNative.load().mpv_command(ctx, StringArray(arrayOf("stop"))) }
             }
             activeContext = null
             attached = false

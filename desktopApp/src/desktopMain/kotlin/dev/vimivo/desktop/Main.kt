@@ -29,9 +29,14 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.runtime.snapshotFlow
+import dev.vimivo.desktop.diagnostics.DesktopDiagnosticExporter
+import dev.vimivo.desktop.diagnostics.StartupTrace
 import dev.vimivo.desktop.integration.mpris.MprisService
+import dev.vimivo.desktop.platform.DesktopSingleInstance
+import dev.vimivo.desktop.platform.WindowsFileAssociations
 import dev.vimivo.desktop.player.AudioNowPlayingCard
 import dev.vimivo.desktop.player.LaunchArguments
+import dev.vimivo.desktop.player.LaunchSettingsSection
 import dev.vimivo.desktop.player.PlayerIntent
 import dev.vimivo.desktop.player.PlayerLoadingCard
 import dev.vimivo.desktop.player.PlayerPresentation
@@ -40,8 +45,12 @@ import dev.vimivo.desktop.player.PlayerViewModel
 import dev.vimivo.desktop.player.ResumeToast
 import dev.vimivo.desktop.player.desktopPlayerModule
 import dev.vimivo.desktop.player.text
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
+import kotlin.concurrent.thread
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -134,11 +143,38 @@ import java.io.File
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
+    StartupTrace.mark("main")
+    val launch = LaunchArguments.parse(args)
+    if (DesktopPlatform.detect() == DesktopPlatform.WINDOWS) {
+        if ("--unregister-file-types" in args) {
+            // Cleanup entry point for uninstall: removes everything the per-user registration wrote.
+            exitProcess(if (runCatching { WindowsFileAssociations.unregister() }.isSuccess) 0 else 1)
+        }
+        if (!launch.smokeTest) registerWindowsFileTypes()
+    }
+    val forwarded = Channel<LaunchArguments>(Channel.UNLIMITED)
+    // Verification runs are isolated; everything else is one instance per user that later launches feed.
+    val instance = if (launch.smokeTest) null else DesktopSingleInstance.forCurrentUser()
+    val primary = runCatching { instance?.becomePrimary { forwarded.trySend(it) } }.getOrNull()
+    if (instance != null && primary == null && instance.forward(launch)) exitProcess(0)
     val exit = ExitStatus()
-    desktopApplication(args, exit)
+    try {
+        desktopApplication(args, exit, forwarded.receiveAsFlow())
+    } finally {
+        primary?.close()
+    }
     // Exit on the main thread once Compose has shut down: exiting from the event thread while AWT holds its
     // lock deadlocks against the X11 toolkit's shutdown hook on Linux.
     exitProcess(exit.code)
+}
+
+/** Per-user "Open with" and Default Apps registration; idempotent, off the startup path. */
+private fun registerWindowsFileTypes() {
+    val executable = ProcessHandle.current().info().command().orElse(null) ?: return
+    thread(name = "vimivo-file-types", isDaemon = true) {
+        runCatching { WindowsFileAssociations.register(executable) }
+            .onFailure { DesktopDiagnosticExporter.defaultBuffer.recordError("FILE_ASSOCIATIONS", it) }
+    }
 }
 
 /** The process exit code, set by verification runs before they close the application. */
@@ -146,7 +182,11 @@ private class ExitStatus {
     @Volatile var code = 0
 }
 
-private fun desktopApplication(args: Array<String>, exit: ExitStatus) = application {
+private fun desktopApplication(
+    args: Array<String>,
+    exit: ExitStatus,
+    forwardedLaunches: Flow<LaunchArguments>,
+) = application {
     val smokeTest = remember { DesktopSmokeTest.parse(args) }
     val koin = remember { startKoin { modules(desktopPlayerModule(isolated = smokeTest != null)) }.koin }
     val viewModel = remember { koin.get<PlayerViewModel>() }
@@ -161,6 +201,13 @@ private fun desktopApplication(args: Array<String>, exit: ExitStatus) = applicat
             launch = if (smokeTest != null) LaunchArguments() else LaunchArguments.parse(args),
             externalFiles = openFileHandler.files,
         )
+    }
+    LaunchedEffect(Unit) {
+        forwardedLaunches.collect { forwarded ->
+            viewModel.dispatch(
+                PlayerIntent.OpenFiles(forwarded.files, forwarded.startPositionMillis, forwarded.fullscreen, fromRunningInstance = true),
+            )
+        }
     }
     val playerState by viewModel.state.collectAsState()
     val playbackState = playerState.playback
@@ -198,6 +245,8 @@ private fun desktopApplication(args: Array<String>, exit: ExitStatus) = applicat
     val commands = viewModel.commands
     val exitApp: () -> Unit = {
         openFileHandler.close()
+        // libmpv must stop drawing before any window is disposed: the video surface is a native child window.
+        viewModel.close()
         stopKoin()
         exitApplication()
     }
@@ -226,6 +275,12 @@ private fun desktopApplication(args: Array<String>, exit: ExitStatus) = applicat
         },
     ) {
         var openStreamRequested by remember { mutableStateOf(false) }
+        LaunchedEffect(window) { StartupTrace.mark("window") }
+        LaunchedEffect(playerState.playback.status, playerState.playback.positionMillis > 0) {
+            if (playerState.playback.status == PlaybackStatus.Playing && playerState.playback.positionMillis > 0) {
+                StartupTrace.mark("firstFrame")
+            }
+        }
         // Another app handed over a file: bring the player forward.
         LaunchedEffect(playerState.focusRequest) {
             if (playerState.focusRequest > 0) {
@@ -882,6 +937,7 @@ private fun DesktopPlayer(
                 )
             }
             if (libraryVisible && destination == DesktopDestination.Settings) {
+                LaunchSettingsSection(playerState, viewModel::dispatch)
                 DesktopSettingsPanel(
                     state = libraryState,
                     onThemeSelected = library::setThemeMode,
@@ -988,31 +1044,31 @@ private fun DesktopPlayer(
                 )
             }
             val videosPage = libraryVisible && destination == DesktopDestination.Videos
-            if (videosPage || showPlayerStage || state.media?.kind == MediaKind.VIDEO) {
-                val stage = videoFullscreen || showPlayerStage
-                val loadingTitle = playerState.loadingTitle
-                if (showPlayerStage && !videoFullscreen) {
-                    PlayerStageHeader(state.media?.title ?: loadingTitle) { viewModel.dispatch(PlayerIntent.ShowLibrary) }
-                }
-                if (stage && loadingTitle != null) {
-                    PlayerLoadingCard(loadingTitle, Modifier.fillMaxWidth().weight(1f))
-                }
-                // While loading, the surface stays attached (1 dp) so the renderer can bind to it behind the card.
-                SwingPanel(
-                    factory = { videoCanvas },
-                    modifier = when {
-                        stage && loadingTitle != null -> Modifier.size(1.dp)
-                        stage -> Modifier.fillMaxWidth().weight(1f)
-                        else -> Modifier.fillMaxWidth().height(360.dp)
-                    },
+            val videoVisible = videosPage || showPlayerStage || state.media?.kind == MediaKind.VIDEO
+            val stage = videoFullscreen || showPlayerStage
+            val loadingTitle = playerState.loadingTitle
+            if (videoVisible && showPlayerStage && !videoFullscreen) {
+                PlayerStageHeader(state.media?.title ?: loadingTitle) { viewModel.dispatch(PlayerIntent.ShowLibrary) }
+            }
+            if (videoVisible && stage && loadingTitle != null) {
+                PlayerLoadingCard(loadingTitle, Modifier.fillMaxWidth().weight(1f))
+            }
+            // The video surface is composed for as long as the engine lives, only collapsed when nothing shows video:
+            // libmpv renders into its native window, and destroying that window under it is fatal on X11 (BadWindow).
+            SwingPanel(
+                factory = { videoCanvas },
+                modifier = when {
+                    !videoVisible || (stage && loadingTitle != null) -> Modifier.size(1.dp)
+                    stage -> Modifier.fillMaxWidth().weight(1f)
+                    else -> Modifier.fillMaxWidth().height(360.dp)
+                },
+            )
+            if (videoVisible && !videoFullscreen) {
+                dev.vimivo.desktop.playback.DesktopVideoControlsPanel(
+                    engine = engine,
+                    state = state,
+                    commands = commands,
                 )
-                if (!videoFullscreen) {
-                    dev.vimivo.desktop.playback.DesktopVideoControlsPanel(
-                        engine = engine,
-                        state = state,
-                        commands = commands,
-                    )
-                }
             }
             if (showEqualizerPanel && !videoFullscreen) {
                 dev.vimivo.desktop.playback.DesktopEqualizerPanel(

@@ -32,7 +32,7 @@ import kotlin.concurrent.thread
  * Unix-domain sockets work on macOS, Linux and Windows 10+, so no platform-specific IPC is needed.
  */
 internal class DesktopSingleInstance(private val directory: Path) {
-    private val socketPath: Path = directory.resolve(SOCKET_NAME)
+    private val socketPath: Path = socketPathFor(directory)
     private val lockPath: Path = directory.resolve(LOCK_NAME)
 
     /** Sends [launch] to a running instance; true when it accepted the request. */
@@ -60,9 +60,15 @@ internal class DesktopSingleInstance(private val directory: Path) {
             return null
         }
         // Holding the lock proves any existing socket file is stale (a crashed instance).
-        Files.deleteIfExists(socketPath)
-        val server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)
-        server.bind(UnixDomainSocketAddress.of(socketPath))
+        val server = runCatching {
+            Files.deleteIfExists(socketPath)
+            ServerSocketChannel.open(StandardProtocolFamily.UNIX).apply { bind(UnixDomainSocketAddress.of(socketPath)) }
+        }.getOrElse { error ->
+            // Never keep the lock without a socket: later launches would find neither a primary nor the lock.
+            lock.release()
+            lockChannel.close()
+            throw error
+        }
         val worker = thread(name = "vimivo-single-instance", isDaemon = true) { serve(server, onLaunch) }
         return AutoCloseable {
             runCatching { server.close() }
@@ -95,6 +101,20 @@ internal class DesktopSingleInstance(private val directory: Path) {
         private const val SOCKET_NAME = "instance.sock"
         private const val LOCK_NAME = "instance.lock"
         private const val ACK = "OK"
+
+        /** Unix-domain socket paths are limited to ~104 bytes (macOS) / 108 (Linux); stay well below. */
+        private const val MAX_SOCKET_PATH_BYTES = 100
+
+        /**
+         * The socket lives beside the lock unless that path is too long (deep home or XDG directories); then it
+         * moves to the per-user temporary directory under a name derived from the data directory.
+         */
+        fun socketPathFor(directory: Path): Path {
+            val preferred = directory.resolve(SOCKET_NAME).toAbsolutePath()
+            if (preferred.toString().toByteArray(Charsets.UTF_8).size <= MAX_SOCKET_PATH_BYTES) return preferred
+            val tag = Integer.toHexString(directory.toAbsolutePath().toString().hashCode())
+            return Path.of(System.getProperty("java.io.tmpdir"), "vimivo-$tag.sock").toAbsolutePath()
+        }
 
         fun forCurrentUser(): DesktopSingleInstance = DesktopSingleInstance(DesktopDirectories.resolve().data)
 
