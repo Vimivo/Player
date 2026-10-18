@@ -179,13 +179,21 @@ internal class DesktopLibraryController(
                 durationSeconds = item.durationMillis?.let { (it / 1000).toInt() },
             )
         }
-        val content = dev.vimivo.core.playlist.PlaylistM3uHandler.exportM3u8(playlist.name, entries)
+        val content = if (dev.vimivo.core.playlist.PlaylistXspfHandler.isXspf(targetFile.name)) {
+            dev.vimivo.core.playlist.PlaylistXspfHandler.export(playlist.name, entries)
+        } else {
+            dev.vimivo.core.playlist.PlaylistM3uHandler.exportM3u8(playlist.name, entries)
+        }
         targetFile.writeText(content, Charsets.UTF_8)
     }
     fun importPlaylistM3u(file: File) = mutatePersonalData {
         require(file.isFile && file.canRead()) { "Selected file cannot be read" }
         val content = file.readText(Charsets.UTF_8)
-        val parsed = dev.vimivo.core.playlist.PlaylistM3uHandler.parseM3u(content, file.nameWithoutExtension)
+        val parsed = if (dev.vimivo.core.playlist.PlaylistXspfHandler.isXspf(file.name)) {
+            dev.vimivo.core.playlist.PlaylistXspfHandler.parse(content, file.nameWithoutExtension)
+        } else {
+            dev.vimivo.core.playlist.PlaylistM3uHandler.parseM3u(content, file.nameWithoutExtension)
+        }
         val playlist = personalRepository.createPlaylist(parsed.name)
         parsed.entries.forEach { entry ->
             val candidate = repository.findMediaByUriOrFileName(entry.uri)

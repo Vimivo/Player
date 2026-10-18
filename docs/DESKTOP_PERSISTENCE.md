@@ -21,6 +21,10 @@ Stable media IDs are referenced by playlists, history, positions, and bookmarks.
 
 Playlist item changes run in transactions. Reordering uses temporary positions to preserve the unique ordered index without transient collisions. Favorites use a compound key to prevent duplicates. Settings are key/value records with upsert semantics until typed shared settings contracts are connected.
 
+## Small JSON stores
+
+Some lists don't need relational storage and live as JSON next to the database in the per-user data directory: `recent_streams.json` (redacted stream URLs) and `recent_media.json` (up to 15 local files the user opened, for File ▸ Open Recent). Writes go to a temporary file and are then atomically moved into place. A corrupt file is treated as empty and never blocks startup. Neither file is ever uploaded, and both can be cleared from the UI.
+
 ## Pending integration
 
 The schema is ready for rich metadata, artwork, and thumbnail workers, but native extraction is not considered implemented until separate libmpv inspection contexts are integrated and tested. Backup/restore must serialize logical records in a versioned portable format; it must not copy a live WAL database or include media files, caches, credentials, or absolute-path assumptions as the only identity.

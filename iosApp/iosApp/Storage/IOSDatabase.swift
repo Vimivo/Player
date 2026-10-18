@@ -81,12 +81,39 @@ public final class IOSDatabase {
         );
         """
         sqlite3_exec(db, sql, nil, nil, nil)
+        addMissingMediaColumns()
+    }
+
+    /// Non-destructive, additive migration: new nullable columns are added only when absent.
+    private func addMissingMediaColumns() {
+        var existing = Set<String>()
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, "PRAGMA table_info(media_items);", -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let name = sqlite3_column_text(stmt, 1) {
+                    existing.insert(String(cString: name))
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        let columns = [
+            ("width", "INTEGER"),
+            ("height", "INTEGER"),
+            ("size_bytes", "INTEGER"),
+            ("date_added_millis", "INTEGER")
+        ]
+        for (name, type) in columns where !existing.contains(name) {
+            if sqlite3_exec(db, "ALTER TABLE media_items ADD COLUMN \(name) \(type);", nil, nil, nil) != SQLITE_OK {
+                let message = db.flatMap { sqlite3_errmsg($0) }.map { String(cString: $0) } ?? "unknown error"
+                NSLog("Vimivo: failed to add media_items.%@: %@", name, message)
+            }
+        }
     }
 
     // MARK: - Media Items
     public func saveMediaItem(_ item: MediaItem) {
         queue.sync {
-            let sql = "INSERT OR REPLACE INTO media_items (id, uri, title, kind, duration_millis, artist, album, artwork_uri, album_artist, bookmark_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
+            let sql = "INSERT OR REPLACE INTO media_items (id, uri, title, kind, duration_millis, artist, album, artwork_uri, album_artist, bookmark_data, width, height, size_bytes, date_added_millis) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
             var stmt: OpaquePointer?
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
                 sqlite3_bind_text(stmt, 1, (item.id as NSString).utf8String, -1, nil)
@@ -125,6 +152,10 @@ public final class IOSDatabase {
                 } else {
                     sqlite3_bind_null(stmt, 10)
                 }
+                bindOptionalInt64(stmt, 11, item.width.map(Int64.init))
+                bindOptionalInt64(stmt, 12, item.height.map(Int64.init))
+                bindOptionalInt64(stmt, 13, item.sizeBytes)
+                sqlite3_bind_int64(stmt, 14, item.dateAddedMillis ?? Int64(Date().timeIntervalSince1970 * 1000))
                 sqlite3_step(stmt)
             }
             sqlite3_finalize(stmt)
@@ -134,7 +165,7 @@ public final class IOSDatabase {
     public func getAllMediaItems() -> [MediaItem] {
         queue.sync {
             var items: [MediaItem] = []
-            let sql = "SELECT id, uri, title, kind, duration_millis, artist, album, artwork_uri, album_artist, bookmark_data FROM media_items ORDER BY title ASC;"
+            let sql = "SELECT id, uri, title, kind, duration_millis, artist, album, artwork_uri, album_artist, bookmark_data, width, height, size_bytes, date_added_millis FROM media_items ORDER BY title ASC;"
             var stmt: OpaquePointer?
             if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
                 while sqlite3_step(stmt) == SQLITE_ROW {
@@ -166,13 +197,45 @@ public final class IOSDatabase {
                         album: album,
                         artworkUri: artworkUri,
                         albumArtist: albumArtist,
-                        bookmarkData: bookmarkData
+                        bookmarkData: bookmarkData,
+                        width: columnOptionalInt64(stmt, 10).map(Int.init),
+                        height: columnOptionalInt64(stmt, 11).map(Int.init),
+                        sizeBytes: columnOptionalInt64(stmt, 12),
+                        dateAddedMillis: columnOptionalInt64(stmt, 13)
                     ))
                 }
             }
             sqlite3_finalize(stmt)
             return items
         }
+    }
+
+    /// Stores width, height, and file size discovered after import without touching other fields.
+    public func updateVideoMetadata(id: String, width: Int?, height: Int?, sizeBytes: Int64?) {
+        queue.sync {
+            let sql = "UPDATE media_items SET width = COALESCE(?, width), height = COALESCE(?, height), size_bytes = COALESCE(?, size_bytes) WHERE id = ?;"
+            var stmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                bindOptionalInt64(stmt, 1, width.map(Int64.init))
+                bindOptionalInt64(stmt, 2, height.map(Int64.init))
+                bindOptionalInt64(stmt, 3, sizeBytes)
+                sqlite3_bind_text(stmt, 4, (id as NSString).utf8String, -1, nil)
+                sqlite3_step(stmt)
+            }
+            sqlite3_finalize(stmt)
+        }
+    }
+
+    private func bindOptionalInt64(_ stmt: OpaquePointer?, _ index: Int32, _ value: Int64?) {
+        if let value = value {
+            sqlite3_bind_int64(stmt, index, value)
+        } else {
+            sqlite3_bind_null(stmt, index)
+        }
+    }
+
+    private func columnOptionalInt64(_ stmt: OpaquePointer?, _ index: Int32) -> Int64? {
+        sqlite3_column_type(stmt, index) != SQLITE_NULL ? sqlite3_column_int64(stmt, index) : nil
     }
 
     public func deleteMediaItem(id: String) {

@@ -9,6 +9,7 @@ public struct MediaRow: View {
     public let onAddToQueue: () -> Void
     public let onToggleFavorite: () -> Void
     public let onDelete: () -> Void
+    public let progress: Double?
 
     public init(
         item: MediaItem,
@@ -18,7 +19,8 @@ public struct MediaRow: View {
         onPlayNext: @escaping () -> Void = {},
         onAddToQueue: @escaping () -> Void = {},
         onToggleFavorite: @escaping () -> Void = {},
-        onDelete: @escaping () -> Void = {}
+        onDelete: @escaping () -> Void = {},
+        progress: Double? = nil
     ) {
         self.item = item
         self.isPlaying = isPlaying
@@ -28,34 +30,36 @@ public struct MediaRow: View {
         self.onAddToQueue = onAddToQueue
         self.onToggleFavorite = onToggleFavorite
         self.onDelete = onDelete
+        self.progress = progress
+    }
+
+    private var subtitle: String {
+        let detail = item.detailLine
+        if item.kind == .video || !detail.isEmpty { return detail }
+        return item.durationMillis != nil ? item.formattedDuration : ""
     }
 
     public var body: some View {
         HStack(spacing: 14) {
-            ArtworkThumbnailView(uri: item.artworkUri, kind: item.kind, size: 50)
+            if item.kind == .video {
+                VideoThumbnailView(item: item, width: 96, progress: progress)
+            } else {
+                ArtworkThumbnailView(uri: item.artworkUri, kind: item.kind, size: 54)
+            }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
                     .font(.body)
                     .fontWeight(.medium)
-                    .lineLimit(1)
+                    .lineLimit(item.kind == .video ? 2 : 1)
                     .foregroundColor(isPlaying ? .accentColor : .primary)
 
-                HStack(spacing: 6) {
-                    if let subtitle = item.artist ?? item.album {
-                        Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-                    if item.durationMillis != nil {
-                        Text("•")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Text(item.formattedDuration)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .monospacedDigit()
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
             }
 

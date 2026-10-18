@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1043 /* VideoThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2043 /* VideoThumbnailView.swift */; };
+		1042 /* VideoPlayerSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2042 /* VideoPlayerSheets.swift */; };
+		1041 /* VideoPlayerGestures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2041 /* VideoPlayerGestures.swift */; };
+		1040 /* VideoPlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2040 /* VideoPlayerModel.swift */; };
 		1001 /* VimivoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2001 /* VimivoApp.swift */; };
 		1002 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2002 /* MediaModels.swift */; };
 		1003 /* PlaybackModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2003 /* PlaybackModels.swift */; };
@@ -84,6 +88,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		2043 /* VideoThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoThumbnailView.swift; sourceTree = "<group>"; };
+		2042 /* VideoPlayerSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerSheets.swift; sourceTree = "<group>"; };
+		2041 /* VideoPlayerGestures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerGestures.swift; sourceTree = "<group>"; };
+		2040 /* VideoPlayerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerModel.swift; sourceTree = "<group>"; };
 		0001 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2001 /* VimivoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VimivoApp.swift; sourceTree = "<group>"; };
 		2002 /* MediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModels.swift; sourceTree = "<group>"; };
@@ -272,6 +280,9 @@
 				2013 /* NowPlayingBar.swift */,
 				2014 /* NowPlayingView.swift */,
 				2015 /* VideoPlayerView.swift */,
+				2042 /* VideoPlayerSheets.swift */,
+				2041 /* VideoPlayerGestures.swift */,
+				2040 /* VideoPlayerModel.swift */,
 				2016 /* QueueView.swift */,
 				2017 /* PlaylistView.swift */,
 				2018 /* MusicView.swift */,
@@ -288,6 +299,7 @@
 			children = (
 				2011 /* ArtworkThumbnailView.swift */,
 				2012 /* MediaRow.swift */,
+				2043 /* VideoThumbnailView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -453,6 +465,10 @@
 				1013 /* NowPlayingBar.swift in Sources */,
 				1014 /* NowPlayingView.swift in Sources */,
 				1015 /* VideoPlayerView.swift in Sources */,
+				1043 /* VideoThumbnailView.swift in Sources */,
+				1042 /* VideoPlayerSheets.swift in Sources */,
+				1041 /* VideoPlayerGestures.swift in Sources */,
+				1040 /* VideoPlayerModel.swift in Sources */,
 				1016 /* QueueView.swift in Sources */,
 				1017 /* PlaylistView.swift in Sources */,
 				1018 /* MusicView.swift in Sources */,

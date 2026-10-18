@@ -124,6 +124,22 @@ internal fun DesktopEqualizerPanel(
                             },
                         )
                     }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.semantics(mergeDescendants = true) {
+                            role = Role.Switch
+                            contentDescription = "Volume normalizer: evens out loudness between and within tracks"
+                        },
+                    ) {
+                        Text("Normalize", style = MaterialTheme.typography.labelMedium)
+                        Switch(
+                            checked = settings.volumeNormalization,
+                            onCheckedChange = { isChecked ->
+                                updateAndApply(settings.copy(volumeNormalization = isChecked))
+                            },
+                        )
+                    }
                     Button(onClick = onDismiss) {
                         Text("Done")
                     }

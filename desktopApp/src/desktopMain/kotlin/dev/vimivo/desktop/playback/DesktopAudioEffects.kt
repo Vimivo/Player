@@ -7,8 +7,18 @@ import kotlin.math.roundToInt
 internal object DesktopAudioEffects {
     val frequencies = listOf(31, 62, 125, 250, 500, 1_000, 2_000, 4_000, 8_000, 16_000)
 
+    /** dynaudnorm smooths loudness jumps between and within tracks without hard limiting. */
+    const val NORMALIZER_FILTER = "dynaudnorm=f=250:g=31:p=0.9"
+
     fun filter(settings: AudioEnhancementSettings): String? {
-        if (!settings.enabled) return null
+        val stages = listOfNotNull(
+            equalizerChain(settings).takeIf { settings.enabled },
+            NORMALIZER_FILTER.takeIf { settings.volumeNormalization },
+        )
+        return if (stages.isEmpty()) null else "lavfi=[${stages.joinToString(",")}]"
+    }
+
+    private fun equalizerChain(settings: AudioEnhancementSettings): String {
         val gains = presetGains(settings).mapIndexed { index, gain ->
             val bass = if (index <= 1) settings.bassStrength.coerceIn(0f, 1f) * 6f else 0f
             val treble = if (index >= 8) settings.trebleGainDb.coerceIn(-12f, 12f) else 0f
@@ -18,7 +28,7 @@ internal object DesktopAudioEffects {
         val equalizers = frequencies.zip(gains).joinToString(",") { (frequency, gain) ->
             "equalizer=f=$frequency:t=q:w=1:g=${gain.clean()}"
         }
-        return "lavfi=[$equalizers,volume=${safetyPreamp.coerceAtLeast(-24f).clean()}dB]"
+        return "$equalizers,volume=${safetyPreamp.coerceAtLeast(-24f).clean()}dB"
     }
 
     fun effectiveSettings(settings: AudioEnhancementSettings): AudioEnhancementSettings = settings.copy(

@@ -11,6 +11,14 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     @Published public var currentIndex: Int = 0
 
     public let player = AVPlayer()
+    /// Delivers subtitle cues for custom rendering. It is attached to every item before playback
+    /// starts because AVFoundation does not reliably push cues to outputs added mid-playback.
+    public let legibleOutput: AVPlayerItemLegibleOutput = {
+        let output = AVPlayerItemLegibleOutput()
+        output.suppressesPlayerRendering = true
+        return output
+    }()
+    private var legibleOutputItem: AVPlayerItem?
     private var timeObserverToken: Any?
     private var itemEndObserver: Any?
     private var activeSecurityUrl: URL?
@@ -118,6 +126,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     public func stop() {
         player.pause()
         player.replaceCurrentItem(with: nil)
+        detachLegibleOutput()
         state.status = .idle
         state.positionMillis = 0
         state.durationMillis = 0
@@ -141,6 +150,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
 
     public func setPlaybackRate(_ rate: Float) {
         state.playbackRate = rate
+        // defaultRate makes later play() calls (resume, next item) keep the chosen speed.
+        player.defaultRate = rate
         if state.status == .playing {
             player.rate = rate
         }
@@ -180,6 +191,9 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         state.status = .buffering
         state.errorMessage = nil
         state.positionMillis = 0
+        state.bufferedMillis = 0
+        state.videoWidth = item.width
+        state.videoHeight = item.height
         state.durationMillis = item.durationMillis ?? 0
 
         var resolvedUrl: URL?
@@ -207,6 +221,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         }
 
         let playerItem = AVPlayerItem(url: playUrl)
+        attachLegibleOutput(to: playerItem)
         player.replaceCurrentItem(with: playerItem)
         AudioSessionController.shared.configureSession()
         player.play()
@@ -214,6 +229,25 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         updateNowPlaying()
 
         IOSDatabase.shared.recordPlayback(mediaId: item.id, positionMillis: 0, completed: false)
+    }
+
+    /// Re-attaches the subtitle output to the current item. AVFoundation stops pushing cues to an
+    /// attached output after a mid-playback subtitle switch; re-attaching resumes delivery.
+    public func reattachLegibleOutput() {
+        guard let item = player.currentItem else { return }
+        attachLegibleOutput(to: item)
+    }
+
+    /// An output can belong to only one item; adding it to a second one raises an exception.
+    private func attachLegibleOutput(to item: AVPlayerItem) {
+        detachLegibleOutput()
+        item.add(legibleOutput)
+        legibleOutputItem = item
+    }
+
+    private func detachLegibleOutput() {
+        legibleOutputItem?.remove(legibleOutput)
+        legibleOutputItem = nil
     }
 
     private func setupTimeObserver() {
@@ -228,6 +262,17 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
                 let durSeconds = CMTimeGetSeconds(currentItem.duration)
                 if !durSeconds.isNaN && durSeconds > 0 {
                     self.state.durationMillis = Int64(durSeconds * 1000)
+                }
+                if let range = currentItem.loadedTimeRanges.last?.timeRangeValue {
+                    let end = CMTimeGetSeconds(CMTimeRangeGetEnd(range))
+                    if !end.isNaN && end >= 0 {
+                        self.state.bufferedMillis = Int64(end * 1000)
+                    }
+                }
+                let size = currentItem.presentationSize
+                if size.width > 0 && size.height > 0 {
+                    self.state.videoWidth = Int(size.width)
+                    self.state.videoHeight = Int(size.height)
                 }
             }
             self.updateNowPlaying()

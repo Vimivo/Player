@@ -1,11 +1,21 @@
 import SwiftUI
 
+enum MusicFilter: String, CaseIterable {
+    case songs = "All songs"
+    case albums = "Albums"
+    case artists = "Artists"
+    case recentlyAdded = "Recently added"
+    case recentlyPlayed = "Recently played"
+    case favorites = "Favorites"
+}
+
 public struct MusicView: View {
     @ObservedObject public var engine: AVPlayerPlaybackEngine
     @State private var items: [MediaItem] = []
     @State private var favorites = Set<String>()
     @State private var searchText = ""
-    @State private var selectedTab = 0 // 0: Songs, 1: Albums, 2: Artists
+    @State private var filter: MusicFilter = .songs
+    @State private var history: [PlaybackHistory] = []
     @State private var showFileImporter = false
 
     public init(engine: AVPlayerPlaybackEngine) {
@@ -13,6 +23,21 @@ public struct MusicView: View {
     }
 
     private var filteredItems: [MediaItem] {
+        let musicItems = searchedItems
+        switch filter {
+        case .recentlyAdded:
+            return musicItems.sorted { ($0.dateAddedMillis ?? 0) > ($1.dateAddedMillis ?? 0) }
+        case .recentlyPlayed:
+            let byId = Dictionary(musicItems.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            return history.compactMap { byId[$0.mediaId] }
+        case .favorites:
+            return musicItems.filter { favorites.contains($0.id) }
+        case .songs, .albums, .artists:
+            return musicItems
+        }
+    }
+
+    private var searchedItems: [MediaItem] {
         let musicItems = items.filter { $0.kind == .audio }
         if searchText.isEmpty {
             return musicItems
@@ -35,23 +60,17 @@ public struct MusicView: View {
     public var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                Picker("Category", selection: $selectedTab) {
-                    Text("Songs").tag(0)
-                    Text("Albums").tag(1)
-                    Text("Artists").tag(2)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                FilterChipRow(options: MusicFilter.allCases, selection: $filter) { $0.rawValue }
+                    .padding(.vertical, 4)
 
                 if filteredItems.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "music.note")
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
-                        Text(items.isEmpty ? "No Music Imported" : "No Results")
+                        Text(items.isEmpty ? "No music imported" : "Nothing here yet")
                             .font(.headline)
-                        Text(items.isEmpty ? "Import audio files from the Files app or iCloud Drive." : "Try searching for a different title, artist, or album.")
+                        Text(items.isEmpty ? "Import audio files from the Files app or iCloud Drive." : "Songs matching this filter or search will appear here.")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -70,13 +89,13 @@ public struct MusicView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    switch selectedTab {
-                    case 0:
-                        songsList
-                    case 1:
+                    switch filter {
+                    case .albums:
                         albumsGrid
-                    default:
+                    case .artists:
                         artistsList
+                    default:
+                        songsList
                     }
                 }
             }
@@ -137,8 +156,8 @@ public struct MusicView: View {
                     .buttonStyle(.plain)
                 }
                 .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-                .padding(.vertical, 4)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                .listRowSeparator(.hidden)
             }
 
             Section {
@@ -155,6 +174,7 @@ public struct MusicView: View {
                     )
                 }
             }
+            Color.clear.frame(height: 72).listRowSeparator(.hidden)
         }
         .listStyle(.plain)
     }
@@ -214,6 +234,7 @@ public struct MusicView: View {
     private func loadData() {
         items = IOSDatabase.shared.getAllMediaItems()
         favorites = IOSDatabase.shared.getFavorites()
+        history = IOSDatabase.shared.getHistory()
     }
 
     private func toggleFavorite(_ item: MediaItem) {

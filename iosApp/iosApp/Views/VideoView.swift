@@ -1,139 +1,80 @@
 import SwiftUI
-import AVKit
+
+public typealias OpenVideoAction = (_ items: [MediaItem], _ index: Int, _ resumeMillis: Int64) -> Void
+
+enum VideoFilter: String, CaseIterable {
+    case all = "All videos"
+    case continueWatching = "Continue watching"
+    case recentlyWatched = "Recently watched"
+    case recentlyAdded = "Recently added"
+    case favorites = "Favorites"
+}
 
 public struct VideoView: View {
     @ObservedObject public var engine: AVPlayerPlaybackEngine
+    private let onOpenVideo: OpenVideoAction
     @State private var items: [MediaItem] = []
     @State private var history: [PlaybackHistory] = []
     @State private var favorites = Set<String>()
     @State private var searchText = ""
     @State private var showFileImporter = false
-    @State private var activeVideoItem: MediaItem?
+    @State private var filter: VideoFilter = .all
+    @AppStorage("vimivo_video_grid") private var gridMode = false
 
-    public init(engine: AVPlayerPlaybackEngine) {
+    public init(engine: AVPlayerPlaybackEngine, onOpenVideo: @escaping OpenVideoAction) {
         self.engine = engine
-    }
-
-    private var filteredVideos: [MediaItem] {
-        let videos = items.filter { $0.kind == .video }
-        if searchText.isEmpty {
-            return videos
-        }
-        return videos.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+        self.onOpenVideo = onOpenVideo
     }
 
     private var historyMap: [String: PlaybackHistory] {
-        Dictionary(uniqueKeysWithValues: history.map { ($0.mediaId, $0) })
+        Dictionary(history.map { ($0.mediaId, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private var visibleVideos: [MediaItem] {
+        let videos = items.filter { $0.kind == .video }
+        let searched = searchText.isEmpty ? videos : videos.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+        let byId = Dictionary(searched.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        switch filter {
+        case .all:
+            return searched
+        case .continueWatching:
+            return history.filter { $0.positionMillis > 0 && !$0.completed }.compactMap { byId[$0.mediaId] }
+        case .recentlyWatched:
+            return history.compactMap { byId[$0.mediaId] }
+        case .recentlyAdded:
+            return searched.sorted { ($0.dateAddedMillis ?? 0) > ($1.dateAddedMillis ?? 0) }
+        case .favorites:
+            return searched.filter { favorites.contains($0.id) }
+        }
     }
 
     public var body: some View {
         NavigationView {
-            Group {
-                if filteredVideos.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "film")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        Text(items.isEmpty ? "No Videos Imported" : "No Results")
-                            .font(.headline)
-                        Text(items.isEmpty ? "Import video files from the Files app or iCloud Drive." : "Try searching for a different video title.")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                        if items.isEmpty {
-                            Button(action: { showFileImporter = true }) {
-                                Label("Import Video", systemImage: "plus")
-                                    .fontWeight(.semibold)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(Color.accentColor)
-                                    .foregroundColor(.white)
-                                    .clipShape(Capsule())
-                            }
-                            .padding(.top, 4)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 0) {
+                FilterChipRow(options: VideoFilter.allCases, selection: $filter) { $0.rawValue }
+                    .padding(.vertical, 4)
+
+                let videos = visibleVideos
+                if videos.isEmpty {
+                    emptyState
+                } else if gridMode {
+                    grid(videos)
                 } else {
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160, maximum: 240), spacing: 16)], spacing: 16) {
-                            ForEach(filteredVideos) { video in
-                                let hist = historyMap[video.id]
-                                VStack(alignment: .leading, spacing: 6) {
-                                    ZStack(alignment: .bottomTrailing) {
-                                        ArtworkThumbnailView(uri: video.artworkUri, kind: .video, size: 160)
-                                            .aspectRatio(16/9, contentMode: .fit)
-
-                                        if video.durationMillis != nil {
-                                            Text(video.formattedDuration)
-                                                .font(.caption2)
-                                                .fontWeight(.bold)
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 3)
-                                                .background(Color.black.opacity(0.75))
-                                                .foregroundColor(.white)
-                                                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                                                .padding(6)
-                                        }
-
-                                        if let h = hist, h.positionMillis > 0, !h.completed {
-                                            GeometryReader { geo in
-                                                VStack {
-                                                    Spacer()
-                                                    Rectangle()
-                                                        .fill(Color.accentColor)
-                                                        .frame(
-                                                            width: geo.size.width * CGFloat(Double(h.positionMillis) / Double(video.durationMillis ?? 1)),
-                                                            height: 3
-                                                        )
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                                    Text(video.title)
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                        .lineLimit(2)
-
-                                    if let h = hist, h.positionMillis > 0, !h.completed {
-                                        Text("Resume from \(formatMillis(h.positionMillis))")
-                                            .font(.caption2)
-                                            .foregroundColor(.accentColor)
-                                    }
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    playVideo(video, resumeMillis: hist?.positionMillis ?? 0)
-                                }
-                                .contextMenu {
-                                    Button(action: { playVideo(video, resumeMillis: 0) }) {
-                                        Label("Play from Beginning", systemImage: "play.fill")
-                                    }
-                                    if let pos = hist?.positionMillis, pos > 0 {
-                                        Button(action: { playVideo(video, resumeMillis: pos) }) {
-                                            Label("Resume Playback", systemImage: "arrow.clockwise")
-                                        }
-                                    }
-                                    Divider()
-                                    Button(role: .destructive, action: { deleteVideo(video) }) {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
-                            }
-                        }
-                        .padding(16)
-                    }
+                    list(videos)
                 }
             }
             .navigationTitle("Videos")
             .searchable(text: $searchText, prompt: "Search videos")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button(action: { gridMode.toggle() }) {
+                        Image(systemName: gridMode ? "list.bullet" : "square.grid.2x2")
+                    }
+                    .accessibilityLabel(gridMode ? "List view" : "Grid view")
                     Button(action: { showFileImporter = true }) {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel("Import videos")
                 }
             }
             .fileImporter(
@@ -143,38 +84,100 @@ public struct VideoView: View {
             ) { result in
                 handleImport(result: result)
             }
-            .fullScreenCover(item: $activeVideoItem) { item in
-                ZStack {
-                    Color.black.ignoresSafeArea()
-                    VideoPlayerView(player: engine.player)
-                        .ignoresSafeArea()
-                    VStack {
-                        HStack {
-                            Button(action: {
-                                activeVideoItem = nil
-                                engine.pause()
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 28))
-                                    .foregroundColor(.white.opacity(0.85))
-                                    .padding(16)
-                            }
-                            Spacer()
+            .onAppear(perform: loadData)
+            .onChange(of: engine.state.currentItem?.id) { _ in loadData() }
+            .task { await backfillMetadata() }
+        }
+        .navigationViewStyle(.stack)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "film")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+            Text(items.contains { $0.kind == .video } ? "Nothing here yet" : "No videos imported")
+                .font(.headline)
+            Text(items.contains { $0.kind == .video }
+                 ? "Videos matching this filter will appear here."
+                 : "Import video files from the Files app or iCloud Drive.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            if !items.contains(where: { $0.kind == .video }) {
+                Button(action: { showFileImporter = true }) {
+                    Label("Import videos", systemImage: "plus")
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
+                }
+                .padding(.top, 4)
+            }
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func list(_ videos: [MediaItem]) -> some View {
+        List {
+            ForEach(Array(videos.enumerated()), id: \.element.id) { index, video in
+                MediaRow(
+                    item: video,
+                    isPlaying: engine.state.currentItem?.id == video.id,
+                    isFavorite: favorites.contains(video.id),
+                    onPlay: { play(videos, index) },
+                    onPlayNext: { engine.queue.insert(video, at: min(engine.currentIndex + 1, engine.queue.count)) },
+                    onAddToQueue: { engine.appendToQueue(item: video) },
+                    onToggleFavorite: { toggleFavorite(video) },
+                    onDelete: { deleteVideo(video) },
+                    progress: resumeProgress(video)
+                )
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 12))
+            }
+            Color.clear.frame(height: 72).listRowSeparator(.hidden)
+        }
+        .listStyle(.plain)
+    }
+
+    private func grid(_ videos: [MediaItem]) -> some View {
+        GeometryReader { geo in
+            let columns = max(Int((geo.size.width - 16) / 236), 1)
+            let width = (geo.size.width - 32 - CGFloat(columns - 1) * 16) / CGFloat(columns)
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: 16), count: columns), spacing: 18) {
+                    ForEach(Array(videos.enumerated()), id: \.element.id) { index, video in
+                        VideoCard(item: video, width: width, progress: resumeProgress(video)) {
+                            play(videos, index)
                         }
-                        Spacer()
+                        .contextMenu {
+                            Button(action: { toggleFavorite(video) }) {
+                                Label(favorites.contains(video.id) ? "Remove from Favorites" : "Favorite", systemImage: "heart")
+                            }
+                            Button(role: .destructive, action: { deleteVideo(video) }) {
+                                Label("Remove", systemImage: "trash")
+                            }
+                        }
                     }
                 }
+                .padding(16)
+                .padding(.bottom, 72)
             }
-            .onAppear(perform: loadData)
         }
     }
 
-    private func playVideo(_ video: MediaItem, resumeMillis: Int64) {
-        engine.play(item: video)
-        if resumeMillis > 0 {
-            engine.seek(toMillis: resumeMillis)
-        }
-        activeVideoItem = video
+    private func resumeProgress(_ video: MediaItem) -> Double? {
+        guard let entry = historyMap[video.id], entry.positionMillis > 0, !entry.completed,
+              let duration = video.durationMillis, duration > 0 else { return nil }
+        return Double(entry.positionMillis) / Double(duration)
+    }
+
+    private func play(_ videos: [MediaItem], _ index: Int) {
+        let entry = historyMap[videos[index].id]
+        let resume = (entry?.completed == false) ? (entry?.positionMillis ?? 0) : 0
+        onOpenVideo(videos, index, resume)
     }
 
     private func loadData() {
@@ -183,16 +186,25 @@ public struct VideoView: View {
         favorites = IOSDatabase.shared.getFavorites()
     }
 
-    private func deleteVideo(_ video: MediaItem) {
-        IOSDatabase.shared.deleteMediaItem(id: video.id)
+    /// Fills in resolution and size for videos imported before those columns existed.
+    private func backfillMetadata() async {
+        let missing = items.filter { $0.kind == .video && ($0.width == nil || $0.sizeBytes == nil) }
+        guard !missing.isEmpty else { return }
+        for video in missing {
+            guard let meta = await SecurityScopedMediaManager.shared.loadVideoMetadata(for: video) else { continue }
+            IOSDatabase.shared.updateVideoMetadata(id: video.id, width: meta.width, height: meta.height, sizeBytes: meta.sizeBytes)
+        }
         loadData()
     }
 
-    private func formatMillis(_ ms: Int64) -> String {
-        let total = Int(ms / 1000)
-        let m = total / 60
-        let s = total % 60
-        return String(format: "%d:%02d", m, s)
+    private func toggleFavorite(_ video: MediaItem) {
+        IOSDatabase.shared.setFavorite(mediaId: video.id, isFavorite: !favorites.contains(video.id))
+        loadData()
+    }
+
+    private func deleteVideo(_ video: MediaItem) {
+        IOSDatabase.shared.deleteMediaItem(id: video.id)
+        loadData()
     }
 
     private func handleImport(result: Result<[URL], Error>) {

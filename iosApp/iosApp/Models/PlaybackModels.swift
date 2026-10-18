@@ -34,6 +34,9 @@ public struct PlaybackState {
     public var repeatMode: RepeatMode
     public var isShuffled: Bool
     public var errorMessage: String?
+    public var bufferedMillis: Int64 = 0
+    public var videoWidth: Int?
+    public var videoHeight: Int?
 
     public init(
         currentItem: MediaItem? = nil,

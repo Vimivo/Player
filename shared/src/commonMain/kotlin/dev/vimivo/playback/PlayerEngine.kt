@@ -111,6 +111,8 @@ data class EngineCapabilities(
     val abRepeat: Boolean = false,
     val videoAdjustments: Boolean = false,
     val screenshots: Boolean = false,
+    val frameStepping: Boolean = false,
+    val deinterlacing: Boolean = false,
     val supportedSpeedRange: ClosedFloatingPointRange<Float> = 0.25f..4f,
     val audioEnhancements: AudioEnhancementCapabilities = AudioEnhancementCapabilities(
         limitation = "Audio enhancements are unavailable with this engine",
@@ -177,6 +179,9 @@ data class PlaybackState(
     val chapters: List<ChapterInfo> = emptyList(),
     val abRepeat: ABRepeatRange = ABRepeatRange(),
     val videoAdjustments: VideoAdjustments = VideoAdjustments(),
+    val subtitleDelayMillis: Long = 0L,
+    val audioDelayMillis: Long = 0L,
+    val deinterlace: Boolean = false,
     val sessionId: Long = 0L,
 )
 
@@ -225,6 +230,12 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Subtitle styling is not supported"))
     fun takeScreenshot(destinationFilePath: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("Video screenshot capture is not supported"))
+
+    /** Steps one decoded frame forward or backward; playback is left paused. */
+    fun frameStep(forward: Boolean = true): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Frame stepping is not supported"))
+    fun setDeinterlace(enabled: Boolean): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Deinterlacing is not supported"))
     fun getAudioOutputDevices(): List<AudioOutputDevice> = emptyList()
     fun selectAudioOutputDevice(deviceId: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("Audio output selection is not supported"))

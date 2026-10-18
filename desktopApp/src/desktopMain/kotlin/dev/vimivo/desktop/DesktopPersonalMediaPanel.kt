@@ -96,7 +96,7 @@ internal fun DesktopPlaylistsPanel(
                         }
                         if (onExportM3u != null) {
                             OutlinedButton(onClick = { saveM3uFile(playlist.name)?.let { file -> onExportM3u(playlist.id, file) } }) {
-                                Text("Export M3U")
+                                Text("Export…")
                             }
                         }
                         OutlinedButton(onClick = { onDuplicate(playlist.id) }) { Text("Duplicate") }
@@ -344,17 +344,18 @@ private fun formatPersonalTime(milliseconds: Long): String {
 }
 
 private fun chooseM3uFile(): java.io.File? {
-    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Import M3U Playlist", java.awt.FileDialog.LOAD)
-    dialog.setFilenameFilter { _, name -> name.endsWith(".m3u", true) || name.endsWith(".m3u8", true) }
+    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Import Playlist (M3U, XSPF)", java.awt.FileDialog.LOAD)
+    dialog.setFilenameFilter { _, name -> name.endsWith(".m3u", true) || name.endsWith(".m3u8", true) || name.endsWith(".xspf", true) }
     dialog.isVisible = true
     return dialog.files?.firstOrNull() ?: dialog.file?.let { java.io.File(dialog.directory, it) }
 }
 
 private fun saveM3uFile(defaultName: String): java.io.File? {
-    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Export M3U Playlist", java.awt.FileDialog.SAVE)
+    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Export Playlist (.m3u8 or .xspf)", java.awt.FileDialog.SAVE)
     dialog.file = "$defaultName.m3u8"
     dialog.isVisible = true
     val fileName = dialog.file ?: return null
     val dir = dialog.directory ?: return null
-    return java.io.File(dir, if (fileName.endsWith(".m3u8", true) || fileName.endsWith(".m3u", true)) fileName else "$fileName.m3u8")
+    val supported = listOf(".m3u8", ".m3u", ".xspf").any { fileName.endsWith(it, true) }
+    return java.io.File(dir, if (supported) fileName else "$fileName.m3u8")
 }

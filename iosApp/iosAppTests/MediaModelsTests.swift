@@ -73,4 +73,78 @@ final class MediaModelsTests: XCTestCase {
         }
     }
 #endif
+
+    func testResolutionLabelsUseShortSide() {
+        XCTAssertEqual(MediaFormatting.resolutionLabel(width: 3840, height: 2160), "4K")
+        XCTAssertEqual(MediaFormatting.resolutionLabel(width: 2560, height: 1440), "1440p")
+        XCTAssertEqual(MediaFormatting.resolutionLabel(width: 1080, height: 1920), "1080p")
+        XCTAssertEqual(MediaFormatting.resolutionLabel(width: 1280, height: 720), "720p")
+        XCTAssertEqual(MediaFormatting.resolutionLabel(width: 640, height: 480), "480p")
+    }
+
+    func testByteCountClockAndSpeedFormatting() {
+        XCTAssertEqual(MediaFormatting.byteCount(512), "512 B")
+        XCTAssertEqual(MediaFormatting.byteCount(217_481), "212 KB")
+        XCTAssertEqual(MediaFormatting.byteCount(43_971_644), "41.9 MB")
+        XCTAssertEqual(MediaFormatting.clock(millis: 65_000), "1:05")
+        XCTAssertEqual(MediaFormatting.clock(millis: 3_723_000), "1:02:03")
+        XCTAssertEqual(MediaFormatting.clock(millis: -500), "0:00")
+        XCTAssertEqual(MediaFormatting.speed(1), "1.0×")
+        XCTAssertEqual(MediaFormatting.speed(1.25), "1.25×")
+        XCTAssertEqual(MediaFormatting.speed(0.5), "0.5×")
+    }
+
+    func testDetailLineMatchesAndroidRows() {
+        let video = MediaItem(uri: "v", title: "V", kind: .video, durationMillis: 120_000, width: 1280, height: 720, sizeBytes: 43_971_644)
+        XCTAssertEqual(video.detailLine, "2:00 · 720p · 41.9 MB")
+        let bare = MediaItem(uri: "v2", title: "V2", kind: .video)
+        XCTAssertEqual(bare.detailLine, "")
+        let song = MediaItem(uri: "a", title: "A", kind: .audio, artist: "Calyx", album: "Lights")
+        XCTAssertEqual(song.detailLine, "Calyx · Lights")
+    }
+
+    @MainActor
+    func testDoubleTapSidesAccumulateAndCenterToggles() {
+        let model = VideoPlayerModel(engine: AVPlayerPlaybackEngine.shared)
+        model.handleDoubleTap(x: 300, width: 400)
+        XCTAssertEqual(model.doubleTapSide, 1)
+        XCTAssertEqual(model.doubleTapSeconds, 10)
+        XCTAssertFalse(model.controlsVisible)
+
+        // A further tap on the same side while the window is open keeps adding time.
+        model.handleSingleTap(x: 350, width: 400)
+        XCTAssertEqual(model.doubleTapSeconds, 20)
+
+        // Switching sides restarts the count.
+        model.handleDoubleTap(x: 20, width: 400)
+        XCTAssertEqual(model.doubleTapSide, -1)
+        XCTAssertEqual(model.doubleTapSeconds, 10)
+        model.tearDown()
+    }
+
+    @MainActor
+    func testLockedPlayerOnlyTogglesUnlockHint() {
+        let model = VideoPlayerModel(engine: AVPlayerPlaybackEngine.shared)
+        model.lockControls()
+        XCTAssertTrue(model.locked)
+        XCTAssertFalse(model.controlsVisible)
+        model.handleSingleTap(x: 200, width: 400)
+        XCTAssertFalse(model.lockHintVisible)
+        XCTAssertFalse(model.controlsVisible)
+        model.unlockControls()
+        XCTAssertTrue(model.controlsVisible)
+        model.tearDown()
+    }
+
+    @MainActor
+    func testAspectCycleWrapsAndResetsZoom() {
+        let model = VideoPlayerModel(engine: AVPlayerPlaybackEngine.shared)
+        model.setZoom(2)
+        model.cycleAspect()
+        XCTAssertEqual(model.aspect, .crop)
+        XCTAssertEqual(model.zoom, 1)
+        for _ in 0..<(VideoAspect.allCases.count - 1) { model.cycleAspect() }
+        XCTAssertEqual(model.aspect, .fit)
+        model.tearDown()
+    }
 }

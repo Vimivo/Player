@@ -125,6 +125,7 @@ class MpvPlayerEngine : PlayerEngine {
         }
         userStopped = false
         userPaused = false
+        val previousDeinterlace = mutableState.value.deinterlace
         mutableState.value = PlaybackState(
             engine = id,
             media = media,
@@ -140,8 +141,15 @@ class MpvPlayerEngine : PlayerEngine {
         } else {
             setProperty("start", "none")
         }
+        // A-B loop points and sync offsets are global mpv options; a new file must not inherit them.
+        setProperty("ab-loop-a", "no")
+        setProperty("ab-loop-b", "no")
+        setProperty("sub-delay", "0")
+        setProperty("audio-delay", "0")
         command("loadfile", media.uri, "replace")
         setProperty("pause", "yes")
+        setProperty("deinterlace", if (previousDeinterlace) "yes" else "no")
+        mutableState.update { it.copy(deinterlace = previousDeinterlace) }
         startPolling(currentSession)
     }.onFailure(::publishFailure)
 
@@ -195,8 +203,52 @@ class MpvPlayerEngine : PlayerEngine {
     override fun selectVideoTrack(trackId: String?) = action { setProperty("vid", trackId ?: "no") }
     override fun selectSubtitleTrack(trackId: String?) = action { setProperty("sid", trackId ?: "no") }
     override fun addExternalSubtitle(subtitle: ExternalSubtitle) = action { command("sub-add", subtitle.uri, "select") }
-    override fun setSubtitleDelay(delayMillis: Long) = action { setProperty("sub-delay", (delayMillis / 1_000.0).toString()) }
-    override fun setAudioDelay(delayMillis: Long) = action { setProperty("audio-delay", (delayMillis / 1_000.0).toString()) }
+    override fun setSubtitleDelay(delayMillis: Long) = action {
+        setProperty("sub-delay", (delayMillis / 1_000.0).toString())
+        mutableState.update { it.copy(subtitleDelayMillis = delayMillis) }
+    }
+    override fun setAudioDelay(delayMillis: Long) = action {
+        setProperty("audio-delay", (delayMillis / 1_000.0).toString())
+        mutableState.update { it.copy(audioDelayMillis = delayMillis) }
+    }
+
+    /** Uses mpv's frame-step commands, which pause playback after displaying the new frame. */
+    override fun frameStep(forward: Boolean): Result<Unit> = action {
+        userPaused = true
+        command(if (forward) "frame-step" else "frame-back-step")
+    }
+
+    override fun setDeinterlace(enabled: Boolean): Result<Unit> = action {
+        setProperty("deinterlace", if (enabled) "yes" else "no")
+        mutableState.update { it.copy(deinterlace = enabled) }
+    }
+
+    /** Container-level details for the media information dialog; null when nothing is loaded. */
+    fun containerInfo(): DesktopContainerInfo? = synchronized(nativeLock) {
+        if (context == null || closed || mutableState.value.media == null) return null
+        val metadataCount = stringProperty("metadata/list/count")?.toIntOrNull() ?: 0
+        val metadata = (0 until metadataCount).mapNotNull { index ->
+            val key = stringProperty("metadata/list/$index/key") ?: return@mapNotNull null
+            val value = stringProperty("metadata/list/$index/value") ?: return@mapNotNull null
+            key to value
+        }
+        DesktopContainerInfo(
+            format = stringProperty("file-format"),
+            fileSizeBytes = longProperty("file-size"),
+            videoParameters = listOfNotNull(
+                stringProperty("video-params/pixelformat"),
+                stringProperty("video-params/colormatrix"),
+                stringProperty("video-params/primaries"),
+                stringProperty("video-params/gamma"),
+            ).joinToString(" · ").ifBlank { null },
+            audioParameters = listOfNotNull(
+                stringProperty("audio-params/format"),
+                stringProperty("audio-params/hr-channels") ?: stringProperty("audio-params/channels"),
+                stringProperty("audio-params/samplerate")?.let { "$it Hz" },
+            ).joinToString(" · ").ifBlank { null },
+            metadata = metadata,
+        )
+    }
     override fun setAudioBalance(balance: Float) = action {
         require(balance in -1f..1f) { "Stereo balance must be between -1.0 and 1.0" }
         setProperty("balance", balance.toString())
@@ -374,13 +426,14 @@ class MpvPlayerEngine : PlayerEngine {
     override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> = action {
         val effective = DesktopAudioEffects.effectiveSettings(settings)
         setProperty("af", DesktopAudioEffects.filter(effective).orEmpty())
+        val active = effective.enabled || effective.volumeNormalization
         setProperty("balance", effective.balance.toString())
         mutableAudio.value = AudioEnhancementState(
             capabilities = capabilities.audioEnhancements,
             settings = effective,
             availableBandsHz = DesktopAudioEffects.frequencies,
-            active = effective.enabled,
-            message = if (effective.enabled) "libmpv audio filters active" else null,
+            active = active,
+            message = if (active) "libmpv audio filters active" else null,
         )
     }
 
@@ -640,6 +693,8 @@ class MpvPlayerEngine : PlayerEngine {
             abRepeat = true,
             videoAdjustments = true,
             screenshots = true,
+            frameStepping = platform != DesktopPlatform.UNKNOWN,
+            deinterlacing = platform != DesktopPlatform.UNKNOWN,
             supportedSpeedRange = 0.25f..4f,
             audioEnhancements = AudioEnhancementCapabilities(
                 graphicEqualizer = true,
@@ -651,6 +706,7 @@ class MpvPlayerEngine : PlayerEngine {
                 stereoBalance = true,
                 pitchPreservation = true,
                 outputSelection = true,
+                normalization = true,
                 limitation = "Equalizer uses libmpv's FFmpeg filter chain; crossfade and bit-perfect output are not available",
             ),
         )
@@ -674,3 +730,12 @@ private fun subtitleMimeType(extension: String): String = when (extension.lowerc
     "ass", "ssa" -> "text/x-ssa"
     else -> "application/octet-stream"
 }
+
+/** Container-level properties read through the libmpv property API. */
+data class DesktopContainerInfo(
+    val format: String?,
+    val fileSizeBytes: Long?,
+    val videoParameters: String?,
+    val audioParameters: String?,
+    val metadata: List<Pair<String, String>>,
+)

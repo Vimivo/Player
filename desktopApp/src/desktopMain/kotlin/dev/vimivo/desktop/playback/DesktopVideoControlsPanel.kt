@@ -53,10 +53,11 @@ internal fun DesktopVideoControlsPanel(
 ) {
     var message by remember { mutableStateOf<String?>(null) }
     var currentAdjustments by remember(state.videoAdjustments) { mutableStateOf(state.videoAdjustments) }
-    var abRepeatA by remember { mutableStateOf<Long?>(null) }
-    var abRepeatB by remember { mutableStateOf<Long?>(null) }
-    var subtitleDelayMs by remember { mutableStateOf(0L) }
-    var audioDelayMs by remember { mutableStateOf(0L) }
+    // A-B points and sync delays live in the engine state so shortcuts and this panel stay in sync.
+    val abRepeatA = state.abRepeat.pointA
+    val abRepeatB = state.abRepeat.pointB
+    val subtitleDelayMs = state.subtitleDelayMillis
+    val audioDelayMs = state.audioDelayMillis
     var subtitleFontSize by remember { mutableStateOf(24) }
     var subtitleColorHex by remember { mutableStateOf("#FFFFFF") }
 
@@ -118,6 +119,23 @@ internal fun DesktopVideoControlsPanel(
                 ) {
                     Text("Screenshot")
                 }
+
+                OutlinedButton(
+                    onClick = { engine.frameStep(forward = false) },
+                    enabled = engine.capabilities.frameStepping,
+                    modifier = Modifier.semantics { contentDescription = "Step back one frame" },
+                ) { Text("◀ Frame") }
+                OutlinedButton(
+                    onClick = { engine.frameStep(forward = true) },
+                    enabled = engine.capabilities.frameStepping,
+                    modifier = Modifier.semantics { contentDescription = "Step forward one frame" },
+                ) { Text("Frame ▶") }
+                FilterChip(
+                    selected = state.deinterlace,
+                    onClick = { engine.setDeinterlace(!state.deinterlace) },
+                    enabled = engine.capabilities.deinterlacing,
+                    label = { Text("Deinterlace") },
+                )
             }
 
             // Speed Selector Row
@@ -127,7 +145,7 @@ internal fun DesktopVideoControlsPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Speed:", style = MaterialTheme.typography.labelMedium)
-                listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f, 4.0f).forEach { speed ->
                     val isSelected = kotlin.math.abs(state.speed - speed) < 0.05f
                     FilterChip(
                         selected = isSelected,
@@ -170,14 +188,14 @@ internal fun DesktopVideoControlsPanel(
 
                 Text("Sync: ${audioDelayMs}ms", style = MaterialTheme.typography.labelSmall)
                 OutlinedButton(
-                    onClick = { audioDelayMs -= 100; engine.setAudioDelay(audioDelayMs) },
+                    onClick = { engine.setAudioDelay(audioDelayMs - 100) },
                     modifier = Modifier.semantics {
                         role = Role.Button
                         contentDescription = "Decrease audio delay by 100 milliseconds"
                     },
                 ) { Text("-100ms") }
                 OutlinedButton(
-                    onClick = { audioDelayMs += 100; engine.setAudioDelay(audioDelayMs) },
+                    onClick = { engine.setAudioDelay(audioDelayMs + 100) },
                     modifier = Modifier.semantics {
                         role = Role.Button
                         contentDescription = "Increase audio delay by 100 milliseconds"
@@ -185,7 +203,7 @@ internal fun DesktopVideoControlsPanel(
                 ) { Text("+100ms") }
                 if (audioDelayMs != 0L) {
                     OutlinedButton(
-                        onClick = { audioDelayMs = 0; engine.setAudioDelay(0) },
+                        onClick = { engine.setAudioDelay(0) },
                         modifier = Modifier.semantics {
                             role = Role.Button
                             contentDescription = "Reset audio delay to 0 milliseconds"
@@ -247,14 +265,14 @@ internal fun DesktopVideoControlsPanel(
 
                 Text("Delay: ${subtitleDelayMs}ms", style = MaterialTheme.typography.labelSmall)
                 OutlinedButton(
-                    onClick = { subtitleDelayMs -= 250; engine.setSubtitleDelay(subtitleDelayMs) },
+                    onClick = { engine.setSubtitleDelay(subtitleDelayMs - 250) },
                     modifier = Modifier.semantics {
                         role = Role.Button
                         contentDescription = "Decrease subtitle delay by 250 milliseconds"
                     },
                 ) { Text("-250ms") }
                 OutlinedButton(
-                    onClick = { subtitleDelayMs += 250; engine.setSubtitleDelay(subtitleDelayMs) },
+                    onClick = { engine.setSubtitleDelay(subtitleDelayMs + 250) },
                     modifier = Modifier.semantics {
                         role = Role.Button
                         contentDescription = "Increase subtitle delay by 250 milliseconds"
@@ -262,7 +280,7 @@ internal fun DesktopVideoControlsPanel(
                 ) { Text("+250ms") }
                 if (subtitleDelayMs != 0L) {
                     OutlinedButton(
-                        onClick = { subtitleDelayMs = 0; engine.setSubtitleDelay(0) },
+                        onClick = { engine.setSubtitleDelay(0) },
                         modifier = Modifier.semantics {
                             role = Role.Button
                             contentDescription = "Reset subtitle delay to 0 milliseconds"
@@ -395,7 +413,7 @@ internal fun DesktopVideoControlsPanel(
                 Text("A-B Loop:", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 12.dp))
                 OutlinedButton(
                     onClick = {
-                        abRepeatA = state.positionMillis
+                        engine.setABRepeat(ABRepeatRange(pointA = state.positionMillis))
                         message = "Point A set at ${formatMs(state.positionMillis)}"
                     },
                     modifier = Modifier.semantics {
@@ -409,9 +427,12 @@ internal fun DesktopVideoControlsPanel(
                     onClick = {
                         val a = abRepeatA ?: 0L
                         val b = state.positionMillis
-                        abRepeatB = b
-                        engine.setABRepeat(ABRepeatRange(a, b, enabled = true))
-                        message = "Looping ${formatMs(a)} to ${formatMs(b)}"
+                        if (b > a) {
+                            engine.setABRepeat(ABRepeatRange(a, b, enabled = true))
+                            message = "Looping ${formatMs(a)} to ${formatMs(b)}"
+                        } else {
+                            message = "Point B must be after point A"
+                        }
                     },
                     enabled = abRepeatA != null,
                     modifier = Modifier.semantics {
@@ -424,8 +445,6 @@ internal fun DesktopVideoControlsPanel(
                 if (abRepeatA != null || abRepeatB != null) {
                     OutlinedButton(
                         onClick = {
-                            abRepeatA = null
-                            abRepeatB = null
                             engine.setABRepeat(ABRepeatRange(null, null, enabled = false))
                             message = "A-B Repeat cleared"
                         },

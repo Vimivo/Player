@@ -43,6 +43,8 @@ data class AudioEnhancementSettings(
     val preampDb: Float = 0f,
     val replayGainMode: ReplayGainMode = ReplayGainMode.OFF,
     val balance: Float = 0f,
+    /** Dynamic loudness normalization, independent of the equalizer [enabled] switch. */
+    val volumeNormalization: Boolean = false,
     val customPresetName: String? = null,
     val customPresets: List<CustomEqualizerPreset> = emptyList(),
 )

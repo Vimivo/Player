@@ -61,4 +61,28 @@ final class IOSDatabaseTests: XCTestCase {
         XCTAssertEqual(found?.positionMillis, 45000)
         XCTAssertFalse(found?.completed ?? true)
     }
+
+    func testVideoMetadataRoundTripAndBackfill() {
+        let db = IOSDatabase.shared
+        let testId = "video-\(UUID().uuidString)"
+        let item = MediaItem(id: testId, uri: "file:///test/clip.mp4", title: "Clip", kind: .video, durationMillis: 5000)
+        db.saveMediaItem(item)
+
+        let saved = db.getAllMediaItems().first { $0.id == testId }
+        XCTAssertNil(saved?.width)
+        XCTAssertNotNil(saved?.dateAddedMillis)
+
+        db.updateVideoMetadata(id: testId, width: 1920, height: 1080, sizeBytes: 2_048)
+        let updated = db.getAllMediaItems().first { $0.id == testId }
+        XCTAssertEqual(updated?.width, 1920)
+        XCTAssertEqual(updated?.height, 1080)
+        XCTAssertEqual(updated?.sizeBytes, 2_048)
+        XCTAssertEqual(updated?.dateAddedMillis, saved?.dateAddedMillis)
+
+        // A nil value must not erase metadata that is already stored.
+        db.updateVideoMetadata(id: testId, width: nil, height: nil, sizeBytes: nil)
+        XCTAssertEqual(db.getAllMediaItems().first { $0.id == testId }?.width, 1920)
+
+        db.deleteMediaItem(id: testId)
+    }
 }

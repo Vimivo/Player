@@ -56,8 +56,10 @@ public final class SecurityScopedMediaManager {
         }
 
         var isVideo = false
-        if let tracks = try? await asset.loadTracks(withMediaType: .video), !tracks.isEmpty {
+        var dimensions: (width: Int, height: Int)?
+        if let tracks = try? await asset.loadTracks(withMediaType: .video), let track = tracks.first {
             isVideo = true
+            dimensions = await Self.displayDimensions(of: track)
         }
 
         var title: String? = nil
@@ -90,8 +92,47 @@ public final class SecurityScopedMediaManager {
             artist: artist,
             album: album,
             artworkUri: artworkUri,
-            bookmarkData: bookmarkData
+            bookmarkData: bookmarkData,
+            width: dimensions?.width,
+            height: dimensions?.height,
+            sizeBytes: Self.fileSize(of: url)
         )
+    }
+
+    /// Reads display dimensions and file size for a stored video, for libraries imported before
+    /// those fields existed. Returns nil when the file can no longer be resolved.
+    public func loadVideoMetadata(for item: MediaItem) async -> (width: Int?, height: Int?, sizeBytes: Int64?)? {
+        guard let url = resolvedUrl(for: item) else { return nil }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let asset = AVURLAsset(url: url)
+        var dimensions: (width: Int, height: Int)?
+        if let track = try? await asset.loadTracks(withMediaType: .video).first {
+            dimensions = await Self.displayDimensions(of: track)
+        }
+        return (dimensions?.width, dimensions?.height, Self.fileSize(of: url))
+    }
+
+    public func resolvedUrl(for item: MediaItem) -> URL? {
+        if let data = item.bookmarkData, let url = resolveBookmark(data: data) {
+            return url
+        }
+        return URL(string: item.uri)
+    }
+
+    private static func displayDimensions(of track: AVAssetTrack) async -> (width: Int, height: Int)? {
+        guard let (size, transform) = try? await track.load(.naturalSize, .preferredTransform) else { return nil }
+        let rect = CGRect(origin: .zero, size: size).applying(transform)
+        let width = Int(abs(rect.width).rounded())
+        let height = Int(abs(rect.height).rounded())
+        return width > 0 && height > 0 ? (width, height) : nil
+    }
+
+    private static func fileSize(of url: URL) -> Int64? {
+        guard url.isFileURL, let values = try? url.resourceValues(forKeys: [.fileSizeKey]), let size = values.fileSize else {
+            return nil
+        }
+        return Int64(size)
     }
 
     private func saveArtwork(data: Data, id: String) -> String? {

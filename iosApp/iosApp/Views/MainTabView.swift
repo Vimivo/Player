@@ -5,6 +5,7 @@ public struct MainTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedTab = 0
     @State private var showNowPlayingModal = false
+    @State private var showVideoPlayer = false
 
     public init(engine: AVPlayerPlaybackEngine) {
         self.engine = engine
@@ -21,12 +22,35 @@ public struct MainTabView: View {
         .sheet(isPresented: $showNowPlayingModal) {
             NowPlayingView(engine: engine)
         }
+        .fullScreenCover(isPresented: $showVideoPlayer) {
+            VideoPlayerView(engine: engine) {
+                showVideoPlayer = false
+                engine.pause()
+            }
+        }
+    }
+
+    /// Starts a video queue and opens the full-screen player, resuming where the viewer left off.
+    private func openVideo(_ items: [MediaItem], _ index: Int, _ resumeMillis: Int64) {
+        engine.playQueue(items: items, startIndex: index)
+        if resumeMillis > 0 {
+            engine.seek(toMillis: resumeMillis)
+        }
+        showVideoPlayer = true
+    }
+
+    private func expandNowPlaying() {
+        if engine.state.currentItem?.kind == .video {
+            showVideoPlayer = true
+        } else {
+            showNowPlayingModal = true
+        }
     }
 
     private var iphoneLayout: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
-                HomeView(engine: engine) { tab in selectedTab = tab }
+                HomeView(engine: engine, onSelectTab: { tab in selectedTab = tab }, onOpenVideo: openVideo)
                     .tabItem {
                         Label("Home", systemImage: "house.fill")
                     }
@@ -38,7 +62,7 @@ public struct MainTabView: View {
                     }
                     .tag(1)
 
-                VideoView(engine: engine)
+                VideoView(engine: engine, onOpenVideo: openVideo)
                     .tabItem {
                         Label("Videos", systemImage: "film")
                     }
@@ -57,9 +81,7 @@ public struct MainTabView: View {
                     .tag(4)
             }
 
-            NowPlayingBar(engine: engine) {
-                showNowPlayingModal = true
-            }
+            NowPlayingBar(engine: engine, onExpand: expandNowPlaying)
             .padding(.bottom, 54)
         }
     }
@@ -94,17 +116,15 @@ public struct MainTabView: View {
             ZStack(alignment: .bottom) {
                 Group {
                     switch selectedTab {
-                    case 0: HomeView(engine: engine) { tab in selectedTab = tab }
+                    case 0: HomeView(engine: engine, onSelectTab: { tab in selectedTab = tab }, onOpenVideo: openVideo)
                     case 1: MusicView(engine: engine)
-                    case 2: VideoView(engine: engine)
+                    case 2: VideoView(engine: engine, onOpenVideo: openVideo)
                     case 3: PlaylistView(engine: engine)
                     default: SettingsView()
                     }
                 }
 
-                NowPlayingBar(engine: engine) {
-                    showNowPlayingModal = true
-                }
+                NowPlayingBar(engine: engine, onExpand: expandNowPlaying)
                 .padding(.bottom, 16)
             }
         }
