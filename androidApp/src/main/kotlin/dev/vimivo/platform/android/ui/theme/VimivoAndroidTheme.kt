@@ -21,6 +21,7 @@ import dev.vimivo.ui.theme.VimivoDarkColorScheme
 import dev.vimivo.ui.theme.VimivoLightColorScheme
 import dev.vimivo.ui.theme.VimivoTypography
 import dev.vimivo.ui.theme.LocalReducedTransparency
+import dev.vimivo.ui.theme.LocalReducedMotion as SharedLocalReducedMotion
 
 val LocalReducedMotion = staticCompositionLocalOf { false }
 val LocalLargeTouchTargets = staticCompositionLocalOf { false }
@@ -65,8 +66,11 @@ fun VimivoAndroidTheme(
     } else {
         personalized
     }
+    val reducedMotion = settings.reduceAnimations || !ValueAnimator.areAnimatorsEnabled()
     CompositionLocalProvider(
-        LocalReducedMotion provides (settings.reduceAnimations || !ValueAnimator.areAnimatorsEnabled()),
+        LocalReducedMotion provides reducedMotion,
+        // Shared components such as VimivoTabBar read the common-code motion preference.
+        SharedLocalReducedMotion provides reducedMotion,
         LocalReducedTransparency provides (settings.reduceTransparency || settings.highContrast),
         LocalLargeTouchTargets provides settings.largerTouchTargets,
     ) {

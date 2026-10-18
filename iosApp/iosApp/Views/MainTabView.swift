@@ -48,41 +48,34 @@ public struct MainTabView: View {
     }
 
     private var iphoneLayout: some View {
-        ZStack(alignment: .bottom) {
-            TabView(selection: $selectedTab) {
-                HomeView(engine: engine, onSelectTab: { tab in selectedTab = tab }, onOpenVideo: openVideo)
-                    .tabItem {
-                        Label("Home", systemImage: "house.fill")
-                    }
-                    .tag(0)
+        // The system tab bar is hidden so every tab keeps its navigation state while the floating stack below
+        // replaces it. safeAreaInset lets lists scroll behind the stack and clear it at the end.
+        TabView(selection: $selectedTab) {
+            HomeView(engine: engine, onSelectTab: { tab in selectedTab = tab }, onOpenVideo: openVideo)
+                .toolbar(.hidden, for: .tabBar)
+                .tag(0)
 
-                MusicView(engine: engine)
-                    .tabItem {
-                        Label("Music", systemImage: "music.note")
-                    }
-                    .tag(1)
+            MusicView(engine: engine)
+                .toolbar(.hidden, for: .tabBar)
+                .tag(1)
 
-                VideoView(engine: engine, onOpenVideo: openVideo)
-                    .tabItem {
-                        Label("Videos", systemImage: "film")
-                    }
-                    .tag(2)
+            VideoView(engine: engine, onOpenVideo: openVideo)
+                .toolbar(.hidden, for: .tabBar)
+                .tag(2)
 
-                PlaylistView(engine: engine)
-                    .tabItem {
-                        Label("Playlists", systemImage: "music.note.list")
-                    }
-                    .tag(3)
+            PlaylistView(engine: engine)
+                .toolbar(.hidden, for: .tabBar)
+                .tag(3)
 
-                SettingsView()
-                    .tabItem {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                    .tag(4)
+            SettingsView()
+                .toolbar(.hidden, for: .tabBar)
+                .tag(4)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                NowPlayingBar(engine: engine, onExpand: expandNowPlaying)
+                VimivoTabBar(selection: $selectedTab)
             }
-
-            NowPlayingBar(engine: engine, onExpand: expandNowPlaying)
-            .padding(.bottom, 54)
         }
     }
 
@@ -113,19 +106,17 @@ public struct MainTabView: View {
             .listStyle(.sidebar)
             .navigationTitle("Vimivo")
         } detail: {
-            ZStack(alignment: .bottom) {
-                Group {
-                    switch selectedTab {
-                    case 0: HomeView(engine: engine, onSelectTab: { tab in selectedTab = tab }, onOpenVideo: openVideo)
-                    case 1: MusicView(engine: engine)
-                    case 2: VideoView(engine: engine, onOpenVideo: openVideo)
-                    case 3: PlaylistView(engine: engine)
-                    default: SettingsView()
-                    }
+            Group {
+                switch selectedTab {
+                case 0: HomeView(engine: engine, onSelectTab: { tab in selectedTab = tab }, onOpenVideo: openVideo)
+                case 1: MusicView(engine: engine)
+                case 2: VideoView(engine: engine, onOpenVideo: openVideo)
+                case 3: PlaylistView(engine: engine)
+                default: SettingsView()
                 }
-
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 NowPlayingBar(engine: engine, onExpand: expandNowPlaying)
-                .padding(.bottom, 16)
             }
         }
     }

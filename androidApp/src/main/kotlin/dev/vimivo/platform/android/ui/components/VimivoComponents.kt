@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -80,13 +81,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
 import dev.vimivo.platform.android.ui.theme.LocalLargeTouchTargets
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.ui.theme.LocalReducedMotion
-import dev.vimivo.ui.components.VimivoGlassSurface
-import dev.vimivo.ui.theme.VimivoGlassVariant
+import dev.vimivo.ui.components.VimivoFloatingChrome
+import dev.vimivo.ui.theme.VimivoShell
 import dev.vimivo.ui.theme.VimivoPlayer
 
 @Composable
@@ -272,15 +274,18 @@ fun MiniPlayer(
     onOpen: () -> Unit,
     onToggle: () -> Unit,
     onNext: () -> Unit,
+    hazeState: HazeState? = null,
 ) {
     val reducedMotion = LocalReducedMotion.current
-    VimivoGlassSurface(
-        variant = VimivoGlassVariant.FLOATING_PLAYER,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clickable(onClick = onOpen),
+    VimivoFloatingChrome(
+        hazeState = hazeState,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = VimivoShell.floatingChromeMargin, end = VimivoShell.floatingChromeMargin, bottom = VimivoShell.floatingChromeGap),
     ) {
-        Column {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                MediaArtwork(media, thumbnails, Modifier.size(VimivoPlayer.compactArtwork))
+        Column(Modifier.clickable(onClick = onOpen)) {
+            Row(Modifier.fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                MediaArtwork(media, thumbnails, Modifier.size(VimivoPlayer.compactArtwork).clip(CircleShape))
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(media.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)

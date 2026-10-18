@@ -24,6 +24,7 @@ composeUi = "1.11.1"
 jna = "5.19.1"
 sqliteJdbc = "3.53.4.0"
 jaudiotagger = "3.0.1"
+haze = "1.7.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -51,6 +52,7 @@ media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref 
 media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 media3-exoplayer-rtsp = { module = "androidx.media3:media3-exoplayer-rtsp", version.ref = "media3" }
 libvlc = { module = "org.videolan.android:libvlc-all", version.ref = "libvlc" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 junit = { module = "junit:junit", version.ref = "junit" }

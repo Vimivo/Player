@@ -66,6 +66,12 @@ object VimivoShell {
     val desktopToolbarHeight: Dp = 64.dp
     val desktopQueueWidth: Dp = 360.dp
     val floatingDockMaxWidth: Dp = 960.dp
+    val tabBarHeight: Dp = 64.dp
+
+    /** Side margin, corner radius, and gap shared by the floating tab bar and mini player stack. */
+    val floatingChromeMargin: Dp = VimivoSpacing.lg
+    val floatingChromeRadius: Dp = 32.dp
+    val floatingChromeGap: Dp = VimivoSpacing.sm
 
     fun navigationMode(width: Dp): ShellNavigationMode = when {
         width < 720.dp -> ShellNavigationMode.BOTTOM_BAR

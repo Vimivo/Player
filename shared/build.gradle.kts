@@ -44,6 +44,7 @@ kotlin {
             implementation(compose.foundation)
             api(compose.material3)
             api(compose.materialIconsExtended)
+            api(libs.haze)
             implementation(compose.components.resources)
         }
         commonTest.dependencies {

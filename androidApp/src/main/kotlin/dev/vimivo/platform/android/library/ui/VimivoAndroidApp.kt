@@ -37,6 +37,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -61,7 +63,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
@@ -108,8 +115,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
@@ -139,6 +146,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
+import dev.vimivo.ui.components.VimivoTabBar
+import dev.vimivo.ui.components.VimivoTabItem
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -188,12 +203,28 @@ import dev.vimivo.ui.theme.VimivoShell
 import dev.vimivo.ui.theme.VimivoPlayer
 import org.koin.compose.viewmodel.koinViewModel
 
-private enum class AppDestination(val label: String, val icon: ImageVector) {
-    HOME("Home", Icons.Outlined.Home),
-    MUSIC("Music", Icons.Outlined.MusicNote),
-    VIDEOS("Videos", Icons.Outlined.VideoLibrary),
-    NETWORK("Network", Icons.Outlined.Link),
-    SETTINGS("Settings", Icons.Outlined.Settings),
+private enum class AppDestination(val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
+    HOME("Home", Icons.Outlined.Home, Icons.Filled.Home),
+    MUSIC("Music", Icons.Outlined.MusicNote, Icons.Filled.MusicNote),
+    VIDEOS("Videos", Icons.Outlined.VideoLibrary, Icons.Filled.VideoLibrary),
+    PLAYLISTS("Playlists", Icons.AutoMirrored.Outlined.QueueMusic, Icons.AutoMirrored.Filled.QueueMusic),
+    SETTINGS("Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
+}
+
+private val appTabs = AppDestination.entries.map { VimivoTabItem(it.label, it.icon, it.selectedIcon) }
+
+/** Height of the floating mini player and tab bar stack that scrolling content must clear. */
+private val LocalBottomChromePadding = staticCompositionLocalOf { 0.dp }
+
+@Composable
+private fun aboveBottomChrome(padding: PaddingValues = PaddingValues()): PaddingValues {
+    val layoutDirection = LocalLayoutDirection.current
+    return PaddingValues(
+        start = padding.calculateStartPadding(layoutDirection),
+        top = padding.calculateTopPadding(),
+        end = padding.calculateEndPadding(layoutDirection),
+        bottom = padding.calculateBottomPadding() + LocalBottomChromePadding.current,
+    )
 }
 
 @Composable
@@ -245,7 +276,9 @@ private fun AppShell(
     var nowPlayingVisible by rememberSaveable { mutableStateOf(false) }
     var queueVisible by rememberSaveable { mutableStateOf(false) }
     var videoPlayerVisible by rememberSaveable { mutableStateOf(false) }
+    var openUrlVisible by rememberSaveable { mutableStateOf(false) }
     var overflowVisible by remember { mutableStateOf(false) }
+    val hazeState = rememberHazeState()
 
     BackHandler(
         enabled = videoPlayerVisible || nowPlayingVisible || queueVisible || searchVisible || destination != AppDestination.HOME,
@@ -264,7 +297,7 @@ private fun AppShell(
         val useRail = navigationMode != ShellNavigationMode.BOTTOM_BAR
         val useSplitQueue = navigationMode == ShellNavigationMode.RAIL_WITH_SPLIT_VIEW
         val nav: @Composable () -> Unit = {
-            if (useRail) AppRail(destination) { destination = it } else AppBottomBar(destination) { destination = it }
+            if (useRail) AppRail(destination) { destination = it } else AppBottomBar(destination, hazeState) { destination = it }
         }
         Row(Modifier.fillMaxSize()) {
             if (useRail) nav()
@@ -281,6 +314,11 @@ private fun AppShell(
                             )
                         },
                         actions = {
+                            if (destination == AppDestination.VIDEOS) {
+                                IconButton(onClick = { openUrlVisible = true }) {
+                                    Icon(Icons.Outlined.Link, "Open URL")
+                                }
+                            }
                             IconButton(onClick = { searchVisible = !searchVisible }) {
                                 Icon(Icons.Outlined.Search, "Global search")
                             }
@@ -322,7 +360,7 @@ private fun AppShell(
                     )
                 },
                 bottomBar = {
-                    Column {
+                    Column(if (useRail) Modifier.navigationBarsPadding() else Modifier) {
                         player.current?.let { current ->
                             MiniPlayer(
                                 media = current.toDomain(),
@@ -335,13 +373,25 @@ private fun AppShell(
                                 },
                                 onToggle = playbackViewModel::togglePlayback,
                                 onNext = playbackViewModel::next,
+                                hazeState = hazeState,
                             )
                         }
                         if (!useRail) nav()
                     }
                 },
             ) { padding ->
-                Column(Modifier.padding(padding).fillMaxSize()) {
+                val layoutDirection = LocalLayoutDirection.current
+                CompositionLocalProvider(LocalBottomChromePadding provides padding.calculateBottomPadding()) {
+                Column(
+                    Modifier
+                        .hazeSource(hazeState)
+                        .padding(
+                            start = padding.calculateStartPadding(layoutDirection),
+                            top = padding.calculateTopPadding(),
+                            end = padding.calculateEndPadding(layoutDirection),
+                        )
+                        .fillMaxSize(),
+                ) {
                     AnimatedVisibility(searchVisible, enter = fadeIn(), exit = fadeOut()) {
                         GlobalSearch(thumbnails, playback, onClose = { searchVisible = false })
                     }
@@ -351,7 +401,7 @@ private fun AppShell(
                                 visibleSections = homeSections,
                                 thumbnails = thumbnails,
                                 playback = playback,
-                                openNetwork = { destination = AppDestination.NETWORK },
+                                openNetwork = { openUrlVisible = true },
                             )
                             AppDestination.MUSIC -> MusicScreen(thumbnails, playback, permissions)
                             AppDestination.VIDEOS -> VideoScreen(
@@ -360,7 +410,7 @@ private fun AppShell(
                                 permissions,
                                 openPlayer = { videoPlayerVisible = true },
                             )
-                            AppDestination.NETWORK -> NetworkScreen()
+                            AppDestination.PLAYLISTS -> PlaylistsScreen(thumbnails, playback)
                             AppDestination.SETTINGS -> SettingsScreen(settingsViewModel)
                         }
                     }
@@ -369,6 +419,7 @@ private fun AppShell(
                             destinationContent(selected)
                         }
                     }
+                }
                 }
             }
             if (useSplitQueue && queueVisible) {
@@ -381,6 +432,14 @@ private fun AppShell(
             }
         }
         if (!useSplitQueue && queueVisible) QueueSheet(player, playbackViewModel, thumbnails) { queueVisible = false }
+    }
+    if (openUrlVisible) {
+        ModalBottomSheet(
+            onDismissRequest = { openUrlVisible = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            NetworkScreen()
+        }
     }
     if (nowPlayingVisible) NowPlayingSheet(
         player,
@@ -412,22 +471,13 @@ private fun AppShell(
 }
 
 @Composable
-private fun AppBottomBar(selected: AppDestination, onSelect: (AppDestination) -> Unit) {
-    VimivoGlassSurface(
-        variant = VimivoGlassVariant.NAVIGATION,
-        modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 4.dp),
-    ) {
-        NavigationBar(containerColor = Color.Transparent) {
-            AppDestination.entries.forEach { destination ->
-                NavigationBarItem(
-                    selected == destination,
-                    { onSelect(destination) },
-                    { Icon(destination.icon, destination.label) },
-                    label = { Text(destination.label, maxLines = 1) },
-                )
-            }
-        }
-    }
+private fun AppBottomBar(selected: AppDestination, hazeState: HazeState, onSelect: (AppDestination) -> Unit) {
+    VimivoTabBar(
+        items = appTabs,
+        selectedIndex = selected.ordinal,
+        onSelect = { onSelect(AppDestination.entries[it]) },
+        hazeState = hazeState,
+    )
 }
 
 @Composable
@@ -442,7 +492,7 @@ private fun AppRail(selected: AppDestination, onSelect: (AppDestination) -> Unit
                 NavigationRailItem(
                     selected == destination,
                     { onSelect(destination) },
-                    { Icon(destination.icon, destination.label) },
+                    { Icon(if (selected == destination) destination.selectedIcon else destination.icon, destination.label) },
                     label = { Text(destination.label, maxLines = 1) },
                 )
             }
@@ -461,7 +511,7 @@ private fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val playlists by playlistsViewModel.playlists.collectAsState()
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = aboveBottomChrome(PaddingValues(bottom = 24.dp))) {
         item {
             Column(Modifier.padding(20.dp)) {
                 Text("Good to see you", style = MaterialTheme.typography.headlineMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
@@ -557,57 +607,41 @@ private fun MusicScreen(
     playback: PlaybackController,
     permissions: MediaPermissionPolicy,
     viewModel: LibraryViewModel = koinViewModel(),
-    playlistViewModel: PlaylistViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
-    val playlists by playlistViewModel.playlists.collectAsState()
-    val playlistItems by playlistViewModel.selectedItems.collectAsState()
-    var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
     var selectedAction by remember { mutableStateOf<MediaItem?>(null) }
     var sortVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.selectKind(MediaKind.AUDIO) }
     LibraryChrome(state, viewModel, permissions, MediaKind.AUDIO) {
         FilterChipRow(
             listOf(
-                "All songs" to { selectedPlaylist = null; viewModel.selectKind(MediaKind.AUDIO) },
-                "Albums" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ALBUM) },
-                "Artists" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ARTIST) },
-                "Album artists" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ALBUM_ARTIST) },
-                "Genres" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.GENRE) },
-                "Folders" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.FOLDER) },
-                "Playlists" to { selectedPlaylist = Playlist("__list__", "Playlists", emptyList(), 0) },
-                "Recently added" to { selectedPlaylist = null; viewModel.recentlyAddedMusic() },
-                "Recently played" to { selectedPlaylist = null; viewModel.recentlyPlayedMusic() },
-                "Favorites" to { selectedPlaylist = null; viewModel.favorites() },
+                "All songs" to { viewModel.selectKind(MediaKind.AUDIO) },
+                "Albums" to { viewModel.showCategories(LibraryCategoryField.ALBUM) },
+                "Artists" to { viewModel.showCategories(LibraryCategoryField.ARTIST) },
+                "Album artists" to { viewModel.showCategories(LibraryCategoryField.ALBUM_ARTIST) },
+                "Genres" to { viewModel.showCategories(LibraryCategoryField.GENRE) },
+                "Folders" to { viewModel.showCategories(LibraryCategoryField.FOLDER) },
+                "Recently added" to viewModel::recentlyAddedMusic,
+                "Recently played" to viewModel::recentlyPlayedMusic,
+                "Favorites" to viewModel::favorites,
             ),
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
             LibraryViewToggle(state.viewMode, viewModel::setViewMode)
             OutlinedButton({ sortVisible = true }) { Icon(Icons.AutoMirrored.Outlined.List, null); Text(" Sort") }
         }
-        when {
-            selectedPlaylist?.id == "__list__" -> PlaylistList(playlists, playlistViewModel) { playlist ->
-                selectedPlaylist = playlist
-                playlistViewModel.load(playlist)
-            }
-            selectedPlaylist != null -> PlaylistDetail(selectedPlaylist!!, playlistItems, thumbnails, playback, playlistViewModel, { selectedPlaylist = Playlist("__list__", "Playlists", emptyList(), 0) }) {
-                selectedAction = it
-            }
-            else -> {
-                val detailTitle = state.query.album ?: state.query.artist ?: state.query.albumArtist ?: state.query.genre ?: state.query.folderPath
-                if (detailTitle != null) MusicCollectionHeader(
-                    title = detailTitle,
-                    subtitle = collectionSubtitle(state),
-                    items = state.items,
-                    thumbnails = thumbnails,
-                    onPlay = { viewModel.resolveCurrentItems { playback.playQueue(it) } },
-                    onShuffle = { viewModel.resolveCurrentItems { playback.playQueue(it, shuffle = true) } },
-                    onQueue = { viewModel.resolveCurrentItems(playback::addToQueue) },
-                    onFavorite = if (state.query.album != null) ({ viewModel.setFavorite(state.items, state.items.any { !it.isFavorite }) }) else null,
-                )
-                CategoryOrMediaList(state, viewModel, thumbnails, playback) { selectedAction = it }
-            }
-        }
+        val detailTitle = state.query.album ?: state.query.artist ?: state.query.albumArtist ?: state.query.genre ?: state.query.folderPath
+        if (detailTitle != null) MusicCollectionHeader(
+            title = detailTitle,
+            subtitle = collectionSubtitle(state),
+            items = state.items,
+            thumbnails = thumbnails,
+            onPlay = { viewModel.resolveCurrentItems { playback.playQueue(it) } },
+            onShuffle = { viewModel.resolveCurrentItems { playback.playQueue(it, shuffle = true) } },
+            onQueue = { viewModel.resolveCurrentItems(playback::addToQueue) },
+            onFavorite = if (state.query.album != null) ({ viewModel.setFavorite(state.items, state.items.any { !it.isFavorite }) }) else null,
+        )
+        CategoryOrMediaList(state, viewModel, thumbnails, playback) { selectedAction = it }
     }
     if (sortVisible) SortSheet(state.query.sort, { sort -> viewModel.sort(sort); sortVisible = false }) { sortVisible = false }
     selectedAction?.let { item -> MediaActionsSheet(item, playback, viewModel, { selectedAction = null }) }
@@ -641,6 +675,32 @@ private fun VideoScreen(
         else if (state.viewMode == LibraryViewMode.GRID) VideoGrid(state, thumbnails, playback, viewModel, openPlayer)
         else VideoList(state, thumbnails, playback, viewModel, openPlayer)
     }
+}
+
+@Composable
+private fun PlaylistsScreen(
+    thumbnails: AndroidThumbnailRepository,
+    playback: PlaybackController,
+    viewModel: PlaylistViewModel = koinViewModel(),
+    library: LibraryViewModel = koinViewModel(),
+) {
+    val playlists by viewModel.playlists.collectAsState()
+    val playlistItems by viewModel.selectedItems.collectAsState()
+    var selectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedAction by remember { mutableStateOf<MediaItem?>(null) }
+    val selectedPlaylist = playlists.firstOrNull { it.id == selectedPlaylistId }
+    BackHandler(enabled = selectedPlaylist != null) { selectedPlaylistId = null }
+    if (selectedPlaylist != null) {
+        PlaylistDetail(selectedPlaylist, playlistItems, thumbnails, playback, viewModel, { selectedPlaylistId = null }) {
+            selectedAction = it
+        }
+    } else {
+        PlaylistList(playlists, viewModel) { playlist ->
+            selectedPlaylistId = playlist.id
+            viewModel.load(playlist)
+        }
+    }
+    selectedAction?.let { item -> MediaActionsSheet(item, playback, library, { selectedAction = null }) }
 }
 
 /** Single-select filter row; the selection survives configuration changes. */
@@ -755,7 +815,7 @@ private fun CategoryOrMediaList(
 ) {
     when {
         state.isLoading && state.items.isEmpty() && state.categories == null -> LoadingIndicator()
-        state.categories != null -> LazyColumn {
+        state.categories != null -> LazyColumn(contentPadding = aboveBottomChrome()) {
             items(state.categories, key = { it.name }) { category ->
                 ListItem(
                     modifier = Modifier.clickable { viewModel.selectCategory(category) },
@@ -768,7 +828,7 @@ private fun CategoryOrMediaList(
         state.items.isEmpty() -> EmptyState(title = "No music found", detail = "Add a folder, open a file, or grant library access.", action = "Rescan", onAction = viewModel::rescan)
         state.viewMode == LibraryViewMode.GRID -> LazyVerticalGrid(
             columns = GridCells.Adaptive(168.dp),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = aboveBottomChrome(PaddingValues(16.dp)),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -781,7 +841,7 @@ private fun CategoryOrMediaList(
             }
             if (state.hasMore) item { OutlinedButton(viewModel::loadMore, Modifier.fillMaxWidth()) { Text("Load more") } }
         }
-        else -> LazyColumn {
+        else -> LazyColumn(contentPadding = aboveBottomChrome()) {
             items(state.items, key = { it.id.value }) { item ->
                 SongRow(
                     media = item,
@@ -812,7 +872,7 @@ private fun VideoList(
     when {
         state.isLoading && state.items.isEmpty() -> LoadingIndicator("Loading videos")
         state.items.isEmpty() -> EmptyState(Icons.Outlined.VideoLibrary, "No videos found", "Add a folder, open a video, or grant library access.", "Rescan", viewModel::rescan)
-        else -> LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+        else -> LazyColumn(contentPadding = aboveBottomChrome(PaddingValues(vertical = 8.dp))) {
             items(state.items, key = { it.id.value }) { item ->
                 SongRow(
                     media = item,
@@ -843,7 +903,7 @@ private fun VideoGrid(
     when {
         state.isLoading && state.items.isEmpty() -> LoadingIndicator("Loading videos")
         state.items.isEmpty() -> EmptyState(Icons.Outlined.VideoLibrary, "No videos found", "Add a folder, open a video, or grant library access.", "Rescan", viewModel::rescan)
-        else -> LazyVerticalGrid(GridCells.Adaptive(240.dp), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        else -> LazyVerticalGrid(GridCells.Adaptive(240.dp), contentPadding = aboveBottomChrome(PaddingValues(16.dp)), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             items(state.items, key = { it.id.value }) { item ->
                 VideoCard(
                     item,
@@ -914,7 +974,7 @@ private fun PlaylistList(playlists: List<Playlist>, viewModel: PlaylistViewModel
     if (playlists.isEmpty()) {
         EmptyState(Icons.AutoMirrored.Outlined.QueueMusic, "No playlists", "Create playlists from your library to see them here.")
     } else {
-        LazyColumn {
+        LazyColumn(contentPadding = aboveBottomChrome()) {
             items(playlists, key = Playlist::id) { playlist ->
                 ListItem(
                     modifier = Modifier.clickable { onSelect(playlist) },
@@ -960,7 +1020,7 @@ private fun PlaylistDetail(
             OutlinedButton({ exporter.launch("${playlist.name}.m3u8") }) { Text("Export") }
             OutlinedButton({ viewModel.delete(playlist); onDeleted() }) { Text("Delete") }
         }
-        LazyColumn {
+        LazyColumn(contentPadding = aboveBottomChrome()) {
             items(media, key = { it.id.value }) { item ->
                 val index = media.indexOf(item)
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1295,7 +1355,7 @@ private fun SettingsScreen(
     val version = remember {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
     }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = aboveBottomChrome(PaddingValues(bottom = 32.dp))) {
         item { SectionTitle(stringResource(R.string.settings_appearance)) }
         item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.theme), settingLabel(settings.themeMode), onClick = { appearance = true }) }
         item { SettingsRow(Icons.Outlined.Palette, stringResource(R.string.accent_color), settingLabel(settings.accentColor), onClick = { viewModel.setAccentColor(settings.accentColor.next()) }) }

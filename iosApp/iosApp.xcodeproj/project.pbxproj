@@ -22,6 +22,7 @@
 		1009 /* RemoteCommandController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2009 /* RemoteCommandController.swift */; };
 		1010 /* AVPlayerPlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2010 /* AVPlayerPlaybackEngine.swift */; };
 		1011 /* ArtworkThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2011 /* ArtworkThumbnailView.swift */; };
+		1090 /* VimivoTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2090 /* VimivoTabBar.swift */; };
 		1012 /* MediaRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2012 /* MediaRow.swift */; };
 		1013 /* NowPlayingBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2013 /* NowPlayingBar.swift */; };
 		1014 /* NowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2014 /* NowPlayingView.swift */; };
@@ -104,6 +105,7 @@
 		2009 /* RemoteCommandController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteCommandController.swift; sourceTree = "<group>"; };
 		2010 /* AVPlayerPlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVPlayerPlaybackEngine.swift; sourceTree = "<group>"; };
 		2011 /* ArtworkThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkThumbnailView.swift; sourceTree = "<group>"; };
+		2090 /* VimivoTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VimivoTabBar.swift; sourceTree = "<group>"; };
 		2012 /* MediaRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaRow.swift; sourceTree = "<group>"; };
 		2013 /* NowPlayingBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingBar.swift; sourceTree = "<group>"; };
 		2014 /* NowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingView.swift; sourceTree = "<group>"; };
@@ -298,6 +300,7 @@
 			isa = PBXGroup;
 			children = (
 				2011 /* ArtworkThumbnailView.swift */,
+				2090 /* VimivoTabBar.swift */,
 				2012 /* MediaRow.swift */,
 				2043 /* VideoThumbnailView.swift */,
 			);
@@ -461,6 +464,7 @@
 				1009 /* RemoteCommandController.swift in Sources */,
 				1010 /* AVPlayerPlaybackEngine.swift in Sources */,
 				1011 /* ArtworkThumbnailView.swift in Sources */,
+				1090 /* VimivoTabBar.swift in Sources */,
 				1012 /* MediaRow.swift in Sources */,
 				1013 /* NowPlayingBar.swift in Sources */,
 				1014 /* NowPlayingView.swift in Sources */,

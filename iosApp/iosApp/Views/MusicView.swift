@@ -174,7 +174,6 @@ public struct MusicView: View {
                     )
                 }
             }
-            Color.clear.frame(height: 72).listRowSeparator(.hidden)
         }
         .listStyle(.plain)
     }

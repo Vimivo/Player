@@ -18,6 +18,7 @@ public struct VideoView: View {
     @State private var favorites = Set<String>()
     @State private var searchText = ""
     @State private var showFileImporter = false
+    @State private var showOpenURL = false
     @State private var filter: VideoFilter = .all
     @AppStorage("vimivo_video_grid") private var gridMode = false
 
@@ -67,6 +68,10 @@ public struct VideoView: View {
             .searchable(text: $searchText, prompt: "Search videos")
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button(action: { showOpenURL = true }) {
+                        Image(systemName: "link")
+                    }
+                    .accessibilityLabel("Open URL")
                     Button(action: { gridMode.toggle() }) {
                         Image(systemName: gridMode ? "list.bullet" : "square.grid.2x2")
                     }
@@ -83,6 +88,12 @@ public struct VideoView: View {
                 allowsMultipleSelection: true
             ) { result in
                 handleImport(result: result)
+            }
+            .sheet(isPresented: $showOpenURL) {
+                OpenURLSheet { item in
+                    showOpenURL = false
+                    onOpenVideo([item], 0, 0)
+                }
             }
             .onAppear(perform: loadData)
             .onChange(of: engine.state.currentItem?.id) { _ in loadData() }
@@ -137,7 +148,6 @@ public struct VideoView: View {
                 )
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 12))
             }
-            Color.clear.frame(height: 72).listRowSeparator(.hidden)
         }
         .listStyle(.plain)
     }
@@ -163,7 +173,6 @@ public struct VideoView: View {
                     }
                 }
                 .padding(16)
-                .padding(.bottom, 72)
             }
         }
     }
@@ -218,5 +227,56 @@ public struct VideoView: View {
                 }
             }
         }
+    }
+}
+
+/// Plays an explicitly entered HTTPS stream (for example HLS) without adding it to the library.
+private struct OpenURLSheet: View {
+    let onOpen: (MediaItem) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var address = ""
+    @FocusState private var focused: Bool
+
+    private var streamURL: URL? {
+        let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed), url.scheme?.lowercased() == "https", url.host != nil else { return nil }
+        return url
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section {
+                    TextField("https://example.com/video.m3u8", text: $address)
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .submitLabel(.go)
+                        .focused($focused)
+                        .onSubmit(open)
+                } footer: {
+                    Text("Play an HTTPS or HLS link you are authorized to stream. Links are not saved or shared.")
+                }
+            }
+            .navigationTitle("Open URL")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Play", action: open).disabled(streamURL == nil)
+                }
+            }
+            .onAppear { focused = true }
+        }
+        .navigationViewStyle(.stack)
+    }
+
+    private func open() {
+        guard let url = streamURL else { return }
+        let title = url.lastPathComponent.isEmpty || url.lastPathComponent == "/" ? (url.host ?? url.absoluteString) : url.lastPathComponent
+        onOpen(MediaItem(id: url.absoluteString, uri: url.absoluteString, title: title, kind: .video))
     }
 }

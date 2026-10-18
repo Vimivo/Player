@@ -6,13 +6,17 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.outlined.QueueMusic
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
@@ -31,7 +35,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import dev.vimivo.ui.components.VimivoEmptyState
+import dev.vimivo.ui.components.VimivoTabBar
+import dev.vimivo.ui.components.VimivoTabItem
 import dev.vimivo.ui.theme.LocalWindowSizeClass
 import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.ui.theme.WindowSizeClass
@@ -47,19 +55,30 @@ private data object MusicRoute
 private data object VideoRoute
 
 @Serializable
+private data object PlaylistsRoute
+
+@Serializable
 private data object SettingsRoute
 
-private data class Destination(val label: String, val route: Any, val icon: ImageVector)
+private data class Destination(val label: String, val route: Any, val icon: ImageVector, val selectedIcon: ImageVector)
 
 @Composable
 fun VimivoApp() = VimivoTheme {
     val navController = rememberNavController()
     val destinations = listOf(
-        Destination("Home", HomeRoute, Icons.Outlined.Home),
-        Destination("Music", MusicRoute, Icons.Outlined.LibraryMusic),
-        Destination("Video", VideoRoute, Icons.Outlined.VideoLibrary),
-        Destination("Settings", SettingsRoute, Icons.Outlined.Settings),
+        Destination("Home", HomeRoute, Icons.Outlined.Home, Icons.Filled.Home),
+        Destination("Music", MusicRoute, Icons.Outlined.LibraryMusic, Icons.Filled.LibraryMusic),
+        Destination("Videos", VideoRoute, Icons.Outlined.VideoLibrary, Icons.Filled.VideoLibrary),
+        Destination(
+            "Playlists",
+            PlaylistsRoute,
+            Icons.AutoMirrored.Outlined.QueueMusic,
+            Icons.AutoMirrored.Filled.QueueMusic,
+        ),
+        Destination("Settings", SettingsRoute, Icons.Outlined.Settings, Icons.Filled.Settings),
     )
+    val tabs = destinations.map { VimivoTabItem(it.label, it.icon, it.selectedIcon) }
+    val hazeState = rememberHazeState()
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val windowSize = WindowSizeClass.fromWidth(maxWidth.value)
@@ -71,37 +90,25 @@ fun VimivoApp() = VimivoTheme {
             Scaffold(
                 bottomBar = {
                     if (isCompact) {
-                        NavigationBar {
-                            destinations.forEach { destination ->
-                                val selected = entry?.destination?.hasRoute(destination.route::class) == true
-                                NavigationBarItem(
-                                    selected = selected,
-                                    onClick = {
-                                        navController.navigate(destination.route) {
-                                            popUpTo(HomeRoute) { saveState = true }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    },
-                                    icon = {
-                                        Icon(
-                                            destination.icon,
-                                            contentDescription = null,
-                                        )
-                                    },
-                                    label = { Text(destination.label) },
-                                    modifier = Modifier.semantics {
-                                        role = Role.Tab
-                                        val selText = if (selected) ", selected" else ""
-                                        contentDescription = "${destination.label} navigation tab$selText"
-                                    },
-                                )
-                            }
+                        val selectedIndex = destinations.indexOfFirst {
+                            entry?.destination?.hasRoute(it.route::class) == true
                         }
+                        VimivoTabBar(
+                            items = tabs,
+                            selectedIndex = selectedIndex.coerceAtLeast(0),
+                            onSelect = { index ->
+                                navController.navigate(destinations[index].route) {
+                                    popUpTo(HomeRoute) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            hazeState = hazeState,
+                        )
                     }
                 },
             ) { padding ->
-                Row(Modifier.fillMaxSize().padding(padding)) {
+                Row(Modifier.fillMaxSize().hazeSource(hazeState).padding(padding)) {
                     if (!isCompact) {
                         NavigationRail(
                             modifier = Modifier.fillMaxHeight(),
@@ -154,6 +161,12 @@ fun VimivoApp() = VimivoTheme {
                             VimivoEmptyState(
                                 title = "Video Library",
                                 detail = "Local videos and authorized streams will live here.",
+                            )
+                        }
+                        composable<PlaylistsRoute> {
+                            VimivoEmptyState(
+                                title = "Playlists",
+                                detail = "Playlists you create or import will live here.",
                             )
                         }
                         composable<SettingsRoute> {

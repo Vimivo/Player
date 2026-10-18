@@ -42,6 +42,13 @@ class VimivoDesignSystemTest {
     }
 
     @Test
+    fun floatingChromeStackUsesCapsuleGeometryAndAccessibleTabHeight() {
+        assertEquals(16.dp, VimivoShell.floatingChromeMargin)
+        assertEquals(VimivoShell.tabBarHeight / 2, VimivoShell.floatingChromeRadius)
+        assertTrue(VimivoShell.tabBarHeight >= VimivoLayout.minimumTouchTarget)
+    }
+
+    @Test
     fun testWindowSizeClassBreakpoints() {
         assertEquals(WindowSizeClass.COMPACT, WindowSizeClass.fromWidth(320.dp))
         assertEquals(WindowSizeClass.COMPACT, WindowSizeClass.fromWidth(599.dp))

@@ -12,16 +12,9 @@ public struct NowPlayingBar: View {
     public var body: some View {
         if let current = engine.state.currentItem {
             VStack(spacing: 0) {
-                GeometryReader { geo in
-                    Rectangle()
-                        .fill(Color.accentColor)
-                        .frame(width: geo.size.width * CGFloat(engine.state.progress), height: 2.5)
-                }
-                .frame(height: 2.5)
-                .background(Color.secondary.opacity(0.15))
-
                 HStack(spacing: 12) {
-                    ArtworkThumbnailView(uri: current.artworkUri, kind: current.kind, size: 42)
+                    ArtworkThumbnailView(uri: current.artworkUri, kind: current.kind, size: 48)
+                        .clipShape(Circle())
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(current.title)
@@ -43,7 +36,7 @@ public struct NowPlayingBar: View {
                         Image(systemName: engine.state.status == .playing ? "pause.fill" : "play.fill")
                             .font(.system(size: 20))
                             .foregroundColor(.primary)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(engine.state.status == .playing ? "Pause" : "Play")
@@ -52,22 +45,29 @@ public struct NowPlayingBar: View {
                         Image(systemName: "forward.fill")
                             .font(.system(size: 16))
                             .foregroundColor(.primary)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Next track")
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemGroupedBackground))
-                        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 3)
-                )
-                .padding(.horizontal, 12)
-                .contentShape(Rectangle())
-                .onTapGesture(perform: onExpand)
+                .padding(.leading, 8)
+                .padding(.trailing, 6)
+                .padding(.top, 8)
+                .padding(.bottom, 6)
+
+                GeometryReader { geo in
+                    Rectangle()
+                        .fill(Color.accentColor)
+                        .frame(width: geo.size.width * CGFloat(engine.state.progress), height: 2)
+                }
+                .frame(height: 2)
+                .background(Color.secondary.opacity(0.15))
             }
+            .vimivoFloatingChrome()
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onExpand)
+            .padding(.horizontal, VimivoChrome.margin)
+            .padding(.bottom, VimivoChrome.gap)
         }
     }
 }
