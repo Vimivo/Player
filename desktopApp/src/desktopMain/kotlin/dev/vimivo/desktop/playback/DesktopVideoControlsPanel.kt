@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.ExternalSubtitle
+import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlayerEngine
@@ -50,6 +51,7 @@ import kotlin.math.roundToInt
 internal fun DesktopVideoControlsPanel(
     engine: PlayerEngine,
     state: PlaybackState,
+    commands: DesktopPlayerCommandExecutor,
     modifier: Modifier = Modifier,
 ) {
     var message by remember { mutableStateOf<String?>(null) }
@@ -103,16 +105,8 @@ internal fun DesktopVideoControlsPanel(
                 }
 
                 Button(
-                    onClick = {
-                        val userHome = System.getProperty("user.home")
-                        val desktop = File(userHome, "Desktop").takeIf { it.isDirectory } ?: File(userHome)
-                        val target = File(desktop, "vimivo_frame_${System.currentTimeMillis()}.png")
-                        engine.takeScreenshot(target.absolutePath).onSuccess {
-                            message = "Screenshot saved: ${target.name}"
-                        }.onFailure {
-                            message = "Screenshot failed: ${it.message}"
-                        }
-                    },
+                    // Same folder, file naming and HUD feedback as the Shift+S shortcut.
+                    onClick = { commands.execute(DesktopPlayerCommand.SNAPSHOT) },
                     modifier = Modifier.semantics {
                         role = Role.Button
                         contentDescription = "Capture full-resolution video frame screenshot"
@@ -188,20 +182,21 @@ internal fun DesktopVideoControlsPanel(
                 }
 
                 Text("Sync: ${audioDelayMs}ms", style = MaterialTheme.typography.labelSmall)
+                val audioStep = PlaybackControlPolicy.AUDIO_DELAY_STEP_MILLIS
                 OutlinedButton(
-                    onClick = { engine.setAudioDelay(audioDelayMs - 100) },
+                    onClick = { commands.execute(DesktopPlayerCommand.AUDIO_DELAY_DOWN) },
                     modifier = Modifier.semantics {
                         role = Role.Button
-                        contentDescription = "Decrease audio delay by 100 milliseconds"
+                        contentDescription = "Decrease audio delay by $audioStep milliseconds"
                     },
-                ) { Text("-100ms") }
+                ) { Text("−$audioStep ms") }
                 OutlinedButton(
-                    onClick = { engine.setAudioDelay(audioDelayMs + 100) },
+                    onClick = { commands.execute(DesktopPlayerCommand.AUDIO_DELAY_UP) },
                     modifier = Modifier.semantics {
                         role = Role.Button
-                        contentDescription = "Increase audio delay by 100 milliseconds"
+                        contentDescription = "Increase audio delay by $audioStep milliseconds"
                     },
-                ) { Text("+100ms") }
+                ) { Text("+$audioStep ms") }
                 if (audioDelayMs != 0L) {
                     OutlinedButton(
                         onClick = { engine.setAudioDelay(0) },
@@ -265,20 +260,21 @@ internal fun DesktopVideoControlsPanel(
                 }
 
                 Text("Delay: ${subtitleDelayMs}ms", style = MaterialTheme.typography.labelSmall)
+                val subtitleStep = PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS
                 OutlinedButton(
-                    onClick = { engine.setSubtitleDelay(subtitleDelayMs - 250) },
+                    onClick = { commands.execute(DesktopPlayerCommand.SUBTITLE_DELAY_DOWN) },
                     modifier = Modifier.semantics {
                         role = Role.Button
-                        contentDescription = "Decrease subtitle delay by 250 milliseconds"
+                        contentDescription = "Decrease subtitle delay by $subtitleStep milliseconds"
                     },
-                ) { Text("-250ms") }
+                ) { Text("−$subtitleStep ms") }
                 OutlinedButton(
-                    onClick = { engine.setSubtitleDelay(subtitleDelayMs + 250) },
+                    onClick = { commands.execute(DesktopPlayerCommand.SUBTITLE_DELAY_UP) },
                     modifier = Modifier.semantics {
                         role = Role.Button
-                        contentDescription = "Increase subtitle delay by 250 milliseconds"
+                        contentDescription = "Increase subtitle delay by $subtitleStep milliseconds"
                     },
-                ) { Text("+250ms") }
+                ) { Text("+$subtitleStep ms") }
                 if (subtitleDelayMs != 0L) {
                     OutlinedButton(
                         onClick = { engine.setSubtitleDelay(0) },

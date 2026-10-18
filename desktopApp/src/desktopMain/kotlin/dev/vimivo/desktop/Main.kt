@@ -1061,6 +1061,7 @@ private fun DesktopPlayer(
                     dev.vimivo.desktop.playback.DesktopVideoControlsPanel(
                         engine = engine,
                         state = state,
+                        commands = commands,
                     )
                 }
             }

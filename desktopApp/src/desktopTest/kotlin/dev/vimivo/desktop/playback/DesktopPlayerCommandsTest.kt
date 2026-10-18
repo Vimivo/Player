@@ -10,6 +10,7 @@ import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
@@ -178,6 +179,28 @@ class DesktopPlayerCommandsTest {
     fun shiftArrowsAreFineVolumeSteps() {
         assertEquals(DesktopPlayerCommand.VOLUME_UP_FINE, DesktopPlayerShortcuts.resolve(Key.DirectionUp, shift = true, ctrl = false, alt = false, meta = false))
         assertEquals(DesktopPlayerCommand.VOLUME_DOWN_FINE, DesktopPlayerShortcuts.resolve(Key.DirectionDown, shift = true, ctrl = false, alt = false, meta = false))
+    }
+
+    @Test
+    fun delayStepsMatchTheirLabelsSoKeysMenuAndPanelAgree() {
+        val engine = FakeEngine(loaded())
+        val executor = executor(engine)
+
+        executor.execute(DesktopPlayerCommand.SUBTITLE_DELAY_UP)
+        executor.execute(DesktopPlayerCommand.AUDIO_DELAY_DOWN)
+
+        assertEquals(100L, PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS)
+        assertEquals(50L, PlaybackControlPolicy.AUDIO_DELAY_STEP_MILLIS)
+        assertEquals("Subtitle delay +100 ms", DesktopPlayerCommand.SUBTITLE_DELAY_UP.label)
+        assertEquals("Audio delay −50 ms", DesktopPlayerCommand.AUDIO_DELAY_DOWN.label)
+        assertEquals(listOf("subdelay:100", "audiodelay:-50"), engine.calls)
+    }
+
+    @Test
+    fun snapshotsGoToOneFolderNamedForVimivo() {
+        val directory = defaultSnapshotDirectory()
+        val pictures = java.io.File(System.getProperty("user.home"), "Pictures")
+        assertEquals(if (pictures.isDirectory) java.io.File(pictures, "Vimivo") else pictures.parentFile, directory)
     }
 
     @Test
