@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import kotlin.math.roundToInt
 
 /** Player commands reachable from single-key shortcuts and the menu bar. */
 internal enum class DesktopPlayerCommand(val label: String) {
@@ -23,6 +24,8 @@ internal enum class DesktopPlayerCommand(val label: String) {
     SEEK_FORWARD_LONG("Seek forward 30 s"),
     VOLUME_UP("Volume up"),
     VOLUME_DOWN("Volume down"),
+    VOLUME_UP_FINE("Volume up 1%"),
+    VOLUME_DOWN_FINE("Volume down 1%"),
     TOGGLE_MUTE("Mute / Unmute"),
     TOGGLE_SHUFFLE("Toggle shuffle"),
     CYCLE_REPEAT("Cycle repeat mode"),
@@ -81,6 +84,8 @@ internal object DesktopPlayerShortcuts {
     }
 
     private fun shifted(key: Key): DesktopPlayerCommand? = when (key) {
+        Key.DirectionUp -> DesktopPlayerCommand.VOLUME_UP_FINE
+        Key.DirectionDown -> DesktopPlayerCommand.VOLUME_DOWN_FINE
         Key.DirectionLeft -> DesktopPlayerCommand.SEEK_BACK_LONG
         Key.DirectionRight -> DesktopPlayerCommand.SEEK_FORWARD_LONG
         Key.E -> DesktopPlayerCommand.FRAME_STEP_BACKWARD
@@ -156,8 +161,10 @@ internal class DesktopPlayerCommandExecutor(
             DesktopPlayerCommand.SEEK_FORWARD_MEDIUM -> seek(MEDIUM_SEEK_MILLIS).map { null }
             DesktopPlayerCommand.SEEK_BACK_LONG -> seek(-PlaybackControlPolicy.LONG_SEEK_MILLIS).map { null }
             DesktopPlayerCommand.SEEK_FORWARD_LONG -> seek(PlaybackControlPolicy.LONG_SEEK_MILLIS).map { null }
-            DesktopPlayerCommand.VOLUME_UP -> setVolume(PlaybackControlPolicy.stepVolume(state.volume, PlaybackControlPolicy.DEFAULT_VOLUME_STEP))
-            DesktopPlayerCommand.VOLUME_DOWN -> setVolume(PlaybackControlPolicy.stepVolume(state.volume, -PlaybackControlPolicy.DEFAULT_VOLUME_STEP))
+            DesktopPlayerCommand.VOLUME_UP -> stepVolume(state.volume, PlaybackControlPolicy.DEFAULT_VOLUME_STEP)
+            DesktopPlayerCommand.VOLUME_DOWN -> stepVolume(state.volume, -PlaybackControlPolicy.DEFAULT_VOLUME_STEP)
+            DesktopPlayerCommand.VOLUME_UP_FINE -> stepVolume(state.volume, PlaybackControlPolicy.FINE_VOLUME_STEP)
+            DesktopPlayerCommand.VOLUME_DOWN_FINE -> stepVolume(state.volume, -PlaybackControlPolicy.FINE_VOLUME_STEP)
             DesktopPlayerCommand.TOGGLE_MUTE -> if (state.volume > 0f) {
                 volumeBeforeMute = state.volume
                 engine.setVolume(0f).map { "Muted" }
@@ -214,7 +221,20 @@ internal class DesktopPlayerCommandExecutor(
         return true
     }
 
-    private fun setVolume(volume: Float) = engine.setVolume(volume).map { "Volume ${(volume * PERCENT).toInt()}%" }
+    private fun stepVolume(current: Float, delta: Float) =
+        setVolume(PlaybackControlPolicy.stepVolume(current, delta, engine.capabilities.maxVolume))
+
+    private fun setVolume(volume: Float): Result<String> {
+        val clamped = volume.coerceIn(0f, engine.capabilities.maxVolume)
+        return engine.setVolume(clamped).map { "Volume ${(clamped * PERCENT).roundToInt()}%" }
+    }
+
+    /** Absolute volume from the slider; clamped to the engine maximum and echoed on the HUD. */
+    fun setVolumeLevel(volume: Float) {
+        setVolume(volume)
+            .onSuccess { mutableStatus.value = it }
+            .onFailure { error -> mutableStatus.value = "Volume failed: ${error.message ?: "unavailable"}" }
+    }
     private fun setSpeed(speed: Float) = engine.setPlaybackSpeed(speed).map { "Speed ${speed}x" }
     private fun setSubtitleDelay(current: Long, delta: Long): Result<String> {
         val next = PlaybackControlPolicy.stepDelay(current, delta)

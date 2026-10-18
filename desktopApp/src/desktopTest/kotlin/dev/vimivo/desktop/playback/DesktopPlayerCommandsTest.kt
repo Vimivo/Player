@@ -158,6 +158,33 @@ class DesktopPlayerCommandsTest {
     private fun executor(engine: FakeEngine, snapshotFile: () -> java.io.File = { java.io.File("unused.png") }) =
         DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, snapshotFile)
 
+    @Test
+    fun volumeAmplifiesToTwoHundredPercentWithAStopAtOneHundred() {
+        val engine = FakeEngine(loaded(volume = 0.98f))
+        val executor = executor(engine)
+
+        executor.execute(DesktopPlayerCommand.VOLUME_UP)
+        assertEquals("Volume 100%", executor.status.value)
+        executor.execute(DesktopPlayerCommand.VOLUME_UP)
+        executor.execute(DesktopPlayerCommand.VOLUME_UP_FINE)
+        assertEquals("Volume 106%", executor.status.value)
+
+        executor.setVolumeLevel(5f)
+        assertEquals(listOf("volume:1.0", "volume:1.05", "volume:1.06", "volume:2.0"), engine.calls)
+        assertEquals("Volume 200%", executor.status.value)
+    }
+
+    @Test
+    fun shiftArrowsAreFineVolumeSteps() {
+        assertEquals(DesktopPlayerCommand.VOLUME_UP_FINE, DesktopPlayerShortcuts.resolve(Key.DirectionUp, shift = true, ctrl = false, alt = false, meta = false))
+        assertEquals(DesktopPlayerCommand.VOLUME_DOWN_FINE, DesktopPlayerShortcuts.resolve(Key.DirectionDown, shift = true, ctrl = false, alt = false, meta = false))
+    }
+
+    @Test
+    fun mpvAdvertisesTwoHundredPercentVolume() {
+        assertEquals(2f, MpvPlayerEngine.capabilitiesFor(dev.vimivo.desktop.platform.DesktopPlatform.LINUX).maxVolume)
+    }
+
     private fun loaded(position: Long = 0, duration: Long = 120_000, volume: Float = 1f, speed: Float = 1f) = PlaybackState(
         engine = EngineId.MPV,
         media = MediaItem(MediaId("m"), "file:///m.mkv", "Movie", kind = MediaKind.VIDEO),

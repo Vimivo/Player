@@ -203,7 +203,7 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("speed", speed.toString())
     }
     override fun setVolume(volume: Float) = action {
-        require(volume in 0f..1f)
+        require(volume in 0f..capabilities.maxVolume) { "Volume must be between 0 and ${capabilities.maxVolume}" }
         setProperty("volume", (volume * 100).toString())
     }
     override fun selectAudioTrack(trackId: String?) = action { setProperty("aid", trackId ?: "no") }
@@ -493,6 +493,8 @@ class MpvPlayerEngine : PlayerEngine {
         loaded.mpv_set_option_string(created, "user-agent", "Vimivo/1.0.0 (Universal Media Player)")
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
         checkCode(loaded.mpv_set_option_string(created, "gapless-audio", "yes"))
+        // Software amplification up to 200%; the UI marks the range above 100% as boosted.
+        checkCode(loaded.mpv_set_option_string(created, "volume-max", (capabilities.maxVolume * 100).toInt().toString()))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
         checkCode(loaded.mpv_initialize(created))
     }
@@ -541,7 +543,7 @@ class MpvPlayerEngine : PlayerEngine {
                     }
 
                     val speed = doubleProperty("speed")?.toFloat()
-                    val volume = doubleProperty("volume")?.let { (it / 100.0).toFloat().coerceIn(0f, 1f) }
+                    val volume = doubleProperty("volume")?.let { (it / 100.0).toFloat().coerceIn(0f, capabilities.maxVolume) }
                     val seekable = flagProperty("seekable") ?: false
 
                     if (sessionGeneration != expectedSession) break
@@ -714,6 +716,7 @@ class MpvPlayerEngine : PlayerEngine {
 
     companion object {
         private val LOAD_FAILURE_GRACE = 1.5.seconds
+        private const val MAX_VOLUME = 2f
         private const val SURFACE_READY_TIMEOUT_MILLIS = 5_000L
         private const val SURFACE_POLL_MILLIS = 16L
         private const val MPV_FORMAT_FLAG = 3
@@ -757,6 +760,7 @@ class MpvPlayerEngine : PlayerEngine {
             frameStepping = platform != DesktopPlatform.UNKNOWN,
             deinterlacing = platform != DesktopPlatform.UNKNOWN,
             supportedSpeedRange = PlaybackSpeeds.RANGE,
+            maxVolume = MAX_VOLUME,
             audioEnhancements = AudioEnhancementCapabilities(
                 graphicEqualizer = true,
                 bassEnhancement = true,

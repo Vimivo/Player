@@ -114,6 +114,8 @@ data class EngineCapabilities(
     val frameStepping: Boolean = false,
     val deinterlacing: Boolean = false,
     val supportedSpeedRange: ClosedFloatingPointRange<Float> = PlaybackSpeeds.RANGE,
+    /** Highest volume the engine accepts; values above 1.0 amplify (e.g. 2.0 = 200%). */
+    val maxVolume: Float = PlaybackControlPolicy.UNITY_VOLUME,
     val audioEnhancements: AudioEnhancementCapabilities = AudioEnhancementCapabilities(
         limitation = "Audio enhancements are unavailable with this engine",
     ),

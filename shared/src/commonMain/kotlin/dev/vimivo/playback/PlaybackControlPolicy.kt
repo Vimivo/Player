@@ -12,6 +12,10 @@ object PlaybackControlPolicy {
     val speedSteps: List<Float> = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.5f, 3f, 4f)
 
     const val DEFAULT_VOLUME_STEP = 0.05f
+    const val FINE_VOLUME_STEP = 0.01f
+
+    /** 100%: unamplified output. Engines that can amplify report a higher [EngineCapabilities.maxVolume]. */
+    const val UNITY_VOLUME = 1f
     const val SHORT_SEEK_MILLIS = 5_000L
     const val LONG_SEEK_MILLIS = 30_000L
     const val SUBTITLE_DELAY_STEP_MILLIS = 100L
@@ -29,8 +33,15 @@ object PlaybackControlPolicy {
 
     fun isNormalSpeed(speed: Float): Boolean = abs(speed - 1f) < SPEED_EPSILON
 
-    fun stepVolume(current: Float, delta: Float): Float =
-        ((current + delta) * VOLUME_PRECISION).roundToInt().div(VOLUME_PRECISION).coerceIn(0f, 1f)
+    /**
+     * Steps volume within `0..max`. A step that crosses 100% stops exactly at 100%, so amplification is
+     * always a deliberate second step rather than an accidental overshoot.
+     */
+    fun stepVolume(current: Float, delta: Float, max: Float = UNITY_VOLUME): Float {
+        val next = ((current + delta) * VOLUME_PRECISION).roundToInt().div(VOLUME_PRECISION).coerceIn(0f, max)
+        val crossesUnity = (current - UNITY_VOLUME) * (next - UNITY_VOLUME) < 0f
+        return if (crossesUnity) UNITY_VOLUME else next
+    }
 
     /** Clamps a relative seek to the start and, when known, the end of the media. */
     fun seekTarget(positionMillis: Long, deltaMillis: Long, durationMillis: Long?): Long {

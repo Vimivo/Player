@@ -304,12 +304,12 @@ fun main(args: Array<String>) = application {
                 Item(
                     "Volume Up",
                     shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.DirectionUp),
-                    onClick = { engine.setVolume((engine.state.value.volume + 0.1f).coerceAtMost(1f)) },
+                    onClick = { commands.execute(DesktopPlayerCommand.VOLUME_UP) },
                 )
                 Item(
                     "Volume Down",
                     shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.DirectionDown),
-                    onClick = { engine.setVolume((engine.state.value.volume - 0.1f).coerceAtLeast(0f)) },
+                    onClick = { commands.execute(DesktopPlayerCommand.VOLUME_DOWN) },
                 )
                 Item(
                     "Mute / Unmute",
@@ -1189,7 +1189,8 @@ private fun DesktopPlayer(
                         onNext = { scope.launch { queue.next() } },
                         onStop = { engine.stop() },
                         onSeek = { engine.seekTo(it) },
-                        onSetVolume = { engine.setVolume(it) },
+                        onSetVolume = commands::setVolumeLevel,
+                        maxVolume = engine.capabilities.maxVolume,
                         onSetSpeed = { engine.setPlaybackSpeed(it) },
                         onToggleShuffle = queue::toggleShuffle,
                         onCycleRepeat = queue::cycleRepeat,
