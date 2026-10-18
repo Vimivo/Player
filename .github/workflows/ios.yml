@@ -68,7 +68,7 @@ jobs:
           echo "Vimivo.xcarchive.zip SHA-256: $(cat build/artifacts/Vimivo.xcarchive.zip.sha256)"
 
       - name: Upload iOS archive artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vimivo-ios-archive
           path: |
