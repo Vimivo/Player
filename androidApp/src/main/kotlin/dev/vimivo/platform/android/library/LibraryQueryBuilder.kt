@@ -10,6 +10,16 @@ import dev.vimivo.core.model.LibrarySort
 import dev.vimivo.core.model.MediaKind
 
 internal object LibraryQueryBuilder {
+    /**
+     * A folder granted through the Storage Access Framework often overlaps MediaStore (for example the
+     * shared Movies folder). Hide the document-tree copy when MediaStore already indexes the same file.
+     */
+    const val NOT_SHADOWED_BY_MEDIA_STORE =
+        "NOT (source != 'MEDIA_STORE' AND EXISTS (SELECT 1 FROM media AS indexed " +
+            "WHERE indexed.source = 'MEDIA_STORE' AND indexed.isAvailable = 1 " +
+            "AND indexed.fileName = media.fileName AND indexed.folderPath IS media.folderPath " +
+            "AND indexed.sizeBytes = media.sizeBytes))"
+
     fun page(query: LibraryQuery): SupportSQLiteQuery {
         val where = mutableListOf("isAvailable = 1")
         val args = mutableListOf<Any>()
@@ -55,13 +65,15 @@ internal object LibraryQueryBuilder {
         }
         return SimpleSQLiteQuery(
             "SELECT $column AS name, COUNT(*) AS itemCount, MAX(artworkUri) AS artworkUri " +
-                "FROM media WHERE isAvailable = 1 AND kind = ? AND $column IS NOT NULL AND $column != '' " +
+                "FROM media WHERE isAvailable = 1 AND $NOT_SHADOWED_BY_MEDIA_STORE AND kind = ? " +
+                "AND $column IS NOT NULL AND $column != '' " +
                 "GROUP BY $column ORDER BY $column COLLATE NOCASE",
             arrayOf(kind.name),
         )
     }
 
     private fun appendFilters(query: LibraryQuery, where: MutableList<String>, args: MutableList<Any>) {
+        where += NOT_SHADOWED_BY_MEDIA_STORE
         query.kind?.let { where += "kind = ?"; args += it.name }
         query.album?.let { where += "album = ?"; args += it }
         query.artist?.let { where += "artist = ?"; args += it }

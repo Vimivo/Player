@@ -16,6 +16,7 @@ import dev.vimivo.core.model.MediaPermissionState
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.settings.SettingsRepository
 import dev.vimivo.settings.LibraryViewMode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -293,10 +294,17 @@ class LibraryViewModel(
                         )
                     }
                 },
-                onFailure = { error -> mutableState.update { it.copy(isLoading = false, errorMessage = error.message) } },
+                onFailure = { error ->
+                    // runCatching in the repository also captures the cancellation of a superseded load.
+                    if (error is CancellationException) throw error
+                    mutableState.update { it.copy(isLoading = false, errorMessage = error.message) }
+                },
             )
         }
     }
 
-    private fun showError(error: Throwable) = mutableState.update { it.copy(errorMessage = error.message) }
+    private fun showError(error: Throwable) {
+        if (error is CancellationException) throw error
+        mutableState.update { it.copy(errorMessage = error.message, isLoading = false) }
+    }
 }

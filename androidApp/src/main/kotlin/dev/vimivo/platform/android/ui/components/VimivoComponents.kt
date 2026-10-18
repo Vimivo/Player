@@ -99,13 +99,18 @@ fun MediaArtwork(
     val bitmap by produceState<android.graphics.Bitmap?>(null, media.uri, media.artworkUri) {
         value = thumbnails.load(media.uri, media.artworkUri)
     }
-    val artworkShape = remember { RoundedCornerShape(16.dp) }
+    val artworkShape = remember { RoundedCornerShape(12.dp) }
     Box(
         modifier.clip(artworkShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
-            Image(bitmap!!.asImageBitmap(), contentDescription, Modifier.matchParentSize())
+            Image(
+                bitmap!!.asImageBitmap(),
+                contentDescription,
+                Modifier.matchParentSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            )
         } else {
             Icon(
                 if (media.kind == MediaKind.VIDEO) Icons.Outlined.VideoLibrary else Icons.Outlined.MusicNote,
@@ -142,12 +147,28 @@ fun SongRow(
     onFavorite: (() -> Unit)? = null,
     onMore: (() -> Unit)? = null,
 ) {
-    val subtitle = remember(media.artist, media.album) {
-        listOfNotNull(media.artist, media.album).joinToString(" · ")
+    val isVideo = media.kind == dev.vimivo.core.model.MediaKind.VIDEO
+    val subtitle = remember(media) {
+        if (isVideo) {
+            listOfNotNull(
+                media.durationMillis?.let(::formatRowDuration),
+                media.width?.let { width -> media.height?.let { height -> "${minOf(width, height)}p" } },
+                media.sizeBytes?.let(::formatRowSize),
+            ).joinToString(" · ")
+        } else {
+            listOfNotNull(media.artist, media.album).joinToString(" · ")
+        }
     }
     ListItem(
         modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
-        leadingContent = { MediaArtwork(media, thumbnails, Modifier.size(54.dp), contentDescription = null) },
+        leadingContent = {
+            MediaArtwork(
+                media,
+                thumbnails,
+                if (isVideo) Modifier.size(width = 96.dp, height = 54.dp) else Modifier.size(54.dp),
+                contentDescription = null,
+            )
+        },
         headlineContent = { Text(media.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(subtitle, maxLines = 1) },
         trailingContent = if (onFavorite != null || onMore != null) ({
@@ -263,7 +284,11 @@ fun MiniPlayer(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(media.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                    Text(media.artist ?: "Unknown artist", maxLines = 1, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        media.artist ?: if (media.kind == dev.vimivo.core.model.MediaKind.VIDEO) "Video" else "Unknown artist",
+                        maxLines = 1,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 IconButton(onClick = onToggle) { Icon(if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (isPlaying) "Pause" else "Play") }
                 IconButton(onClick = onNext) { Icon(Icons.Outlined.SkipNext, "Next track") }
@@ -356,4 +381,16 @@ fun SettingsRow(icon: ImageVector, title: String, detail: String? = null, checke
         trailingContent = if (checked != null) ({ Switch(checked, onCheckedChange = null) }) else ({ Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null) }),
     )
     HorizontalDivider(Modifier.padding(start = 56.dp))
+}
+
+private fun formatRowDuration(milliseconds: Long): String {
+    val seconds = milliseconds.coerceAtLeast(0) / 1_000
+    return if (seconds >= 3_600) "%d:%02d:%02d".format(seconds / 3_600, seconds / 60 % 60, seconds % 60)
+    else "%d:%02d".format(seconds / 60, seconds % 60)
+}
+
+private fun formatRowSize(bytes: Long): String = when {
+    bytes >= 1_073_741_824 -> "%.1f GB".format(bytes / 1_073_741_824.0)
+    bytes >= 1_048_576 -> "%.1f MB".format(bytes / 1_048_576.0)
+    else -> "${bytes / 1_024} KB"
 }

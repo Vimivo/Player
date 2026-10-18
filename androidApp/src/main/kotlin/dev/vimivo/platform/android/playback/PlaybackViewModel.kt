@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -43,6 +44,7 @@ data class PlaybackUiState(
     val durationMillis: Long = 0,
     val bufferedPositionMillis: Long = 0,
     val volume: Float = 1f,
+    val speed: Float = 1f,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val shuffleEnabled: Boolean = false,
     val errorMessage: String? = null,
@@ -96,6 +98,21 @@ class PlaybackViewModel(
             }
         }
         viewModelScope.launch {
+            // Player.Listener does not fire for continuous position changes, so poll while playing.
+            while (true) {
+                delay(POSITION_TICK_MILLIS)
+                val current = player ?: continue
+                if (current.isPlaying) {
+                    mutableState.update {
+                        it.copy(
+                            positionMillis = current.currentPosition.coerceAtLeast(0),
+                            bufferedPositionMillis = current.bufferedPosition.coerceAtLeast(0),
+                        )
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
             diagnostics.state.collect { engineState ->
                 mutableState.value = mutableState.value.copy(
                     engine = engineState.engine,
@@ -110,7 +127,16 @@ class PlaybackViewModel(
         }
     }
 
-    fun togglePlayback() = player?.let { if (it.isPlaying) it.pause() else it.play() }
+    fun togglePlayback() = player?.let {
+        when {
+            it.isPlaying -> it.pause()
+            it.playbackState == Player.STATE_ENDED -> {
+                it.seekTo(0)
+                it.play()
+            }
+            else -> it.play()
+        }
+    }
     fun stop() = player?.stop()
     fun next() = player?.seekToNext()
     fun previous() = player?.seekToPrevious()
@@ -232,6 +258,7 @@ class PlaybackViewModel(
             durationMillis = player.duration.takeIf { it > 0 } ?: 0,
             bufferedPositionMillis = player.bufferedPosition.coerceAtLeast(0),
             volume = player.volume.coerceIn(0f, 1f),
+            speed = player.playbackParameters.speed,
             repeatMode = player.repeatMode,
             shuffleEnabled = player.shuffleModeEnabled,
             errorMessage = player.playerError?.message,
@@ -346,3 +373,5 @@ class PlaybackViewModel(
         const val MIN_AB_REPEAT_MILLIS = 1_000L
     }
 }
+
+private const val POSITION_TICK_MILLIS = 250L

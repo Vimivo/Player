@@ -63,8 +63,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Close
@@ -95,7 +98,8 @@ import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -267,8 +271,15 @@ private fun AppShell(
             Scaffold(
                 modifier = Modifier.weight(1f),
                 topBar = {
-                    CenterAlignedTopAppBar(
-                        title = { Text(destination.label) },
+                    TopAppBar(
+                        title = {
+                            Text(
+                                if (destination == AppDestination.HOME) "Vimivo" else destination.label,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                modifier = Modifier.semantics { heading() },
+                            )
+                        },
                         actions = {
                             IconButton(onClick = { searchVisible = !searchVisible }) {
                                 Icon(Icons.Outlined.Search, "Global search")
@@ -453,8 +464,8 @@ private fun HomeScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.padding(20.dp)) {
-                Text("Good to see you", style = MaterialTheme.typography.displaySmall, modifier = Modifier.semantics { heading() })
-                Text("Everything stays on your device.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Good to see you", style = MaterialTheme.typography.headlineMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                Text("Your music and videos, private and on this device.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         visibleSections.forEach { section ->
@@ -480,17 +491,22 @@ private fun HomeScreen(
                     }
                 }
                 HomeSection.OPEN_STREAM -> item {
-                    SectionTitle("Quick open stream")
                     Surface(
                         onClick = openNetwork,
-                        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     ) {
-                        Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Link, null)
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = androidx.compose.foundation.shape.CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(44.dp)) {
+                                Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Link, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                            }
                             Spacer(Modifier.width(16.dp))
-                            Column { Text("Play a network stream", style = MaterialTheme.typography.titleMedium); Text("HTTP and HTTPS sources") }
+                            Column(Modifier.weight(1f)) {
+                                Text("Open a network stream", style = MaterialTheme.typography.titleMedium)
+                                Text("Play an HTTP, HTTPS, or HLS link", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -530,8 +546,9 @@ private fun sectionItems(section: HomeSection, state: dev.vimivo.features.home.H
 @Composable
 private fun SectionTitle(title: String) = Text(
     title,
-    style = MaterialTheme.typography.headlineMedium,
-    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp).semantics { heading() },
+    style = MaterialTheme.typography.titleLarge,
+    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 10.dp).semantics { heading() },
 )
 
 @Composable
@@ -550,18 +567,20 @@ private fun MusicScreen(
     var sortVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.selectKind(MediaKind.AUDIO) }
     LibraryChrome(state, viewModel, permissions, MediaKind.AUDIO) {
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { AssistChip({ selectedPlaylist = null; viewModel.selectKind(MediaKind.AUDIO) }, { Text("All songs") }) }
-            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ALBUM) }, { Text("Albums") }) }
-            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ARTIST) }, { Text("Artists") }) }
-            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ALBUM_ARTIST) }, { Text("Album artists") }) }
-            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.GENRE) }, { Text("Genres") }) }
-            item { AssistChip({ selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.FOLDER) }, { Text("Folders") }) }
-            item { AssistChip({ selectedPlaylist = Playlist("__list__", "Playlists", emptyList(), 0) }, { Text("Playlists") }) }
-            item { AssistChip({ selectedPlaylist = null; viewModel.recentlyAddedMusic() }, { Text("Recently added") }) }
-            item { AssistChip({ selectedPlaylist = null; viewModel.recentlyPlayedMusic() }, { Text("Recently played") }) }
-            item { AssistChip({ selectedPlaylist = null; viewModel.favorites() }, { Text("Favorites") }, leadingIcon = { Icon(Icons.Outlined.Favorite, null) }) }
-        }
+        FilterChipRow(
+            listOf(
+                "All songs" to { selectedPlaylist = null; viewModel.selectKind(MediaKind.AUDIO) },
+                "Albums" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ALBUM) },
+                "Artists" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ARTIST) },
+                "Album artists" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.ALBUM_ARTIST) },
+                "Genres" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.GENRE) },
+                "Folders" to { selectedPlaylist = null; viewModel.showCategories(LibraryCategoryField.FOLDER) },
+                "Playlists" to { selectedPlaylist = Playlist("__list__", "Playlists", emptyList(), 0) },
+                "Recently added" to { selectedPlaylist = null; viewModel.recentlyAddedMusic() },
+                "Recently played" to { selectedPlaylist = null; viewModel.recentlyPlayedMusic() },
+                "Favorites" to { selectedPlaylist = null; viewModel.favorites() },
+            ),
+        )
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
             LibraryViewToggle(state.viewMode, viewModel::setViewMode)
             OutlinedButton({ sortVisible = true }) { Icon(Icons.AutoMirrored.Outlined.List, null); Text(" Sort") }
@@ -605,20 +624,44 @@ private fun VideoScreen(
     val state by viewModel.state.collectAsState()
     LaunchedEffect(Unit) { viewModel.selectKind(MediaKind.VIDEO) }
     LibraryChrome(state, viewModel, permissions, MediaKind.VIDEO) {
-        LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { AssistChip({ viewModel.selectKind(MediaKind.VIDEO) }, { Text("All videos") }) }
-            item { AssistChip({ viewModel.showCategories(LibraryCategoryField.FOLDER) }, { Text("Folders") }, leadingIcon = { Icon(Icons.Outlined.Folder, null) }) }
-            item { AssistChip(viewModel::recentlyWatched, { Text("Recently watched") }) }
-            item { AssistChip(viewModel::recentlyAdded, { Text("Recently added") }) }
-            item { AssistChip(viewModel::favoriteVideos, { Text("Favorites") }) }
-            item { AssistChip(viewModel::continueWatching, { Text("Continue watching") }) }
-        }
+        FilterChipRow(
+            listOf(
+                "All videos" to { viewModel.selectKind(MediaKind.VIDEO) },
+                "Folders" to { viewModel.showCategories(LibraryCategoryField.FOLDER) },
+                "Continue watching" to viewModel::continueWatching,
+                "Recently watched" to viewModel::recentlyWatched,
+                "Recently added" to viewModel::recentlyAdded,
+                "Favorites" to viewModel::favoriteVideos,
+            ),
+        )
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
             LibraryViewToggle(state.viewMode, viewModel::setViewMode)
         }
         if (state.categories != null) CategoryOrMediaList(state, viewModel, thumbnails, playback)
         else if (state.viewMode == LibraryViewMode.GRID) VideoGrid(state, thumbnails, playback, viewModel, openPlayer)
         else VideoList(state, thumbnails, playback, viewModel, openPlayer)
+    }
+}
+
+/** Single-select filter row; the selection survives configuration changes. */
+@Composable
+private fun FilterChipRow(options: List<Pair<String, () -> Unit>>) {
+    var selected by rememberSaveable { mutableStateOf(options.first().first) }
+    LazyRow(
+        Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(options, key = { it.first }) { (label, action) ->
+            FilterChip(
+                selected = selected == label,
+                onClick = {
+                    selected = label
+                    action()
+                },
+                label = { Text(label) },
+            )
+        }
     }
 }
 
@@ -679,16 +722,20 @@ private fun LibraryChrome(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedButton(
+                androidx.compose.material3.FilledTonalButton(
                     onClick = { file.launch(arrayOf("audio/*", "video/*")) },
                     modifier = Modifier.semantics { contentDescription = "Import local audio or video files" },
                 ) {
+                    Icon(Icons.Outlined.Add, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("Import files")
                 }
-                OutlinedButton(
+                androidx.compose.material3.FilledTonalButton(
                     onClick = { folder.launch(null) },
                     modifier = Modifier.semantics { contentDescription = "Add and scan a folder" },
                 ) {
+                    Icon(Icons.Outlined.CreateNewFolder, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("Add folder")
                 }
             }
@@ -778,7 +825,7 @@ private fun VideoList(
                     },
                     onFavorite = { viewModel.toggleFavorite(item) },
                 )
-                HorizontalDivider(Modifier.padding(start = 76.dp))
+                HorizontalDivider(Modifier.padding(start = 128.dp))
             }
             if (state.hasMore) item { OutlinedButton(viewModel::loadMore, Modifier.fillMaxWidth().padding(16.dp)) { Text("Load more") } }
         }
@@ -1065,7 +1112,7 @@ private fun NetworkScreen(viewModel: NetworkViewModel = koinViewModel()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Network locations", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                Text("Network locations", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).semantics { heading() })
                 OutlinedButton({ addingWebDav = true }) { Text("Add WebDAV") }
             }
             Text("WebDAV uses HTTPS. Passwords are encrypted with Android Keystore and are never exported.", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1095,8 +1142,22 @@ private fun NetworkScreen(viewModel: NetworkViewModel = koinViewModel()) {
             }
         }
         item {
-            Text("Open network stream", style = MaterialTheme.typography.headlineMedium)
-            SearchBar(state.url, viewModel::setUrl)
+            Text("Open network stream", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp).semantics { heading() })
+            OutlinedTextField(
+                value = state.url,
+                onValueChange = viewModel::setUrl,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("https://example.com/video.m3u8") },
+                leadingIcon = { Icon(Icons.Outlined.Link, null) },
+                trailingIcon = if (state.url.isNotEmpty()) ({ IconButton({ viewModel.setUrl("") }) { Icon(Icons.Outlined.Close, "Clear address") } }) else null,
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri,
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Go,
+                ),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onGo = { if (state.url.isNotBlank()) viewModel.open() }),
+            )
             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button({ viewModel.open() }, enabled = state.url.isNotBlank()) { Text("Play stream") }
                 OutlinedButton({
@@ -1641,7 +1702,7 @@ private fun NowPlayingSheet(
                         val media = current.toDomain()
                         if (media.kind == MediaKind.VIDEO && controller != null) {
                             AndroidView(
-                                factory = { PlayerView(it).apply { this.player = controller } },
+                                factory = { PlayerView(it).apply { setShutterBackgroundColor(android.graphics.Color.TRANSPARENT); this.player = controller } },
                                 update = { it.player = controller },
                                 modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).padding(vertical = 12.dp),
                             )

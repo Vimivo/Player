@@ -1,6 +1,7 @@
 package dev.vimivo.platform.android.library
 
 import androidx.sqlite.db.SupportSQLiteProgram
+import dev.vimivo.core.model.LibraryCategoryField
 import dev.vimivo.core.model.LibraryQuery
 import dev.vimivo.core.model.LibrarySort
 import dev.vimivo.core.model.MediaKind
@@ -31,6 +32,17 @@ class LibraryQueryBuilderTest {
         assertEquals("100\\%\\_mix%", bindings[2])
         assertEquals(100L, bindings[7])
         assertEquals(200L, bindings[8])
+    }
+
+    @Test
+    fun documentTreeCopiesOfMediaStoreFilesAreHidden() {
+        val page = LibraryQueryBuilder.page(LibraryQuery(kind = MediaKind.VIDEO)).sql
+        val count = LibraryQueryBuilder.count(LibraryQuery(kind = MediaKind.VIDEO)).sql
+        val categories = LibraryQueryBuilder.categories(MediaKind.VIDEO, LibraryCategoryField.FOLDER).sql
+
+        listOf(page, count, categories).forEach { sql ->
+            assertTrue(sql.contains(LibraryQueryBuilder.NOT_SHADOWED_BY_MEDIA_STORE))
+        }
     }
 
     @Test

@@ -25,11 +25,11 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaKind
-import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
+import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.QueueContext
 import dev.vimivo.settings.RepeatBehavior
 import dev.vimivo.settings.ShuffleBehavior
@@ -55,12 +55,14 @@ class SessionPlayerAdapter(
     private var restorePosition = 0L
     private var persistJob: Job? = null
     private var videoOutput: Any? = null
-    private var attachedVideoEngine: EngineId? = null
+
+    // Engines are recreated for every opened item, so track the attached instance rather than its id.
+    private var attachedVideoEngine: PlayerEngine? = null
 
     init {
         scope.launch {
             manager.state.collectLatest { state ->
-                attachVideoOutputIfNeeded(state.engine)
+                attachVideoOutputIfNeeded()
                 if (state.status == PlaybackStatus.Completed) {
                     if (sleepTimer.consumeStopAfterCurrent()) manager.stop() else advanceAfterCompletion()
                 }
@@ -117,6 +119,14 @@ class SessionPlayerAdapter(
                 Player.COMMAND_SET_SPEED_AND_PITCH,
                 Player.COMMAND_SET_VOLUME,
                 Player.COMMAND_SET_VIDEO_SURFACE,
+                Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
+                // Without the GET_* commands Media3 strips the timeline, current item, metadata, and
+                // duration from what controllers receive, leaving the in-app UI with an empty queue.
+                Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
+                Player.COMMAND_GET_TIMELINE,
+                Player.COMMAND_GET_METADATA,
+                Player.COMMAND_GET_VOLUME,
+                Player.COMMAND_GET_TEXT,
             )
             .build()
         val items = playlist.mapIndexed { index, item ->
@@ -136,9 +146,11 @@ class SessionPlayerAdapter(
             .setIsLoading(playback.status == PlaybackStatus.Buffering || playback.status == PlaybackStatus.Preparing)
             .setContentPositionMs(
                 when {
-                    playlist.isEmpty() -> C.TIME_UNSET
-                    playback.media == null -> restorePosition
-                    else -> playback.positionMillis
+                    playlist.isEmpty() -> PositionSupplier.getConstant(C.TIME_UNSET)
+                    playback.media == null -> PositionSupplier.getConstant(restorePosition)
+                    playback.status == PlaybackStatus.Playing ->
+                        PositionSupplier.getExtrapolating(playback.positionMillis, playback.speed)
+                    else -> PositionSupplier.getConstant(playback.positionMillis)
                 },
             )
             .setContentBufferedPositionMs(PositionSupplier.getConstant(playback.bufferedPositionMillis))
@@ -232,7 +244,7 @@ class SessionPlayerAdapter(
     override fun handleSetVideoOutput(videoOutput: Any): ListenableFuture<*> = done().also {
         this.videoOutput = videoOutput
         attachedVideoEngine = null
-        attachVideoOutputIfNeeded(manager.state.value.engine)
+        attachVideoOutputIfNeeded()
     }
 
     override fun handleClearVideoOutput(videoOutput: Any?): ListenableFuture<*> = done().also {
@@ -242,10 +254,11 @@ class SessionPlayerAdapter(
         attachedVideoEngine = null
     }
 
-    private fun attachVideoOutputIfNeeded(engineId: EngineId?) {
-        val output = videoOutput ?: return
-        if (engineId == null || attachedVideoEngine == engineId) return
-        when (val engine = manager.activeEngine.value) {
+    private fun attachVideoOutputIfNeeded() {
+        val output = videoOutput
+        val engine = manager.activeEngine.value
+        if (output == null || engine == null || attachedVideoEngine === engine) return
+        when (engine) {
             is Media3PlayerEngine -> when (output) {
                 is Surface -> engine.player.setVideoSurface(output)
                 is SurfaceHolder -> engine.player.setVideoSurfaceHolder(output)
@@ -253,7 +266,7 @@ class SessionPlayerAdapter(
             is LibVlcPlayerEngine -> if (output is SurfaceHolder) engine.setVideoSurfaceHolder(output)
             else -> return
         }
-        attachedVideoEngine = engineId
+        attachedVideoEngine = engine
     }
 
     override fun handleRelease(): ListenableFuture<*> = done().also {
