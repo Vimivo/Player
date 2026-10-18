@@ -128,7 +128,7 @@ jobs:
           echo "$(basename "$DMG_PATH") SHA-256: $(cat "$DMG_PATH.sha256")"
 
       - name: Upload macOS distribution artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vimivo-macos-dmg-${{ matrix.arch }}
           path: build/artifacts/*
