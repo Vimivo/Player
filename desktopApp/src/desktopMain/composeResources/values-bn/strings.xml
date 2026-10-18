@@ -47,4 +47,21 @@
     <string name="launch_make_default_opened">Default apps-এ Vimivo বেছে নিন, তারপর উইন্ডোটি বন্ধ করুন।</string>
     <string name="launch_make_default_applied">এখন %1$dটি ফাইল টাইপের ডিফল্ট Vimivo।</string>
     <string name="launch_make_default_failed">ডিফল্ট প্লেয়ার বদলানো যায়নি: %1$s</string>
+    <string name="player_play">চালান</string>
+    <string name="player_pause">থামান</string>
+    <string name="player_previous">আগেরটি</string>
+    <string name="player_next">পরেরটি</string>
+    <string name="player_back_10">১০ সেকেন্ড পিছনে</string>
+    <string name="player_forward_10">১০ সেকেন্ড সামনে</string>
+    <string name="player_fullscreen">পূর্ণ পর্দা</string>
+    <string name="player_exit_fullscreen">পূর্ণ পর্দা থেকে বের হন</string>
+    <string name="player_panel">ভিডিও, সাবটাইটেল ও বুকমার্ক সেটিংস</string>
+    <string name="player_open_library">লাইব্রেরি খুলুন</string>
+    <string name="player_volume">ভলিউম</string>
+    <string name="player_seek">চলার অবস্থান</string>
+    <string name="player_speed">চলার গতি %1$s×</string>
+    <string name="player_tab_video">ভিডিও</string>
+    <string name="player_tab_bookmarks">বুকমার্ক</string>
+    <string name="player_close_panel">প্যানেল বন্ধ করুন</string>
+    <string name="player_unknown_time">--:--</string>
 </resources>

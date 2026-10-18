@@ -94,7 +94,9 @@ class PlaybackQueueController(
                     consecutiveSkips = 0
                     advance(automatic = true)
                 }
-                status is PlaybackStatus.Error && !status.error.recoverableByFallback &&
+                // Only an error reported for the current item skips it: a control failure with no media loaded
+                // (for example setting the volume before the first file opens) is not a failed item.
+                status is PlaybackStatus.Error && !status.error.recoverableByFallback && playback.media != null &&
                     shouldHandleCompletion(playback, current) -> skipFailed(checkNotNull(current))
                 status == PlaybackStatus.Playing -> {
                     lastHandledCompletionQueueId = null

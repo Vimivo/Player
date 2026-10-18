@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -319,6 +320,21 @@ class PlaybackQueueControllerTest {
         assertTrue(engine.stopped, "Engine must be stopped when all items fail to open")
     }
 
+    @Test
+    fun aControlErrorBeforeAnyMediaDoesNotSkipTheItemBeingOpened() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        runCurrent()
+        engine.failWithoutMedia()
+        engine.yieldBeforeOpen = true
+
+        controller.play(listOf(media("first"), media("second"), media("third")), startIndex = 1).getOrThrow()
+        runCurrent()
+
+        assertEquals(listOf("second"), engine.opened)
+        assertEquals("second", controller.state.value.currentMedia?.id?.value)
+    }
+
     private fun media(id: String) = MediaItem(MediaId(id), "file:///$id.mp3", id, MediaKind.AUDIO)
 }
 
@@ -339,9 +355,11 @@ private class FakeQueueEngine : PlayerEngine {
     var openHook: (() -> Unit)? = null
     var failOnOpen = false
     var stopped = false
+    var yieldBeforeOpen = false
 
     override fun supportFor(media: MediaItem) = SupportLevel.PREFERRED
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> {
+        if (yieldBeforeOpen) yield()
         if (failOnOpen) {
             return Result.failure(IllegalStateException("Simulated decoder open failure"))
         }
@@ -380,6 +398,12 @@ private class FakeQueueEngine : PlayerEngine {
     fun fail() {
         val error = PlaybackError(PlaybackErrorCode.UNSUPPORTED_CODEC, "no decoder", engine = id)
         mutableState.value = state.value.copy(status = PlaybackStatus.Error(error))
+    }
+
+    /** A control used before any media was opened, as libmpv-backed engines report it. */
+    fun failWithoutMedia() {
+        val error = PlaybackError(PlaybackErrorCode.ENGINE_INITIALIZATION, "Open media first", engine = id)
+        mutableState.value = state.value.copy(media = null, status = PlaybackStatus.Error(error))
     }
 
     fun setPosition(pos: Long) {

@@ -2,6 +2,7 @@ package dev.vimivo.desktop.player
 
 import dev.vimivo.core.lyrics.LrcLyricsParser
 import dev.vimivo.core.lyrics.LyricsDocument
+import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
@@ -10,7 +11,7 @@ import dev.vimivo.core.streaming.StreamValidator
 import dev.vimivo.desktop.diagnostics.DesktopSmokeResult
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
 import dev.vimivo.desktop.integration.mpris.MprisService
-import dev.vimivo.desktop.library.DesktopLibraryController
+import dev.vimivo.desktop.library.DesktopPlaybackStore
 import dev.vimivo.desktop.library.DesktopRecentMediaRepository
 import dev.vimivo.desktop.playback.DesktopFullscreenControl
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
@@ -26,8 +27,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -42,7 +46,7 @@ import java.net.URI
 internal class PlayerViewModel(
     private val engine: MpvPlayerEngine,
     private val queue: PlaybackQueueController,
-    private val library: DesktopLibraryController,
+    private val store: DesktopPlaybackStore,
     private val recentMedia: DesktopRecentMediaRepository,
     private val scope: CoroutineScope,
 ) : AutoCloseable {
@@ -78,6 +82,8 @@ internal class PlayerViewModel(
             lyrics = localState.lyrics,
             maxVolume = engine.capabilities.maxVolume,
             presentation = localState.presentation,
+            libraryRequest = localState.libraryRequest,
+            bookmarks = localState.bookmarks,
             loadingTitle = localState.loadingTitle,
             resumePrompt = localState.resumePrompt,
             focusRequest = localState.focusRequest,
@@ -94,16 +100,18 @@ internal class PlayerViewModel(
         scope.launch {
             loadPreferences()
             // Restore first so explicitly opened files replace, rather than race with, the saved paused queue.
-            library.restoredQueue()?.let { snapshot -> runCatching { queue.restore(snapshot) } }
-            launch { queue.state.drop(1).collect { library.saveQueue(queue.snapshot()) } }
+            store.restoredQueue()?.let { snapshot -> runCatching { queue.restore(snapshot) } }
+            launch { queue.state.drop(1).collect { store.saveQueue(queue.snapshot()) } }
             if (launch.files.isNotEmpty()) {
                 openFiles(PlayerIntent.OpenFiles(launch.files, launch.startPositionMillis, launch.fullscreen))
             }
             externalFiles.collect { files -> openFiles(PlayerIntent.OpenFiles(files, fromRunningInstance = true)) }
         }
         scope.launch { clearLoadingOnceMediaPlays() }
+        scope.launch { followMediaKind() }
+        scope.launch { trackBookmarks() }
         scope.launch { queue.skipped.collect { commands.report(HudMessage.Skipped(it.fileName ?: it.title)) } }
-        scope.launch { library.observePlayback(engine.state) }
+        scope.launch { store.observePlayback(engine.state) }
         scope.launch { recordRecentMedia() }
         scope.launch { loadLyricsForCurrentMedia() }
         scope.launch { clearHudAfterDelay() }
@@ -144,20 +152,38 @@ internal class PlayerViewModel(
                 local.update { it.copy(resumePrompt = null) }
             }
             PlayerIntent.DismissResume -> local.update { it.copy(resumePrompt = null) }
-            PlayerIntent.ShowLibrary -> local.update {
-                it.copy(
-                    presentation = PlayerPresentation.LIBRARY,
-                    fullscreen = false
-                )
+            PlayerIntent.ShowLibrary -> local.update { it.copy(libraryRequest = it.libraryRequest + 1) }
+            PlayerIntent.ClosePlayer -> {
+                // The player window hides; its video surface stays alive for the next video (see PlayerWindow).
+                engine.stop()
+                local.update {
+                    it.copy(
+                        presentation = PlayerPresentation.LIBRARY,
+                        fullscreen = false,
+                        loadingTitle = null,
+                        loadingUri = null
+                    )
+                }
             }
             is PlayerIntent.SetOpenMode -> {
                 local.update { it.copy(openMode = intent.mode) }
-                library.setUiSetting(OPEN_MODE_KEY, intent.mode.name)
+                scope.launch { store.setUiSetting(OPEN_MODE_KEY, intent.mode.name) }
             }
             is PlayerIntent.SetFolderSiblings -> {
                 local.update { it.copy(folderSiblings = intent.enabled) }
-                library.setUiSetting(FOLDER_SIBLINGS_KEY, intent.enabled.toString())
+                scope.launch { store.setUiSetting(FOLDER_SIBLINGS_KEY, intent.enabled.toString()) }
             }
+            else -> dispatchBookmark(intent)
+        }
+    }
+
+    private fun dispatchBookmark(intent: PlayerIntent) {
+        when (intent) {
+            is PlayerIntent.AddBookmark -> engine.state.value.media?.let { media ->
+                scope.launch { store.addBookmark(media.id, engine.state.value.positionMillis, intent.label) }
+            }
+            is PlayerIntent.RenameBookmark -> scope.launch { store.renameBookmark(intent.id, intent.label) }
+            is PlayerIntent.DeleteBookmark -> scope.launch { store.deleteBookmark(intent.id) }
             else -> Unit
         }
     }
@@ -169,9 +195,32 @@ internal class PlayerViewModel(
             playback.status == PlaybackStatus.Playing -> engine.pause()
             playback.media != null -> engine.play()
             else -> queue.state.value.currentMedia?.let { media ->
-                val start = library.preparePlayback(media).getOrNull()?.startPositionMillis ?: 0
+                val start = store.preparePlayback(media).getOrNull()?.startPositionMillis ?: 0
                 queue.playCurrent(start)
             }
+        }
+    }
+
+    /** The player window shows video for video and switches to the audio layout when an audio item follows. */
+    private suspend fun followMediaKind() {
+        engine.state.map { it.media?.kind }.distinctUntilChanged().collect { kind ->
+            local.update { it.copy(presentation = nextPresentation(it.presentation, kind)) }
+        }
+    }
+
+    private suspend fun trackBookmarks() {
+        val currentMedia = engine.state.map { it.media?.id }.distinctUntilChanged()
+        val refreshes = merge(currentMedia.map { }, store.changes)
+        refreshes.collect {
+            val id = engine.state.value.media?.id
+            val bookmarks = if (id == null) {
+                emptyList()
+            } else {
+                withContext(
+                    Dispatchers.IO
+                ) { runCatching { store.bookmarks(id) }.getOrDefault(emptyList()) }
+            }
+            local.update { it.copy(bookmarks = bookmarks) }
         }
     }
 
@@ -222,7 +271,7 @@ internal class PlayerViewModel(
 
     /** Local files resume where they were left, using the shared resume rules; streams always start fresh. */
     private suspend fun savedPosition(media: MediaItem): Long =
-        if (media.uri.startsWith("file:")) library.preparePlayback(media).getOrNull()?.startPositionMillis ?: 0 else 0
+        if (media.uri.startsWith("file:")) store.preparePlayback(media).getOrNull()?.startPositionMillis ?: 0 else 0
 
     private fun showResumePrompt(title: String, positionMillis: Long) {
         val prompt = ResumePrompt(title, positionMillis)
@@ -276,7 +325,7 @@ internal class PlayerViewModel(
 
     private suspend fun loadPreferences() {
         val (mode, siblings) = withContext(Dispatchers.IO) {
-            library.uiSetting(OPEN_MODE_KEY) to library.uiSetting(FOLDER_SIBLINGS_KEY)
+            store.uiSetting(OPEN_MODE_KEY) to store.uiSetting(FOLDER_SIBLINGS_KEY)
         }
         local.update {
             it.copy(
@@ -289,7 +338,7 @@ internal class PlayerViewModel(
     private suspend fun playFrom(items: List<MediaItem>, index: Int, label: String?) {
         val start = items.getOrNull(index) ?: return
         if (start.kind == MediaKind.VIDEO) local.update { it.copy(presentation = PlayerPresentation.VIDEO) }
-        val resumeAt = library.preparePlayback(start).getOrNull()?.startPositionMillis ?: 0
+        val resumeAt = store.preparePlayback(start).getOrNull()?.startPositionMillis ?: 0
         queue.play(items, startIndex = index, startPositionMillis = resumeAt, sourceLabel = label)
     }
 
@@ -328,7 +377,6 @@ internal class PlayerViewModel(
         mediaControls?.close()
         queue.close()
         engine.close()
-        library.close()
     }
 
     private data class LocalState(
@@ -339,6 +387,8 @@ internal class PlayerViewModel(
         val loadingUri: String? = null,
         val resumePrompt: ResumePrompt? = null,
         val focusRequest: Int = 0,
+        val libraryRequest: Int = 0,
+        val bookmarks: List<Bookmark> = emptyList(),
         val openMode: OpenMode = OpenMode.REPLACE,
         val folderSiblings: Boolean = true,
     )

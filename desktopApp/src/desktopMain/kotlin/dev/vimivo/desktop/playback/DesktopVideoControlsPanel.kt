@@ -65,7 +65,7 @@ internal fun DesktopVideoControlsPanel(
     var subtitleColorHex by remember { mutableStateOf("#FFFFFF") }
 
     VimivoGlassSurface(
-        variant = VimivoGlassVariant.CONTROL,
+        variant = VimivoGlassVariant.POPOVER,
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -4,6 +4,7 @@ import dev.vimivo.desktop.integration.mpris.MprisService
 import dev.vimivo.desktop.integration.mpris.MprisServiceFactory
 import dev.vimivo.desktop.library.DesktopDatabase
 import dev.vimivo.desktop.library.DesktopLibraryController
+import dev.vimivo.desktop.library.DesktopPlaybackStore
 import dev.vimivo.desktop.library.DesktopRecentMediaRepository
 import dev.vimivo.desktop.playback.MpvPlayerEngine
 import dev.vimivo.playback.PlaybackQueueController
@@ -37,9 +38,10 @@ internal val PlayerScope = named("playerScope")
 internal fun desktopPlayerModule(isolated: Boolean): Module = module {
     single(PlayerScope) { CoroutineScope(SupervisorJob() + Dispatchers.Main) } onClose { it?.cancel() }
     single { MpvPlayerEngine() } bind PlayerEngine::class
-    single {
-        if (isolated) DesktopLibraryController(DesktopDatabase.inMemory()) else DesktopLibraryController()
-    }
+    single { if (isolated) DesktopDatabase.inMemory() else DesktopDatabase.open() } onClose { it?.close() }
+    single { DesktopPlaybackStore(get()) }
+    // Created only when the library window opens (Koin singles are lazy): opening a file never loads the library.
+    single { DesktopLibraryController(get(), get(), closeDatabase = false) } onClose { it?.close() }
     single { DesktopRecentMediaRepository(persistent = !isolated) }
     single {
         PlaybackQueueController(get(), get(PlayerScope), isAvailable = ::isPlayable)

@@ -49,4 +49,21 @@
     <string name="launch_make_default_opened">Choose Vimivo in Default apps, then close the window.</string>
     <string name="launch_make_default_applied">Vimivo is now the default for %1$d file types.</string>
     <string name="launch_make_default_failed">Could not change the default player: %1$s</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_previous">Previous</string>
+    <string name="player_next">Next</string>
+    <string name="player_back_10">Back 10 seconds</string>
+    <string name="player_forward_10">Forward 10 seconds</string>
+    <string name="player_fullscreen">Full screen</string>
+    <string name="player_exit_fullscreen">Exit full screen</string>
+    <string name="player_panel">Video, subtitle and bookmark settings</string>
+    <string name="player_open_library">Open the library</string>
+    <string name="player_volume">Volume</string>
+    <string name="player_seek">Playback position</string>
+    <string name="player_speed">Playback speed %1$s×</string>
+    <string name="player_tab_video">Video</string>
+    <string name="player_tab_bookmarks">Bookmarks</string>
+    <string name="player_close_panel">Close panel</string>
+    <string name="player_unknown_time">--:--</string>
 </resources>

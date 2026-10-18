@@ -1,7 +1,9 @@
 package dev.vimivo.desktop.player
 
 import dev.vimivo.core.lyrics.LyricsDocument
+import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaItem
+import dev.vimivo.core.model.MediaKind
 import dev.vimivo.desktop.playback.DesktopPlayerCommand
 import dev.vimivo.playback.PlaybackQueueState
 import dev.vimivo.playback.PlaybackState
@@ -28,6 +30,10 @@ internal data class PlayerState(
     val resumePrompt: ResumePrompt? = null,
     /** Incremented whenever another app hands Vimivo a file, so the window can come to the front. */
     val focusRequest: Int = 0,
+    /** Incremented to ask for the library window (menu, "Library" button). */
+    val libraryRequest: Int = 0,
+    /** Bookmarks of the current media. */
+    val bookmarks: List<Bookmark> = emptyList(),
     val openMode: OpenMode = OpenMode.REPLACE,
     val folderSiblings: Boolean = true,
 )
@@ -67,6 +73,22 @@ internal sealed interface PlayerIntent {
     data object StartOver : PlayerIntent
     data object DismissResume : PlayerIntent
     data object ShowLibrary : PlayerIntent
+
+    /** Closes the player window: playback stops and the window hides (it is reused for the next file). */
+    data object ClosePlayer : PlayerIntent
+    data class AddBookmark(val label: String?) : PlayerIntent
+    data class RenameBookmark(val id: String, val label: String) : PlayerIntent
+    data class DeleteBookmark(val id: String) : PlayerIntent
     data class SetOpenMode(val mode: OpenMode) : PlayerIntent
     data class SetFolderSiblings(val enabled: Boolean) : PlayerIntent
+}
+
+/**
+ * Which window layout plays [playing]: video always needs the player window's video surface; an audio item that
+ * follows video keeps the player window in its audio layout; audio started from the library stays in the library.
+ */
+internal fun nextPresentation(current: PlayerPresentation, playing: MediaKind?): PlayerPresentation = when {
+    playing == MediaKind.VIDEO || playing == MediaKind.STREAM -> PlayerPresentation.VIDEO
+    playing == MediaKind.AUDIO && current == PlayerPresentation.VIDEO -> PlayerPresentation.AUDIO
+    else -> current
 }
