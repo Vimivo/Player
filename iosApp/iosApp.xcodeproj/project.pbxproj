@@ -61,6 +61,7 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 		1101 /* MediaModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2101 /* MediaModelsTests.swift */; };
+		1192 /* ContinuousPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2192 /* ContinuousPlaybackTests.swift */; };
 		1102 /* IOSDatabaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2102 /* IOSDatabaseTests.swift */; };
 		1103 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2025 /* libsqlite3.tbd */; };
 /* End PBXBuildFile section */
@@ -139,6 +140,7 @@
 		2033 /* Vimivo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Vimivo.entitlements; sourceTree = "<group>"; };
 		2101 /* MediaModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModelsTests.swift; sourceTree = "<group>"; };
 		2102 /* IOSDatabaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDatabaseTests.swift; sourceTree = "<group>"; };
+		2192 /* ContinuousPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuousPlaybackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -276,6 +278,7 @@
 			children = (
 				2101 /* MediaModelsTests.swift */,
 				2102 /* IOSDatabaseTests.swift */,
+				2192 /* ContinuousPlaybackTests.swift */,
 			);
 			path = iosAppTests;
 			sourceTree = "<group>";
@@ -499,6 +502,7 @@
 			files = (
 				1101 /* MediaModelsTests.swift in Sources */,
 				1102 /* IOSDatabaseTests.swift in Sources */,
+				1192 /* ContinuousPlaybackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

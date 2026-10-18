@@ -141,7 +141,7 @@ public struct PlaylistDetailView: View {
                         MediaRow(
                             item: item,
                             isPlaying: engine.state.currentItem?.id == item.id,
-                            onPlay: { engine.play(item: item) },
+                            onPlay: { engine.playQueue(items: items, startIndex: items.firstIndex(of: item) ?? 0) },
                             onDelete: { removeItem(item) }
                         )
                     }

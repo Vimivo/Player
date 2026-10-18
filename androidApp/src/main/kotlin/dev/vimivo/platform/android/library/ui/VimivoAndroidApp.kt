@@ -593,7 +593,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.mediaSection(
     item { SectionTitle(title) }
     item {
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(media, key = { it.id.value }) { item -> MediaCard(item, thumbnails) { playback.play(item) } }
+            items(media, key = { it.id.value }) { item ->
+                MediaCard(item, thumbnails) { playback.playQueue(media, media.indexOf(item)) }
+            }
         }
     }
     item { Spacer(Modifier.height(24.dp)) }
@@ -1723,7 +1725,13 @@ private fun GlobalSearch(
                         },
                     )
                 }
-                items(state.items.take(20), key = { it.id.value }) { SongRow(it, thumbnails, { playback.play(it); onClose() }) }
+                val visibleResults = state.items.take(20)
+                items(visibleResults, key = { it.id.value }) { result ->
+                    SongRow(result, thumbnails, {
+                        playback.playQueue(visibleResults, visibleResults.indexOf(result))
+                        onClose()
+                    })
+                }
                 if (!state.isLoading && state.items.isEmpty() && playlistResults.isEmpty()) item { EmptyState(title = "No results", detail = "Try a different title, artist, album, folder, filename, or playlist.") }
             }
         }

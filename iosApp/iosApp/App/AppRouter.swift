@@ -1,4 +1,5 @@
 import Foundation
+import VimivoShared
 
 /// Routes URLs the system hands to Vimivo: `vimivo://now-playing` from widgets, `vimivo://play?id=` deep
 /// links, and media files opened from other apps ("Open in Vimivo", the share sheet, Files).
@@ -46,7 +47,27 @@ final class AppRouter: ObservableObject {
             IOSDatabase.shared.saveMediaItem(item)
             NotificationCenter.default.post(name: .vimivoLibraryDidChange, object: nil)
         }
+        if insideDocuments {
+            // Like opening a file from Finder: the other files of the same kind in its folder play next.
+            await DocumentsLibraryImporter.shared.importDocuments()
+            let siblings = Self.folderSiblings(of: item, among: IOSDatabase.shared.getAllMediaItems())
+            if let index = siblings.firstIndex(where: { $0.id == item.id }) {
+                engine.playQueue(items: siblings, startIndex: index)
+                playerRequest += 1
+                return
+            }
+        }
         play(item, engine: engine)
+    }
+
+    /// Same-kind items in [item]'s folder, ordered like the shared core orders names ("Ep 2" before "Ep 10").
+    nonisolated static func folderSiblings(of item: MediaItem, among library: [MediaItem]) -> [MediaItem] {
+        func folder(_ media: MediaItem) -> String? { URL(string: media.uri)?.deletingLastPathComponent().standardizedFileURL.path }
+        func name(_ media: MediaItem) -> String { URL(string: media.uri)?.lastPathComponent ?? media.title }
+        guard let home = folder(item) else { return [item] }
+        return library
+            .filter { $0.kind == item.kind && folder($0) == home }
+            .sorted { NaturalOrder.shared.compare(a: name($0), b: name($1)) < 0 }
     }
 
     private func play(_ item: MediaItem, engine: AVPlayerPlaybackEngine) {

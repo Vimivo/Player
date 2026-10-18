@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Vimivo</string>
+    <string name="playback_skipped">বাদ দেওয়া হয়েছে: %1$s (চালানো যায়নি)</string>
     <string name="settings_appearance">চেহারা</string>
     <string name="settings_music">মিউজিক প্লেব্যাক</string>
     <string name="settings_video">ভিডিও প্লেব্যাক</string>

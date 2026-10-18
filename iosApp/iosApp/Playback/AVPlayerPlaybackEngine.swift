@@ -8,6 +8,10 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     public static let shared = AVPlayerPlaybackEngine()
 
     @Published public private(set) var state = PlaybackState()
+    /// The title of the last item skipped because it could not be played, for a brief notice in the UI.
+    @Published public var skippedItemTitle: String?
+    private var unshuffledQueue: [MediaItem]?
+    private var consecutiveFailures = 0
     @Published public var queue: [MediaItem] = [] {
         didSet { persistQueue() }
     }
@@ -179,17 +183,38 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         updateNowPlaying()
     }
 
+    /// Shuffles the remaining items behind the current one; turning it off restores the original order.
     public func toggleShuffle() {
         state.isShuffled.toggle()
+        guard !queue.isEmpty else { return }
+        let current = queue[currentIndex]
         if state.isShuffled {
-            guard !queue.isEmpty else { return }
-            let current = queue[currentIndex]
+            unshuffledQueue = queue
             var remaining = queue
             remaining.remove(at: currentIndex)
             remaining.shuffle()
             queue = [current] + remaining
             currentIndex = 0
+        } else if let original = unshuffledQueue {
+            // Items added while shuffled are kept, after the original order.
+            queue = original + queue.filter { item in !original.contains { $0.id == item.id } }
+            currentIndex = queue.firstIndex { $0.id == current.id } ?? 0
+            unshuffledQueue = nil
         }
+    }
+
+    /// An unplayable item never stops the queue: it is reported and the next item starts. Once every item
+    /// has failed in a row, playback stops instead of looping.
+    private func skipFailedItem(message: String) {
+        state.status = .error
+        state.errorMessage = message
+        updateNowPlaying()
+        consecutiveFailures += 1
+        let skippedTitle = state.currentItem?.title ?? ""
+        guard consecutiveFailures < queue.count, currentIndex + 1 < queue.count || state.repeatMode == .all else { return }
+        skippedItemTitle = skippedTitle
+        currentIndex = currentIndex + 1 < queue.count ? currentIndex + 1 : 0
+        loadItem(queue[currentIndex])
     }
 
     public func cycleRepeatMode() {
@@ -230,15 +255,13 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         }
 
         guard let playUrl = resolvedUrl else {
-            state.status = .error
-            state.errorMessage = "Could not resolve media URL"
+            skipFailedItem(message: "Could not resolve media URL")
             return
         }
 
         if playUrl.isFileURL {
             if !FileManager.default.fileExists(atPath: playUrl.path) {
-                state.status = .error
-                state.errorMessage = "Media file not found: \(playUrl.lastPathComponent)"
+                skipFailedItem(message: "Media file not found: \(playUrl.lastPathComponent)")
                 return
             }
             _ = SecurityScopedMediaManager.shared.startAccessing(url: playUrl)
@@ -276,6 +299,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
                 switch observedItem.status {
                 case .readyToPlay:
                     self.itemStatusObservation = nil
+                    self.consecutiveFailures = 0
                     guard startMillis > 0 else { return }
                     let target = CMTime(seconds: Double(startMillis) / 1000.0, preferredTimescale: 600)
                     self.player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
@@ -286,8 +310,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
                     }
                 case .failed:
                     self.itemStatusObservation = nil
-                    self.state.status = .error
-                    self.state.errorMessage = observedItem.error?.localizedDescription ?? "This file could not be played"
+                    self.skipFailedItem(message: observedItem.error?.localizedDescription ?? "This file could not be played")
                     self.updateNowPlaying()
                 default:
                     break
@@ -371,8 +394,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             queue: .main
         ) { [weak self] _ in
             guard let self = self else { return }
-            self.state.status = .error
-            self.state.errorMessage = "Media playback failed"
+            self.skipFailedItem(message: "Media playback failed")
             self.updateNowPlaying()
         }
     }
