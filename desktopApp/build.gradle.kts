@@ -85,19 +85,91 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 implementation(compose.material3)
                 implementation(libs.coroutines.core)
+                // Makes Dispatchers.Main the Swing event thread, where Compose Desktop and AWT already run.
+                implementation(libs.coroutines.swing)
                 implementation(libs.jna)
                 implementation(libs.sqlite.jdbc)
                 implementation(libs.jaudiotagger)
                 implementation(libs.coil.compose)
+                implementation(compose.components.resources)
+                // koin-core only: koin-compose 4.2.2 drags Compose up to 1.10, mismatching Skiko's 1.9.3 natives.
+                implementation(libs.koin.core)
             }
         }
         val desktopTest by getting {
             dependencies {
                 implementation(libs.kotlin.test)
+                implementation(libs.koin.test)
                 implementation(libs.coroutines.test)
             }
         }
     }
+}
+
+/** One row of `media-types.tsv`, the single source of file types for associations and the app itself. */
+data class MediaTypeRow(val extension: String, val mime: String, val family: String, val description: String, val uti: String?)
+
+val mediaTypes: List<MediaTypeRow> = file("src/desktopMain/resources/dev/vimivo/desktop/media-types.tsv")
+    .readLines()
+    .filter { it.isNotBlank() && !it.startsWith("#") }
+    .map { line ->
+        val columns = line.split('\t')
+        MediaTypeRow(columns[0], columns[1], columns[2], columns[3], columns.getOrNull(4)?.takeIf(String::isNotBlank))
+    }
+
+/**
+ * macOS document types keyed by UTI, plus imported declarations for types macOS does not know (mkv, opus…).
+ * LSHandlerRank "Alternate" lists Vimivo in "Open With" without claiming to be the default.
+ */
+fun macDocumentTypesXml(types: List<MediaTypeRow>): String {
+    fun importedUti(type: MediaTypeRow) = "dev.vimivo.media.${type.extension}"
+    fun uti(type: MediaTypeRow) = type.uti ?: importedUti(type)
+    val conformsTo = mapOf(
+        "video" to listOf("public.movie"),
+        "audio" to listOf("public.audio"),
+        "playlist" to listOf("public.data", "public.content"),
+        "subtitle" to listOf("public.text"),
+    )
+    val broad = mapOf("video" to listOf("public.movie"), "audio" to listOf("public.audio"))
+    val documentTypes = types.groupBy(MediaTypeRow::family).entries.joinToString("\n") { (family, rows) ->
+        val utis = (broad[family].orEmpty() + rows.map(::uti)).distinct()
+        """
+        <dict>
+            <key>CFBundleTypeName</key><string>${family.replaceFirstChar(Char::uppercase)}</string>
+            <key>CFBundleTypeRole</key><string>Viewer</string>
+            <key>LSHandlerRank</key><string>Alternate</string>
+            <key>LSItemContentTypes</key><array>${utis.joinToString("") { "<string>$it</string>" }}</array>
+        </dict>
+        """.trimIndent()
+    }
+    val imported = types.filter { it.uti == null }.joinToString("\n") { type ->
+        """
+        <dict>
+            <key>UTTypeIdentifier</key><string>${importedUti(type)}</string>
+            <key>UTTypeDescription</key><string>${type.description}</string>
+            <key>UTTypeConformsTo</key><array>${conformsTo.getValue(type.family).joinToString("") { "<string>$it</string>" }}</array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>${type.extension}</string></array>
+                <key>public.mime-type</key><array><string>${type.mime}</string></array>
+            </dict>
+        </dict>
+        """.trimIndent()
+    }
+    return """
+        <key>CFBundleDocumentTypes</key>
+        <array>
+        $documentTypes
+        </array>
+        <key>UTImportedTypeDeclarations</key>
+        <array>
+        $imported
+        </array>
+    """.trimIndent()
+}
+
+compose.resources {
+    packageOfResClass = "dev.vimivo.desktop.resources"
+    generateResClass = always
 }
 
 compose.desktop {
@@ -119,33 +191,12 @@ compose.desktop {
                 else -> emptyArray()
             }
             targetFormats(*formats)
-            // Registers Vimivo as an "Open With" handler without taking over the user's default player.
-            listOf(
-                Triple("video/mp4", "mp4", "MPEG-4 video"),
-                Triple("video/x-m4v", "m4v", "MPEG-4 video"),
-                Triple("video/x-matroska", "mkv", "Matroska video"),
-                Triple("video/webm", "webm", "WebM video"),
-                Triple("video/quicktime", "mov", "QuickTime movie"),
-                Triple("video/x-msvideo", "avi", "AVI video"),
-                Triple("video/mp2t", "ts", "MPEG transport stream"),
-                Triple("video/mp2t", "m2ts", "MPEG transport stream"),
-                Triple("video/x-ms-wmv", "wmv", "Windows Media video"),
-                Triple("video/x-flv", "flv", "Flash video"),
-                Triple("video/ogg", "ogv", "Ogg video"),
-                Triple("video/3gpp", "3gp", "3GPP video"),
-                Triple("video/mpeg", "mpg", "MPEG video"),
-                Triple("audio/mpeg", "mp3", "MP3 audio"),
-                Triple("audio/mp4", "m4a", "MPEG-4 audio"),
-                Triple("audio/aac", "aac", "AAC audio"),
-                Triple("audio/flac", "flac", "FLAC audio"),
-                Triple("audio/wav", "wav", "WAVE audio"),
-                Triple("audio/aiff", "aiff", "AIFF audio"),
-                Triple("audio/ogg", "ogg", "Ogg audio"),
-                Triple("audio/opus", "opus", "Opus audio"),
-                Triple("audio/x-ms-wma", "wma", "Windows Media audio"),
-                Triple("audio/x-ape", "ape", "Monkey's Audio"),
-                Triple("audio/x-dsf", "dsf", "DSD audio"),
-            ).forEach { (mimeType, extension, label) -> fileAssociation(mimeType, extension, label) }
+            // "Open With" registration comes from the same table the app uses to classify files. Windows and
+            // Linux use Compose's per-extension associations; macOS gets UTI-based document types below.
+            mediaTypes.forEach { type ->
+                windows.fileAssociation(type.mime, type.extension, type.description)
+                linux.fileAssociation(type.mime, type.extension, type.description)
+            }
             packageName = "Vimivo"
             packageVersion = "1.0.0"
             description = "Privacy-first music and video player"
@@ -162,6 +213,7 @@ compose.desktop {
                 "jdk.crypto.ec",
             )
             macOS {
+                infoPlist { extraKeysRawXml = macDocumentTypesXml(mediaTypes) }
                 bundleID = "dev.vimivo.desktop"
                 minimumSystemVersion = "12.0"
                 iconFile.set(project.file("src/desktopMain/resources/macos/icon.icns"))
@@ -238,7 +290,9 @@ val bundleLinuxMpv by tasks.registering(Exec::class) {
     )
 }
 
-val packageAppImage by tasks.registering(Exec::class) {
+// Not "packageAppImage": Compose registers that name itself for TargetFormat.AppImage on Linux hosts,
+// and a duplicate breaks configuration of the whole project there.
+val packageVimivoAppImage by tasks.registering(Exec::class) {
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isLinux }
     dependsOn("createDistributable")
     dependsOn(bundleLinuxMpv)

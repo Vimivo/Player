@@ -89,7 +89,13 @@ jobs:
           $media = @("video_landscape.mp4", "video_sample.mkv", "track2_lunar.mp3", "track1_solaris.flac") |
             ForEach-Object { '"' + (Join-Path $PWD "testmedia\$_") + '"' }
           $process = Start-Process -FilePath "desktopApp/build/compose/binaries/main/app/Vimivo/Vimivo.exe" `
-            -ArgumentList (@("--smoke-test") + $media) -Wait -PassThru
+            -ArgumentList (@("--smoke-test") + $media) -PassThru
+          # A hard limit turns a hang into a failure instead of a stuck job.
+          if (-not $process.WaitForExit(240000)) {
+            Stop-Process -Id $process.Id -Force
+            Write-Error "Smoke test timed out"
+            exit 1
+          }
           if (Test-Path $report) { Get-Content $report }
           $passed = if (Test-Path $report) { (Select-String -Path $report -Pattern "^VIMIVO_SMOKE PASS").Count } else { 0 }
           if ($process.ExitCode -ne 0 -or $passed -ne 4) {

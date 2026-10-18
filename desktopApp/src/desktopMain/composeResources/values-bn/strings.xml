@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hud_volume">ভলিউম %1$s</string>
+    <string name="hud_muted">শব্দ বন্ধ</string>
+    <string name="hud_speed">গতি %1$s×</string>
+    <string name="hud_subtitle_delay">সাবটাইটেল বিলম্ব %1$s মি.সে.</string>
+    <string name="hud_audio_delay">অডিও বিলম্ব %1$s মি.সে.</string>
+    <string name="hud_audio_track">অডিও: %1$s</string>
+    <string name="hud_subtitle_track">সাবটাইটেল: %1$s</string>
+    <string name="hud_subtitles_off">সাবটাইটেল বন্ধ</string>
+    <string name="hud_no_audio_tracks">কোনো অডিও ট্র্যাক নেই</string>
+    <string name="hud_no_subtitle_tracks">কোনো সাবটাইটেল ট্র্যাক নেই</string>
+    <string name="hud_shuffle_toggled">শাফল পরিবর্তন হয়েছে</string>
+    <string name="hud_repeat_changed">রিপিট মোড পরিবর্তন হয়েছে</string>
+    <string name="hud_loop_point_a">লুপের শুরু (A) নির্ধারিত</string>
+    <string name="hud_loop_on">A-B লুপ চালু</string>
+    <string name="hud_loop_off">A-B লুপ বন্ধ</string>
+    <string name="hud_snapshot_saved">স্ন্যাপশট সংরক্ষিত: %1$s</string>
+    <string name="hud_aspect_ratio">অনুপাত: %1$s</string>
+    <string name="hud_deinterlace_on">ডিইন্টারলেসিং চালু</string>
+    <string name="hud_deinterlace_off">ডিইন্টারলেসিং বন্ধ</string>
+    <string name="hud_subtitle_loaded">সাবটাইটেল লোড হয়েছে: %1$s</string>
+    <string name="hud_subtitle_failed">%1$s লোড করা যায়নি</string>
+    <string name="hud_command_failed">%1$s ব্যর্থ: %2$s</string>
+    <string name="hud_unavailable">উপলব্ধ নয়</string>
+    <string name="hud_stream_opened">স্ট্রিম খোলা হচ্ছে</string>
+    <string name="hud_clipboard_not_url">ক্লিপবোর্ডে চালানোর মতো কোনো লিংক নেই</string>
+    <string name="hud_added_to_queue">পরবর্তী তালিকায় %1$dটি যোগ হয়েছে</string>
+
+    <string name="player_loading">%1$s খোলা হচ্ছে…</string>
+    <string name="player_resume_from">%1$s থেকে চালিয়ে যান</string>
+    <string name="player_start_over">শুরু থেকে</string>
+    <string name="player_resume_dismiss">বাতিল</string>
+    <string name="player_back_to_library">লাইব্রেরি</string>
+    <string name="player_back_to_library_description">লাইব্রেরিতে ফিরে যান</string>
+    <string name="player_now_playing">এখন চলছে</string>
+</resources>

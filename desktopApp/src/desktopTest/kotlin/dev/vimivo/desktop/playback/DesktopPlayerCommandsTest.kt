@@ -6,6 +6,7 @@ import androidx.compose.ui.input.key.Key
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.desktop.player.HudMessage
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
@@ -73,7 +74,7 @@ class DesktopPlayerCommandsTest {
         executor.execute(DesktopPlayerCommand.VOLUME_UP)
         executor.execute(DesktopPlayerCommand.SPEED_UP)
         assertEquals(listOf("seek:0", "volume:0.55", "speed:1.25"), engine.calls)
-        assertEquals("Speed 1.25x", executor.status.value)
+        assertEquals<HudMessage?>(HudMessage.Speed(1.25f), executor.status.value)
     }
 
     @Test
@@ -94,7 +95,7 @@ class DesktopPlayerCommandsTest {
         executor.execute(DesktopPlayerCommand.SUBTITLE_DELAY_UP)
         executor.execute(DesktopPlayerCommand.CYCLE_AUDIO_TRACK)
         assertEquals(listOf("sid:null", "subdelay:300"), engine.calls)
-        assertEquals("No audio tracks", executor.status.value)
+        assertEquals<HudMessage?>(HudMessage.NoAudioTracks, executor.status.value)
     }
 
     @Test
@@ -124,7 +125,7 @@ class DesktopPlayerCommandsTest {
         val engine = FakeEngine(loaded(), failFrameStep = true)
         val executor = executor(engine)
         assertTrue(executor.execute(DesktopPlayerCommand.FRAME_STEP_FORWARD))
-        assertEquals("Next frame failed: no frames", executor.status.value)
+        assertEquals<HudMessage?>(HudMessage.Failed("Next frame", "no frames"), executor.status.value)
     }
 
     @Test
@@ -165,14 +166,14 @@ class DesktopPlayerCommandsTest {
         val executor = executor(engine)
 
         executor.execute(DesktopPlayerCommand.VOLUME_UP)
-        assertEquals("Volume 100%", executor.status.value)
+        assertEquals<HudMessage?>(HudMessage.Volume(100), executor.status.value)
         executor.execute(DesktopPlayerCommand.VOLUME_UP)
         executor.execute(DesktopPlayerCommand.VOLUME_UP_FINE)
-        assertEquals("Volume 106%", executor.status.value)
+        assertEquals<HudMessage?>(HudMessage.Volume(106), executor.status.value)
 
         executor.setVolumeLevel(5f)
         assertEquals(listOf("volume:1.0", "volume:1.05", "volume:1.06", "volume:2.0"), engine.calls)
-        assertEquals("Volume 200%", executor.status.value)
+        assertEquals<HudMessage?>(HudMessage.Volume(200), executor.status.value)
     }
 
     @Test

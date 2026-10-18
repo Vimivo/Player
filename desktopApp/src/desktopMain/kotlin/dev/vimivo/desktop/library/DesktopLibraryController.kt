@@ -348,12 +348,13 @@ internal class DesktopLibraryController(
 
     suspend fun preparePlayback(media: MediaItem): Result<DesktopPlaybackRequest> = withContext(Dispatchers.IO) {
         runCatching {
-            require(media.uri.startsWith("file:")) { "Only indexed local files can be opened from the library" }
-            require(File(URI(media.uri)).isFile) { "The indexed media file is unavailable" }
+            require(media.uri.startsWith("file:")) { "Only local files can resume" }
+            require(File(URI(media.uri)).isFile) { "The media file is unavailable" }
             val resumeEnabled = personalRepository.setting("resume_playback")?.toBooleanStrictOrNull() ?: true
             val pref = personalRepository.mediaPreference(media.id)
             val pos = if (resumeEnabled && (pref?.resumeEligible != false)) {
-                resumePositionMillis(media, personalRepository.position(media.id))
+                val saved = personalRepository.position(media.id) ?: personalRepository.externalPosition(media.uri)
+                resumePositionMillis(media, saved)
             } else {
                 0L
             }
@@ -364,6 +365,7 @@ internal class DesktopLibraryController(
     suspend fun observePlayback(playback: StateFlow<PlaybackState>) {
         var mediaId: String? = null
         var persistable = false
+        var external = false
         var historyRecorded = false
         var completionSaved = false
         var lastSavedPosition = -PLAYBACK_SAVE_INTERVAL_MILLIS
@@ -373,27 +375,24 @@ internal class DesktopLibraryController(
             if (media?.id?.value != mediaId) {
                 val leaving = previousState
                 val leavingMedia = leaving?.media
-                if (persistable && leavingMedia != null) {
+                if ((persistable || external) && leavingMedia != null) {
                     withContext(Dispatchers.IO) {
-                        personalRepository.savePosition(
-                            leavingMedia.id,
-                            leaving.positionMillis,
-                            leaving.durationMillis,
-                            leaving.status == PlaybackStatus.Completed,
-                        )
+                        savePlaybackPosition(leavingMedia, leaving, leaving.status == PlaybackStatus.Completed, external)
                     }
                 }
                 mediaId = media?.id?.value
                 persistable = media != null && withContext(Dispatchers.IO) { personalRepository.containsMedia(media.id) }
+                // Files opened outside the library still resume, but stay out of the library's history.
+                external = !persistable && media?.uri?.startsWith("file:") == true
                 historyRecorded = false
                 completionSaved = false
                 lastSavedPosition = -PLAYBACK_SAVE_INTERVAL_MILLIS
             }
-            if (media == null || !persistable) {
+            if (media == null || (!persistable && !external)) {
                 previousState = playbackState
                 return@collect
             }
-            if (playbackState.status == PlaybackStatus.Playing && !historyRecorded) {
+            if (persistable && playbackState.status == PlaybackStatus.Playing && !historyRecorded) {
                 withContext(Dispatchers.IO) {
                     personalRepository.recordPlayback(media.id, playbackState.positionMillis, completed = false)
                 }
@@ -410,19 +409,22 @@ internal class DesktopLibraryController(
             }
             if (shouldPersist) {
                 withContext(Dispatchers.IO) {
-                    personalRepository.savePosition(
-                        media.id,
-                        playbackState.positionMillis,
-                        playbackState.durationMillis,
-                        completed,
-                    )
-                    if (completed) personalRepository.markPlaybackCompleted(media.id, playbackState.positionMillis)
+                    savePlaybackPosition(media, playbackState, completed, external)
+                    if (completed && !external) personalRepository.markPlaybackCompleted(media.id, playbackState.positionMillis)
                 }
                 lastSavedPosition = playbackState.positionMillis
                 completionSaved = completed
                 if (completed) refresh()
             }
             previousState = playbackState
+        }
+    }
+
+    private fun savePlaybackPosition(media: MediaItem, playback: PlaybackState, completed: Boolean, external: Boolean) {
+        if (external) {
+            personalRepository.saveExternalPosition(media.uri, playback.positionMillis, playback.durationMillis, completed)
+        } else {
+            personalRepository.savePosition(media.id, playback.positionMillis, playback.durationMillis, completed)
         }
     }
 

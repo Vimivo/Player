@@ -32,7 +32,7 @@ jobs:
       - name: Install Linux packaging tools and libmpv
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev ffmpeg xvfb
+          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev ffmpeg xvfb dbus playerctl
 
       - name: Generate smoke-test media
         run: python3 testmedia/generate_media.py
@@ -50,10 +50,14 @@ jobs:
 
       - name: Smoke-test the packaged app (launch + local video and audio playback)
         run: |
-          xvfb-run -a -s "-screen 0 1280x800x24" desktopApp/build/compose/binaries/main/app/Vimivo/bin/Vimivo --smoke-test \
+          # A hard limit turns a hang (e.g. a shutdown deadlock) into a failure instead of a stuck job.
+          timeout 240 xvfb-run -a -s "-screen 0 1280x800x24" desktopApp/build/compose/binaries/main/app/Vimivo/bin/Vimivo --smoke-test \
             "$PWD/testmedia/video_landscape.mp4" "$PWD/testmedia/video_sample.mkv" \
             "$PWD/testmedia/track2_lunar.mp3" "$PWD/testmedia/track1_solaris.flac" | tee smoke.log
           test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 4
+
+      - name: Verify MPRIS media controls with playerctl
+        run: bash desktopApp/scripts/verify_mpris.sh "$PWD/desktopApp/build/compose/binaries/main/app/Vimivo/bin/Vimivo"
 
       - name: Package DEB and RPM
         run: ./gradlew :desktopApp:packageDeb :desktopApp:packageRpm

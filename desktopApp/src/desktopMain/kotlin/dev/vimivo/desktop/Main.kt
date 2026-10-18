@@ -28,6 +28,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.runtime.snapshotFlow
+import dev.vimivo.desktop.integration.mpris.MprisService
+import dev.vimivo.desktop.player.AudioNowPlayingCard
+import dev.vimivo.desktop.player.LaunchArguments
+import dev.vimivo.desktop.player.PlayerIntent
+import dev.vimivo.desktop.player.PlayerLoadingCard
+import dev.vimivo.desktop.player.PlayerPresentation
+import dev.vimivo.desktop.player.PlayerStageHeader
+import dev.vimivo.desktop.player.PlayerViewModel
+import dev.vimivo.desktop.player.ResumeToast
+import dev.vimivo.desktop.player.desktopPlayerModule
+import dev.vimivo.desktop.player.text
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -75,10 +89,8 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import dev.vimivo.desktop.diagnostics.DesktopSmokeResult
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTestRequest
-import dev.vimivo.desktop.library.DesktopDatabase
 import javax.imageio.ImageIO
 import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.ui.components.VimivoGlassSurface
@@ -114,7 +126,6 @@ import dev.vimivo.playback.PlaybackQueueController
 import dev.vimivo.playback.ReplayGainMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.awt.Canvas
 import java.awt.FileDialog
@@ -122,27 +133,37 @@ import java.awt.Frame
 import java.io.File
 import kotlin.system.exitProcess
 
-fun main(args: Array<String>) = application {
+fun main(args: Array<String>) {
+    val exit = ExitStatus()
+    desktopApplication(args, exit)
+    // Exit on the main thread once Compose has shut down: exiting from the event thread while AWT holds its
+    // lock deadlocks against the X11 toolkit's shutdown hook on Linux.
+    exitProcess(exit.code)
+}
+
+/** The process exit code, set by verification runs before they close the application. */
+private class ExitStatus {
+    @Volatile var code = 0
+}
+
+private fun desktopApplication(args: Array<String>, exit: ExitStatus) = application {
     val smokeTest = remember { DesktopSmokeTest.parse(args) }
-    val engine = remember { MpvPlayerEngine() }
+    val koin = remember { startKoin { modules(desktopPlayerModule(isolated = smokeTest != null)) }.koin }
+    val viewModel = remember { koin.get<PlayerViewModel>() }
+    val engine = remember { koin.get<MpvPlayerEngine>() }
+    val queue = remember { koin.get<PlaybackQueueController>() }
+    val library = remember { koin.get<DesktopLibraryController>() }
+    val recentMedia = remember { koin.get<dev.vimivo.desktop.library.DesktopRecentMediaRepository>() }
     val openFileHandler = remember { MacOpenFileHandler().also { it.install() } }
-    val applicationScope = rememberCoroutineScope()
-    val library = remember {
-        if (smokeTest != null) DesktopLibraryController(DesktopDatabase.inMemory()) else DesktopLibraryController()
-    }
-    val queue = remember(engine, applicationScope) {
-        PlaybackQueueController(engine, applicationScope, isAvailable = { media ->
-            media.isAvailable && (!media.uri.startsWith("file:") || runCatching { File(java.net.URI(media.uri)).isFile }.getOrDefault(false))
-        })
-    }
-    val mpris = remember(engine, queue) {
-        dev.vimivo.desktop.integration.mpris.MprisServiceFactory.create(
-            engine,
-            queue,
-            { togglePlayback(engine, queue, library) },
+    remember {
+        koin.get<MprisService>()
+        viewModel.start(
+            launch = if (smokeTest != null) LaunchArguments() else LaunchArguments.parse(args),
+            externalFiles = openFileHandler.files,
         )
     }
-    val playbackState by engine.state.collectAsState()
+    val playerState by viewModel.state.collectAsState()
+    val playbackState = playerState.playback
     val windowTitle = remember(playbackState.media?.title, playbackState.media?.artist) {
         val media = playbackState.media
         if (media != null && media.title.isNotBlank()) {
@@ -163,40 +184,37 @@ fun main(args: Array<String>) = application {
         }.getOrNull()
     }
     val windowState = rememberWindowState()
-    val recentMedia = remember {
-        dev.vimivo.desktop.library.DesktopRecentMediaRepository(persistent = smokeTest == null)
-    }
     val recentEntries by recentMedia.entries.collectAsState()
-    val toggleFullscreen: () -> Unit = {
-        windowState.placement = if (windowState.placement == WindowPlacement.Fullscreen) WindowPlacement.Floating else WindowPlacement.Fullscreen
+    // The ViewModel owns the fullscreen decision; the window follows it and reports OS-initiated changes back.
+    LaunchedEffect(playerState.fullscreen) {
+        val target = if (playerState.fullscreen) WindowPlacement.Fullscreen else WindowPlacement.Floating
+        if ((windowState.placement == WindowPlacement.Fullscreen) != playerState.fullscreen) windowState.placement = target
     }
-    val commands = remember(engine, queue) {
-        DesktopPlayerCommandExecutor(
-            engine = engine,
-            togglePlayback = { applicationScope.launch { togglePlayback(engine, queue, library) } },
-            toggleShuffle = queue::toggleShuffle,
-            cycleRepeat = queue::cycleRepeat,
-            fullscreen = object : dev.vimivo.desktop.playback.DesktopFullscreenControl {
-                override fun toggle() = toggleFullscreen()
-                override fun exit(): Boolean = (windowState.placement == WindowPlacement.Fullscreen).also { wasFullscreen ->
-                    if (wasFullscreen) windowState.placement = WindowPlacement.Floating
-                }
-            },
-        )
+    LaunchedEffect(windowState) {
+        snapshotFlow { windowState.placement == WindowPlacement.Fullscreen }
+            .collect { fullscreen -> viewModel.dispatch(PlayerIntent.SetFullscreen(fullscreen)) }
+    }
+    val toggleFullscreen: () -> Unit = { viewModel.dispatch(PlayerIntent.SetFullscreen(!viewModel.state.value.fullscreen)) }
+    val commands = viewModel.commands
+    val exitApp: () -> Unit = {
+        openFileHandler.close()
+        stopKoin()
+        exitApplication()
     }
     Window(
-        onCloseRequest = {
-            mpris.close()
-            queue.close()
-            engine.close()
-            openFileHandler.close()
-            exitApplication()
-        },
+        onCloseRequest = exitApp,
         state = windowState,
         title = windowTitle,
         icon = windowIcon,
         onKeyEvent = { event ->
             // Runs only for keys no focused component consumed, so text fields keep their typing keys.
+            val primary = if (DesktopPlatform.detect() == DesktopPlatform.MACOS) event.isMetaPressed else event.isCtrlPressed
+            val isPaste = event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
+                primary && event.key == androidx.compose.ui.input.key.Key.V
+            if (isPaste) {
+                clipboardText()?.let { viewModel.dispatch(PlayerIntent.OpenLink(it)) }
+                return@Window true
+            }
             event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
                 DesktopPlayerShortcuts.resolve(
                     key = event.key,
@@ -208,6 +226,14 @@ fun main(args: Array<String>) = application {
         },
     ) {
         var openStreamRequested by remember { mutableStateOf(false) }
+        // Another app handed over a file: bring the player forward.
+        LaunchedEffect(playerState.focusRequest) {
+            if (playerState.focusRequest > 0) {
+                window.isMinimized = false
+                window.toFront()
+                window.requestFocus()
+            }
+        }
         var requestedDestination by remember { mutableStateOf<DesktopDestination?>(null) }
         LaunchedEffect(window) {
             window.dropTarget = java.awt.dnd.DropTarget(window, object : java.awt.dnd.DropTargetAdapter() {
@@ -276,18 +302,18 @@ fun main(args: Array<String>) = application {
                         androidx.compose.ui.input.key.Key.Spacebar,
                         ctrl = true,
                     ),
-                    onClick = { applicationScope.launch { togglePlayback(engine, queue, library) } },
+                    onClick = { viewModel.dispatch(PlayerIntent.TogglePlayback) },
                 )
                 Item("Stop", onClick = { engine.stop() })
                 Item(
                     "Next Track",
                     shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.DirectionRight),
-                    onClick = { applicationScope.launch { queue.next() } },
+                    onClick = { viewModel.dispatch(PlayerIntent.Next) },
                 )
                 Item(
                     "Previous Track",
                     shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.DirectionLeft),
-                    onClick = { applicationScope.launch { queue.previous() } },
+                    onClick = { viewModel.dispatch(PlayerIntent.Previous) },
                 )
                 Separator()
                 Item(
@@ -409,23 +435,18 @@ fun main(args: Array<String>) = application {
             engine,
             queue,
             library,
-            if (smokeTest != null) emptyList() else args.map(::File),
+            viewModel,
             openFileHandler,
-            mpris,
             smokeTest = smokeTest,
             onSmokeTestFinished = { passed ->
-                mpris.close()
-                queue.close()
-                engine.close()
-                openFileHandler.close()
-                exitProcess(if (passed) 0 else 1)
+                exit.code = if (passed) 0 else 1
+                exitApp()
             },
             openStreamRequested = openStreamRequested,
             onOpenStreamHandled = { openStreamRequested = false },
             requestedDestination = requestedDestination,
             onDestinationHandled = { requestedDestination = null },
             commands = commands,
-            recentMedia = recentMedia,
             isFullscreen = windowState.placement == WindowPlacement.Fullscreen,
             onToggleFullscreen = toggleFullscreen,
         )
@@ -451,46 +472,32 @@ private fun androidx.compose.ui.window.MenuScope.commandItems(
     }
 }
 
-/** Pauses active playback, resumes loaded media, or opens a restored queue entry only after a user action. */
-internal suspend fun togglePlayback(
-    engine: MpvPlayerEngine,
-    queue: PlaybackQueueController,
-    library: DesktopLibraryController,
-) {
-    val playback = engine.state.value
-    when {
-        playback.status == PlaybackStatus.Playing -> engine.pause()
-        playback.media != null -> engine.play()
-        else -> queue.state.value.currentMedia?.let { media ->
-            val start = library.preparePlayback(media).getOrNull()?.startPositionMillis ?: 0
-            queue.playCurrent(start)
-        }
-    }
-}
-
 @Composable
 private fun DesktopPlayer(
     engine: MpvPlayerEngine,
     queue: PlaybackQueueController,
     library: DesktopLibraryController,
-    initialFiles: List<File>,
+    viewModel: PlayerViewModel,
     openFileHandler: MacOpenFileHandler,
-    mpris: dev.vimivo.desktop.integration.mpris.MprisService,
     openStreamRequested: Boolean = false,
     onOpenStreamHandled: () -> Unit = {},
     requestedDestination: DesktopDestination? = null,
     onDestinationHandled: () -> Unit = {},
     commands: DesktopPlayerCommandExecutor,
-    recentMedia: dev.vimivo.desktop.library.DesktopRecentMediaRepository,
     isFullscreen: Boolean = false,
     onToggleFullscreen: () -> Unit = {},
     smokeTest: DesktopSmokeTestRequest? = null,
     onSmokeTestFinished: (Boolean) -> Unit = {},
 ) {
-    val state by engine.state.collectAsState()
-    val commandStatus by commands.status.collectAsState()
+    val playerState by viewModel.state.collectAsState()
+    val state = playerState.playback
+    val commandStatus = playerState.hud
     val mediaInfoVisible by commands.mediaInfoVisible.collectAsState()
     val videoFullscreen = isFullscreen && state.media?.kind == MediaKind.VIDEO
+    // Opening a video goes straight to the player; the library is one click away.
+    val showPlayerStage = playerState.presentation == PlayerPresentation.VIDEO &&
+        (state.media != null || playerState.loadingTitle != null)
+    val libraryVisible = !videoFullscreen && !showPlayerStage
     val currentToggleFullscreen by androidx.compose.runtime.rememberUpdatedState(onToggleFullscreen)
     val scope = rememberCoroutineScope()
     val queueState by queue.state.collectAsState()
@@ -516,7 +523,7 @@ private fun DesktopPlayer(
     var gridView by remember { mutableStateOf(library.uiSetting("library_view_mode") == "GRID") }
     var descendingSort by remember { mutableStateOf(false) }
     val streamHistoryRepository = remember { dev.vimivo.desktop.streaming.DesktopStreamHistoryRepository() }
-    var lyricsDoc by remember(state.media?.uri) { mutableStateOf<dev.vimivo.core.lyrics.LyricsDocument?>(null) }
+    val lyricsDoc = playerState.lyrics
 
     LaunchedEffect(requestedDestination) {
         requestedDestination?.let {
@@ -534,38 +541,8 @@ private fun DesktopPlayer(
         }
     }
 
-    LaunchedEffect(state.media?.uri) {
-        val uri = state.media?.uri
-        if (uri != null && uri.startsWith("file:")) {
-            runCatching {
-                val mediaFile = File(java.net.URI(uri))
-                val base = mediaFile.nameWithoutExtension
-                val candidate = mediaFile.parentFile?.listFiles()?.firstOrNull { file ->
-                    file.isFile && file.extension.equals("lrc", true) &&
-                        (file.nameWithoutExtension.equals(base, true) || file.nameWithoutExtension.startsWith("$base.", true))
-                }
-                if (candidate != null && candidate.canRead()) {
-                    lyricsDoc = dev.vimivo.core.lyrics.LrcLyricsParser.parse(candidate.readText(Charsets.UTF_8), candidate.toURI().toString())
-                } else {
-                    lyricsDoc = null
-                }
-            }.onFailure { lyricsDoc = null }
-        } else {
-            lyricsDoc = null
-        }
-    }
-
     val videoCanvas = remember { Canvas() }
-    val playMedia: (MediaItem) -> Unit = { media ->
-        scope.launch {
-            library.preparePlayback(media).onSuccess { request ->
-                queue.play(listOf(request.media), startPositionMillis = request.startPositionMillis)
-            }
-        }
-    }
-    DisposableEffect(engine) { onDispose(engine::close) }
-    DisposableEffect(queue) { onDispose(queue::close) }
-    DisposableEffect(library) { onDispose(library::close) }
+    val playMedia: (MediaItem) -> Unit = { media -> viewModel.dispatch(PlayerIntent.PlayLibraryItem(media)) }
     DisposableEffect(videoCanvas) {
         engine.attachVideoSurface(videoCanvas)
         val doubleClickListener = object : java.awt.event.MouseAdapter() {
@@ -579,63 +556,9 @@ private fun DesktopPlayer(
     if (smokeTest != null) {
         // Declared after the surface is attached so video smoke runs exercise the real renderer.
         LaunchedEffect(smokeTest) {
-            val results = DesktopSmokeTest.run(smokeTest.files, engine.state, File::toMediaItem, play = { media ->
-                queue.play(listOf(media))
-            })
-            DesktopSmokeTest.publish(results, System.getenv("VIMIVO_SMOKE_REPORT"))
-            onSmokeTestFinished(results.isNotEmpty() && results.all { it is DesktopSmokeResult.Passed })
+            onSmokeTestFinished(viewModel.runSmokeTest(smokeTest.files))
         }
     }
-    LaunchedEffect(engine, recentMedia) {
-        // Only local files the user opened are remembered; stream URLs stay in the redacted stream history.
-        engine.state.collect { playback ->
-            val media = playback.media ?: return@collect
-            if (media.uri.startsWith("file:") && playback.status == PlaybackStatus.Playing) {
-                recentMedia.record(dev.vimivo.playback.RecentMediaEntry(media.uri, media.title, media.kind == MediaKind.VIDEO))
-            }
-        }
-    }
-    LaunchedEffect(commandStatus) {
-        if (commandStatus != null) {
-            delay(2_000)
-            commands.clearStatus()
-        }
-    }
-    LaunchedEffect(initialFiles, openFileHandler, library, queue) {
-        // Restore first so explicitly opened files replace, rather than race with, the saved paused queue.
-        library.restoredQueue()?.let { snapshot -> runCatching { queue.restore(snapshot) } }
-        launch {
-            queue.state.drop(1).collect { library.saveQueue(queue.snapshot()) }
-        }
-        initialFiles.filter(File::isFile).takeIf(List<File>::isNotEmpty)?.let { files ->
-            queue.play(files.map(File::toMediaItem))
-        }
-        openFileHandler.files.collect { files ->
-            // Subtitle files dropped or opened while something plays attach to it instead of replacing it.
-            val (subtitles, media) = files.filter(File::isFile).partition { MpvPlayerEngine.externalSubtitleFor(it) != null }
-            if (engine.state.value.media != null) {
-                subtitles.mapNotNull(MpvPlayerEngine::externalSubtitleFor).forEach { subtitle ->
-                    engine.addExternalSubtitle(subtitle)
-                        .onSuccess { commands.report("Subtitles: ${subtitle.label}") }
-                        .onFailure { commands.report("Could not load ${subtitle.label}") }
-                }
-            }
-            val valid = media.map(File::toMediaItem)
-            if (valid.isNotEmpty()) {
-                queue.play(valid)
-            }
-        }
-    }
-    LaunchedEffect(engine, library) {
-        library.observePlayback(engine.state)
-    }
-    LaunchedEffect(engine, mpris) {
-        engine.state.collect { mpris.updatePlayback(it) }
-    }
-    LaunchedEffect(queue, mpris) {
-        queue.state.collect { mpris.updateQueue(it) }
-    }
-
     VimivoTheme(
         mode = libraryState.themeMode,
         highContrast = libraryState.highContrast,
@@ -716,11 +639,23 @@ private fun DesktopPlayer(
                             }
                             Column(
                                 Modifier.fillMaxSize().then(
-                                    if (videoFullscreen) Modifier else Modifier.verticalScroll(contentScrollState).padding(contentPadding),
+                                    when {
+                                        videoFullscreen -> Modifier
+                                        showPlayerStage -> Modifier.padding(contentPadding)
+                                        else -> Modifier.verticalScroll(contentScrollState).padding(contentPadding)
+                                    },
                                 ),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                             ) {
-                                if (!videoFullscreen && destination == DesktopDestination.Home) {
+                                val nowPlayingAudio = state.media?.takeIf { it.kind == MediaKind.AUDIO }
+                                if (libraryVisible && playerState.presentation == PlayerPresentation.AUDIO && nowPlayingAudio != null) {
+                                    AudioNowPlayingCard(
+                                        media = nowPlayingAudio,
+                                        loading = playerState.loadingTitle != null,
+                                        onBackToLibrary = { viewModel.dispatch(PlayerIntent.ShowLibrary) },
+                                    )
+                                }
+                                if (libraryVisible && destination == DesktopDestination.Home) {
                                     DesktopHomeScreenView(
                                         state = libraryState,
                                         onPlay = playMedia,
@@ -747,7 +682,7 @@ private fun DesktopPlayer(
                                         },
                                     )
                                 }
-            if (!videoFullscreen && destination in setOf(DesktopDestination.Music, DesktopDestination.Videos)) {
+            if (libraryVisible && destination in setOf(DesktopDestination.Music, DesktopDestination.Videos)) {
                 DesktopLibraryPanel(
                     destination = destination,
                     state = libraryState,
@@ -774,7 +709,7 @@ private fun DesktopPlayer(
                     onEditSelectedMetadata = { destination = DesktopDestination.MetadataEditor },
                 )
             }
-            if (!videoFullscreen && destination == DesktopDestination.Albums) {
+            if (libraryVisible && destination == DesktopDestination.Albums) {
                 if (selectedAlbum != null) {
                     val details = remember(selectedAlbum, libraryState) { library.albumDetails(selectedAlbum!!.id) }
                     if (details != null) {
@@ -804,7 +739,7 @@ private fun DesktopPlayer(
                     )
                 }
             }
-            if (!videoFullscreen && destination == DesktopDestination.Artists) {
+            if (libraryVisible && destination == DesktopDestination.Artists) {
                 if (selectedArtist != null) {
                     val details = remember(selectedArtist, libraryState) { library.artistDetails(selectedArtist!!.id) }
                     if (details != null) {
@@ -838,7 +773,7 @@ private fun DesktopPlayer(
                     )
                 }
             }
-            if (!videoFullscreen && destination == DesktopDestination.Playlists) {
+            if (libraryVisible && destination == DesktopDestination.Playlists) {
                 DesktopPlaylistsPanel(
                     state = libraryState,
                     onCreate = library::createPlaylist,
@@ -886,7 +821,7 @@ private fun DesktopPlayer(
                     onImportM3u = { file -> library.importPlaylistM3u(file) },
                 )
             }
-            if (!videoFullscreen && destination == DesktopDestination.Favorites) {
+            if (libraryVisible && destination == DesktopDestination.Favorites) {
                 DesktopFavoritesPanel(
                     items = libraryState.favorites,
                     onPlay = playMedia,
@@ -895,7 +830,7 @@ private fun DesktopPlayer(
                     onToggle = library::toggleFavorite,
                 )
             }
-            if (!videoFullscreen && destination == DesktopDestination.History) {
+            if (libraryVisible && destination == DesktopDestination.History) {
                 DesktopHistoryPanel(
                     items = libraryState.history,
                     onPlay = playMedia,
@@ -905,36 +840,36 @@ private fun DesktopPlayer(
                     onClear = library::clearHistory,
                 )
             }
-            if (!videoFullscreen && destination == DesktopDestination.SmartPlaylists) {
+            if (libraryVisible && destination == DesktopDestination.SmartPlaylists) {
                 DesktopSmartPlaylistsPanel(
                     state = libraryState,
                     controller = library,
                     onPlay = playMedia,
                 )
             }
-            if (!videoFullscreen && destination == DesktopDestination.Duplicates) {
+            if (libraryVisible && destination == DesktopDestination.Duplicates) {
                 DesktopDuplicatesPanel(
                     state = libraryState,
                     controller = library,
                     onPlay = playMedia,
                 )
             }
-            if (!videoFullscreen && destination == DesktopDestination.Insights) {
+            if (libraryVisible && destination == DesktopDestination.Insights) {
                 DesktopInsightsPanel(state = libraryState)
             }
-            if (!videoFullscreen && destination == DesktopDestination.MetadataEditor) {
+            if (libraryVisible && destination == DesktopDestination.MetadataEditor) {
                 DesktopMetadataEditorPanel(state = libraryState, controller = library)
             }
-            if (!videoFullscreen && destination == DesktopDestination.BatchRename) {
+            if (libraryVisible && destination == DesktopDestination.BatchRename) {
                 DesktopBatchRenamePanel(state = libraryState, controller = library)
             }
-            if (!videoFullscreen && destination == DesktopDestination.MissingMedia) {
+            if (libraryVisible && destination == DesktopDestination.MissingMedia) {
                 DesktopMissingMediaPanel(state = libraryState, controller = library)
             }
-            if (!videoFullscreen && destination == DesktopDestination.Automation) {
+            if (libraryVisible && destination == DesktopDestination.Automation) {
                 DesktopAutomationHealthPanel(state = libraryState, controller = library)
             }
-            if (!videoFullscreen && destination == DesktopDestination.Network) {
+            if (libraryVisible && destination == DesktopDestination.Network) {
                 dev.vimivo.desktop.streaming.DesktopNetworkStreamPanel(
                     onOpenStreamDialog = { showOpenStreamDialog = true },
                     onPlayStream = { mediaItem ->
@@ -946,7 +881,7 @@ private fun DesktopPlayer(
                     historyRepository = streamHistoryRepository,
                 )
             }
-            if (!videoFullscreen && destination == DesktopDestination.Settings) {
+            if (libraryVisible && destination == DesktopDestination.Settings) {
                 DesktopSettingsPanel(
                     state = libraryState,
                     onThemeSelected = library::setThemeMode,
@@ -1052,10 +987,24 @@ private fun DesktopPlayer(
                     onResetSettings = library::resetSettings,
                 )
             }
-            if (!videoFullscreen && destination == DesktopDestination.Videos || state.media?.kind == MediaKind.VIDEO) {
+            val videosPage = libraryVisible && destination == DesktopDestination.Videos
+            if (videosPage || showPlayerStage || state.media?.kind == MediaKind.VIDEO) {
+                val stage = videoFullscreen || showPlayerStage
+                val loadingTitle = playerState.loadingTitle
+                if (showPlayerStage && !videoFullscreen) {
+                    PlayerStageHeader(state.media?.title ?: loadingTitle) { viewModel.dispatch(PlayerIntent.ShowLibrary) }
+                }
+                if (stage && loadingTitle != null) {
+                    PlayerLoadingCard(loadingTitle, Modifier.fillMaxWidth().weight(1f))
+                }
+                // While loading, the surface stays attached (1 dp) so the renderer can bind to it behind the card.
                 SwingPanel(
                     factory = { videoCanvas },
-                    modifier = if (videoFullscreen) Modifier.fillMaxWidth().weight(1f) else Modifier.fillMaxWidth().height(360.dp),
+                    modifier = when {
+                        stage && loadingTitle != null -> Modifier.size(1.dp)
+                        stage -> Modifier.fillMaxWidth().weight(1f)
+                        else -> Modifier.fillMaxWidth().height(360.dp)
+                    },
                 )
                 if (!videoFullscreen) {
                     dev.vimivo.desktop.playback.DesktopVideoControlsPanel(
@@ -1178,6 +1127,14 @@ private fun DesktopPlayer(
                         }
                     }
 
+                    playerState.resumePrompt?.let { prompt ->
+                        ResumeToast(
+                            prompt = prompt,
+                            onStartOver = { viewModel.dispatch(PlayerIntent.StartOver) },
+                            onDismiss = { viewModel.dispatch(PlayerIntent.DismissResume) },
+                            modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 6.dp),
+                        )
+                    }
                     commandStatus?.let { message ->
                         Surface(
                             color = MaterialTheme.colorScheme.inverseSurface,
@@ -1186,7 +1143,7 @@ private fun DesktopPlayer(
                             modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 6.dp)
                                 .semantics { liveRegion = LiveRegionMode.Polite },
                         ) {
-                            Text(message, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                            Text(message.text(), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
                         }
                     }
 
@@ -1194,7 +1151,7 @@ private fun DesktopPlayer(
                     DesktopPlaybackBarView(
                         state = state,
                         queueState = queueState,
-                        onTogglePlayback = { scope.launch { togglePlayback(engine, queue, library) } },
+                        onTogglePlayback = { viewModel.dispatch(PlayerIntent.TogglePlayback) },
                         onPrevious = { scope.launch { queue.previous() } },
                         onNext = { scope.launch { queue.next() } },
                         onStop = { engine.stop() },
@@ -1537,6 +1494,10 @@ private fun chooseMediaFiles(): List<File> {
     dialog.isVisible = true
     return dialog.files.orEmpty().toList()
 }
+
+private fun clipboardText(): String? = runCatching {
+    java.awt.Toolkit.getDefaultToolkit().systemClipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String
+}.getOrNull()?.takeIf(String::isNotBlank)
 
 private fun choosePlaylistFile(): File? {
     val dialog = FileDialog(null as Frame?, "Import Playlist (M3U, XSPF)", FileDialog.LOAD)

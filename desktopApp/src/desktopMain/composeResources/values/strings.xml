@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- On-screen HUD feedback for player commands -->
+    <string name="hud_volume">Volume %1$s</string>
+    <string name="hud_muted">Muted</string>
+    <string name="hud_speed">Speed %1$s×</string>
+    <string name="hud_subtitle_delay">Subtitle delay %1$s ms</string>
+    <string name="hud_audio_delay">Audio delay %1$s ms</string>
+    <string name="hud_audio_track">Audio: %1$s</string>
+    <string name="hud_subtitle_track">Subtitles: %1$s</string>
+    <string name="hud_subtitles_off">Subtitles off</string>
+    <string name="hud_no_audio_tracks">No audio tracks</string>
+    <string name="hud_no_subtitle_tracks">No subtitle tracks</string>
+    <string name="hud_shuffle_toggled">Shuffle toggled</string>
+    <string name="hud_repeat_changed">Repeat mode changed</string>
+    <string name="hud_loop_point_a">Loop point A set</string>
+    <string name="hud_loop_on">A-B loop on</string>
+    <string name="hud_loop_off">A-B loop off</string>
+    <string name="hud_snapshot_saved">Snapshot saved: %1$s</string>
+    <string name="hud_aspect_ratio">Aspect ratio: %1$s</string>
+    <string name="hud_deinterlace_on">Deinterlacing on</string>
+    <string name="hud_deinterlace_off">Deinterlacing off</string>
+    <string name="hud_subtitle_loaded">Subtitles loaded: %1$s</string>
+    <string name="hud_subtitle_failed">Could not load %1$s</string>
+    <string name="hud_command_failed">%1$s failed: %2$s</string>
+    <string name="hud_unavailable">unavailable</string>
+    <string name="hud_stream_opened">Opening stream</string>
+    <string name="hud_clipboard_not_url">The clipboard does not contain a playable link</string>
+    <string name="hud_added_to_queue">Added %1$d to Up Next</string>
+
+    <!-- Launch and resume -->
+    <string name="player_loading">Opening %1$s…</string>
+    <string name="player_resume_from">Resume from %1$s</string>
+    <string name="player_start_over">Start over</string>
+    <string name="player_resume_dismiss">Dismiss</string>
+    <string name="player_back_to_library">Library</string>
+    <string name="player_back_to_library_description">Back to the library</string>
+    <string name="player_now_playing">Now playing</string>
+</resources>
