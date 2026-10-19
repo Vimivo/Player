@@ -4,9 +4,9 @@ import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.playlist.PlaylistFormats
-import dev.vimivo.core.util.NaturalOrder
 import dev.vimivo.desktop.platform.DesktopMediaTypes
 import dev.vimivo.desktop.platform.MediaFamily
+import dev.vimivo.playback.SiblingQueues
 import java.io.File
 import java.net.URI
 
@@ -55,10 +55,10 @@ internal object LaunchPlanner {
         val family = DesktopMediaTypes.familyOf(file)
         val siblings = file.absoluteFile.parentFile?.listFiles()
             ?.filter { it.isFile && !it.isHidden && DesktopMediaTypes.familyOf(it) == family }
-            ?.sortedWith(compareBy(NaturalOrder) { it.name })
             .orEmpty()
-        val index = siblings.indexOfFirst { it.absoluteFile == file.absoluteFile }
-        return if (index < 0) listOf(mediaItemFor(file)) to 0 else siblings.map(::mediaItemFor) to index
+        val sameFile = { a: File, b: File -> a.absoluteFile == b.absoluteFile }
+        val queue = SiblingQueues.build(file, siblings, name = File::getName, sameFile = sameFile)
+        return queue.items.map(::mediaItemFor) to queue.startIndex
     }
 
     private fun expand(file: File): List<MediaItem> = when {
