@@ -126,6 +126,12 @@ run([
     "-metadata", "title=MPRIS Check", "-metadata", "artist=Vimivo CI",
     os.path.join(MEDIA_DIR, "mpris_check.mp3")
 ])
+run([
+    "ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=660:duration=30",
+    "-ac", "1", "-b:a", "32k",
+    "-metadata", "title=Second Song",
+    os.path.join(MEDIA_DIR, "mpris_second.mp3")
+])
 
 # 9. Public HLS stream URLs
 with open(os.path.join(MEDIA_DIR, "stream_urls.txt"), "w") as f:

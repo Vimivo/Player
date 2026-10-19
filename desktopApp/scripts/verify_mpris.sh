@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verifies Vimivo's MPRIS 2 service end to end with playerctl, inside a private D-Bus session.
 #   verify_mpris.sh <path to the Vimivo launcher, e.g. .../app/Vimivo/bin/Vimivo>
-# Needs: dbus (dbus-run-session), xvfb-run, playerctl. The test track is testmedia/mpris_check.mp3 (30 s, tagged).
+# Needs: dbus (dbus-run-session), xvfb-run, playerctl. The test tracks are testmedia/mpris_check.mp3 and mpris_second.mp3 (30 s, tagged).
 set -euo pipefail
 
 if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] || [ -z "${VIMIVO_MPRIS_INNER:-}" ]; then
@@ -59,7 +59,7 @@ await status 3 Paused
 
 # Single instance: a second launch hands its file to the running app and exits.
 SECOND="$WORK/Second Song.mp3"
-ffmpeg -loglevel error -f lavfi -i sine=frequency=660:duration=30 -metadata title="Second Song" "$SECOND"
+cp "$(dirname "$0")/../../testmedia/mpris_second.mp3" "$SECOND"
 xvfb-run -a -s "-screen 0 1280x800x24" timeout 30 "$APP" "$SECOND" >"$WORK/second.log" 2>&1 || fail "second launch did not exit cleanly"
 echo "SINGLE-INSTANCE PASS: second launch exited"
 await "metadata xesam:title" 15 "Second Song"
