@@ -62,7 +62,7 @@ jobs:
             "$PWD/testmedia/track2_lunar.mp3" "$PWD/testmedia/track1_solaris.flac" 2>&1 | tee smoke.log || true
           if [ "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -ne 7 ]; then
             echo "--- libmpv log (warnings and errors) ---"
-            grep -E '\[(e|w)\]|\[vo|\[cplayer\]' mpv.log | tail -120 || true
+            grep -E '\]\[(e|w|i)\]\[' mpv.log | head -250 || true
             exit 1
           fi
 
