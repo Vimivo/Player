@@ -172,7 +172,7 @@ class Target:
             path.write_text(
                 "[binaries]\n"
                 f"c = '{prefix}gcc'\ncpp = '{prefix}g++'\nar = '{prefix}ar'\nstrip = '{prefix}strip'\n"
-                f"windres = '{prefix}windres'\npkg-config = 'pkg-config'\n"
+                f"windres = '{prefix}windres'\ndlltool = '{prefix}dlltool'\npkg-config = 'pkg-config'\n"
                 "[built-in options]\n"
                 f"c_args = ['-I{self.prefix}/include']\ncpp_args = ['-I{self.prefix}/include']\n"
                 f"c_link_args = ['-L{self.prefix}/lib', {WINDOWS_RUNTIME}]\n"
@@ -378,17 +378,32 @@ def bundle_windows_runtime(bin_dir, licenses):
         if not missing:
             return
         for name in sorted(missing):
-            found = subprocess.run(["x86_64-w64-mingw32-gcc", f"-print-file-name={name}"], capture_output=True,
-                                   text=True, check=True).stdout.strip()
-            if not Path(found).is_file():
+            found = find_toolchain_file(name)
+            if found is None:
                 sys.exit(f"runtime DLL {name} not found in the mingw-w64 toolchain")
             shutil.copy2(found, bin_dir / name)
-            log(f"bundled mingw-w64 runtime {name}")
-        destination = licenses / "mingw-w64-winpthreads"
+            log(f"bundled mingw-w64 runtime {name} from {found}")
+        destination = licenses / "mingw-w64-runtime"
         destination.mkdir(parents=True, exist_ok=True)
         (destination / "NOTICE").write_text(
             "libwinpthread-1.dll is part of the mingw-w64 runtime (winpthreads), MIT and BSD-3-Clause licensed.\n"
-            "Source: https://sourceforge.net/projects/mingw-w64/ (the toolchain version is in build-info.json).\n")
+            "Source: https://sourceforge.net/projects/mingw-w64/\n\n"
+            "libgcc_s_seh-1.dll and libstdc++-6.dll, when present, are GCC runtime libraries, licensed under\n"
+            "GPL-3.0-or-later WITH GCC-exception-3.1; the exception allows distributing them with programs under any\n"
+            "licence. Source: https://gcc.gnu.org/\n")
+
+
+def find_toolchain_file(name):
+    """A runtime DLL of the mingw-w64 toolchain: next to its import libraries or in the matching bin directory."""
+    gcc = "x86_64-w64-mingw32-gcc"
+    printed = subprocess.run([gcc, f"-print-file-name={name}"], capture_output=True, text=True, check=True).stdout
+    candidates = [Path(printed.strip())]
+    search = subprocess.run([gcc, "-print-search-dirs"], capture_output=True, text=True, check=True).stdout
+    for line in search.splitlines():
+        if line.startswith("libraries: ="):
+            for directory in line[len("libraries: ="):].split(os.pathsep):
+                candidates += [Path(directory) / name, Path(directory) / ".." / "bin" / name]
+    return next((path.resolve() for path in candidates if path.is_absolute() and path.is_file()), None)
 
 
 # ---- package -----------------------------------------------------------------------------------------------------

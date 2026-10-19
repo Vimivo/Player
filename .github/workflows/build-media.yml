@@ -6,9 +6,14 @@ name: LGPL Media Stack (libmpv + FFmpeg)
 # published, checksum-pinned packages (scripts/build_media/media.lock) from our own GitHub Release.
 on:
   workflow_dispatch:
-  pull_request:
+  # push, not pull_request: a pull_request path filter matches the whole PR diff, so every later push to the PR would
+  # rebuild the stack (1-2 h per OS). A push filter only looks at the pushed commits.
+  push:
     paths:
       - "scripts/build_media/**"
+      - "!scripts/build_media/media.lock"
+      - "!scripts/build_media/fetch_media.py"
+      - "!scripts/build_media/README.md"
       - ".github/workflows/build-media.yml"
 
 permissions:
@@ -70,7 +75,7 @@ jobs:
           apt-get install -y --no-install-recommends build-essential ca-certificates curl xz-utils bzip2 \
             python3 python3-venv patchelf zlib1g-dev libssl-dev libfontconfig-dev \
             libx11-dev libxext-dev libxrandr-dev libxss-dev libxpresent-dev libxinerama-dev libxfixes-dev \
-            libegl-dev libgl-dev libva-dev libdrm-dev libpulse-dev libasound2-dev
+            libegl-dev libgl-dev libva-dev libdrm-dev libpulse-dev libasound2-dev hwdata
       - name: Build tools (hash-pinned)
         run: |
           python3 -m venv /opt/buildenv
