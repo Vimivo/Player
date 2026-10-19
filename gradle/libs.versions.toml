@@ -24,7 +24,7 @@ composeUi = "1.11.1"
 jna = "5.19.1"
 sqliteJdbc = "3.53.4.0"
 jaudiotagger = "3.0.1"
-haze = "1.7.1"
+haze = "2.0.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
