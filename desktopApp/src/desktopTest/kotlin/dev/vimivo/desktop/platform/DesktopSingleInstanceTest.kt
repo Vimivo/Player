@@ -14,7 +14,12 @@ import kotlin.test.assertTrue
 
 class DesktopSingleInstanceTest {
     // Short path: Unix-domain socket paths are limited to roughly 100 bytes.
-    private val directory = Files.createTempDirectory(File("/tmp").toPath(), "vi").also { it.toFile().deleteOnExit() }
+    // Windows has no /tmp; its own temp directory is short enough.
+    private val directory = shortTempDirectory().also { it.toFile().deleteOnExit() }
+
+    private fun shortTempDirectory() = File("/tmp").takeIf(File::isDirectory)
+        ?.let { Files.createTempDirectory(it.toPath(), "vi") }
+        ?: Files.createTempDirectory("vi")
 
     @Test
     fun secondLaunchForwardsFilesToTheRunningInstance() {

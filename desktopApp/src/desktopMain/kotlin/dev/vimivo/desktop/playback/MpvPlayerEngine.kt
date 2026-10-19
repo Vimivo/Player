@@ -465,7 +465,13 @@ class MpvPlayerEngine : PlayerEngine {
         context = created
         checkCode(loaded.mpv_set_option_string(created, "config", "no"))
         checkCode(loaded.mpv_set_option_string(created, "terminal", "no"))
-        val vo = if (desktopPlatform == DesktopPlatform.MACOS) "libmpv" else "gpu"
+        // libmpv never opens its own top-level window: without a Vimivo surface (headless use, tests) video is
+        // decoded but not displayed.
+        val vo = when {
+            desktopPlatform == DesktopPlatform.MACOS -> "libmpv"
+            videoSurface == null -> "null"
+            else -> "gpu"
+        }
         checkCode(loaded.mpv_set_option_string(created, "vo", vo))
         val initialHwdec = when (hwdecMode) {
             HardwareAccelerationMode.AUTO -> "auto-safe"
