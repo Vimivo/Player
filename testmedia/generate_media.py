@@ -119,6 +119,14 @@ run([
     os.path.join(MEDIA_DIR, "video_sample.mkv")
 ])
 
+# 8b. 30 s tagged track for the MPRIS check (desktopApp/scripts/verify_mpris.sh)
+run([
+    "ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=30",
+    "-ac", "1", "-b:a", "32k",
+    "-metadata", "title=MPRIS Check", "-metadata", "artist=Vimivo CI",
+    os.path.join(MEDIA_DIR, "mpris_check.mp3")
+])
+
 # 9. Public HLS stream URLs
 with open(os.path.join(MEDIA_DIR, "stream_urls.txt"), "w") as f:
     f.write("https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8\n")

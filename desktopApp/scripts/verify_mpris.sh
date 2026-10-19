@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verifies Vimivo's MPRIS 2 service end to end with playerctl, inside a private D-Bus session.
 #   verify_mpris.sh <path to the Vimivo launcher, e.g. .../app/Vimivo/bin/Vimivo>
-# Needs: dbus (dbus-run-session), xvfb-run, playerctl, ffmpeg.
+# Needs: dbus (dbus-run-session), xvfb-run, playerctl. The test track is testmedia/mpris_check.mp3 (30 s, tagged).
 set -euo pipefail
 
 if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] || [ -z "${VIMIVO_MPRIS_INNER:-}" ]; then
@@ -11,7 +11,8 @@ fi
 APP="$1"
 WORK="$(mktemp -d)"
 MEDIA="$WORK/MPRIS Check.mp3"
-ffmpeg -loglevel error -f lavfi -i sine=frequency=440:duration=30 -metadata title="MPRIS Check" -metadata artist="Vimivo CI" "$MEDIA"
+# A checked-in track (CI has no ffmpeg); the copy's name has a space to exercise URI escaping.
+cp "$(dirname "$0")/../../testmedia/mpris_check.mp3" "$MEDIA"
 
 xvfb-run -a -s "-screen 0 1280x800x24" "$APP" "$MEDIA" >"$WORK/app.log" 2>&1 &
 APP_PID=$!
