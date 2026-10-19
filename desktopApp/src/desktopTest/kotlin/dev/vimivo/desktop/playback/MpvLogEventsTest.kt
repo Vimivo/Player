@@ -1,6 +1,7 @@
 package dev.vimivo.desktop.playback
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -27,5 +28,31 @@ class MpvLogEventsTest {
         assertTrue(watch.firstSoftwareRendererReport(warning))
         assertFalse(watch.firstSoftwareRendererReport(warning))
         assertTrue(watch.softwareRenderer)
+    }
+
+    @Test
+    fun detectsSoftwareRenderersByNameBeforeAnyWarning() {
+        val llvmpipe = MpvLogMessage("vo/gpu/opengl", "v", "GL_RENDERER='llvmpipe (LLVM 20.1.2, 256 bits)'")
+        val warp = MpvLogMessage("vo/gpu/d3d11", "v", "Selected adapter: Microsoft Basic Render Driver")
+        val gpu = MpvLogMessage("vo/gpu/opengl", "v", "GL_RENDERER='AMD Radeon RX 7600 (radeonsi)'")
+        assertTrue(MpvLogEvents.isSoftwareRenderer(llvmpipe))
+        assertTrue(MpvLogEvents.isSoftwareRenderer(warp))
+        assertFalse(MpvLogEvents.isSoftwareRenderer(gpu))
+    }
+
+    @Test
+    fun infoPanelNamesTheRenderer() {
+        val software = MpvRendererWatch()
+        software.firstSoftwareRendererReport(
+            listOf(MpvLogMessage("vo/gpu/opengl", "v", "GL_RENDERER='llvmpipe (LLVM 20.1.2, 256 bits)'")),
+        )
+        assertEquals(
+            "Software rendering — performance mode on (llvmpipe (LLVM 20.1.2, 256 bits))",
+            software.description(),
+        )
+
+        val gpu = MpvRendererWatch()
+        gpu.firstSoftwareRendererReport(listOf(MpvLogMessage("vo/gpu/opengl", "v", "GL_RENDERER='Apple M2'")))
+        assertEquals("Apple M2", gpu.description())
     }
 }

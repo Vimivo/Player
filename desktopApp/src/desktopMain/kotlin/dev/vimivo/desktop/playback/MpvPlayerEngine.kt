@@ -249,6 +249,7 @@ class MpvPlayerEngine : PlayerEngine {
                 stringProperty("video-params/primaries"),
                 stringProperty("video-params/gamma"),
             ).joinToString(" · ").ifBlank { null },
+            rendering = rendererWatch.description(),
             audioParameters = listOfNotNull(
                 stringProperty("audio-params/format"),
                 stringProperty("audio-params/hr-channels") ?: stringProperty("audio-params/channels"),
@@ -388,7 +389,7 @@ class MpvPlayerEngine : PlayerEngine {
         val activeRenderer = (
             stringProperty("current-vo")
                 ?: if (desktopPlatform == DesktopPlatform.MACOS) "libmpv/cocoa" else "gpu"
-            ) + if (rendererWatch.softwareRenderer) " (software OpenGL, fast profile)" else ""
+            ) + if (rendererWatch.softwareRenderer) " (software rendering, performance mode)" else ""
         val dropped = longProperty("drop-frame-count") ?: longProperty("vo-delayed-frame-count") ?: 0L
         val totalFrames = longProperty("estimated-frame-count") ?: 0L
         val avDriftSec = doubleProperty("avsync") ?: 0.0
@@ -505,8 +506,9 @@ class MpvPlayerEngine : PlayerEngine {
         checkCode(loaded.mpv_set_option_string(created, "volume-max", (capabilities.maxVolume * 100).toInt().toString()))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
         checkCode(loaded.mpv_initialize(created))
-        // Warnings arrive as events; the polling loop reads them (see handleLogMessages).
-        loaded.mpv_request_log_messages(created, "warn")
+        // Log lines arrive as events; the polling loop reads them (see handleLogMessages). "v" includes the renderer
+        // name libmpv reports when its video output starts.
+        loaded.mpv_request_log_messages(created, "v")
     }
 
     private fun startPolling(expectedSession: Long) {
@@ -840,6 +842,8 @@ data class DesktopContainerInfo(
     val videoParameters: String?,
     val audioParameters: String?,
     val metadata: List<Pair<String, String>>,
+    /** The video renderer, e.g. "Software rendering — performance mode on (llvmpipe …)". */
+    val rendering: String? = null,
 )
 
 /** Embedded tags win over values derived from the file name; missing tags keep what was there. */

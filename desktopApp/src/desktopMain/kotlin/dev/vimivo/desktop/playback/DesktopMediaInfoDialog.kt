@@ -59,16 +59,7 @@ internal fun DesktopMediaInfoDialog(
                 Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SelectionContainer(Modifier.weight(1f)) {
                         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Section("General")
-                            InfoRow("Title", media.title)
-                            media.artist?.let { InfoRow("Artist", it) }
-                            media.album?.let { InfoRow("Album", it) }
-                            InfoRow("Location", media.uri)
-                            containerInfo?.format?.let { InfoRow("Container", it) }
-                            state.durationMillis?.let { InfoRow("Duration", MediaInfoFormatter.formatDuration(it)) }
-                            containerInfo?.fileSizeBytes?.let { InfoRow("Size", MediaInfoFormatter.formatFileSize(it)) }
-                            containerInfo?.videoParameters?.let { InfoRow("Video output", it) }
-                            containerInfo?.audioParameters?.let { InfoRow("Audio output", it) }
+                            GeneralSection(state, containerInfo)
 
                             TrackSection("Video", state.videoTracks)
                             TrackSection("Audio", state.audioTracks)
@@ -87,6 +78,22 @@ internal fun DesktopMediaInfoDialog(
             }
         }
     }
+}
+
+@Composable
+private fun GeneralSection(state: PlaybackState, containerInfo: DesktopContainerInfo?) {
+    val media = state.media ?: return
+    Section("General")
+    InfoRow("Title", media.title)
+    media.artist?.let { InfoRow("Artist", it) }
+    media.album?.let { InfoRow("Album", it) }
+    InfoRow("Location", media.uri)
+    containerInfo?.format?.let { InfoRow("Container", it) }
+    state.durationMillis?.let { InfoRow("Duration", MediaInfoFormatter.formatDuration(it)) }
+    containerInfo?.fileSizeBytes?.let { InfoRow("Size", MediaInfoFormatter.formatFileSize(it)) }
+    containerInfo?.videoParameters?.let { InfoRow("Video output", it) }
+    containerInfo?.audioParameters?.let { InfoRow("Audio output", it) }
+    containerInfo?.rendering?.let { InfoRow("Rendering", it) }
 }
 
 @Composable

@@ -38,28 +38,50 @@ internal object MpvLogEvents {
         return messages
     }
 
+    /** CPU-only renderers by the names their drivers report (Mesa on Linux, WARP on Windows). */
+    private val SOFTWARE_RENDERER_NAMES = listOf("llvmpipe", "softpipe", "swrast", "microsoft basic render")
+    private val GL_RENDERER = Regex("""GL_RENDERER='([^']*)'""")
+
+    /** The renderer libmpv draws with, from its `GL_RENDERER='…'` line when the video output starts. */
+    fun rendererName(message: MpvLogMessage): String? = GL_RENDERER.find(message.text)?.groupValues?.get(1)?.trim()
+
     /**
-     * libmpv's GPU renderer warns "Suspected software renderer or indirect context" when only a CPU OpenGL
-     * implementation exists (no GPU drivers, VMs, remote desktops, CI). Its default high-quality scalers are then too
-     * slow: every frame arrives late and is dropped, and the window stays black while audio plays.
+     * True when libmpv draws with a CPU-only renderer. Deterministic: the renderer name libmpv logs when its video
+     * output starts (`GL_RENDERER='llvmpipe …'`, or the Direct3D adapter "Microsoft Basic Render Driver"); libmpv's
+     * own "Suspected software renderer" warning is a fallback. On such a renderer libmpv's default scalers drop every
+     * frame as late and the picture stays black.
      */
-    fun isSoftwareRenderer(message: MpvLogMessage): Boolean =
-        message.prefix.startsWith("vo/gpu") && "software renderer" in message.text.lowercase()
+    fun isSoftwareRenderer(message: MpvLogMessage): Boolean {
+        if (!message.prefix.startsWith("vo") && !message.prefix.startsWith("libmpv")) return false
+        val text = message.text.lowercase()
+        return "software renderer" in text || SOFTWARE_RENDERER_NAMES.any { it in text }
+    }
 }
 
 /**
- * Remembers whether libmpv reported a CPU-only OpenGL renderer. libmpv's default scalers then drop every frame as late
- * and the picture stays black; its built-in `fast` profile keeps frames on time. Real GPUs keep the defaults.
+ * Remembers which renderer libmpv uses and whether it is CPU-only. libmpv's default scalers then drop every frame as
+ * late and the picture stays black; its built-in `fast` profile keeps frames on time. Real GPUs keep the defaults.
  */
 internal class MpvRendererWatch {
     @Volatile
     var softwareRenderer = false
         private set
 
-    /** True only for the first batch of [messages] that reports a software renderer. */
+    @Volatile
+    var rendererName: String? = null
+        private set
+
+    /** Records [messages]; true only for the first batch that reports a software renderer. */
     fun firstSoftwareRendererReport(messages: List<MpvLogMessage>): Boolean {
+        messages.firstNotNullOfOrNull(MpvLogEvents::rendererName)?.let { rendererName = it }
         if (softwareRenderer || messages.none(MpvLogEvents::isSoftwareRenderer)) return false
         softwareRenderer = true
         return true
+    }
+
+    /** What the Info panel shows, or null before the video output has started. */
+    fun description(): String? = when {
+        softwareRenderer -> "Software rendering — performance mode on" + (rendererName?.let { " ($it)" } ?: "")
+        else -> rendererName
     }
 }
