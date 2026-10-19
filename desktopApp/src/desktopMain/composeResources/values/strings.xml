@@ -65,5 +65,12 @@
     <string name="player_tab_video">Video</string>
     <string name="player_tab_bookmarks">Bookmarks</string>
     <string name="player_close_panel">Close panel</string>
+    <string name="player_stop">Stop</string>
+    <string name="player_playlist">Playlist</string>
+    <string name="player_time_toggle">Show elapsed or remaining time</string>
+    <string name="player_tab_audio">Audio</string>
+    <string name="player_tab_subtitles">Subtitles</string>
+    <string name="player_tab_sync">Sync</string>
+    <string name="player_controls">Playback controls</string>
     <string name="player_unknown_time">--:--</string>
 </resources>

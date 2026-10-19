@@ -91,6 +91,9 @@ internal class PlayerViewModel(
             focusRequest = localState.focusRequest,
             openMode = localState.openMode,
             folderSiblings = localState.folderSiblings,
+            panel = localState.panel,
+            showRemainingTime = localState.showRemainingTime,
+            controllerOffset = localState.controllerOffset,
         )
     }.stateIn(scope, SharingStarted.Eagerly, PlayerState(maxVolume = engine.capabilities.maxVolume))
 
@@ -141,7 +144,7 @@ internal class PlayerViewModel(
             PlayerIntent.Next -> scope.launch { queue.next() }
             PlayerIntent.Previous -> scope.launch { queue.previous() }
             PlayerIntent.Stop -> engine.stop()
-            is PlayerIntent.Seek -> engine.seekTo(intent.positionMillis)
+            is PlayerIntent.Seek -> engine.seekTo(intent.positionMillis, intent.exact)
             is PlayerIntent.SetVolume -> commands.setVolumeLevel(intent.volume)
             is PlayerIntent.SetSpeed -> engine.setPlaybackSpeed(intent.speed)
             else -> dispatchNavigation(intent)
@@ -182,6 +185,23 @@ internal class PlayerViewModel(
             is PlayerIntent.SetFolderSiblings -> {
                 local.update { it.copy(folderSiblings = intent.enabled) }
                 scope.launch { store.setUiSetting(FOLDER_SIBLINGS_KEY, intent.enabled.toString()) }
+            }
+            else -> dispatchPlayerUi(intent)
+        }
+    }
+
+    /** Side panel, time display and fullscreen controller position; the last two are remembered. */
+    private fun dispatchPlayerUi(intent: PlayerIntent) {
+        when (intent) {
+            is PlayerIntent.ShowPanel -> local.update { it.copy(panel = intent.panel) }
+            PlayerIntent.ToggleRemainingTime -> {
+                val remaining = !local.value.showRemainingTime
+                local.update { it.copy(showRemainingTime = remaining) }
+                scope.launch { store.setUiSetting(REMAINING_TIME_KEY, remaining.toString()) }
+            }
+            is PlayerIntent.MoveController -> {
+                local.update { it.copy(controllerOffset = intent.offset) }
+                scope.launch { store.setUiSetting(CONTROLLER_OFFSET_KEY, "${intent.offset.x},${intent.offset.y}") }
             }
             else -> dispatchBookmark(intent)
         }
@@ -349,14 +369,20 @@ internal class PlayerViewModel(
     }
 
     private suspend fun loadPreferences() {
-        val (mode, siblings) = withContext(Dispatchers.IO) {
+        val keys = listOf(OPEN_MODE_KEY, FOLDER_SIBLINGS_KEY, REMAINING_TIME_KEY, CONTROLLER_OFFSET_KEY)
+        val saved = withContext(Dispatchers.IO) {
             StartupTrace.mark("preferencesIo")
-            store.uiSetting(OPEN_MODE_KEY) to store.uiSetting(FOLDER_SIBLINGS_KEY)
+            keys.associateWith(store::uiSetting)
         }
         local.update {
             it.copy(
-                openMode = mode?.let { name -> runCatching { OpenMode.valueOf(name) }.getOrNull() } ?: OpenMode.REPLACE,
-                folderSiblings = siblings?.toBooleanStrictOrNull() ?: true,
+                openMode = saved[OPEN_MODE_KEY]?.let { name -> runCatching { OpenMode.valueOf(name) }.getOrNull() }
+                    ?: OpenMode.REPLACE,
+                folderSiblings = saved[FOLDER_SIBLINGS_KEY]?.toBooleanStrictOrNull() ?: true,
+                showRemainingTime = saved[REMAINING_TIME_KEY]?.toBooleanStrictOrNull() ?: false,
+                controllerOffset = saved[CONTROLLER_OFFSET_KEY]?.split(',')?.mapNotNull(String::toIntOrNull)
+                    ?.takeIf { offset -> offset.size == 2 }?.let { (x, y) -> ControllerOffset(x, y) }
+                    ?: ControllerOffset(0, 0),
             )
         }
     }
@@ -417,6 +443,9 @@ internal class PlayerViewModel(
         val bookmarks: List<Bookmark> = emptyList(),
         val openMode: OpenMode = OpenMode.REPLACE,
         val folderSiblings: Boolean = true,
+        val panel: PlayerPanel? = null,
+        val showRemainingTime: Boolean = false,
+        val controllerOffset: ControllerOffset = ControllerOffset(0, 0),
     )
 
     internal companion object {
@@ -424,6 +453,8 @@ internal class PlayerViewModel(
         const val RESUME_PROMPT_MILLIS = 4_000L
         const val OPEN_MODE_KEY = "launch_open_mode"
         const val FOLDER_SIBLINGS_KEY = "launch_folder_siblings"
+        const val REMAINING_TIME_KEY = "player_show_remaining_time"
+        const val CONTROLLER_OFFSET_KEY = "player_fullscreen_controller_offset"
 
         fun mediaItemFor(file: File): MediaItem = LaunchPlanner.mediaItemFor(file)
 

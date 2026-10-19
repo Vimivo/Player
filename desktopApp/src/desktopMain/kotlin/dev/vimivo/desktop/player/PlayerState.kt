@@ -12,6 +12,12 @@ import java.io.File
 /** How files sent to an already running Vimivo are handled. */
 internal enum class OpenMode { REPLACE, ADD_TO_QUEUE }
 
+/** The player's settings side panel; one tab at a time (spec §2.4). */
+internal enum class PlayerPanel(val title: String) { VIDEO("Video"), AUDIO("Audio"), SUBTITLES("Subtitles"), SYNC("Sync"), BOOKMARKS("Bookmarks") }
+
+/** Where the user dragged the fullscreen controller, as an offset from its default bottom-centre place. */
+internal data class ControllerOffset(val x: Int, val y: Int)
+
 /** A just-resumed file: playback already continues from [positionMillis]; the user may start over instead. */
 internal data class ResumePrompt(val title: String, val positionMillis: Long)
 
@@ -36,6 +42,11 @@ internal data class PlayerState(
     val bookmarks: List<Bookmark> = emptyList(),
     val openMode: OpenMode = OpenMode.REPLACE,
     val folderSiblings: Boolean = true,
+    /** The open side-panel tab, or null when the panel is closed. */
+    val panel: PlayerPanel? = null,
+    /** The control bar shows "-remaining / total" instead of "elapsed / total". */
+    val showRemainingTime: Boolean = false,
+    val controllerOffset: ControllerOffset = ControllerOffset(0, 0),
 )
 
 /** Every user action the player understands; the UI never calls the engine or queue directly for these. */
@@ -45,7 +56,8 @@ internal sealed interface PlayerIntent {
     data object Next : PlayerIntent
     data object Previous : PlayerIntent
     data object Stop : PlayerIntent
-    data class Seek(val positionMillis: Long) : PlayerIntent
+    /** [exact] false is a fast keyframe seek, used while scrubbing. */
+    data class Seek(val positionMillis: Long, val exact: Boolean = true) : PlayerIntent
     data class SetVolume(val volume: Float) : PlayerIntent
     data class SetSpeed(val speed: Float) : PlayerIntent
 
@@ -81,6 +93,11 @@ internal sealed interface PlayerIntent {
     data class DeleteBookmark(val id: String) : PlayerIntent
     data class SetOpenMode(val mode: OpenMode) : PlayerIntent
     data class SetFolderSiblings(val enabled: Boolean) : PlayerIntent
+
+    /** Opens the side panel on [panel], or closes it when null. */
+    data class ShowPanel(val panel: PlayerPanel?) : PlayerIntent
+    data object ToggleRemainingTime : PlayerIntent
+    data class MoveController(val offset: ControllerOffset) : PlayerIntent
 }
 
 /**

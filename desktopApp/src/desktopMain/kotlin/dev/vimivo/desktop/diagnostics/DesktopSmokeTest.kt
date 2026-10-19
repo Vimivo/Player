@@ -17,7 +17,11 @@ import java.io.File
  * whether playback actually advanced. It exists so the release gate can verify launch + playback
  * on every desktop OS (including headless CI runners) without screen-recording permissions.
  */
-internal data class DesktopSmokeTestRequest(val files: List<File>)
+internal data class DesktopSmokeTestRequest(
+    val files: List<File>,
+    /** `--ui-capture <dir>`: instead of the gate, save screenshots of each player surface there. */
+    val captureDir: File? = null,
+)
 
 internal sealed interface DesktopSmokeResult {
     val file: File
@@ -36,8 +40,16 @@ internal object DesktopSmokeTest {
     const val DEFAULT_TIMEOUT_MILLIS = 20_000L
     const val MIN_POSITION_MILLIS = 1_500L
 
-    fun parse(args: Array<String>): DesktopSmokeTestRequest? =
-        if (FLAG in args) DesktopSmokeTestRequest(args.filterNot { it == FLAG }.map(::File)) else null
+    const val CAPTURE_FLAG = "--ui-capture"
+
+    fun parse(args: Array<String>): DesktopSmokeTestRequest? {
+        if (FLAG !in args) return null
+        val captureAt = args.indexOf(CAPTURE_FLAG)
+        val captureDir = if (captureAt >= 0) args.getOrNull(captureAt + 1)?.let(::File) else null
+        val skipped = if (captureAt >= 0) setOf(captureAt, captureAt + 1) else emptySet()
+        val files = args.filterIndexed { index, arg -> arg != FLAG && index !in skipped }
+        return DesktopSmokeTestRequest(files.map(::File), captureDir)
+    }
 
     @Suppress("LongParameterList") // Each collaborator is injected so the gate runs against the real app.
     suspend fun run(

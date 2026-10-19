@@ -37,8 +37,11 @@ import dev.vimivo.desktop.diagnostics.DesktopDiagnosticExporter
 import dev.vimivo.desktop.diagnostics.StartupTrace
 import dev.vimivo.desktop.integration.mpris.MprisService
 import dev.vimivo.desktop.platform.DesktopSingleInstance
+import dev.vimivo.desktop.platform.DesktopWindowChrome
 import dev.vimivo.desktop.platform.NativePreload
 import dev.vimivo.desktop.platform.WindowsFileAssociations
+import dev.vimivo.desktop.player.FullscreenController
+import dev.vimivo.desktop.player.FullscreenPanelWindow
 import dev.vimivo.desktop.player.LaunchArguments
 import dev.vimivo.desktop.player.LaunchSettingsSection
 import dev.vimivo.desktop.player.PlayerIntent
@@ -102,6 +105,7 @@ import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
+import dev.vimivo.desktop.diagnostics.DesktopUiCapture
 import dev.vimivo.desktop.diagnostics.DesktopVideoProbe
 import javax.imageio.ImageIO
 import dev.vimivo.ui.theme.VimivoTheme
@@ -323,7 +327,13 @@ private fun desktopApplication(
                 "fullscreen-exit" to { viewModel.dispatch(PlayerIntent.SetFullscreen(false)) },
                 "resize" to { playerWindow()?.setSize(SMOKE_RESIZED_WIDTH, SMOKE_RESIZED_HEIGHT); Unit },
             )
-            val passed = viewModel.runSmokeTest(smokeTest.files, windowChanges) { DesktopVideoProbe.sample(videoCanvas) }
+            val captureDir = smokeTest.captureDir
+            val passed = if (captureDir != null) {
+                val video = smokeTest.files.firstOrNull()
+                video != null && DesktopUiCapture.run(captureDir, video, viewModel.state, viewModel::dispatch, playerWindow)
+            } else {
+                viewModel.runSmokeTest(smokeTest.files, windowChanges) { DesktopVideoProbe.sample(videoCanvas) }
+            }
             exit.code = if (passed) 0 else 1
             exitApp()
         }
@@ -384,9 +394,12 @@ private fun PlayerWindow(
 ) {
     val playerState by viewModel.state.collectAsState()
     val media = playerState.playback.media
-    val title = remember(media?.title, media?.artist, playerState.loadingTitle) {
+    val title = remember(media?.uri, media?.title, media?.artist, playerState.loadingTitle) {
         val name = media?.title?.takeIf(String::isNotBlank) ?: playerState.loadingTitle
+        val videoFile = media?.fileName?.takeIf { media.kind == MediaKind.VIDEO }
         when {
+            // Video shows its file name, like other players; on macOS with the file's proxy icon beside it.
+            videoFile != null -> videoFile
             name == null -> "Vimivo"
             media?.artist.isNullOrBlank() -> "$name — Vimivo"
             else -> "$name — ${media.artist} — Vimivo"
@@ -411,6 +424,11 @@ private fun PlayerWindow(
         onKeyEvent = { event -> handleWindowKey(event, viewModel) },
     ) {
         LaunchedEffect(visible) { if (visible) StartupTrace.mark("window") }
+        LaunchedEffect(window) { DesktopWindowChrome.applyDark(window) }
+        LaunchedEffect(media?.uri) {
+            val localFile = media?.uri?.takeIf { it.startsWith("file:") }?.let { runCatching { File(java.net.URI(it)) }.getOrNull() }
+            DesktopWindowChrome.setRepresentedFile(window, localFile?.takeIf(File::isFile))
+        }
         LaunchedEffect(playerState.playback.status, playerState.playback.positionMillis > 0) {
             if (playerState.playback.status == PlaybackStatus.Playing && playerState.playback.positionMillis > 0) {
                 StartupTrace.mark("firstFrame")
@@ -445,6 +463,12 @@ private fun PlayerWindow(
             )
             if (openStreamRequested) {
                 OpenStreamDialog(queue, engine, onDismiss = onOpenStreamHandled)
+            }
+            if (visible && playerState.fullscreen && playerState.presentation == PlayerPresentation.VIDEO) {
+                FullscreenController(playerState, window, videoCanvas, viewModel::dispatch)
+                playerState.panel?.let { panel ->
+                    FullscreenPanelWindow(playerState, panel, window, engine, viewModel.commands, viewModel::dispatch)
+                }
             }
         }
     }

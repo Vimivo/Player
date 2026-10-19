@@ -4,88 +4,81 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
+import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Forward10
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.FullscreenExit
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Replay10
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
-import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.desktop.DesktopArtwork
-import dev.vimivo.desktop.DesktopBookmarksPanel
 import dev.vimivo.desktop.playback.DesktopPlayerCommand
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
-import dev.vimivo.desktop.playback.DesktopVideoControlsPanel
 import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.player.ui.PlayerIconButton
+import dev.vimivo.desktop.player.ui.PlayerPalette
+import dev.vimivo.desktop.player.ui.PlayerSidePanel
+import dev.vimivo.desktop.player.ui.PlayerVolumeControl
+import dev.vimivo.desktop.player.ui.VimivoTimeline
+import dev.vimivo.desktop.player.ui.playerClock
 import dev.vimivo.desktop.resources.Res
-import dev.vimivo.desktop.resources.player_back_10
-import dev.vimivo.desktop.resources.player_close_panel
+import dev.vimivo.desktop.resources.player_controls
 import dev.vimivo.desktop.resources.player_exit_fullscreen
-import dev.vimivo.desktop.resources.player_forward_10
 import dev.vimivo.desktop.resources.player_fullscreen
 import dev.vimivo.desktop.resources.player_next
-import dev.vimivo.desktop.resources.player_open_library
 import dev.vimivo.desktop.resources.player_panel
 import dev.vimivo.desktop.resources.player_pause
 import dev.vimivo.desktop.resources.player_play
+import dev.vimivo.desktop.resources.player_playlist
 import dev.vimivo.desktop.resources.player_previous
 import dev.vimivo.desktop.resources.player_seek
-import dev.vimivo.desktop.resources.player_speed
-import dev.vimivo.desktop.resources.player_tab_bookmarks
-import dev.vimivo.desktop.resources.player_tab_video
+import dev.vimivo.desktop.resources.player_stop
+import dev.vimivo.desktop.resources.player_time_toggle
 import dev.vimivo.desktop.resources.player_unknown_time
 import dev.vimivo.desktop.resources.player_volume
-import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackStatus
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * The player window: only the player, never the library. Video fills the stage on black; audio shows its own
  * layout. The video surface is always composed (collapsed to 1 dp when hidden) because libmpv renders into it.
+ * In fullscreen the controls move to the floating controller ([FullscreenController]); nothing can draw over the
+ * native video in this window.
  */
 @Composable
 internal fun PlayerWindowContent(
@@ -96,9 +89,9 @@ internal fun PlayerWindowContent(
     commands: DesktopPlayerCommandExecutor,
     onIntent: (PlayerIntent) -> Unit,
 ) {
-    var panelOpen by remember { mutableStateOf(false) }
     val media = state.playback.media
     val showsVideo = state.presentation == PlayerPresentation.VIDEO && state.loadingTitle == null
+    val panel = state.panel?.takeUnless { state.fullscreen }
     // Black stage with light content: text never falls back to the default dark content colour.
     Surface(Modifier.fillMaxSize(), color = Color.Black, contentColor = Color.White) {
         Column(Modifier.fillMaxSize()) {
@@ -112,13 +105,11 @@ internal fun PlayerWindowContent(
                         if (showsVideo) Modifier.fillMaxSize() else Modifier.size(1.dp).align(Alignment.TopStart),
                     )
                 }
-                if (panelOpen && !state.fullscreen) {
-                    PlayerSidePanel(state, engine, commands, onIntent, onClose = { panelOpen = false })
-                }
+                if (panel != null) PlayerSidePanel(state, panel, engine, commands, onIntent)
             }
             PlayerMessages(state, onIntent)
             if (!state.fullscreen || state.presentation == PlayerPresentation.AUDIO) {
-                PlayerControlBar(state, onIntent, panelOpen = panelOpen, onTogglePanel = { panelOpen = !panelOpen })
+                PlayerControlBar(state, onIntent)
             }
         }
     }
@@ -176,186 +167,89 @@ private fun PlayerMessages(state: PlayerState, onIntent: (PlayerIntent) -> Unit)
     }
 }
 
+/**
+ * The windowed control bar (spec §2.1): 48 dp, #141416 at 92 % with a 6 % hairline on top, one row:
+ * ⏮ ⏯ ⏭ ■ ≡ · timeline · time · volume · ⚙ · ⛶.
+ */
 @Composable
-private fun PlayerControlBar(
-    state: PlayerState,
-    onIntent: (PlayerIntent) -> Unit,
-    panelOpen: Boolean,
-    onTogglePanel: () -> Unit,
-) {
+private fun PlayerControlBar(state: PlayerState, onIntent: (PlayerIntent) -> Unit) {
     val playback = state.playback
-    val duration = playback.durationMillis?.takeIf { it > 0 }
-    var dragPosition by remember { mutableStateOf<Float?>(null) }
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            val seekLabel = stringResource(Res.string.player_seek)
-            Slider(
-                value = dragPosition ?: playback.positionMillis.toFloat().coerceAtMost(duration?.toFloat() ?: 0f),
-                onValueChange = { dragPosition = it },
-                onValueChangeFinished = {
-                    dragPosition?.let { onIntent(PlayerIntent.Seek(it.toLong())) }
-                    dragPosition = null
-                },
-                valueRange = 0f..(duration?.toFloat() ?: 1f),
-                enabled = duration != null && playback.isSeekable,
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = seekLabel },
-            )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                val playing = playback.status == PlaybackStatus.Playing
-                ControlButton(Icons.Outlined.SkipPrevious, stringResource(Res.string.player_previous)) {
-                    onIntent(PlayerIntent.Previous)
-                }
-                ControlButton(Icons.Outlined.Replay10, stringResource(Res.string.player_back_10)) {
-                    onIntent(PlayerIntent.Command(DesktopPlayerCommand.SEEK_BACK_MEDIUM))
-                }
-                ControlButton(
-                    if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                    stringResource(if (playing) Res.string.player_pause else Res.string.player_play),
-                ) { onIntent(PlayerIntent.TogglePlayback) }
-                ControlButton(Icons.Outlined.Forward10, stringResource(Res.string.player_forward_10)) {
-                    onIntent(PlayerIntent.Command(DesktopPlayerCommand.SEEK_FORWARD_MEDIUM))
-                }
-                ControlButton(
-                    Icons.Outlined.SkipNext,
-                    stringResource(Res.string.player_next)
-                ) { onIntent(PlayerIntent.Next) }
-                val unknown = stringResource(Res.string.player_unknown_time)
-                val elapsed = (dragPosition?.toLong() ?: playback.positionMillis).let(::formatClock)
-                Text(
-                    "$elapsed / ${duration?.let(::formatClock) ?: unknown}",
-                    style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
-                    maxLines = 1,
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
-                Box(Modifier.weight(1f))
-                VolumeControl(playback.volume, state.maxVolume, onIntent)
-                SpeedButton(playback.speed, onIntent)
-                ControlButton(
-                    Icons.Outlined.Tune,
-                    stringResource(Res.string.player_panel),
-                    selected = panelOpen,
-                    onClick = onTogglePanel
-                )
-                ControlButton(
-                    Icons.AutoMirrored.Outlined.LibraryBooks,
-                    stringResource(Res.string.player_open_library)
-                ) {
-                    onIntent(PlayerIntent.ShowLibrary)
-                }
-                ControlButton(
-                    if (state.fullscreen) Icons.Outlined.FullscreenExit else Icons.Outlined.Fullscreen,
-                    stringResource(
-                        if (state.fullscreen) Res.string.player_exit_fullscreen else Res.string.player_fullscreen
-                    ),
-                ) { onIntent(PlayerIntent.SetFullscreen(!state.fullscreen)) }
-            }
+    val playing = playback.status == PlaybackStatus.Playing
+    val controlsLabel = stringResource(Res.string.player_controls)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(BAR_HEIGHT)
+            .background(PlayerPalette.bar)
+            .drawBehind { drawLine(PlayerPalette.hairline, Offset(0f, 0f), Offset(size.width, 0f), 1f) }
+            .padding(horizontal = 8.dp)
+            .semantics { contentDescription = controlsLabel },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        PlayerIconButton(Icons.Outlined.SkipPrevious, stringResource(Res.string.player_previous)) { onIntent(PlayerIntent.Previous) }
+        PlayerIconButton(
+            if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+            stringResource(if (playing) Res.string.player_pause else Res.string.player_play),
+        ) { onIntent(PlayerIntent.TogglePlayback) }
+        PlayerIconButton(Icons.Outlined.SkipNext, stringResource(Res.string.player_next)) { onIntent(PlayerIntent.Next) }
+        PlayerIconButton(Icons.Outlined.Stop, stringResource(Res.string.player_stop)) { onIntent(PlayerIntent.Stop) }
+        PlayerIconButton(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(Res.string.player_playlist)) {
+            onIntent(PlayerIntent.ShowLibrary)
         }
+        Spacer(Modifier.width(8.dp))
+        VimivoTimeline(
+            playback = playback,
+            label = stringResource(Res.string.player_seek),
+            onSeek = { position, exact -> onIntent(PlayerIntent.Seek(position, exact)) },
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(8.dp))
+        TimeReadout(state, onIntent)
+        Spacer(Modifier.width(8.dp))
+        PlayerVolumeControl(
+            volume = playback.volume,
+            maxVolume = state.maxVolume,
+            muteIcon = Icons.AutoMirrored.Outlined.VolumeOff,
+            volumeIcon = Icons.AutoMirrored.Outlined.VolumeUp,
+            label = stringResource(Res.string.player_volume),
+            onVolume = { onIntent(PlayerIntent.SetVolume(it)) },
+            onToggleMute = { onIntent(PlayerIntent.Command(DesktopPlayerCommand.TOGGLE_MUTE)) },
+        )
+        PlayerIconButton(Icons.Outlined.Settings, stringResource(Res.string.player_panel), selected = state.panel != null) {
+            onIntent(PlayerIntent.ShowPanel(if (state.panel == null) PlayerPanel.VIDEO else null))
+        }
+        PlayerIconButton(
+            if (state.fullscreen) Icons.Outlined.FullscreenExit else Icons.Outlined.Fullscreen,
+            stringResource(if (state.fullscreen) Res.string.player_exit_fullscreen else Res.string.player_fullscreen),
+        ) { onIntent(PlayerIntent.SetFullscreen(!state.fullscreen)) }
     }
 }
 
+/** "00:24 / 05:12" in tabular figures; a click switches to "-04:48 / 05:12" (remembered). */
 @Composable
-private fun VolumeControl(volume: Float, maxVolume: Float, onIntent: (PlayerIntent) -> Unit) {
-    val label = stringResource(Res.string.player_volume)
-    val muted = volume == 0f
-    ControlButton(if (muted) Icons.AutoMirrored.Outlined.VolumeOff else Icons.AutoMirrored.Outlined.VolumeUp, label) {
-        onIntent(PlayerIntent.Command(DesktopPlayerCommand.TOGGLE_MUTE))
+internal fun TimeReadout(state: PlayerState, onIntent: (PlayerIntent) -> Unit, modifier: Modifier = Modifier) {
+    val playback = state.playback
+    val duration = playback.durationMillis?.takeIf { it > 0 }
+    val unknown = stringResource(Res.string.player_unknown_time)
+    val shown = if (state.showRemainingTime && duration != null) {
+        "-" + playerClock(duration - playback.positionMillis)
+    } else {
+        playerClock(playback.positionMillis)
     }
-    val boosted = volume > 1f
-    val tint = if (boosted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-    Slider(
-        value = volume,
-        onValueChange = { onIntent(PlayerIntent.SetVolume(it)) },
-        valueRange = 0f..maxVolume,
-        colors = SliderDefaults.colors(thumbColor = tint, activeTrackColor = tint),
-        modifier = Modifier.width(VOLUME_SLIDER_WIDTH).semantics {
-            contentDescription = label
-            stateDescription = "${(volume * PERCENT).toInt()}%"
-        },
+    val label = stringResource(Res.string.player_time_toggle)
+    Text(
+        "$shown / ${duration?.let(::playerClock) ?: unknown}",
+        color = PlayerPalette.content,
+        style = TIME_TEXT,
+        maxLines = 1,
+        softWrap = false,
+        modifier = modifier
+            .clickable { onIntent(PlayerIntent.ToggleRemainingTime) }
+            .semantics { contentDescription = label }
+            .padding(horizontal = 4.dp, vertical = 6.dp),
     )
 }
 
-@Composable
-private fun SpeedButton(speed: Float, onIntent: (PlayerIntent) -> Unit) {
-    val presets = PlaybackSpeeds.PRESETS
-    val label = stringResource(Res.string.player_speed, formatSpeed(speed))
-    TextButton(
-        onClick = {
-            val index = presets.indexOfFirst { kotlin.math.abs(it - speed) < SPEED_EPSILON }
-            onIntent(PlayerIntent.SetSpeed(presets[(index + 1).mod(presets.size)]))
-        },
-        modifier = Modifier.semantics { contentDescription = label },
-    ) {
-        Text("${formatSpeed(speed)}×", maxLines = 1)
-    }
-}
-
-@Composable
-private fun ControlButton(
-    icon: ImageVector,
-    label: String,
-    selected: Boolean = false,
-    onClick: () -> Unit,
-) {
-    IconButton(onClick = onClick) {
-        Icon(
-            icon,
-            contentDescription = label,
-            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-/** Rectangular side panel (never pill-clipped): video and subtitle controls, and bookmarks. */
-@Composable
-private fun PlayerSidePanel(
-    state: PlayerState,
-    engine: MpvPlayerEngine,
-    commands: DesktopPlayerCommandExecutor,
-    onIntent: (PlayerIntent) -> Unit,
-    onClose: () -> Unit,
-) {
-    var tab by remember { mutableStateOf(0) }
-    Surface(
-        modifier = Modifier.width(SIDE_PANEL_WIDTH).fillMaxHeight().padding(8.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                PrimaryTabRow(selectedTabIndex = tab, modifier = Modifier.weight(1f)) {
-                    Tab(
-                        selected = tab == 0,
-                        onClick = { tab = 0 },
-                        text = { Text(stringResource(Res.string.player_tab_video), maxLines = 1) }
-                    )
-                    Tab(
-                        selected = tab == 1,
-                        onClick = { tab = 1 },
-                        text = { Text(stringResource(Res.string.player_tab_bookmarks), maxLines = 1) }
-                    )
-                }
-                ControlButton(Icons.Outlined.Close, stringResource(Res.string.player_close_panel), onClick = onClose)
-            }
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-                if (tab == 0) {
-                    DesktopVideoControlsPanel(engine = engine, state = state.playback, commands = commands)
-                } else {
-                    DesktopBookmarksPanel(
-                        media = state.playback.media,
-                        positionMillis = state.playback.positionMillis,
-                        bookmarks = state.bookmarks,
-                        onAdd = { _, _, label -> onIntent(PlayerIntent.AddBookmark(label)) },
-                        onSeek = { onIntent(PlayerIntent.Seek(it)) },
-                        onRename = { id, label -> onIntent(PlayerIntent.RenameBookmark(id, label)) },
-                        onDelete = { onIntent(PlayerIntent.DeleteBookmark(it)) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-private val SIDE_PANEL_WIDTH = 340.dp
-private val VOLUME_SLIDER_WIDTH = 110.dp
-private const val PERCENT = 100
-private const val SPEED_EPSILON = 0.01f
+private val BAR_HEIGHT = 48.dp
+private val TIME_TEXT = TextStyle(fontSize = 12.sp, fontFeatureSettings = "tnum")

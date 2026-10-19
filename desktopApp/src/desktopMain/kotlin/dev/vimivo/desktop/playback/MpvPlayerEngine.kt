@@ -500,6 +500,10 @@ class MpvPlayerEngine : PlayerEngine {
         // Vimivo draws cover art itself. Left to libmpv, embedded art becomes a video track, and where no GPU
         // context can be created (headless Linux, broken EGL) the failed video output aborts the whole song.
         checkCode(loaded.mpv_set_option_string(created, "audio-display", "no"))
+        // Vimivo owns the pointer: libmpv's embedded window must not take mouse input or hide the cursor itself,
+        // so the fullscreen controller sees mouse movement over the video.
+        checkCode(loaded.mpv_set_option_string(created, "input-cursor", "no"))
+        checkCode(loaded.mpv_set_option_string(created, "cursor-autohide", "no"))
         // Sidecar subtitles load with the file: "movie.srt", "movie.en.srt", and the same names in Subs/ or
         // Subtitles/. Letting libmpv match at load time avoids racing sub-add against an unfinished load.
         checkCode(loaded.mpv_set_option_string(created, "sub-auto", "fuzzy"))
