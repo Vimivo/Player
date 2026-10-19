@@ -36,28 +36,36 @@ def is_pe_x64(filepath):
         print(f"Warning: could not inspect PE header of {filepath}: {e}", file=sys.stderr)
         return False
 
+def copy_media_notices(package_dir, app_dir):
+    """The media package's licence texts and component list, shown by About and required by the LGPL."""
+    licenses = os.path.join(package_dir, "licenses")
+    info = os.path.join(package_dir, "build-info.json")
+    if not (os.path.isdir(licenses) and os.path.isfile(info)):
+        print("Warning: no licenses/ or build-info.json next to the DLLs; About will not list them.", file=sys.stderr)
+        return
+    destination = os.path.join(app_dir, "media-licenses")
+    shutil.rmtree(destination, ignore_errors=True)
+    shutil.copytree(licenses, destination)
+    shutil.copy2(info, os.path.join(app_dir, "media-build-info.json"))
+
+
 def bundle(app_dir, source_dll_dir=None):
     if not os.path.exists(app_dir):
         print(f"Error: target app dir does not exist: {app_dir}", file=sys.stderr)
         sys.exit(1)
 
-    app_subdir = os.path.join(app_dir, "app")
+    # One copy, next to Vimivo.exe: Windows resolves libmpv's sibling DLLs (FFmpeg, libass, ...) from there.
     target_dirs = [app_dir]
-    if os.path.exists(app_subdir):
-        target_dirs.append(app_subdir)
 
     copied = []
     if source_dll_dir and os.path.exists(source_dll_dir):
         print(f"Copying native DLLs from {source_dll_dir} to {app_dir}...")
-        for root, _, files in os.walk(source_dll_dir):
-            for file in files:
-                if file.lower().endswith(".dll"):
-                    src = os.path.join(root, file)
-                    for target_dir in target_dirs:
-                        dst = os.path.join(target_dir, file)
-                        shutil.copy2(src, dst)
-                    copied.append(file)
+        for file in sorted(os.listdir(source_dll_dir)):
+            if file.lower().endswith(".dll"):
+                shutil.copy2(os.path.join(source_dll_dir, file), os.path.join(app_dir, file))
+                copied.append(file)
         print(f"Copied {len(copied)} native DLLs.")
+        copy_media_notices(os.path.dirname(os.path.abspath(source_dll_dir)), app_dir)
 
     # Verification
     candidate_names = ["mpv-2.dll", "libmpv-2.dll", "libmpv.dll", "mpv.dll"]

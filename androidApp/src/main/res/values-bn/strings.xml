@@ -82,7 +82,6 @@
     <string name="value_hide">লুকান</string><string name="value_show">দেখান</string><string name="value_outline">বহিরেখা</string><string name="value_drop_shadow">ছায়া</string><string name="value_none">কিছু নয়</string>
     <string name="value_title">শিরোনাম</string><string name="value_artist">শিল্পী</string><string name="value_album">অ্যালবাম</string><string name="value_duration">সময়কাল</string><string name="value_date_added">যোগের তারিখ</string><string name="value_date_modified">পরিবর্তনের তারিখ</string><string name="value_file_size">ফাইলের আকার</string><string name="value_track_number">ট্র্যাক নম্বর</string><string name="value_last_played">সর্বশেষ চালানো</string>
     <string name="irreversible_warning">এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</string>
-    <string name="notices_text">AndroidX ও Media3: Apache License 2.0\nLibVLC: LGPL 2.1 বা পরবর্তী\nCoil, Koin, Kotlin এবং kotlinx.coroutines অনুমোদনমূলক ওপেন-সোর্স লাইসেন্স ব্যবহার করে। উৎসের লিংক ও পূর্ণ নোটিশের জন্য docs/THIRD_PARTY_NOTICES.md দেখুন।</string>
     <string name="ok">ঠিক আছে</string>
     <string name="play">চালান</string>
     <string name="pause">বিরতি</string>
@@ -92,4 +91,8 @@
     <string name="next_short">পরের</string>
     <string name="widget_nothing_playing">কিছু চলছে না</string>
     <string name="widget_description">বর্তমান Vimivo প্লেব্যাক সেশন নিয়ন্ত্রণ করুন</string>
+    <string name="source_code">সোর্স কোড</string>
+    <string name="component_source">সোর্স</string>
+    <string name="lgpl_text">GNU LGPL 2.1 পাঠ্য</string>
+    <string name="close_notices">বন্ধ করুন</string>
 </resources>

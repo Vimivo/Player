@@ -8,8 +8,9 @@ plugins {
 val isMacHost = org.gradle.internal.os.OperatingSystem.current().isMacOsX
 
 /**
- * libmpv comes from Homebrew, whose prefix differs by architecture (/opt/homebrew on Apple Silicon,
- * /usr/local on Intel). VIMIVO_MPV_PREFIX overrides it for custom libmpv builds.
+ * VIMIVO_MPV_PREFIX is the unpacked LGPL media package (scripts/build_media/fetch_media.py; lib/ + include/mpv).
+ * Without it a local Homebrew prefix is used for development only (/opt/homebrew on Apple Silicon, /usr/local
+ * on Intel); distributable builds always set it (ADR-004).
  */
 val macosMpvPrefix: Provider<String> = providers.environmentVariable("VIMIVO_MPV_PREFIX")
     .orElse(providers.environmentVariable("HOMEBREW_PREFIX"))
@@ -391,9 +392,16 @@ detekt {
 
 dependencies { detektPlugins(libs.detekt.formatting) }
 
-// CI points the live libmpv tests at a pinned build (Windows ships no system libmpv); locally they find Homebrew's.
+// CI points the live libmpv tests at the pinned LGPL media package (scripts/build_media): VIMIVO_TEST_MPV_DIR is its
+// library directory (bin/ on Windows, lib/ elsewhere). Without it the tests look for a local libmpv or skip.
 tasks.withType<Test>().configureEach {
     providers.environmentVariable("VIMIVO_TEST_MPV_DIR").orNull?.let { dir ->
-        systemProperty("vimivo.mpv.library", file(dir).resolve("libmpv-2.dll").absolutePath)
+        val os = org.gradle.internal.os.OperatingSystem.current()
+        val library = when {
+            os.isWindows -> "libmpv-2.dll"
+            os.isMacOsX -> "libmpv.2.dylib"
+            else -> "libmpv.so.2"
+        }
+        systemProperty("vimivo.mpv.library", file(dir).resolve(library).absolutePath)
     }
 }

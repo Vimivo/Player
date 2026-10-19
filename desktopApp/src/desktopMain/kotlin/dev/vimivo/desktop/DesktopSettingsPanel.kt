@@ -585,6 +585,8 @@ internal fun DesktopSettingsPanel(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(8.dp))
+                    AboutLicensesSection()
+                    Spacer(Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = { showResetDialog = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),

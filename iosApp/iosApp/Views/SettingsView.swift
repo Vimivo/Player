@@ -1,4 +1,5 @@
 import SwiftUI
+import VimivoShared
 
 public struct SettingsView: View {
     @AppStorage("vimivo_theme") private var theme: String = "system"
@@ -72,6 +73,7 @@ public struct SettingsView: View {
                         Text(Self.versionLabel)
                             .foregroundColor(.secondary)
                     }
+                    NavigationLink("Open-source licences") { OpenSourceLicensesView() }
                 }
             }
             .navigationTitle("Settings")
@@ -112,5 +114,41 @@ public struct SettingsView: View {
         let artDir = caches.appendingPathComponent("artwork", isDirectory: true)
         try? FileManager.default.removeItem(at: artDir)
         calculateCacheSize()
+    }
+}
+
+/// About ▸ Open-source licences: the generated third-party list shared with the other apps (ADR-004), the LGPL
+/// notice when this app contains LGPL code, and links to the exact sources. Links open only on an explicit tap.
+struct OpenSourceLicensesView: View {
+    private let notices = ThirdPartyNotices.shared
+    private var components: [ThirdPartyComponent] { notices.forPlatform(platform: .ios) }
+
+    var body: some View {
+        List {
+            Section {
+                if let notice = notices.lgplNotice(platform: .ios) {
+                    Text(notice).font(.footnote)
+                } else {
+                    Text("Vimivo is MIT-licensed. The iOS app plays media with Apple's system frameworks and contains no LGPL or GPL code.")
+                        .font(.footnote)
+                }
+                if let url = URL(string: notices.SOURCE_REPOSITORY) {
+                    Link("Source code", destination: url)
+                }
+            }
+            Section(header: Text("Third-party components")) {
+                ForEach(components, id: \.name) { component in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(component.name) \(component.version)")
+                        Text(component.license).font(.caption).foregroundColor(.accentColor)
+                        if let url = URL(string: component.sourceUrl) {
+                            Link("Source", destination: url).font(.caption)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
+        .navigationTitle("Open-source licences")
     }
 }

@@ -4,9 +4,11 @@ bundle_macos_mpv.py
 
 Discovers, copies, rewrites install names, and bundles all native libmpv and
 Cocoa bridge dylib dependencies into Vimivo.app/Contents/Frameworks.
-Ensures zero runtime dependency on the Homebrew prefix or external tools.
+Ensures zero runtime dependency on the build prefix or external tools.
 
-The Homebrew prefix comes from VIMIVO_MPV_PREFIX (/opt/homebrew on Apple Silicon, /usr/local on Intel).
+VIMIVO_MPV_PREFIX names the libmpv prefix: normally Vimivo's own LGPL media package (scripts/build_media,
+lib/ + include/ + licenses/, already using @rpath install names); a Homebrew prefix still works for local
+experiments but is never used for distributable builds (ADR-004).
 Bundled code is signed with VIMIVO_MAC_SIGN_IDENTITY (a Developer ID, using the hardened runtime and the
 given entitlements) when set, and ad-hoc otherwise.
 """
@@ -75,10 +77,18 @@ def bundle(app_path, cocoa_bridge_dylib, entitlements=None):
     frameworks_dir = os.path.join(app_path, "Contents", "Frameworks")
     os.makedirs(frameworks_dir, exist_ok=True)
 
-    initial_binaries = [
-        f"{HOMEBREW}/opt/mpv/lib/libmpv.2.dylib",
-        cocoa_bridge_dylib,
-    ]
+    media_package = os.path.exists(os.path.join(HOMEBREW, "build-info.json"))
+    mpv_lib = f"{HOMEBREW}/lib/libmpv.2.dylib" if media_package else f"{HOMEBREW}/opt/mpv/lib/libmpv.2.dylib"
+    initial_binaries = [mpv_lib, cocoa_bridge_dylib]
+
+    def resolve(dep):
+        """The file a dependency refers to when it is ours to bundle, else None (system libraries)."""
+        if dep.startswith(HOMEBREW + "/"):
+            return os.path.realpath(dep)
+        if dep.startswith("@rpath/") and media_package:
+            candidate = os.path.join(HOMEBREW, "lib", dep[len("@rpath/"):])
+            return os.path.realpath(candidate) if os.path.exists(candidate) else None
+        return None
 
     # Resolve all transitive homebrew dylibs
     discovered = {}
@@ -93,8 +103,8 @@ def bundle(app_path, cocoa_bridge_dylib, entitlements=None):
         discovered[basename] = real_curr
         deps = get_dependencies(real_curr)
         for dep in deps:
-            if dep.startswith(HOMEBREW + "/"):
-                real_dep = os.path.realpath(dep)
+            real_dep = resolve(dep)
+            if real_dep:
                 dep_name = os.path.basename(real_dep)
                 if dep_name not in discovered and real_dep not in to_visit:
                     to_visit.append(real_dep)
@@ -116,6 +126,25 @@ def bundle(app_path, cocoa_bridge_dylib, entitlements=None):
         shutil.copy2(cocoa_bridge_dylib, dst_bridge)
         os.chmod(dst_bridge, 0o755)
         bundled_files[cocoa_bridge_name] = dst_bridge
+
+    # A library referenced by a versioned symlink name (libavcodec.62.dylib -> libavcodec.62.1.100.dylib) is found
+    # under that name too.
+    for name, src_path in list(discovered.items()):
+        for dylib in list(bundled_files):
+            for dep in get_dependencies(bundled_files[dylib]):
+                link = os.path.basename(dep)
+                if dep.startswith("@rpath/") and link != name and resolve(dep) == src_path:
+                    link_path = os.path.join(frameworks_dir, link)
+                    if not os.path.lexists(link_path):
+                        os.symlink(name, link_path)
+
+    # Third-party licence texts of the media package, shown by About and required by the LGPL.
+    if media_package:
+        resources = os.path.join(app_path, "Contents", "Resources")
+        licenses = os.path.join(resources, "media-licenses")
+        shutil.rmtree(licenses, ignore_errors=True)
+        shutil.copytree(os.path.join(HOMEBREW, "licenses"), licenses)
+        shutil.copy2(os.path.join(HOMEBREW, "build-info.json"), os.path.join(resources, "media-build-info.json"))
 
     # Symlinks for convenience (e.g. libmpv.dylib -> libmpv.2.dylib)
     symlinks = [

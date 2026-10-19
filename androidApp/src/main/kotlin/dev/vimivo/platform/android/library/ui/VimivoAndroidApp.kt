@@ -1553,12 +1553,9 @@ private fun SettingsScreen(
             dismissButton = { OutlinedButton({ confirmAction = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
-    if (noticesVisible) AlertDialog(
-        onDismissRequest = { noticesVisible = false },
-        title = { Text(stringResource(R.string.third_party_notices)) },
-        text = { Text(stringResource(R.string.notices_text)) },
-        confirmButton = { Button({ noticesVisible = false }) { Text(stringResource(R.string.ok)) } },
-    )
+    if (noticesVisible) {
+        dev.vimivo.platform.android.ui.components.AndroidLicensesDialog(onDismiss = { noticesVisible = false })
+    }
     if (feedbackVisible) {
         dev.vimivo.platform.android.ui.components.AndroidFeedbackDialog(
             onDismiss = { feedbackVisible = false },
