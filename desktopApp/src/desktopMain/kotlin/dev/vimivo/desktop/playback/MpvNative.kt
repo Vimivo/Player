@@ -18,6 +18,8 @@ internal interface MpvNative : Library {
     fun mpv_free(data: Pointer)
     fun mpv_command(context: Pointer, arguments: Pointer): Int
     fun mpv_error_string(code: Int): String?
+    fun mpv_request_log_messages(context: Pointer, minLevel: String): Int
+    fun mpv_wait_event(context: Pointer, timeout: Double): Pointer?
 
     companion object {
         /** The macOS JAWT/Core Animation and Now Playing bridge (links libmpv); loading it again is a no-op. */

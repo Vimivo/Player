@@ -84,6 +84,10 @@ class MpvPlayerEngine : PlayerEngine {
     private var videoSurface: Canvas? = null
     private var hwdecMode: HardwareAccelerationMode = HardwareAccelerationMode.AUTO
     private var attemptedSoftwareFallback = false
+
+    /** libmpv reported a CPU-only OpenGL renderer; the `fast` profile is applied (see [handleLogMessages]). */
+    @Volatile
+    private var softwareRenderer = false
     private var closed = false
     private var sessionGeneration = 0L
     private var userPaused = false
@@ -385,8 +389,10 @@ class MpvPlayerEngine : PlayerEngine {
         val aCodec = stringProperty("audio-codec") ?: stringProperty("audio-format")
         val activeHwdec = stringProperty("hwdec-current")
         val isHwdecActive = flagProperty("hwdec-active") ?: (activeHwdec != null && activeHwdec != "no")
-        val activeRenderer = stringProperty("current-vo")
-            ?: if (desktopPlatform == DesktopPlatform.MACOS) "libmpv/cocoa" else "gpu"
+        val activeRenderer = (
+            stringProperty("current-vo")
+                ?: if (desktopPlatform == DesktopPlatform.MACOS) "libmpv/cocoa" else "gpu"
+            ) + if (softwareRenderer) " (software OpenGL, fast profile)" else ""
         val dropped = longProperty("drop-frame-count") ?: longProperty("vo-delayed-frame-count") ?: 0L
         val totalFrames = longProperty("estimated-frame-count") ?: 0L
         val avDriftSec = doubleProperty("avsync") ?: 0.0
@@ -513,6 +519,8 @@ class MpvPlayerEngine : PlayerEngine {
         checkCode(loaded.mpv_set_option_string(created, "volume-max", (capabilities.maxVolume * 100).toInt().toString()))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
         checkCode(loaded.mpv_initialize(created))
+        // Warnings arrive as events; the polling loop reads them (see handleLogMessages).
+        loaded.mpv_request_log_messages(created, "warn")
     }
 
     private fun startPolling(expectedSession: Long) {
@@ -531,6 +539,7 @@ class MpvPlayerEngine : PlayerEngine {
 
                 while (isActive && !closed && sessionGeneration == expectedSession) {
                     iteration++
+                    handleLogMessages()
                     val duration = doubleProperty("duration")?.times(1_000)?.toLong()
                     val position = doubleProperty("time-pos")?.times(1_000)?.toLong()?.coerceAtLeast(0) ?: 0
                     val paused = flagProperty("pause") ?: true
@@ -597,6 +606,24 @@ class MpvPlayerEngine : PlayerEngine {
                     delay(pollDelay)
                 }
             }
+        }
+    }
+
+    /**
+     * Drains libmpv's event queue. On a CPU-only OpenGL renderer libmpv's default scalers drop every frame as late, so
+     * the picture stays black; its built-in `fast` profile (cheap scaling) keeps frames on time. Real GPUs keep the
+     * high-quality defaults.
+     */
+    private fun handleLogMessages() {
+        val messages = synchronized(nativeLock) {
+            val handle = context
+            val loaded = native
+            if (closed || handle == null || loaded == null) return
+            MpvLogEvents.drain(loaded, handle)
+        }
+        if (!softwareRenderer && messages.any(MpvLogEvents::isSoftwareRenderer)) {
+            softwareRenderer = true
+            runCatching { command("apply-profile", "fast") }
         }
     }
 
