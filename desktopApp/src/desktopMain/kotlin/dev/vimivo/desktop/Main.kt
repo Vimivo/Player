@@ -473,6 +473,7 @@ private fun PlayerWindow(
                     commands = viewModel.commands,
                     onIntent = viewModel::dispatch,
                     preview = preview,
+                    videoComponent = videoCanvas,
                 )
             }
             if (openStreamRequested) {

@@ -95,6 +95,7 @@ internal class PlayerViewModel(
             showRemainingTime = localState.showRemainingTime,
             controllerOffset = localState.controllerOffset,
             alwaysOnTop = localState.alwaysOnTop,
+            autoHideControls = localState.autoHideControls,
         )
     }.stateIn(scope, SharingStarted.Eagerly, PlayerState(maxVolume = engine.capabilities.maxVolume))
 
@@ -196,6 +197,11 @@ internal class PlayerViewModel(
         when (intent) {
             is PlayerIntent.ShowPanel -> local.update { it.copy(panel = intent.panel) }
             PlayerIntent.ToggleAlwaysOnTop -> local.update { it.copy(alwaysOnTop = !it.alwaysOnTop) }
+            PlayerIntent.ToggleAutoHideControls -> {
+                val enabled = !local.value.autoHideControls
+                local.update { it.copy(autoHideControls = enabled) }
+                scope.launch { store.setUiSetting(AUTO_HIDE_CONTROLS_KEY, enabled.toString()) }
+            }
             PlayerIntent.ToggleRemainingTime -> {
                 val remaining = !local.value.showRemainingTime
                 local.update { it.copy(showRemainingTime = remaining) }
@@ -371,7 +377,13 @@ internal class PlayerViewModel(
     }
 
     private suspend fun loadPreferences() {
-        val keys = listOf(OPEN_MODE_KEY, FOLDER_SIBLINGS_KEY, REMAINING_TIME_KEY, CONTROLLER_OFFSET_KEY)
+        val keys = listOf(
+            OPEN_MODE_KEY,
+            FOLDER_SIBLINGS_KEY,
+            REMAINING_TIME_KEY,
+            CONTROLLER_OFFSET_KEY,
+            AUTO_HIDE_CONTROLS_KEY
+        )
         val saved = withContext(Dispatchers.IO) {
             StartupTrace.mark("preferencesIo")
             keys.associateWith(store::uiSetting)
@@ -382,6 +394,7 @@ internal class PlayerViewModel(
                     ?: OpenMode.REPLACE,
                 folderSiblings = saved[FOLDER_SIBLINGS_KEY]?.toBooleanStrictOrNull() ?: true,
                 showRemainingTime = saved[REMAINING_TIME_KEY]?.toBooleanStrictOrNull() ?: false,
+                autoHideControls = saved[AUTO_HIDE_CONTROLS_KEY]?.toBooleanStrictOrNull() ?: false,
                 controllerOffset = saved[CONTROLLER_OFFSET_KEY]?.split(',')?.mapNotNull(String::toIntOrNull)
                     ?.takeIf { offset -> offset.size == 2 }?.let { (x, y) -> ControllerOffset(x, y) }
                     ?: ControllerOffset(0, 0),
@@ -449,6 +462,7 @@ internal class PlayerViewModel(
         val showRemainingTime: Boolean = false,
         val controllerOffset: ControllerOffset = ControllerOffset(0, 0),
         val alwaysOnTop: Boolean = false,
+        val autoHideControls: Boolean = false,
     )
 
     internal companion object {
@@ -458,6 +472,7 @@ internal class PlayerViewModel(
         const val FOLDER_SIBLINGS_KEY = "launch_folder_siblings"
         const val REMAINING_TIME_KEY = "player_show_remaining_time"
         const val CONTROLLER_OFFSET_KEY = "player_fullscreen_controller_offset"
+        const val AUTO_HIDE_CONTROLS_KEY = "player_auto_hide_controls"
 
         fun mediaItemFor(file: File): MediaItem = LaunchPlanner.mediaItemFor(file)
 

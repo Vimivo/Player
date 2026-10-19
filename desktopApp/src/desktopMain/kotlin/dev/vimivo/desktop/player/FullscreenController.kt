@@ -39,7 +39,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,6 +66,7 @@ import dev.vimivo.desktop.player.ui.PlayerPalette
 import dev.vimivo.desktop.player.ui.PlayerVolumeControl
 import dev.vimivo.desktop.player.ui.VimivoTimeline
 import dev.vimivo.desktop.player.ui.playerClock
+import dev.vimivo.desktop.player.ui.rememberPointerAwake
 import dev.vimivo.desktop.player.ui.rememberWindowBounds
 import dev.vimivo.desktop.resources.Res
 import dev.vimivo.desktop.resources.player_back_10
@@ -89,8 +89,6 @@ import java.awt.Cursor
 import java.awt.Point
 import java.awt.Toolkit
 import java.awt.Window
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
 import java.awt.image.BufferedImage
 
 /**
@@ -111,28 +109,9 @@ internal fun FullscreenController(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    var lastActivity by remember { mutableLongStateOf(System.nanoTime()) }
-    var awake by remember { mutableStateOf(true) }
     val paused = state.playback.status != PlaybackStatus.Playing
-    DisposableEffect(videoSurface) {
-        val listener = object : MouseAdapter() {
-            override fun mouseMoved(event: MouseEvent) {
-                lastActivity = System.nanoTime()
-                awake = true
-            }
-        }
-        videoSurface.addMouseMotionListener(listener)
-        onDispose {
-            videoSurface.removeMouseMotionListener(listener)
-            videoSurface.cursor = Cursor.getDefaultCursor()
-        }
-    }
-    LaunchedEffect(lastActivity, hovered, paused) {
-        awake = true
-        if (hovered || paused) return@LaunchedEffect
-        delay(IDLE_MILLIS)
-        awake = false
-    }
+    val awake = rememberPointerAwake(videoSurface, hold = hovered || paused, idleMillis = IDLE_MILLIS)
+    DisposableEffect(videoSurface) { onDispose { videoSurface.cursor = Cursor.getDefaultCursor() } }
     LaunchedEffect(awake) { videoSurface.cursor = if (awake) Cursor.getDefaultCursor() else BLANK_CURSOR }
     val alpha by animateFloatAsState(if (awake) 1f else 0f, tween(FADE_MILLIS), label = "controller fade")
 

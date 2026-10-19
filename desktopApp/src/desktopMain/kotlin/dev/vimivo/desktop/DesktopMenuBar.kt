@@ -120,6 +120,9 @@ private fun MenuBarScope.ViewMenu(context: MenuContext) = with(context) {
             checked = state.alwaysOnTop,
             onCheckedChange = { send(PlayerIntent.ToggleAlwaysOnTop) }
         )
+        CheckboxItem("Auto-hide Controls in Window", checked = state.autoHideControls, onCheckedChange = {
+            send(PlayerIntent.ToggleAutoHideControls)
+        })
         CheckboxItem("Show Remaining Time", checked = state.showRemainingTime, onCheckedChange = {
             send(PlayerIntent.ToggleRemainingTime)
         })

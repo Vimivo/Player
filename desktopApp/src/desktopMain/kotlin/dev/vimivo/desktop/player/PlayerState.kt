@@ -51,6 +51,8 @@ internal data class PlayerState(
     val controllerOffset: ControllerOffset = ControllerOffset(0, 0),
     /** The player window floats above other apps' windows (View ▸ Always on Top). */
     val alwaysOnTop: Boolean = false,
+    /** Windowed video hides the control bar after the pointer rests (View ▸ Auto-hide Controls; off by default). */
+    val autoHideControls: Boolean = false,
 )
 
 /** Every user action the player understands; the UI never calls the engine or queue directly for these. */
@@ -104,6 +106,7 @@ internal sealed interface PlayerIntent {
     data object ToggleRemainingTime : PlayerIntent
     data class MoveController(val offset: ControllerOffset) : PlayerIntent
     data object ToggleAlwaysOnTop : PlayerIntent
+    data object ToggleAutoHideControls : PlayerIntent
 }
 
 /**
@@ -115,3 +118,9 @@ internal fun nextPresentation(current: PlayerPresentation, playing: MediaKind?):
     playing == MediaKind.AUDIO && current == PlayerPresentation.VIDEO -> PlayerPresentation.AUDIO
     else -> current
 }
+
+/** The docked control bar shows outside fullscreen; audio keeps it in fullscreen too (there is no picture). */
+internal fun PlayerState.showsControlBar(): Boolean = !fullscreen || presentation == PlayerPresentation.AUDIO
+
+/** Auto-hide applies only to windowed video, and only when the user turned it on. */
+internal fun PlayerState.autoHidesControls(showsVideo: Boolean): Boolean = autoHideControls && showsVideo && !fullscreen

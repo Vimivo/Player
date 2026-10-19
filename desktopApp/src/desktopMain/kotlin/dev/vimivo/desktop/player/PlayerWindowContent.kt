@@ -4,6 +4,9 @@ package dev.vimivo.desktop.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +36,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -59,6 +64,7 @@ import dev.vimivo.desktop.player.ui.PlayerSidePanel
 import dev.vimivo.desktop.player.ui.PlayerVolumeControl
 import dev.vimivo.desktop.player.ui.VimivoTimeline
 import dev.vimivo.desktop.player.ui.playerClock
+import dev.vimivo.desktop.player.ui.rememberPointerAwake
 import dev.vimivo.desktop.resources.Res
 import dev.vimivo.desktop.resources.player_controls
 import dev.vimivo.desktop.resources.player_exit_fullscreen
@@ -76,6 +82,7 @@ import dev.vimivo.desktop.resources.player_unknown_time
 import dev.vimivo.desktop.resources.player_volume
 import dev.vimivo.playback.PlaybackStatus
 import org.jetbrains.compose.resources.stringResource
+import java.awt.Component
 
 /**
  * The player window: only the player, never the library. Video fills the stage on black; audio shows its own
@@ -93,9 +100,17 @@ internal fun PlayerWindowContent(
     onIntent: (PlayerIntent) -> Unit,
     /** Timeline hover preview for the current media, when it has pictures to show. */
     preview: (suspend (Long) -> ImageBitmap?)? = null,
+    /** The native video component: mouse movement over it brings auto-hidden controls back. */
+    videoComponent: Component? = null,
 ) {
     val media = state.playback.media
     val showsVideo = state.presentation == PlayerPresentation.VIDEO && state.loadingTitle == null
+    val barInteraction = remember { MutableInteractionSource() }
+    val barHovered by barInteraction.collectIsHoveredAsState()
+    val paused = state.playback.status != PlaybackStatus.Playing
+    // Optional (View ▸ Auto-hide Controls, off by default): windowed video hides the bar while the pointer rests.
+    val controlsAwake = videoComponent?.takeIf { state.autoHidesControls(showsVideo) }
+        ?.let { rememberPointerAwake(it, hold = barHovered || paused) } ?: true
     val panel = state.panel?.takeUnless { state.fullscreen }
     // Black stage with light content: text never falls back to the default dark content colour.
     Surface(Modifier.fillMaxSize(), color = Color.Black, contentColor = Color.White) {
@@ -113,8 +128,8 @@ internal fun PlayerWindowContent(
                 if (panel != null) PlayerSidePanel(state, panel, engine, commands, onIntent)
             }
             PlayerMessages(state, onIntent)
-            if (!state.fullscreen || state.presentation == PlayerPresentation.AUDIO) {
-                PlayerControlBar(state, onIntent, preview)
+            if (state.showsControlBar() && controlsAwake) {
+                PlayerControlBar(state, onIntent, preview, Modifier.hoverable(barInteraction))
             }
         }
     }
@@ -180,13 +195,14 @@ private fun PlayerMessages(state: PlayerState, onIntent: (PlayerIntent) -> Unit)
 private fun PlayerControlBar(
     state: PlayerState,
     onIntent: (PlayerIntent) -> Unit,
-    preview: (suspend (Long) -> ImageBitmap?)?
+    preview: (suspend (Long) -> ImageBitmap?)?,
+    modifier: Modifier = Modifier,
 ) {
     val playback = state.playback
     val playing = playback.status == PlaybackStatus.Playing
     val controlsLabel = stringResource(Res.string.player_controls)
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .height(BAR_HEIGHT)
             .background(PlayerPalette.bar)
