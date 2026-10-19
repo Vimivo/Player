@@ -84,10 +84,7 @@ class MpvPlayerEngine : PlayerEngine {
     private var videoSurface: Canvas? = null
     private var hwdecMode: HardwareAccelerationMode = HardwareAccelerationMode.AUTO
     private var attemptedSoftwareFallback = false
-
-    /** libmpv reported a CPU-only OpenGL renderer; the `fast` profile is applied (see [handleLogMessages]). */
-    @Volatile
-    private var softwareRenderer = false
+    private val rendererWatch = MpvRendererWatch()
     private var closed = false
     private var sessionGeneration = 0L
     private var userPaused = false
@@ -355,17 +352,18 @@ class MpvPlayerEngine : PlayerEngine {
 
     override fun setHardwareAccelerationMode(mode: HardwareAccelerationMode): Result<Unit> = action {
         hwdecMode = mode
-        val hwdecValue = when (mode) {
-            HardwareAccelerationMode.AUTO -> "auto-safe"
-            HardwareAccelerationMode.SOFTWARE -> "no"
-            HardwareAccelerationMode.HARDWARE_PREFERRED -> when (desktopPlatform) {
-                DesktopPlatform.MACOS -> "videotoolbox"
-                DesktopPlatform.WINDOWS -> "d3d11va"
-                DesktopPlatform.LINUX -> "vaapi"
-                DesktopPlatform.UNKNOWN -> "auto"
-            }
+        setProperty("hwdec", hwdecValue(mode))
+    }
+
+    private fun hwdecValue(mode: HardwareAccelerationMode): String = when (mode) {
+        HardwareAccelerationMode.AUTO -> "auto-safe"
+        HardwareAccelerationMode.SOFTWARE -> "no"
+        HardwareAccelerationMode.HARDWARE_PREFERRED -> when (desktopPlatform) {
+            DesktopPlatform.MACOS -> "videotoolbox"
+            DesktopPlatform.WINDOWS -> "d3d11va"
+            DesktopPlatform.LINUX -> "vaapi"
+            DesktopPlatform.UNKNOWN -> "auto"
         }
-        setProperty("hwdec", hwdecValue)
     }
 
     fun attemptSoftwareDecoderFallback(): Result<Unit> = runCatching {
@@ -392,7 +390,7 @@ class MpvPlayerEngine : PlayerEngine {
         val activeRenderer = (
             stringProperty("current-vo")
                 ?: if (desktopPlatform == DesktopPlatform.MACOS) "libmpv/cocoa" else "gpu"
-            ) + if (softwareRenderer) " (software OpenGL, fast profile)" else ""
+            ) + if (rendererWatch.softwareRenderer) " (software OpenGL, fast profile)" else ""
         val dropped = longProperty("drop-frame-count") ?: longProperty("vo-delayed-frame-count") ?: 0L
         val totalFrames = longProperty("estimated-frame-count") ?: 0L
         val avDriftSec = doubleProperty("avsync") ?: 0.0
@@ -488,17 +486,7 @@ class MpvPlayerEngine : PlayerEngine {
             // by default and shows no picture at all; a slower picture is better than none.
             checkCode(loaded.mpv_set_option_string(created, "gpu-sw", "yes"))
         }
-        val initialHwdec = when (hwdecMode) {
-            HardwareAccelerationMode.AUTO -> "auto-safe"
-            HardwareAccelerationMode.SOFTWARE -> "no"
-            HardwareAccelerationMode.HARDWARE_PREFERRED -> when (desktopPlatform) {
-                DesktopPlatform.MACOS -> "videotoolbox"
-                DesktopPlatform.WINDOWS -> "d3d11va"
-                DesktopPlatform.LINUX -> "vaapi"
-                DesktopPlatform.UNKNOWN -> "auto"
-            }
-        }
-        loaded.mpv_set_option_string(created, "hwdec", initialHwdec)
+        loaded.mpv_set_option_string(created, "hwdec", hwdecValue(hwdecMode))
         loaded.mpv_set_option_string(created, "demuxer-max-bytes", "33554432")
         loaded.mpv_set_option_string(created, "demuxer-readahead-secs", "5.0")
         loaded.mpv_set_option_string(created, "network-timeout", "15")
@@ -566,7 +554,7 @@ class MpvPlayerEngine : PlayerEngine {
                     // eof-reached is its end-of-file signal. Without it the queue never advanced (Q1).
                     val eofReached = flagProperty("eof-reached") ?: false
                     val status = when {
-                        loadFailed -> PlaybackStatus.Error(loadFailure(mutableState.value.media))
+                        loadFailed -> PlaybackStatus.Error(MpvPlaybackErrors.loadFailure(mutableState.value.media))
                         eofReached && everLoaded -> PlaybackStatus.Completed
                         idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
                         idle -> PlaybackStatus.Ready
@@ -609,11 +597,7 @@ class MpvPlayerEngine : PlayerEngine {
         }
     }
 
-    /**
-     * Drains libmpv's event queue. On a CPU-only OpenGL renderer libmpv's default scalers drop every frame as late, so
-     * the picture stays black; its built-in `fast` profile (cheap scaling) keeps frames on time. Real GPUs keep the
-     * high-quality defaults.
-     */
+    /** Reads libmpv's queued events; switches to the `fast` profile when it reports a software renderer. */
     private fun handleLogMessages() {
         val messages = synchronized(nativeLock) {
             val handle = context
@@ -621,10 +605,7 @@ class MpvPlayerEngine : PlayerEngine {
             if (closed || handle == null || loaded == null) return
             MpvLogEvents.drain(loaded, handle)
         }
-        if (!softwareRenderer && messages.any(MpvLogEvents::isSoftwareRenderer)) {
-            softwareRenderer = true
-            runCatching { command("apply-profile", "fast") }
-        }
+        if (rendererWatch.firstSoftwareRendererReport(messages)) runCatching { command("apply-profile", "fast") }
     }
 
     private fun command(vararg arguments: String) {
@@ -721,45 +702,8 @@ class MpvPlayerEngine : PlayerEngine {
         album = stringProperty("metadata/by-key/album")?.takeIf(String::isNotBlank),
     )
 
-    private fun loadFailure(media: MediaItem?): PlaybackError {
-        val localFile = media?.uri?.takeIf { it.startsWith("file:") }?.let { runCatching { File(URI(it)) }.getOrNull() }
-        val code = when {
-            localFile != null && !localFile.exists() -> PlaybackErrorCode.SOURCE_NOT_FOUND
-            localFile != null && !localFile.canRead() -> PlaybackErrorCode.ACCESS_DENIED
-            localFile == null -> PlaybackErrorCode.NETWORK
-            else -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
-        }
-        val message = when (code) {
-            PlaybackErrorCode.SOURCE_NOT_FOUND -> "The file no longer exists"
-            PlaybackErrorCode.ACCESS_DENIED -> "Vimivo does not have permission to read this file"
-            PlaybackErrorCode.NETWORK -> "The stream could not be opened"
-            else -> "This file could not be opened; it may be damaged or in an unsupported format"
-        }
-        return PlaybackError(code, message, engine = id)
-    }
-
     private fun publishFailure(error: Throwable) {
-        val message = error.message.orEmpty()
-        val lower = message.lowercase()
-        val code = when {
-            error is java.io.FileNotFoundException || "not found" in lower || "no such file" in lower -> PlaybackErrorCode.SOURCE_NOT_FOUND
-            error is java.lang.SecurityException || "permission denied" in lower || "access denied" in lower -> PlaybackErrorCode.ACCESS_DENIED
-            error is java.net.SocketException || error is java.net.UnknownHostException || "timeout" in lower || "network" in lower || "connection" in lower -> PlaybackErrorCode.NETWORK
-            "unsupported" in lower || "codec" in lower -> PlaybackErrorCode.UNSUPPORTED_CODEC
-            "demux" in lower || "container" in lower || "corrupt" in lower -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
-            "decode" in lower || "decoder" in lower -> PlaybackErrorCode.DECODING_FAILED
-            else -> PlaybackErrorCode.ENGINE_INITIALIZATION
-        }
-        mutableState.value = mutableState.value.copy(
-            status = PlaybackStatus.Error(
-                PlaybackError(
-                    code,
-                    if (message.isNotBlank()) message else "libmpv playback failed",
-                    engine = id,
-                    cause = error,
-                ),
-            ),
-        )
+        mutableState.value = mutableState.value.copy(status = PlaybackStatus.Error(MpvPlaybackErrors.fromException(error)))
     }
 
     override fun close() {

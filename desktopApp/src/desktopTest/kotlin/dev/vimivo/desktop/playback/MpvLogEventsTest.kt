@@ -18,4 +18,14 @@ class MpvLogEventsTest {
         assertFalse(MpvLogEvents.isSoftwareRenderer(MpvLogMessage("ao/alsa", "error", "Playback open error")))
         assertFalse(MpvLogEvents.isSoftwareRenderer(MpvLogMessage("cplayer", "warn", "software renderer")))
     }
+
+    @Test
+    fun switchesToTheFastProfileOnlyOnce() {
+        val watch = MpvRendererWatch()
+        val warning = listOf(MpvLogMessage("vo/gpu/opengl", "warn", "Suspected software renderer or indirect context."))
+        assertFalse(watch.firstSoftwareRendererReport(emptyList()))
+        assertTrue(watch.firstSoftwareRendererReport(warning))
+        assertFalse(watch.firstSoftwareRendererReport(warning))
+        assertTrue(watch.softwareRenderer)
+    }
 }

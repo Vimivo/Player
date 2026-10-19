@@ -46,3 +46,20 @@ internal object MpvLogEvents {
     fun isSoftwareRenderer(message: MpvLogMessage): Boolean =
         message.prefix.startsWith("vo/gpu") && "software renderer" in message.text.lowercase()
 }
+
+/**
+ * Remembers whether libmpv reported a CPU-only OpenGL renderer. libmpv's default scalers then drop every frame as late
+ * and the picture stays black; its built-in `fast` profile keeps frames on time. Real GPUs keep the defaults.
+ */
+internal class MpvRendererWatch {
+    @Volatile
+    var softwareRenderer = false
+        private set
+
+    /** True only for the first batch of [messages] that reports a software renderer. */
+    fun firstSoftwareRendererReport(messages: List<MpvLogMessage>): Boolean {
+        if (softwareRenderer || messages.none(MpvLogEvents::isSoftwareRenderer)) return false
+        softwareRenderer = true
+        return true
+    }
+}
