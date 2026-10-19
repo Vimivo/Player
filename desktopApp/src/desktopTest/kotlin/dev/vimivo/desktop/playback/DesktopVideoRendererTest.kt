@@ -31,13 +31,15 @@ class DesktopVideoRendererTest {
     }
 
     @Test
-    fun linuxRendererInstantiatesX11RendererAndFailsCleanlyWithoutXid() {
+    fun linuxRendererUsesTheRenderApiAndFailsCleanlyWithoutAWindow() {
+        // The LGPL libmpv has no X11 output; Linux renders into Vimivo's own EGL context (ADR-004).
         val renderer = DesktopVideoRendererFactory.create(DesktopPlatform.LINUX)
-        assertTrue(renderer is MpvX11Renderer)
+        assertTrue(renderer is MpvEglRenderer)
         val error = assertFailsWith<IllegalStateException> {
             renderer.attach(Canvas(), Pointer.createConstant(1))
         }
-        assertTrue(error.message.orEmpty().contains("X11"))
+        assertTrue(error.message.orEmpty().contains("not displayable"))
+        renderer.detach()
     }
 
     @Test
