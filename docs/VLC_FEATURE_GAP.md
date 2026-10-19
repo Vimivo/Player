@@ -32,6 +32,7 @@ Raw logs: [docs/evidence/V0/](evidence/V0/README.md). Media pack: `scripts/gener
 | E9 | Android emulator pass (2026-10-19, [evidence](evidence/V1/android-emulator/README.md)) | Video ("Open with", colour bars) and audio play; library auto-advance `hires` → `Lunar Horizon`; still `PLAYING` after Home with a foreground media service. Instrumentation tests (`androidTest`) not run |
 | E10 | Desktop smoke test with a screen pixel probe ([evidence](evidence/D1-black-video/README.md)) | Before the fix every video failed (`lit=0.00`); after it colour bars, `park.mp4`, audio → video, fullscreen enter/exit and resize all pass |
 | E11 | Ubuntu 24.04 container, mpv 0.37, no display | MP3/FLAC with cover art exit 2 ("Error opening video_out"); with `audio-display=no` exit 0 |
+| E12 | Ubuntu 24.04 container matching `linux.yml` ([evidence](evidence/V1/linux-black-video/README.md)) | Before: black videos in most runs, exit crash in 1–4 of 5. After: 5 consecutive CI smoke runs, 35/35 checks, no crash |
 | S | Source reading | File references in the notes; never counted as ✅ on its own |
 
 ## Done but broken: root causes
@@ -45,6 +46,8 @@ Raw logs: [docs/evidence/V0/](evidence/V0/README.md). Media pack: `scripts/gener
 | B5 | "Windows and Linux are built and smoke-tested in CI" (previous matrix) | Not true at V0 | CI red on `main` since `5e417ac`. **Being fixed** on draft PR #14: test-step ordering, headless Linux test session, a 66-character fixture digest, `/tmp` on Windows, MSVC 14.51 C++20 |
 | B12 | E3 "13/14 PASS" counted video as working | Since `a0262fd` (window split) every macOS video was **black** while audio played; the smoke test only checked that a track decoded | `MpvCocoaRenderer.mm` rendered into framebuffer 0 instead of the layer's bound IOSurface framebuffer → `GL_INVALID_FRAMEBUFFER_OPERATION`. **Fixed** `e8e2a9c`; the smoke test now checks screen pixels (E10) |
 | B13 | Linux playback of music with cover art | Without a usable GPU context (headless, broken EGL) libmpv aborted the whole song | Embedded art became a video track whose output failed. **Fixed** `5fac7e7` (`audio-display=no`; Vimivo draws art itself), E11 |
+| B14 | Linux/Windows video without GPU drivers (VMs, remote desktops, CI) | Black picture while audio plays, at random | libmpv's default scalers are too slow on CPU-only OpenGL and every frame is dropped as late (reproduced with the plain mpv CLI). **Fixed** `8289006`: built-in `fast` profile when libmpv reports a software renderer (E12) |
+| B15 | Linux app exit and any X error after an audio file | Process killed by `X Error … BadWindow` | libmpv leaves Xlib's fatal default error handler installed when its video output stops. **Fixed** `8289006`: AWT's handler is reinstalled (E12) |
 | B6 | Damaged/incomplete files "tolerated" | Truncated MP4 shows nothing for 20 s | libmpv fails with "moov atom not found", but no error reached the UI state within the smoke timeout; the load-failure path (`idle && !everLoaded` after 1.5 s) did not publish for this file. Needs a regression test |
 | B7 | Android ReplayGain "Partial (metadata only)" | No ReplayGain code in `androidApp/src/main` | Matrix entry not backed by source |
 | B8 | iOS lyrics, sleep timer (corrected earlier in FEATURE_MATRIX.md) | Still absent | No iOS implementation; shared `SleepTimer`/`LrcLyricsParser` are not used from Swift |

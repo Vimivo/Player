@@ -55,7 +55,15 @@ jobs:
       - name: Generate smoke-test media
         shell: pwsh
         run: |
-          choco install ffmpeg --no-progress -y
+          # The Chocolatey community feed sometimes answers 503; ffmpeg only generates test media, so retry.
+          foreach ($attempt in 1..4) {
+            choco install ffmpeg --no-progress -y
+            if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
+            if (Test-Path "C:\ProgramData\chocolatey\bin\ffmpeg.exe") { break }
+            Write-Host "ffmpeg install attempt $attempt failed; retrying in 30 s"
+            Start-Sleep -Seconds 30
+          }
+          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
           python testmedia/generate_media.py
 
       - name: Compile and run tests
