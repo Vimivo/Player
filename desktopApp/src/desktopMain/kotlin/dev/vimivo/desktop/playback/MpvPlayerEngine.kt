@@ -477,6 +477,11 @@ class MpvPlayerEngine : PlayerEngine {
             else -> "gpu"
         }
         checkCode(loaded.mpv_set_option_string(created, "vo", vo))
+        if (vo == "gpu") {
+            // Without GPU drivers (VMs, remote desktops, CI) only a software OpenGL renderer exists. libmpv refuses it
+            // by default and shows no picture at all; a slower picture is better than none.
+            checkCode(loaded.mpv_set_option_string(created, "gpu-sw", "yes"))
+        }
         val initialHwdec = when (hwdecMode) {
             HardwareAccelerationMode.AUTO -> "auto-safe"
             HardwareAccelerationMode.SOFTWARE -> "no"
