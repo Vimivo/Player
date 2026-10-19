@@ -79,6 +79,7 @@ internal class MpvMediaInspector(private val loadNative: () -> MpvNative = MpvNa
         } catch (error: LinkageError) {
             throw IllegalStateException("libmpv is not available: ${error.message}", error)
         }
+        MpvLocale.ensureCNumeric()
         val handle = checkNotNull(mpv.mpv_create()) { "libmpv could not create a context" }
         try {
             (BASE_OPTIONS + options).forEach { (name, value) -> mpv.mpv_set_option_string(handle, name, value) }

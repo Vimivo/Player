@@ -66,6 +66,8 @@ internal class MpvThumbnailer(
         val loaded = native
         if (existing != null && loaded != null) return loaded to existing
         val mpv = MpvNative.load()
+        // libmpv refuses to create a context under a non-C numeric locale (the JVM adopts the user's).
+        MpvLocale.ensureCNumeric()
         return mpv.mpv_create()?.let { created -> initialize(mpv, created) }
     }
 
