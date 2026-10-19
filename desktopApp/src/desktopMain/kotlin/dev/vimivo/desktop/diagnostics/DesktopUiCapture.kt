@@ -23,7 +23,7 @@ import javax.swing.SwingUtilities
  * `--smoke-test --ui-capture <dir> <video>`: drives the real player through its surfaces and saves what the screen
  * shows (the app's own windows, so macOS needs no Screen Recording permission). Used for the UI review evidence:
  * windowed controls, every side-panel tab, a narrow panel, the timeline hover, fullscreen with the floating
- * controller, and the controller hidden after idling.
+ * controller, the controller hidden after idling, and the optional windowed auto-hide.
  */
 internal object DesktopUiCapture {
     suspend fun run(
@@ -54,6 +54,11 @@ internal object DesktopUiCapture {
         capture(window, directory, "08-panel-narrow")
         dispatch(PlayerIntent.ShowPanel(null))
         onEdt { window.setSize(WINDOW_WIDTH, WINDOW_HEIGHT) }
+        dispatch(PlayerIntent.ToggleAutoHideControls)
+        delay(IDLE_HIDE_MILLIS)
+        capture(window, directory, "11-windowed-auto-hidden")
+        dispatch(PlayerIntent.ToggleAutoHideControls)
+        settle()
         dispatch(PlayerIntent.SetFullscreen(true))
         delay(FULLSCREEN_SETTLE_MILLIS)
         captureScreen(window, directory, "09-fullscreen-controller")

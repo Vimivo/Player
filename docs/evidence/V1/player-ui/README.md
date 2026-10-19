@@ -11,8 +11,10 @@ the real app drives each surface and saves what the screen shows (its own window
 | `08-panel-narrow.png` | The panel in a 760 px window |
 | `09-fullscreen-controller.png` | Fullscreen floating controller: time · file · total, thin timeline with thumb, volume left, transport centre, ⚙ and exit right |
 | `10-fullscreen-idle.png` | The controller (and cursor) hidden after 2 s without mouse movement |
+| `11-windowed-auto-hidden.png` | Optional View ▸ Auto-hide Controls in Window (off by default): the bar hides while the pointer rests |
 
-Tests: `PlaybackClockTest` (shared: smooth playhead, blending, seeks), `TooltipAnchorTest`, `MpvThumbnailerTest`
+Tests: `PlaybackClockTest` (shared: smooth playhead, blending, seeks), `TooltipAnchorTest`, `PlayerControlsVisibilityTest`,
+`MpvThumbnailerTest`
 (live libmpv preview frames), the existing desktop suite and the smoke gate (7/7, pixel-checked).
 
 **Not captured here:**
@@ -24,7 +26,6 @@ Tests: `PlaybackClockTest` (shared: smooth playhead, blending, seeks), `TooltipA
 
 **Known differences from the spec:**
 
-- macOS centres no title here: AWT windows show it left of centre. Changing that needs the window's toolbar style
-  through the native bridge.
+- The title is left-aligned: macOS 26 left-aligns window titles by design (an expanded toolbar style did not change
+  it), so Vimivo follows the system rather than the spec's "centred".
 - The glass is a 72 % tint without background blur. Real blur needs `NSVisualEffectView` / DWM acrylic.
-- "Auto-hide controls in windowed mode" (optional, default off) is not built.
