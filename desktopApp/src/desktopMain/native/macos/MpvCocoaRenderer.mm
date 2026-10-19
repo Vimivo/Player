@@ -71,6 +71,7 @@ static CGLPixelFormatObj createPixelFormat(void) {
         glClear(GL_COLOR_BUFFER_BIT);
     }
     glFlush();
+    static int draws = 0; if ((++draws % 30) == 1) { CALayer *top = self.superlayer.superlayer.sublayers.lastObject; NSLog(@"VIMIVO_DBG draw #%d top=%@ delegate=%@ opaque=%d frame=%@ sub=%@ cglFrame=%@", draws, top, top.delegate, top.opaque, NSStringFromRect(NSRectFromCGRect(top.frame)), top.sublayers, NSStringFromRect(NSRectFromCGRect(self.superlayer.frame))); }
     CGLUnlockContext(cglContext);
 }
 @end
@@ -256,6 +257,7 @@ Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_attachNative(JNIEnv *env, jobj
         layer.renderContext = renderContext;
         mpv_render_context_set_update_callback(layer.renderContext, on_mpv_update, (__bridge void *)layer);
         target.layer = layer;
+        NSLog(@"VIMIVO_DBG attach target=%@ windowLayer=%@ layerFrame=%@", target, target.windowLayer, NSStringFromRect(NSRectFromCGRect(layer.frame)));
         activeLayer = layer;
         activeSurface = target;
     });

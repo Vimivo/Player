@@ -21,6 +21,8 @@ echo "Writing test pack to ${OUT}"
 
 # shellcheck disable=SC2046 # the helpers intentionally expand to several arguments
 ff $(video 1280x720 30) $(tone) -c:v libx264 -c:a aac h264.mp4
+# SMPTE colour bars: the black-video pixel test samples the window over these.
+ff -f lavfi -i smptehdbars=s=1280x720:r=30:d=20 $(tone) -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest colorbars.mp4
 ff $(video 640x360 30) $(tone) -c:v libvpx-vp9 -b:v 300k -c:a libopus vp9.webm
 ff $(video 640x360 30) -c:v libsvtav1 -preset 12 -svtav1-params verbosity=0 av1.mkv
 ff $(video 1280x720 24) -c:v libx265 -pix_fmt yuv420p10le \

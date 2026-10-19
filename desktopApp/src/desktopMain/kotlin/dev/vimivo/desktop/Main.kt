@@ -102,6 +102,7 @@ import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
+import dev.vimivo.desktop.diagnostics.DesktopVideoProbe
 import javax.imageio.ImageIO
 import dev.vimivo.ui.theme.VimivoTheme
 import dev.vimivo.ui.components.VimivoGlassSurface
@@ -204,7 +205,7 @@ private fun desktopApplication(
     // One video surface for the whole run, attached before anything plays; the player window hosts it. Black, so
     // nothing white ever shows before the first frame, while paused, or behind audio.
     val videoCanvas = remember {
-        Canvas().apply { background = java.awt.Color.BLACK }.also(engine::attachVideoSurface)
+        Canvas().also(engine::attachVideoSurface)
     }
     remember {
         koin.get<MprisService>()
@@ -315,7 +316,7 @@ private fun desktopApplication(
     if (smokeTest != null) {
         // The surface is attached above, so video smoke runs exercise the real renderer.
         LaunchedEffect(smokeTest) {
-            val passed = viewModel.runSmokeTest(smokeTest.files)
+            val passed = viewModel.runSmokeTest(smokeTest.files) { DesktopVideoProbe.sample(videoCanvas) }
             exit.code = if (passed) 0 else 1
             exitApp()
         }
@@ -429,7 +430,7 @@ private fun PlayerWindow(
             PlayerWindowContent(
                 state = playerState,
                 videoSurface = { modifier ->
-                    SwingPanel(background = Color.Black, factory = { videoCanvas }, modifier = modifier)
+                    SwingPanel(factory = { videoCanvas }, modifier = modifier)
                 },
                 engine = engine,
                 commands = viewModel.commands,

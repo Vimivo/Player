@@ -5,6 +5,9 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
@@ -19,7 +22,12 @@ internal data class DesktopSmokeTestRequest(val files: List<File>)
 internal sealed interface DesktopSmokeResult {
     val file: File
 
-    data class Passed(override val file: File, val positionMillis: Long, val videoTracks: Int) : DesktopSmokeResult
+    data class Passed(
+        override val file: File,
+        val positionMillis: Long,
+        val videoTracks: Int,
+        val picture: VideoPixelSample? = null,
+    ) : DesktopSmokeResult
     data class Failed(override val file: File, val reason: String) : DesktopSmokeResult
 }
 
@@ -37,6 +45,8 @@ internal object DesktopSmokeTest {
         toMedia: (File) -> MediaItem,
         play: suspend (MediaItem) -> Result<Unit>,
         timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
+        /** Reads the pixels under the video surface; null where no surface is shown. */
+        probePicture: () -> VideoPixelSample? = { null },
     ): List<DesktopSmokeResult> = files.map { file ->
         if (!file.isFile) return@map DesktopSmokeResult.Failed(file, "file not found")
         val media = toMedia(file)
@@ -47,7 +57,8 @@ internal object DesktopSmokeTest {
             state.first { playback -> playback.media?.uri == media.uri && playback.isTerminalFor() }
         }
         val latest = reached ?: state.value.takeIf { it.media?.uri == media.uri }
-        evaluate(file, media, latest, timedOut = reached == null)
+        val result = evaluate(file, media, latest, timedOut = reached == null)
+        if (result is DesktopSmokeResult.Passed && media.kind == MediaKind.VIDEO) checkPicture(result, probePicture) else result
     }
 
     /**
@@ -63,10 +74,29 @@ internal object DesktopSmokeTest {
 
     fun format(result: DesktopSmokeResult): String = when (result) {
         is DesktopSmokeResult.Passed -> with(result) {
-            "VIMIVO_SMOKE PASS ${file.name} position=${positionMillis}ms videoTracks=$videoTracks"
+            "VIMIVO_SMOKE PASS ${file.name} position=${positionMillis}ms videoTracks=$videoTracks" +
+                (picture?.let { " picture=[$it]" } ?: "")
         }
         is DesktopSmokeResult.Failed -> "VIMIVO_SMOKE FAIL ${result.file.name} reason=${result.reason}"
     }
+
+    /** Video counts only when the picture is on screen: audio and a moving clock are not enough (black-video bug). */
+    private suspend fun checkPicture(
+        passed: DesktopSmokeResult.Passed,
+        probePicture: () -> VideoPixelSample?,
+    ): DesktopSmokeResult {
+        var picture: VideoPixelSample? = null
+        repeat(PICTURE_ATTEMPTS) {
+            // The probe reads bounds on the event thread and the screen off it.
+            picture = withContext(Dispatchers.IO) { probePicture() }
+            if (picture?.showsPicture == true) return passed.copy(picture = picture)
+            delay(PICTURE_RETRY_MILLIS)
+        }
+        return DesktopSmokeResult.Failed(passed.file, "video decoded but the window shows no picture (${picture ?: "surface not shown"})")
+    }
+
+    private const val PICTURE_ATTEMPTS = 5
+    private const val PICTURE_RETRY_MILLIS = 300L
 
     private fun PlaybackState.isTerminalFor(): Boolean =
         status is PlaybackStatus.Error || (status == PlaybackStatus.Playing && positionMillis >= MIN_POSITION_MILLIS)
