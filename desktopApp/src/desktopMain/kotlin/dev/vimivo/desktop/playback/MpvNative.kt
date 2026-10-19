@@ -5,6 +5,7 @@ package dev.vimivo.desktop.playback
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
+import com.sun.jna.ptr.PointerByReference
 import java.io.File
 
 internal interface MpvNative : Library {
@@ -20,6 +21,14 @@ internal interface MpvNative : Library {
     fun mpv_error_string(code: Int): String?
     fun mpv_request_log_messages(context: Pointer, minLevel: String): Int
     fun mpv_wait_event(context: Pointer, timeout: Double): Pointer?
+
+    // Render API (render.h), used where Vimivo owns the GL context (Linux; macOS uses it from its native bridge).
+    fun mpv_render_context_create(result: PointerByReference, context: Pointer, params: Pointer): Int
+    fun mpv_render_context_set_update_callback(renderContext: Pointer, callback: Pointer?, data: Pointer?)
+    fun mpv_render_context_update(renderContext: Pointer): Long
+    fun mpv_render_context_render(renderContext: Pointer, params: Pointer): Int
+    fun mpv_render_context_report_swap(renderContext: Pointer)
+    fun mpv_render_context_free(renderContext: Pointer)
 
     companion object {
         /** The macOS JAWT/Core Animation and Now Playing bridge (links libmpv); loading it again is a no-op. */

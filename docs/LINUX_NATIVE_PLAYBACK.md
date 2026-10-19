@@ -12,23 +12,31 @@ On Linux, Vimivo searches for `libmpv` in the following order:
 
 Dynamic discovery ensures that packaged standalone builds use relocatable dependencies bundled in the package image, while development and distribution builds can utilize the host's native libmpv when present.
 
-## 2. Embedded video rendering: `MpvX11Renderer`
+## 2. Embedded video rendering: `MpvEglRenderer` (libmpv render API)
 
-Compose Desktop runs on the JVM using AWT/Swing under the hood. On Linux:
-- Under X11, windows are native X11 windows with 32-bit/64-bit `Window` IDs (`XID`).
-- Under Wayland, Compose Desktop runs via XWayland by default, or connects through standard Wayland AWT canvas surfaces where native XIDs are exposed by the toolkit.
+Vimivo ships an LGPL-only libmpv (ADR-004). mpv's X11 code is GPL, so that build has **no X11 video output** and
+cannot embed through `wid`. Linux therefore uses the same model as macOS: Vimivo owns the GL context and libmpv only
+renders into it.
 
-`MpvX11Renderer` embeds video directly into the Compose layout:
-1. In Compose, an `AwtWindow` or `SwingPanel` hosts a standard `java.awt.Canvas`.
-2. Once the canvas peer is materialized (`canvas.addNotify()`), JNA's `Native.getComponentID(canvas)` returns the native window handle `XID`.
-3. The renderer sets libmpv's `wid` (window ID) property to this `XID`.
-4. libmpv configures its video output backend:
-   ```c
-   mpv_set_option_string(mpv, "vo", "gpu,x11");
-   mpv_set_option_string(mpv, "wid", widString);
-   ```
-5. When the user resizes the window, exits fullscreen, or switches between songs and videos, libmpv handles surface coordinate updates automatically through the window ID lifecycle.
-6. Upon detaching or closing, `wid` is reset to 0 and native resources are cleanly released.
+1. A `java.awt.Canvas` hosts the video. Once it is displayable, `Native.getComponentID(canvas)` returns its X11 window
+   (XWayland on Wayland sessions).
+2. `MpvEglRenderer` starts one render thread. On it, the renderer:
+   - opens its own X connection;
+   - creates an EGL display, a config matching the window's visual, a window surface and an OpenGL context (OpenGL ES 2
+     as a fallback). This is all JNA, with no compiled bridge.
+3. libmpv runs with `vo=libmpv`. The renderer creates an `mpv_render_context`:
+   - `get_proc_address` comes from `eglGetProcAddress`.
+   - When a DRM render node (`/dev/dri/renderD*`) can be opened, it is handed over as `MPV_RENDER_PARAM_DRM_DISPLAY_V2`,
+     so VA-API decodes on the GPU (EGL dma-buf interop). Without one, decoding falls back to software.
+4. libmpv's update callback wakes the thread. It renders into the default framebuffer (Y flipped), swaps, and reports
+   the swap.
+5. Window size is re-read every iteration; a resize redraws the current frame even while paused.
+6. `detach()` stops the thread, which frees the render context *before* the libmpv handle is destroyed, then the EGL
+   objects and the X connection.
+
+libmpv no longer touches Xlib, so AWT's process-wide X error handler stays installed. The old restore workaround is
+gone. A software renderer (Mesa llvmpipe in VMs and CI) is still detected from libmpv's `GL_RENDERER` log line and
+switches to the `fast` profile.
 
 ## 3. Audio output pipeline
 

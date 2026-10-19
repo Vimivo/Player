@@ -44,7 +44,7 @@ Vimivo follows Clean Architecture and unidirectional data flow (MVI / reactive s
 2. **`desktopApp` Module**:
    - Owns Compose Multiplatform desktop presentation for macOS, Windows, and Linux.
    - Interacts with domain contracts through `DesktopLibraryController` and `DesktopLibraryRepository`.
-   - Manages libmpv JNA lifecycle and platform-specific video render bridges (`MpvCocoaRenderer.mm`, `MpvWin32Renderer`, `MpvX11Renderer`).
+   - Manages libmpv JNA lifecycle and platform-specific video render bridges (`MpvCocoaRenderer.mm`, `MpvWin32Renderer`, `MpvEglRenderer`).
 3. **`androidApp` Module**:
    - Owns Android entry point (`MainActivity`), foreground playback service (`VimivoMediaService`), AndroidX Media3 integration, and Room database persistence.
 4. **`iosApp` Module**:

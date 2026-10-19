@@ -474,10 +474,12 @@ class MpvPlayerEngine : PlayerEngine {
             checkCode(loaded.mpv_set_option_string(created, "log-file", path))
         }
         // libmpv never opens its own top-level window: without a Vimivo surface (headless use, tests) video is
-        // decoded but not displayed.
+        // decoded but not displayed. macOS and Linux render through the render API into Vimivo's own GL context
+        // (the LGPL libmpv has no X11 output, ADR-004); Windows embeds libmpv's Direct3D output in the canvas.
         val vo = when {
             desktopPlatform == DesktopPlatform.MACOS -> "libmpv"
             videoSurface == null -> "null"
+            desktopPlatform == DesktopPlatform.LINUX -> "libmpv"
             else -> "gpu"
         }
         checkCode(loaded.mpv_set_option_string(created, "vo", vo))
