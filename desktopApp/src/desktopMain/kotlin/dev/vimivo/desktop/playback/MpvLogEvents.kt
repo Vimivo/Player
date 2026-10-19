@@ -38,8 +38,9 @@ internal object MpvLogEvents {
         return messages
     }
 
-    /** CPU-only renderers by the names their drivers report (Mesa on Linux, WARP on Windows). */
-    private val SOFTWARE_RENDERER_NAMES = listOf("llvmpipe", "softpipe", "swrast", "microsoft basic render")
+    /** CPU-only renderers by the names their drivers report (Mesa on Linux, WARP on Windows, Apple's on macOS). */
+    private val SOFTWARE_RENDERER_NAMES =
+        listOf("llvmpipe", "softpipe", "swrast", "microsoft basic render", "apple software renderer")
     private val GL_RENDERER = Regex("""GL_RENDERER='([^']*)'""")
 
     /** The renderer libmpv draws with, from its `GL_RENDERER='…'` line when the video output starts. */

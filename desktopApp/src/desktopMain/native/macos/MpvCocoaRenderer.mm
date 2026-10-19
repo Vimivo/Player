@@ -16,18 +16,36 @@ static void *get_proc_address(void *, const char *name) {
     return address;
 }
 
-static CGLPixelFormatObj createPixelFormat(void) {
-    CGLPixelFormatAttribute attributes[] = {
+enum class PixelFormatKind { Accelerated, Any, Software };
+
+static CGLPixelFormatObj choosePixelFormat(PixelFormatKind kind) {
+    CGLPixelFormatAttribute attributes[12] = {
         kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute)kCGLOGLPVersion_3_2_Core,
         kCGLPFAColorSize, (CGLPixelFormatAttribute)24,
         kCGLPFAAlphaSize, (CGLPixelFormatAttribute)8,
-        kCGLPFAAccelerated,
-        kCGLPFADoubleBuffer, (CGLPixelFormatAttribute)0,
+        kCGLPFADoubleBuffer,
     };
+    int next = 7;
+    if (kind == PixelFormatKind::Accelerated) attributes[next++] = kCGLPFAAccelerated;
+    if (kind == PixelFormatKind::Software) {
+        attributes[next++] = kCGLPFARendererID;
+        attributes[next++] = (CGLPixelFormatAttribute)kCGLRendererGenericFloatID;
+    }
+    attributes[next] = (CGLPixelFormatAttribute)0;
     CGLPixelFormatObj format = NULL;
     GLint count = 0;
     if (CGLChoosePixelFormat(attributes, &format, &count) != kCGLNoError) return NULL;
     return format;
+}
+
+// Hardware OpenGL first. Macs without it (virtual machines, CI runners) get whatever CGL offers, which is Apple's
+// software renderer; libmpv reports it as "Apple Software Renderer" and Vimivo switches to performance mode.
+// VIMIVO_SOFTWARE_GL=1 forces the software renderer for testing.
+static CGLPixelFormatObj createPixelFormat(void) {
+    const char *forceSoftware = getenv("VIMIVO_SOFTWARE_GL");
+    if (forceSoftware && strcmp(forceSoftware, "1") == 0) return choosePixelFormat(PixelFormatKind::Software);
+    CGLPixelFormatObj format = choosePixelFormat(PixelFormatKind::Accelerated);
+    return format ? format : choosePixelFormat(PixelFormatKind::Any);
 }
 
 // libmpv's render context owns GL objects (FBOs, shaders) that belong to the context it was created on,

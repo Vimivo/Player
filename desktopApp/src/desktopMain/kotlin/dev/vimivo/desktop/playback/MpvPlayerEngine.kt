@@ -139,7 +139,8 @@ class MpvPlayerEngine : PlayerEngine {
             sessionId = currentSession,
         )
         // Published Preparing state lets the UI compose the video surface before the renderer needs it.
-        attachRendererIfPossible(media)
+        // Only video needs the renderer: if it cannot attach, audio still plays and video reports why.
+        runCatching { attachRendererIfPossible(media) }.onFailure { error -> if (media.kind == MediaKind.VIDEO) throw error }
         if (media.kind == MediaKind.STREAM) {
             applyLatencySettings(liveLatencyMode)
         }
