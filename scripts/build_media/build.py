@@ -74,11 +74,35 @@ def extract(archive, into):
         shutil.rmtree(into)
     into.mkdir(parents=True)
     with tarfile.open(archive) as tar:
-        tar.extractall(into, filter="data")
+        members = tar.getmembers()
+        for member in members:
+            check_member(archive, member)
+        # Members are validated above; "tar" keeps permissions but refuses device files and absolute paths.
+        tar.extractall(into, members=members, filter="tar")
     children = [child for child in into.iterdir() if child.is_dir()]
     if len(children) != 1:
         sys.exit(f"{archive.name}: expected one top-level directory, found {len(children)}")
     return children[0]
+
+
+def check_member(archive, member):
+    """Refuses archive members that would land outside the extraction directory (paths or link targets).
+
+    Python 3.10's backported "data" filter wrongly rejects valid relative symlinks (zimg ships some), so the check is
+    done here, with the same rules, on every Python version.
+    """
+    def escapes(path):
+        normalized = os.path.normpath(path)
+        return os.path.isabs(path) or normalized == ".." or normalized.startswith(".." + os.sep)
+
+    if escapes(member.name):
+        sys.exit(f"{archive.name}: member {member.name} is outside the archive root")
+    if member.issym() and escapes(os.path.join(os.path.dirname(member.name), member.linkname)):
+        sys.exit(f"{archive.name}: symlink {member.name} -> {member.linkname} points outside the archive")
+    if member.islnk() and escapes(member.linkname):
+        sys.exit(f"{archive.name}: hard link {member.name} -> {member.linkname} points outside the archive")
+    if member.isdev():
+        sys.exit(f"{archive.name}: device file {member.name}")
 
 
 class Target:
