@@ -124,6 +124,7 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.desktop.playback.DesktopPlayerCommand
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.DesktopPlayerShortcuts
+import dev.vimivo.desktop.playback.DesktopVideoCanvas
 import dev.vimivo.desktop.playback.MpvPlayerEngine
 import dev.vimivo.desktop.platform.DesktopPlatform
 import dev.vimivo.desktop.platform.MacOpenFileHandler
@@ -205,7 +206,7 @@ private fun desktopApplication(
     // One video surface for the whole run, attached before anything plays; the player window hosts it. Black, so
     // nothing white ever shows before the first frame, while paused, or behind audio.
     val videoCanvas = remember {
-        Canvas().apply { background = java.awt.Color.BLACK }.also(engine::attachVideoSurface)
+        DesktopVideoCanvas().also(engine::attachVideoSurface)
     }
     remember {
         koin.get<MprisService>()

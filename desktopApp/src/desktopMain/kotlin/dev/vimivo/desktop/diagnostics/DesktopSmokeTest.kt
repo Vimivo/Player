@@ -115,7 +115,8 @@ internal object DesktopSmokeTest {
         return DesktopSmokeResult.Failed(passed.file, "video decoded but the window shows no picture ($seen)")
     }
 
-    private const val PICTURE_ATTEMPTS = 5
+    // Up to 3 s: a cold software renderer (no GPU, CI) presents its first 1080p frames slowly, in strips.
+    private const val PICTURE_ATTEMPTS = 10
     private const val TRANSITION_SETTLE_MILLIS = 1_500L
     private const val PICTURE_RETRY_MILLIS = 300L
 

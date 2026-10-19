@@ -4,7 +4,7 @@ Audit date: 2026-10-19. Baseline: branch `desktop/d0.5-d1` at `a0262fd` plus the
 startup changes). This replaces the earlier source-only matrix: every ✅ below is backed by an entry in the
 [evidence register](#evidence-register). Feature numbers follow the VLC-parity brief (65 items, phases V1–V8).
 
-**Status key:** ✅ verified (evidence listed) · ❓ present in source, no evidence yet · ⚠️ partial, or claimed done but
+**Status key:** Deferred — license = decided out of v1 for licensing · ✅ verified (evidence listed) · ❓ present in source, no evidence yet · ⚠️ partial, or claimed done but
 broken (root cause in [Done but broken](#done-but-broken-root-causes)) · ❌ not built · N/A OS limitation (closest
 alternative named) · ⏳ later phase · ⛔ excluded by decision.
 
@@ -71,7 +71,8 @@ Priority: M = must-have, L = later. "UI" is today's location, then → the targe
 | # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
 | 1 | Nearly every A/V format | ✅ | ❓ | ⚠️ | M | Open file, library, OS "Open with" | D: E3 decode (13 containers/codecs incl. AV1, HDR10 HEVC, FLV, TS); picture on screen re-proven after B12 (E10). A: Media3 → LibVLC fallback via `PlaybackEngineManager` (fallback logic unit-tested, `PlaybackEngineManagerTest`, E1); MP4, FLAC and MP3 play on the emulator (E9), other containers not run; fallback choice not remembered. I: `AVPlayer` only; MKV/AVI/WebM/FLV/OGG/TS unsupported until MPVKit |
-| 2 | DVD, Audio CD, VCD, unencrypted Blu-ray | ❌ | ❌ | ❌ | M (D) / L | → Open ▸ Disc | `MpvPlayerEngine.SUPPORTED_SCHEMES` = file/http/https/rtsp/rtsps, so `bd://` is rejected although the bundle has libbluray (E6). No libdvdnav/libdvdread/libcdio in the bundle. A/I: no ISO path |
+| 2a | DVD, Audio CD, VCD | Deferred — license | Deferred — license | Deferred — license | — | — | Decided 2026-10-19: dropped from v1. libdvdnav/libdvdread and libcdio-paranoia are GPL, and the desktop stack is LGPL-only ([ADR-004](adr/ADR-004-LGPL-MEDIA-STACK.md)). Possible later as a separate GPL helper process, or if Vimivo becomes GPL |
+| 2b | Unencrypted Blu-ray (folder, ISO, drive) | ❌ | ❌ | ❌ | M (D) / L | → Open ▸ Disc | libbluray is LGPL and already in the macOS bundle (E6); `MpvPlayerEngine.SUPPORTED_SCHEMES` rejects `bd://`. A/I: ISO via fallback engines |
 | 3 | Damaged, incomplete, growing files | ⚠️ | ❓ | ❌ | M | automatic → + Settings ▸ Playback ("Repair index") | D: index-less AVI plays (E3); truncated MP4 fails silently (B6); growing-file duration refresh and repair prompt not built |
 | 4 | Speed 0.25–4× with pitch correction | ⚠️ | ⚠️ | ⚠️ | M | D: speed button, `[` `]`, side panel; A: player Speed panel; I: Speed sheet | Ladder `PlaybackSpeeds`/`PlaybackControlPolicy` unit-tested (E1). D `audio-pitch-correction=yes`; I `audioTimePitchAlgorithm`. ±0.05 fine steps and long-press 2× (A) missing; engine application not runtime-verified |
 | 5 | Frame-by-frame | ❓ | ❌ | ❌ | M | D: E / Shift+E, Video menu, side panel | D: `frame-step`/`frame-back-step`. A/I: no step API wired (LibVLC `nextFrame`, `AVPlayerItem.step(byCount:)` unused) |
