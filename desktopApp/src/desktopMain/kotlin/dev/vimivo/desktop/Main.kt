@@ -205,7 +205,7 @@ private fun desktopApplication(
     // One video surface for the whole run, attached before anything plays; the player window hosts it. Black, so
     // nothing white ever shows before the first frame, while paused, or behind audio.
     val videoCanvas = remember {
-        Canvas().also(engine::attachVideoSurface)
+        Canvas().apply { background = java.awt.Color.BLACK }.also(engine::attachVideoSurface)
     }
     remember {
         koin.get<MprisService>()
@@ -316,7 +316,13 @@ private fun desktopApplication(
     if (smokeTest != null) {
         // The surface is attached above, so video smoke runs exercise the real renderer.
         LaunchedEffect(smokeTest) {
-            val passed = viewModel.runSmokeTest(smokeTest.files) { DesktopVideoProbe.sample(videoCanvas) }
+            val playerWindow = { javax.swing.SwingUtilities.getWindowAncestor(videoCanvas) }
+            val windowChanges = listOf(
+                "fullscreen-enter" to { viewModel.dispatch(PlayerIntent.SetFullscreen(true)) },
+                "fullscreen-exit" to { viewModel.dispatch(PlayerIntent.SetFullscreen(false)) },
+                "resize" to { playerWindow()?.setSize(SMOKE_RESIZED_WIDTH, SMOKE_RESIZED_HEIGHT); Unit },
+            )
+            val passed = viewModel.runSmokeTest(smokeTest.files, windowChanges) { DesktopVideoProbe.sample(videoCanvas) }
             exit.code = if (passed) 0 else 1
             exitApp()
         }
@@ -430,7 +436,7 @@ private fun PlayerWindow(
             PlayerWindowContent(
                 state = playerState,
                 videoSurface = { modifier ->
-                    SwingPanel(factory = { videoCanvas }, modifier = modifier)
+                    SwingPanel(background = Color.Black, factory = { videoCanvas }, modifier = modifier)
                 },
                 engine = engine,
                 commands = viewModel.commands,
@@ -507,6 +513,8 @@ private class AppMenuActions(
 )
 
 private const val MAC_OPEN_EVENT_GRACE_MILLIS = 400L
+private const val SMOKE_RESIZED_WIDTH = 720
+private const val SMOKE_RESIZED_HEIGHT = 480
 
 /** The same menu bar in the player and library windows. */
 @Composable

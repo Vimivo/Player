@@ -10,8 +10,8 @@ import dev.vimivo.core.streaming.StreamValidationResult
 import dev.vimivo.core.streaming.StreamValidator
 import dev.vimivo.desktop.diagnostics.DesktopSmokeResult
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
-import dev.vimivo.desktop.diagnostics.VideoPixelSample
 import dev.vimivo.desktop.diagnostics.StartupTrace
+import dev.vimivo.desktop.diagnostics.VideoPixelSample
 import dev.vimivo.desktop.integration.mpris.MprisService
 import dev.vimivo.desktop.library.DesktopPlaybackStore
 import dev.vimivo.desktop.library.DesktopRecentMediaRepository
@@ -235,11 +235,21 @@ internal class PlayerViewModel(
     }
 
     /** Plays each file through the real queue and engine and reports whether playback advanced. */
-    suspend fun runSmokeTest(files: List<File>, probePicture: () -> VideoPixelSample? = { null }): Boolean {
+    suspend fun runSmokeTest(
+        files: List<File>,
+        windowChanges: List<Pair<String, () -> Unit>> = emptyList(),
+        probePicture: () -> VideoPixelSample? = { null },
+    ): Boolean {
         val play: suspend (MediaItem) -> Result<Unit> = { media -> queue.play(listOf(media)) }
         val results = DesktopSmokeTest.run(files, engine.state, ::mediaItemFor, play, probePicture = probePicture)
-        DesktopSmokeTest.publish(results, System.getenv("VIMIVO_SMOKE_REPORT"))
-        return results.isNotEmpty() && results.all { it is DesktopSmokeResult.Passed }
+        // The picture must survive fullscreen and resize too; replay the first video for each window change.
+        val video = files.firstOrNull { mediaItemFor(it).kind == MediaKind.VIDEO }
+        val transitions = video?.let { file ->
+            DesktopSmokeTest.checkTransitions(file, windowChanges, replay = { play(mediaItemFor(file)) }, probePicture)
+        }.orEmpty()
+        val all = results + transitions
+        DesktopSmokeTest.publish(all, System.getenv("VIMIVO_SMOKE_REPORT"))
+        return all.isNotEmpty() && all.all { it is DesktopSmokeResult.Passed }
     }
 
     private suspend fun openFiles(request: PlayerIntent.OpenFiles) {

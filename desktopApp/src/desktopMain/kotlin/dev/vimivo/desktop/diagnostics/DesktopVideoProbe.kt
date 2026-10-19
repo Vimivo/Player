@@ -4,17 +4,27 @@ import java.awt.Component
 import java.awt.Rectangle
 import java.awt.Robot
 import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.ImageIO
 import javax.swing.SwingUtilities
 
 /** What the screen shows inside the video surface: the share of visibly lit pixels and how many colours appear. */
-internal data class VideoPixelSample(val litFraction: Double, val distinctColours: Int, val width: Int, val height: Int) {
-    /** A playing colour-bars video lights most of the surface in several clearly different colours. */
+internal data class VideoPixelSample(
+    val litFraction: Double,
+    val distinctColours: Int,
+    val width: Int,
+    val height: Int,
+) {
+    /**
+     * A black (broken) surface measures 0 lit and 0 colours. Pillarboxed portrait video lights about a fifth of a wide
+     * surface, so the bar stays low.
+     */
     val showsPicture: Boolean get() = litFraction >= MIN_LIT_FRACTION && distinctColours >= MIN_COLOURS
 
     override fun toString() = "lit=%.2f colours=%d size=%dx%d".format(litFraction, distinctColours, width, height)
 
     companion object {
-        const val MIN_LIT_FRACTION = 0.25
+        const val MIN_LIT_FRACTION = 0.10
         const val MIN_COLOURS = 3
     }
 }
@@ -37,14 +47,22 @@ internal object DesktopVideoProbe {
             }
         }
         val area = bounds ?: return null
-        return analyse(Robot().createScreenCapture(area))
+        val capture = Robot().createScreenCapture(area)
+        // Opt-in evidence: VIMIVO_SMOKE_CAPTURE_DIR keeps what the probe saw as PNG files.
+        System.getenv("VIMIVO_SMOKE_CAPTURE_DIR")?.takeIf(String::isNotBlank)?.let { directory ->
+            val target = File(directory).apply { mkdirs() }.resolve("probe-${System.currentTimeMillis()}.png")
+            ImageIO.write(capture, "png", target)
+        }
+        return analyse(capture)
     }
 
     internal fun analyse(image: BufferedImage): VideoPixelSample {
         var lit = 0
         val colours = HashSet<Int>()
         for (gx in 0 until GRID) for (gy in 0 until GRID) {
-            val rgb = image.getRGB((gx + 0.5).times(image.width / GRID.toDouble()).toInt(), (gy + 0.5).times(image.height / GRID.toDouble()).toInt())
+            val x = ((gx + 0.5) * image.width / GRID).toInt()
+            val y = ((gy + 0.5) * image.height / GRID).toInt()
+            val rgb = image.getRGB(x, y)
             val r = rgb shr 16 and 0xFF
             val g = rgb shr 8 and 0xFF
             val b = rgb and 0xFF

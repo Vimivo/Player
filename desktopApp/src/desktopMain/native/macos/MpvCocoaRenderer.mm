@@ -58,7 +58,12 @@ static CGLPixelFormatObj createPixelFormat(void) {
     const int height = MAX(1, (int)(self.bounds.size.height * scale));
     glViewport(0, 0, width, height);
     if (self.renderContext) {
-        mpv_opengl_fbo fbo = { .fbo = 0, .w = width, .h = height, .internal_format = 0 };
+        // Core Animation binds the layer's own IOSurface-backed framebuffer before calling this method. It is
+        // framebuffer 0 only by accident (a layer created at its final size); rendering into 0 otherwise fails with
+        // GL_INVALID_FRAMEBUFFER_OPERATION and the picture stays black while audio plays.
+        GLint boundFramebuffer = 0;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFramebuffer);
+        mpv_opengl_fbo fbo = { .fbo = boundFramebuffer, .w = width, .h = height, .internal_format = 0 };
         int flip = 1;
         mpv_render_param params[] = {
             { MPV_RENDER_PARAM_OPENGL_FBO, &fbo },
@@ -71,7 +76,6 @@ static CGLPixelFormatObj createPixelFormat(void) {
         glClear(GL_COLOR_BUFFER_BIT);
     }
     glFlush();
-    static int draws = 0; if ((++draws % 30) == 1) { CALayer *top = self.superlayer.superlayer.sublayers.lastObject; NSLog(@"VIMIVO_DBG draw #%d top=%@ delegate=%@ opaque=%d frame=%@ sub=%@ cglFrame=%@", draws, top, top.delegate, top.opaque, NSStringFromRect(NSRectFromCGRect(top.frame)), top.sublayers, NSStringFromRect(NSRectFromCGRect(self.superlayer.frame))); }
     CGLUnlockContext(cglContext);
 }
 @end
@@ -257,7 +261,6 @@ Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_attachNative(JNIEnv *env, jobj
         layer.renderContext = renderContext;
         mpv_render_context_set_update_callback(layer.renderContext, on_mpv_update, (__bridge void *)layer);
         target.layer = layer;
-        NSLog(@"VIMIVO_DBG attach target=%@ windowLayer=%@ layerFrame=%@", target, target.windowLayer, NSStringFromRect(NSRectFromCGRect(layer.frame)));
         activeLayer = layer;
         activeSurface = target;
     });

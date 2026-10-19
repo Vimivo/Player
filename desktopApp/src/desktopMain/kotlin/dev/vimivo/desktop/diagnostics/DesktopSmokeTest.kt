@@ -4,11 +4,11 @@ import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 
@@ -39,6 +39,7 @@ internal object DesktopSmokeTest {
     fun parse(args: Array<String>): DesktopSmokeTestRequest? =
         if (FLAG in args) DesktopSmokeTestRequest(args.filterNot { it == FLAG }.map(::File)) else null
 
+    @Suppress("LongParameterList") // Each collaborator is injected so the gate runs against the real app.
     suspend fun run(
         files: List<File>,
         state: StateFlow<PlaybackState>,
@@ -58,7 +59,25 @@ internal object DesktopSmokeTest {
         }
         val latest = reached ?: state.value.takeIf { it.media?.uri == media.uri }
         val result = evaluate(file, media, latest, timedOut = reached == null)
-        if (result is DesktopSmokeResult.Passed && media.kind == MediaKind.VIDEO) checkPicture(result, probePicture) else result
+        val isVideo = media.kind == MediaKind.VIDEO
+        if (result is DesktopSmokeResult.Passed && isVideo) checkPicture(result, probePicture) else result
+    }
+
+    /**
+     * Replays [file] before each step, runs the step (fullscreen, resize, …) and checks the picture is still on screen
+     * afterwards, so a renderer that loses its surface on a window change fails the gate.
+     */
+    suspend fun checkTransitions(
+        file: File,
+        steps: List<Pair<String, () -> Unit>>,
+        replay: suspend () -> Unit,
+        probePicture: () -> VideoPixelSample?,
+    ): List<DesktopSmokeResult> = steps.map { (name, step) ->
+        replay()
+        step()
+        delay(TRANSITION_SETTLE_MILLIS)
+        val passed = DesktopSmokeResult.Passed(File("${file.name}#$name"), positionMillis = 0, videoTracks = 1)
+        checkPicture(passed, probePicture)
     }
 
     /**
@@ -92,10 +111,12 @@ internal object DesktopSmokeTest {
             if (picture?.showsPicture == true) return passed.copy(picture = picture)
             delay(PICTURE_RETRY_MILLIS)
         }
-        return DesktopSmokeResult.Failed(passed.file, "video decoded but the window shows no picture (${picture ?: "surface not shown"})")
+        val seen = picture?.toString() ?: "surface not shown"
+        return DesktopSmokeResult.Failed(passed.file, "video decoded but the window shows no picture ($seen)")
     }
 
     private const val PICTURE_ATTEMPTS = 5
+    private const val TRANSITION_SETTLE_MILLIS = 1_500L
     private const val PICTURE_RETRY_MILLIS = 300L
 
     private fun PlaybackState.isTerminalFor(): Boolean =
