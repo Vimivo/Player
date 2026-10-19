@@ -52,10 +52,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install libmpv
+      - name: Restore the LGPL media package cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vimivo-media-packages
+          key: vimivo-media-${{ hashFiles('scripts/build_media/media.lock') }}
+      - name: Fetch the pinned LGPL libmpv (our GitHub Release, SHA-256 verified)
         run: |
-          brew update
-          brew install mpv
+          python3 scripts/build_media/fetch_media.py --target macos-universal --dest "$RUNNER_TEMP/vimivo-media"
+          echo "VIMIVO_MPV_PREFIX=$RUNNER_TEMP/vimivo-media" >> "$GITHUB_ENV"
       - uses: gradle/actions/setup-gradle@v4
       - name: Package macOS DMG
         run: ./gradlew :desktopApp:packageDmg
@@ -113,12 +118,20 @@ jobs:
       - name: Install packaging dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev
+          sudo apt-get install -y rpm fakeroot libsecret-1-dev libdbus-1-dev
+      - name: Restore the LGPL media package cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vimivo-media-packages
+          key: vimivo-media-${{ hashFiles('scripts/build_media/media.lock') }}
+      - name: Fetch the pinned LGPL libmpv (our GitHub Release, SHA-256 verified)
+        run: |
+          python3 scripts/build_media/fetch_media.py --target linux-x86_64 --dest "$RUNNER_TEMP/vimivo-media"
+          echo "VIMIVO_LINUX_MPV_DIR=$RUNNER_TEMP/vimivo-media/lib" >> "$GITHUB_ENV"
       - uses: gradle/actions/setup-gradle@v4
       - name: Build Linux packages
         run: |
           ./gradlew :desktopApp:createDistributable
-          python3 desktopApp/scripts/bundle_linux_mpv.py desktopApp/build/compose/binaries/main/app/Vimivo /usr/lib/x86_64-linux-gnu
           ./gradlew :desktopApp:packageDeb :desktopApp:packageRpm
           if ! command -v appimagetool >/dev/null 2>&1; then
             wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool
@@ -149,19 +162,20 @@ jobs:
         with:
           python-version: "3.11"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Fetch pinned libmpv
-        shell: pwsh
-        run: |
-          $mpvUrl = "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20240407-git-1f9db50.7z/download"
-          Invoke-WebRequest -Uri $mpvUrl -OutFile "mpv-dev.7z" -UserAgent "Mozilla/5.0"
-          7z x mpv-dev.7z -o"windows-mpv"
+      - name: Restore the LGPL media package cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vimivo-media-packages
+          key: vimivo-media-${{ hashFiles('scripts/build_media/media.lock') }}
+      - name: Fetch the pinned LGPL libmpv (our GitHub Release, SHA-256 verified)
+        shell: bash
+        run: python scripts/build_media/fetch_media.py --target windows-x86_64 --dest windows-mpv
       - name: Build Windows packages
         shell: pwsh
         env:
-          VIMIVO_WINDOWS_MPV_DIR: "${{ github.workspace }}\\windows-mpv"
+          VIMIVO_WINDOWS_MPV_DIR: "${{ github.workspace }}\\windows-mpv\\bin"
         run: |
           ./gradlew :desktopApp:createDistributable
-          python desktopApp/scripts/bundle_windows_mpv.py build/compose/binaries/main/app/Vimivo "${{ github.workspace }}\\windows-mpv"
           ./gradlew :desktopApp:packageExe :desktopApp:packageMsi
       - name: Stage Windows Artifacts
         shell: pwsh
@@ -240,7 +254,8 @@ jobs:
                   }
               },
               'components': [
-                  {'name': 'libmpv', 'version': '2.0.0', 'purl': 'pkg:generic/libmpv@2.0.0'},
+                  {'name': 'mpv', 'version': '0.41.0', 'licenses': [{'license': {'id': 'LGPL-2.1-or-later'}}], 'purl': 'pkg:github/mpv-player/mpv@v0.41.0'},
+                  {'name': 'ffmpeg', 'version': '9.0.2', 'licenses': [{'license': {'id': 'LGPL-2.1-or-later'}}], 'purl': 'pkg:generic/ffmpeg@9.0.2'},
                   {'name': 'androidx.media3', 'version': '1.11.1', 'purl': 'pkg:maven/androidx.media3/media3-exoplayer@1.11.1'},
                   {'name': 'sqlite-jdbc', 'version': '3.53.4.0', 'purl': 'pkg:maven/org.xerial/sqlite-jdbc@3.53.4.0'},
                   {'name': 'jaudiotagger', 'version': '3.0.1', 'purl': 'pkg:maven/net.jthink/jaudiotagger@3.0.1'},

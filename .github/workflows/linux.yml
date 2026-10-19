@@ -29,13 +29,26 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Linux packaging tools and libmpv
+      - name: Install Linux packaging tools and the media package's system libraries
+        # libmpv and FFmpeg come from our own LGPL package below; only the system libraries it links against
+        # (VA-API, PulseAudio, ALSA, EGL, X11 extensions) come from the distribution.
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev ffmpeg xvfb dbus dbus-x11 gnome-keyring playerctl
+          sudo apt-get install -y rpm fakeroot libsecret-1-dev libdbus-1-dev xvfb dbus dbus-x11 gnome-keyring playerctl \
+            libva2 libva-x11-2 libva-drm2 libpulse0 libasound2t64 libegl1 libxss1 libxpresent1 libfontconfig1
 
-      - name: Generate smoke-test media
-        run: python3 testmedia/generate_media.py
+      - name: Restore the LGPL media package cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vimivo-media-packages
+          key: vimivo-media-${{ hashFiles('scripts/build_media/media.lock') }}
+
+      - name: Fetch the pinned LGPL libmpv (our GitHub Release, SHA-256 verified)
+        # Built by build-media.yml from scripts/build_media (ADR-004). The test media is checked in.
+        run: |
+          python3 scripts/build_media/fetch_media.py --target linux-x86_64 --dest "$RUNNER_TEMP/vimivo-media"
+          echo "VIMIVO_LINUX_MPV_DIR=$RUNNER_TEMP/vimivo-media/lib" >> "$GITHUB_ENV"
+          echo "VIMIVO_TEST_MPV_DIR=$RUNNER_TEMP/vimivo-media/lib" >> "$GITHUB_ENV"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -50,8 +63,10 @@ jobs:
 
       - name: Build Linux Distributable & Bundle Native Dependencies
         run: |
+          # createDistributable is finalized by bundleLinuxMpv, which copies VIMIVO_LINUX_MPV_DIR into lib/.
           ./gradlew :desktopApp:createDistributable
-          python3 desktopApp/scripts/bundle_linux_mpv.py desktopApp/build/compose/binaries/main/app/Vimivo /usr/lib/x86_64-linux-gnu
+          test -e desktopApp/build/compose/binaries/main/app/Vimivo/lib/libmpv.so.2
+          test -f desktopApp/build/compose/binaries/main/app/Vimivo/lib/media-build-info.json
 
       - name: Smoke-test the packaged app (launch + local video and audio playback)
         run: |

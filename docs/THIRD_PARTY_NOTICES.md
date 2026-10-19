@@ -20,6 +20,7 @@ current GPL modules and the planned LGPL-only build.
 
 | Component | Version | Licence | Platforms | Source |
 |---|---|---|---|---|
+| libiconv | 1.18 | LGPL-2.1-or-later | Windows | <https://ftpmirror.gnu.org/libiconv/libiconv-1.18.tar.gz> |
 | zlib | 1.3.2 | Zlib | Windows | <https://zlib.net/zlib-1.3.2.tar.gz> |
 | freetype | 2.15.0 | FTL | macOS, Windows, Linux | <https://downloads.sourceforge.net/project/freetype/freetype2/2.15.0/freetype-2.15.0.tar.xz> |
 | harfbuzz | 14.6.0 | MIT | macOS, Windows, Linux | <https://github.com/harfbuzz/harfbuzz/releases/download/14.6.0/harfbuzz-14.6.0.tar.xz> |
@@ -38,6 +39,7 @@ current GPL modules and the planned LGPL-only build.
 | libplacebo | 7.360.1 | LGPL-2.1-or-later | macOS, Windows, Linux | <https://code.videolan.org/videolan/libplacebo/-/archive/v7.360.1/libplacebo-v7.360.1.tar.bz2> |
 | Vulkan-Headers (in libplacebo) | vulkan-sdk-1.4.363.0 | Apache-2.0 OR MIT | macOS, Windows, Linux | <https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/vulkan-sdk-1.4.363.0.tar.gz> |
 | fast_float (in libplacebo) | 8.3.2 | Apache-2.0 OR BSL-1.0 OR MIT | macOS, Windows, Linux | <https://github.com/fastfloat/fast_float/archive/refs/tags/v8.3.2.tar.gz> |
+| libdisplay-info | 0.3.0 | MIT (PNP ID table from hwdata, used under XFree86-1.0) | Linux | <https://gitlab.freedesktop.org/-/project/14497/uploads/a7e427e2c5ef474032a87459443b7982/libdisplay-info-0.3.0.tar.xz> |
 | ffmpeg | 9.0.2 | LGPL-2.1-or-later | macOS, Windows, Linux | <https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz> |
 | mpv | 0.41.0 | LGPL-2.1-or-later (built with -Dgpl=false) | macOS, Windows, Linux | <https://github.com/mpv-player/mpv/archive/refs/tags/v0.41.0.tar.gz> |
 
@@ -60,5 +62,5 @@ current GPL modules and the planned LGPL-only build.
 | SQLite JDBC (includes SQLite, public domain) | 3.53.4.0 | Apache-2.0 | macOS, Windows, Linux | <https://github.com/xerial/sqlite-jdbc> |
 | jaudiotagger | 3.0.1 | LGPL-2.1-or-later | macOS, Windows, Linux | <https://bitbucket.org/ijabz/jaudiotagger> |
 | OpenJDK runtime (Eclipse Temurin) | 17 | GPL-2.0-only WITH Classpath-exception-2.0 | macOS, Windows, Linux | <https://github.com/adoptium/jdk17u> |
-| GCC runtime (libgcc, libstdc++), linked statically into the media DLLs | mingw-w64 toolchain | GPL-3.0-or-later WITH GCC-exception-3.1 | Windows | <https://gcc.gnu.org/> |
+| GCC runtime (libgcc, libstdc++) | mingw-w64 toolchain | GPL-3.0-or-later WITH GCC-exception-3.1 | Windows | <https://gcc.gnu.org/> |
 | mingw-w64 winpthreads | mingw-w64 toolchain | MIT AND BSD-3-Clause | Windows | <https://sourceforge.net/projects/mingw-w64/> |

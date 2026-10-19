@@ -18,9 +18,8 @@ jobs:
         include:
           - runner: macos-15
             arch: arm64
-          # macos-15-intel is paused: Homebrew builds libmpv's dependency chain from source there (no Intel bottles),
-          # so the job never finishes. It returns with our own pinned universal LGPL libmpv from GitHub Releases
-          # (ADR-004, step (d)); the Intel smoke test is re-enabled then.
+          - runner: macos-15-intel
+            arch: x86_64
     runs-on: ${{ matrix.runner }}
     env:
       MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
@@ -47,15 +46,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install libmpv via Homebrew
-        run: |
-          brew update
-          brew install mpv
-          echo "VIMIVO_MPV_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
+      - name: Restore the LGPL media package cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vimivo-media-packages
+          key: vimivo-media-${{ hashFiles('scripts/build_media/media.lock') }}
 
-      - name: Generate smoke-test media
-        # ffmpeg is installed as an mpv dependency.
-        run: python3 testmedia/generate_media.py
+      - name: Fetch the pinned LGPL libmpv (our GitHub Release, SHA-256 verified)
+        # Universal arm64 + x86_64 package built by build-media.yml from scripts/build_media (ADR-004).
+        # No Homebrew and no third-party download sites; the test media is checked in.
+        run: |
+          python3 scripts/build_media/fetch_media.py --target macos-universal --dest "$RUNNER_TEMP/vimivo-media"
+          echo "VIMIVO_MPV_PREFIX=$RUNNER_TEMP/vimivo-media" >> "$GITHUB_ENV"
+          echo "VIMIVO_TEST_MPV_DIR=$RUNNER_TEMP/vimivo-media/lib" >> "$GITHUB_ENV"
 
       - name: Verify runner architecture
         run: |

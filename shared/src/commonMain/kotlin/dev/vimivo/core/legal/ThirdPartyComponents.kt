@@ -189,7 +189,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
         mediaPackage = false,
     ),
     ThirdPartyComponent(
-        name = "GCC runtime (libgcc, libstdc++), linked statically into the media DLLs",
+        name = "GCC runtime (libgcc, libstdc++)",
         version = "mingw-w64 toolchain",
         license = "GPL-3.0-or-later WITH GCC-exception-3.1",
         sourceUrl = "https://gcc.gnu.org/",
@@ -203,6 +203,14 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
         sourceUrl = "https://sourceforge.net/projects/mingw-w64/",
         platforms = setOf(NoticePlatform.WINDOWS),
         mediaPackage = false,
+    ),
+    ThirdPartyComponent(
+        name = "libiconv",
+        version = "1.18",
+        license = "LGPL-2.1-or-later",
+        sourceUrl = "https://ftpmirror.gnu.org/libiconv/libiconv-1.18.tar.gz",
+        platforms = setOf(NoticePlatform.WINDOWS),
+        mediaPackage = true,
     ),
     ThirdPartyComponent(
         name = "zlib",
@@ -394,6 +402,14 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
         ),
+        mediaPackage = true,
+    ),
+    ThirdPartyComponent(
+        name = "libdisplay-info",
+        version = "0.3.0",
+        license = "MIT (PNP ID table from hwdata, used under XFree86-1.0)",
+        sourceUrl = "https://gitlab.freedesktop.org/-/project/14497/uploads/a7e427e2c5ef474032a87459443b7982/libdisplay-info-0.3.0.tar.xz",
+        platforms = setOf(NoticePlatform.LINUX),
         mediaPackage = true,
     ),
     ThirdPartyComponent(

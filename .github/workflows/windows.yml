@@ -32,51 +32,29 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Download pinned libmpv for Windows x64
-        shell: pwsh
-        env:
-          # Update both values together; the digest is the one GitHub publishes for the release asset.
-          MPV_URL: https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261016/mpv-dev-x86_64-20261016-git-a2cd83c56d.7z
-          MPV_SHA256: 0142058a8d20930f1c086d0c16a593f9e27a8b3fe9d1f4bb3b2ee4a2d5ec994b
-        run: |
-          Invoke-WebRequest -Uri $env:MPV_URL -OutFile "mpv-dev.7z"
-          $actual = (Get-FileHash -Path "mpv-dev.7z" -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actual -ne $env:MPV_SHA256) {
-            Write-Error "libmpv checksum mismatch: expected $env:MPV_SHA256, got $actual"
-            exit 1
-          }
-          7z x mpv-dev.7z -o"windows-mpv" | Out-Null
-          if (-not (Test-Path "windows-mpv\libmpv-2.dll")) {
-            Write-Error "libmpv-2.dll is missing from the pinned archive"
-            exit 1
-          }
-          Write-Host "libmpv verified ($actual)"
+      - name: Restore the LGPL media package cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vimivo-media-packages
+          key: vimivo-media-${{ hashFiles('scripts/build_media/media.lock') }}
 
-      - name: Generate smoke-test media
-        shell: pwsh
-        run: |
-          # The Chocolatey community feed sometimes answers 503; ffmpeg only generates test media, so retry.
-          foreach ($attempt in 1..4) {
-            choco install ffmpeg --no-progress -y
-            if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
-            if (Test-Path "C:\ProgramData\chocolatey\bin\ffmpeg.exe") { break }
-            Write-Host "ffmpeg install attempt $attempt failed; retrying in 30 s"
-            Start-Sleep -Seconds 30
-          }
-          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
-          python testmedia/generate_media.py
+      - name: Fetch the pinned LGPL libmpv (our GitHub Release, SHA-256 verified)
+        # Built by build-media.yml from scripts/build_media (ADR-004). No third-party download sites; the test
+        # media is checked in.
+        shell: bash
+        run: python scripts/build_media/fetch_media.py --target windows-x86_64 --dest windows-mpv
 
       - name: Compile and run tests
         env:
           # Live libmpv tests load the pinned DLL; without it they skip.
-          VIMIVO_TEST_MPV_DIR: ${{ github.workspace }}\windows-mpv
+          VIMIVO_TEST_MPV_DIR: ${{ github.workspace }}\windows-mpv\bin
         run: ./gradlew :desktopApp:compileKotlinDesktop :desktopApp:desktopTest :shared:desktopTest :desktopApp:detekt
 
       - name: Build Windows distributable (with the MSVC environment for the media controls bridge)
         shell: cmd
         env:
           # createDistributable is finalized by bundleWindowsMpv, which copies the DLLs from this directory.
-          VIMIVO_WINDOWS_MPV_DIR: ${{ github.workspace }}\windows-mpv
+          VIMIVO_WINDOWS_MPV_DIR: ${{ github.workspace }}\windows-mpv\bin
         run: |
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
@@ -85,7 +63,7 @@ jobs:
       - name: Verify bundled native libraries
         shell: pwsh
         run: |
-          foreach ($dll in @("libmpv-2.dll", "vimivo_media_controls.dll")) {
+          foreach ($dll in @("libmpv-2.dll", "vimivo_media_controls.dll", "media-build-info.json")) {
             if (-not (Test-Path "desktopApp/build/compose/binaries/main/app/Vimivo/$dll")) {
               Write-Error "$dll was not bundled into the distributable"
               exit 1
@@ -110,7 +88,7 @@ jobs:
           if (Test-Path $report) { Get-Content $report }
           $passed = if (Test-Path $report) { (Select-String -Path $report -Pattern "^VIMIVO_SMOKE PASS").Count } else { 0 }
           if ($process.ExitCode -ne 0 -or $passed -ne 7) {  # 4 files + 3 window-change picture checks
-            Write-Error "Smoke test failed (exit $($process.ExitCode), $passed/4 passed)"
+            Write-Error "Smoke test failed (exit $($process.ExitCode), $passed/7 passed)"
             exit 1
           }
 
