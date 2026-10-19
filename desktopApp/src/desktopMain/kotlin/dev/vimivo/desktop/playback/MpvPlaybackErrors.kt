@@ -1,4 +1,4 @@
-@file:Suppress("MaxLineLength", "MaximumLineLength")
+@file:Suppress("CyclomaticComplexMethod", "MaxLineLength", "MaximumLineLength")
 
 package dev.vimivo.desktop.playback
 

@@ -32,8 +32,6 @@ import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.HardwareAccelerationMode
 import dev.vimivo.playback.PlaybackDiagnosticsSnapshot
-import dev.vimivo.playback.PlaybackError
-import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackMetadata
 import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
@@ -528,6 +526,7 @@ class MpvPlayerEngine : PlayerEngine {
                 while (isActive && !closed && sessionGeneration == expectedSession) {
                     iteration++
                     handleLogMessages()
+                    renderer?.afterVideoOutputChange()
                     val duration = doubleProperty("duration")?.times(1_000)?.toLong()
                     val position = doubleProperty("time-pos")?.times(1_000)?.toLong()?.coerceAtLeast(0) ?: 0
                     val paused = flagProperty("pause") ?: true
@@ -711,9 +710,11 @@ class MpvPlayerEngine : PlayerEngine {
         closed = true
         polling?.cancel()
         synchronized(nativeLock) {
-            renderer?.detach()
+            val closing = renderer
+            closing?.detach()
             renderer = null
             context?.let { native?.mpv_terminate_destroy(it) }
+            closing?.afterVideoOutputChange()
             context = null
             native = null
         }

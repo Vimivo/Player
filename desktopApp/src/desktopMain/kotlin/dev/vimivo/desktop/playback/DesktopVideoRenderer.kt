@@ -7,6 +7,9 @@ import java.awt.Canvas
 internal interface DesktopVideoRenderer {
     fun attach(canvas: Canvas, context: Pointer)
     fun detach()
+
+    /** Called after libmpv may have started or stopped its video output: on every poll and after the player closes. */
+    fun afterVideoOutputChange() = Unit
 }
 
 internal object DesktopVideoRendererFactory {
