@@ -43,8 +43,20 @@
       "name": "nasm",
       "version": "3.02",
       "license": "BSD-2-Clause (build tool only)",
-      "url": "https://www.nasm.us/pub/nasm/releasebuilds/3.02/nasm-3.02.tar.xz",
-      "sha256": "87336eba53b4acfe917424ab5d500d2b0054d9f5148d35c2273ccf2cfb712f0d"
+      "url": "https://github.com/netwide-assembler/nasm/archive/refs/tags/nasm-3.02.tar.gz",
+      "sha256": "39e251d3048c9f68678903c6b05b83942c66c71e467e8c5c3c1b26cff2ef1586",
+      "bootstrap": [
+        "./autogen.sh"
+      ],
+      "make_targets": [
+        "nasm",
+        "ndisasm"
+      ],
+      "install_bin": [
+        "nasm",
+        "ndisasm"
+      ],
+      "comment": "GitHub tag archive (nasm.us is unreachable from GitHub's Linux runners); built from the git tree, so only the binaries are installed (the man pages would need asciidoc)."
     }
   ],
   "components": [

@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 import urllib.request
 from pathlib import Path
 
@@ -27,6 +28,7 @@ HERE = Path(__file__).resolve().parent
 MANIFEST = json.loads((HERE / "manifest.json").read_text())
 CACHE = Path(os.environ.get("VIMIVO_MEDIA_CACHE", Path.home() / ".cache" / "vimivo-media"))
 JOBS = str(os.cpu_count() or 4)
+DOWNLOAD_ATTEMPTS = 5
 # The GCC runtime (GPL-3.0 WITH GCC-exception-3.1) is linked statically on Windows so no libgcc/libstdc++ DLLs ship.
 WINDOWS_RUNTIME = "'-static-libgcc', '-static-libstdc++'"
 
@@ -48,8 +50,16 @@ def fetch(entry):
     if not target.exists():
         log(f"download {entry['name']} {entry['version']}")
         partial = target.with_suffix(target.suffix + ".part")
-        with urllib.request.urlopen(entry["url"]) as response, open(partial, "wb") as out:
-            shutil.copyfileobj(response, out)
+        for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+            try:
+                with urllib.request.urlopen(entry["url"], timeout=120) as response, open(partial, "wb") as out:
+                    shutil.copyfileobj(response, out)
+                break
+            except OSError as error:  # URLError, timeouts and resets; the checksum below catches bad content
+                if attempt == DOWNLOAD_ATTEMPTS:
+                    sys.exit(f"download of {entry['url']} failed after {attempt} attempts: {error}")
+                log(f"download failed ({error}); retrying in {attempt * 15} s")
+                time.sleep(attempt * 15)
         partial.rename(target)
     digest = hashlib.sha256(target.read_bytes()).hexdigest()
     if digest != entry["sha256"]:
@@ -222,9 +232,16 @@ def build_tools(work):
             continue
         source = extract(fetch(tool), work / "tools-src" / tool["name"])
         log(f"tool {tool['name']} {tool['version']}")
+        for command in tool.get("bootstrap", []):
+            run(command.split(), cwd=source, env=env)
         run(["./configure", f"--prefix={prefix}"], cwd=source, env=env)
-        run(["make", "-j", JOBS], cwd=source, env=env)
-        run(["make", "install"], cwd=source, env=env)
+        run(["make", "-j", JOBS, *tool.get("make_targets", [])], cwd=source, env=env)
+        if "install_bin" in tool:
+            (prefix / "bin").mkdir(parents=True, exist_ok=True)
+            for binary in tool["install_bin"]:
+                shutil.copy2(source / binary, prefix / "bin" / binary)
+        else:
+            run(["make", "install"], cwd=source, env=env)
         if "alias" in tool:
             alias = prefix / "bin" / tool["alias"]
             alias.unlink(missing_ok=True)
