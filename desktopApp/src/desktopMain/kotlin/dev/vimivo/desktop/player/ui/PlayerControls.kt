@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+
 package dev.vimivo.desktop.player.ui
 
 import androidx.compose.animation.core.Spring
@@ -37,36 +39,20 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-
-/** The player's own palette: a dark, VLC-like control surface in Vimivo's colours (spec §2.1, §3). */
-internal object PlayerPalette {
-    val bar = Color(0xEB141416) // #141416 at 92 %
-    val hairline = Color.White.copy(alpha = 0.06f)
-    val content = Color.White.copy(alpha = 0.85f)
-    val contentMuted = Color.White.copy(alpha = 0.50f)
-    val hover = Color.White.copy(alpha = 0.08f)
-    val trackPlayed = Color.White
-    val trackBuffered = Color.White.copy(alpha = 0.35f)
-    val trackRemaining = Color.White.copy(alpha = 0.18f)
-    val boost = Color(0xFFFFB300) // amber: volume above 100 %
-    val abRange = Color(0xFF64D2FF).copy(alpha = 0.45f)
-    val glass = Color(0xB81C1C1E) // #1C1C1E at 72 %
-    val glassBorder = Color.White.copy(alpha = 0.08f)
-}
 
 /** 18 dp icon in a 32 × 32 dp target with an 8 % hover background (radius 6). */
 @Composable
@@ -127,6 +113,8 @@ internal fun PlayerIconFace(
  * A thin slider (3 dp track, 5 dp on hover, 12 dp thumb) for volume and picture settings. Double-click resets to
  * [resetValue] when given; arrow keys step by [keyStep]. Above [boostFrom] the filled part turns amber.
  */
+// Keys, tap, double-tap reset, drag, wheel and semantics form one input contract; detekt counts every branch.
+@Suppress("CyclomaticComplexMethod")
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun VimivoSlider(
@@ -183,7 +171,10 @@ internal fun VimivoSlider(
                 contentDescription = label
                 stateDescription = valueText
                 progressBarRangeInfo = ProgressBarRangeInfo(value, valueRange)
-                setProgress { target -> latest(target.coerceIn(valueRange)); true }
+                setProgress { target ->
+                    latest(target.coerceIn(valueRange))
+                    true
+                }
             },
     ) {
         val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
@@ -199,7 +190,13 @@ internal fun VimivoSlider(
         } else {
             drawRoundRect(PlayerPalette.trackPlayed, Offset(0f, top), Size(filled, trackHeight), radius)
         }
-        boostX?.let { x -> drawRect(PlayerPalette.contentMuted, Offset(x - 0.5f, top - 2f), Size(1f, trackHeight + 4f)) }
+        boostX?.let { x ->
+            drawRect(
+                PlayerPalette.contentMuted,
+                Offset(x - 0.5f, top - 2f),
+                Size(1f, trackHeight + 4f)
+            )
+        }
         if (hovered || dragging) {
             drawCircle(Color.Black.copy(alpha = 0.35f), THUMB_RADIUS.toPx() + 1f, Offset(filled, size.height / 2 + 1f))
             drawCircle(PlayerPalette.trackPlayed, THUMB_RADIUS.toPx(), Offset(filled, size.height / 2))

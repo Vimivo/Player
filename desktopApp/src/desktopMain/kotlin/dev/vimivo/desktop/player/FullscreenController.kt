@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+
 package dev.vimivo.desktop.player
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -58,14 +60,14 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.vimivo.desktop.playback.DesktopPlayerCommand
+import dev.vimivo.desktop.player.ui.OverlayWindow
 import dev.vimivo.desktop.player.ui.PlayerIconButton
 import dev.vimivo.desktop.player.ui.PlayerIconFace
-import dev.vimivo.desktop.player.ui.OverlayWindow
-import dev.vimivo.desktop.player.ui.rememberWindowBounds
 import dev.vimivo.desktop.player.ui.PlayerPalette
 import dev.vimivo.desktop.player.ui.PlayerVolumeControl
 import dev.vimivo.desktop.player.ui.VimivoTimeline
 import dev.vimivo.desktop.player.ui.playerClock
+import dev.vimivo.desktop.player.ui.rememberWindowBounds
 import dev.vimivo.desktop.resources.Res
 import dev.vimivo.desktop.resources.player_back_10
 import dev.vimivo.desktop.resources.player_exit_fullscreen
@@ -105,6 +107,7 @@ internal fun FullscreenController(
     owner: Window,
     videoSurface: Component,
     onIntent: (PlayerIntent) -> Unit,
+    preview: (suspend (Long) -> androidx.compose.ui.graphics.ImageBitmap?)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
@@ -141,7 +144,8 @@ internal fun FullscreenController(
         owner = owner,
         position = DpOffset(
             (ownerBounds.x + (ownerBounds.width - width.value) / 2 - SHADOW.value + liveOffset.x).dp,
-            (ownerBounds.y + ownerBounds.height - CONTROLLER_HEIGHT.value - BOTTOM_MARGIN.value - SHADOW.value + liveOffset.y).dp,
+            (ownerBounds.y + ownerBounds.height - CONTROLLER_HEIGHT.value - BOTTOM_MARGIN.value - SHADOW.value).dp +
+                liveOffset.y.dp,
         ),
         size = DpSize(width + SHADOW * 2, CONTROLLER_HEIGHT + SHADOW * 2),
         title = "Vimivo controls",
@@ -158,23 +162,32 @@ internal fun FullscreenController(
                 .border(1.dp, PlayerPalette.glassBorder, SHAPE)
                 .hoverable(interaction)
                 .pointerInput(Unit) {
-                    detectDragGestures(onDragEnd = { onIntent(PlayerIntent.MoveController(liveOffset)) }) { change, amount ->
+                    detectDragGestures(
+                        onDragEnd = { onIntent(PlayerIntent.MoveController(liveOffset)) }
+                    ) { change, amount ->
                         change.consume()
                         liveOffset = ControllerOffset(liveOffset.x + amount.x.toInt(), liveOffset.y + amount.y.toInt())
                     }
                 },
         ) {
-            ControllerContent(state, onIntent)
+            ControllerContent(state, onIntent, preview)
         }
     }
 }
 
 @Composable
-private fun ControllerContent(state: PlayerState, onIntent: (PlayerIntent) -> Unit) {
+private fun ControllerContent(
+    state: PlayerState,
+    onIntent: (PlayerIntent) -> Unit,
+    preview: (suspend (Long) -> androidx.compose.ui.graphics.ImageBitmap?)?,
+) {
     val playback = state.playback
     val playing = playback.status == PlaybackStatus.Playing
     val duration = playback.durationMillis?.takeIf { it > 0 }
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(playerClock(playback.positionMillis), color = PlayerPalette.content, style = SMALL_TEXT, maxLines = 1)
             Text(
@@ -187,7 +200,12 @@ private fun ControllerContent(state: PlayerState, onIntent: (PlayerIntent) -> Un
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
             )
-            Text(duration?.let(::playerClock) ?: stringResource(Res.string.player_unknown_time), color = PlayerPalette.content, style = SMALL_TEXT, maxLines = 1)
+            Text(
+                duration?.let(::playerClock) ?: stringResource(Res.string.player_unknown_time),
+                color = PlayerPalette.content,
+                style = SMALL_TEXT,
+                maxLines = 1
+            )
         }
         VimivoTimeline(
             playback = playback,
@@ -195,6 +213,7 @@ private fun ControllerContent(state: PlayerState, onIntent: (PlayerIntent) -> Un
             onSeek = { position, exact -> onIntent(PlayerIntent.Seek(position, exact)) },
             alwaysShowThumb = true,
             modifier = Modifier.fillMaxWidth(),
+            preview = preview,
         )
         Box(Modifier.fillMaxWidth()) {
             Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
@@ -209,20 +228,44 @@ private fun ControllerContent(state: PlayerState, onIntent: (PlayerIntent) -> Un
                     sliderWidth = 72.dp,
                 )
             }
-            Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                PlayerIconButton(Icons.Outlined.SkipPrevious, stringResource(Res.string.player_previous)) { onIntent(PlayerIntent.Previous) }
-                ScanButton(Icons.Outlined.FastRewind, stringResource(Res.string.player_back_10), forward = false, onIntent = onIntent)
+            Row(
+                Modifier.align(Alignment.Center),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                PlayerIconButton(
+                    Icons.Outlined.SkipPrevious,
+                    stringResource(Res.string.player_previous)
+                ) { onIntent(PlayerIntent.Previous) }
+                ScanButton(
+                    Icons.Outlined.FastRewind,
+                    stringResource(Res.string.player_back_10),
+                    forward = false,
+                    onIntent = onIntent
+                )
                 PlayerIconButton(
                     if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                     stringResource(if (playing) Res.string.player_pause else Res.string.player_play),
                     size = 44.dp,
                     iconSize = 30.dp,
                 ) { onIntent(PlayerIntent.TogglePlayback) }
-                ScanButton(Icons.Outlined.FastForward, stringResource(Res.string.player_forward_10), forward = true, onIntent = onIntent)
-                PlayerIconButton(Icons.Outlined.SkipNext, stringResource(Res.string.player_next)) { onIntent(PlayerIntent.Next) }
+                ScanButton(
+                    Icons.Outlined.FastForward,
+                    stringResource(Res.string.player_forward_10),
+                    forward = true,
+                    onIntent = onIntent
+                )
+                PlayerIconButton(
+                    Icons.Outlined.SkipNext,
+                    stringResource(Res.string.player_next)
+                ) { onIntent(PlayerIntent.Next) }
             }
             Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
-                PlayerIconButton(Icons.Outlined.Settings, stringResource(Res.string.player_panel), selected = state.panel != null) {
+                PlayerIconButton(
+                    Icons.Outlined.Settings,
+                    stringResource(Res.string.player_panel),
+                    selected = state.panel != null
+                ) {
                     onIntent(PlayerIntent.ShowPanel(if (state.panel == null) PlayerPanel.VIDEO else null))
                 }
                 Spacer(Modifier.width(2.dp))
@@ -256,7 +299,14 @@ internal fun FullscreenPanelWindow(
         focusable = true,
         onCloseRequest = { onIntent(PlayerIntent.ShowPanel(null)) },
     ) {
-        dev.vimivo.desktop.player.ui.PlayerSidePanel(state, panel, engine, commands, onIntent, Modifier.clip(RoundedCornerShape(12.dp)))
+        dev.vimivo.desktop.player.ui.PlayerSidePanel(
+            state,
+            panel,
+            engine,
+            commands,
+            onIntent,
+            Modifier.clip(RoundedCornerShape(12.dp))
+        )
     }
 }
 

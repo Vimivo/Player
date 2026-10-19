@@ -103,7 +103,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
-import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
@@ -127,10 +126,10 @@ import dev.vimivo.core.model.ArtistItem
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
-import dev.vimivo.desktop.playback.DesktopPlayerCommand
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.DesktopPlayerShortcuts
 import dev.vimivo.desktop.playback.DesktopVideoCanvas
+import dev.vimivo.desktop.playback.MpvThumbnailer
 import dev.vimivo.desktop.playback.MpvPlayerEngine
 import dev.vimivo.desktop.platform.DesktopPlatform
 import dev.vimivo.desktop.platform.MacOpenFileHandler
@@ -234,7 +233,9 @@ private fun desktopApplication(
     val recentEntries by recentMedia.entries.collectAsState()
     val windowIcon = remember {
         runCatching {
-            DesktopDestination::class.java.classLoader.getResourceAsStream("icon.png")?.use { stream ->
+            // macOS shows the icon in the Dock: it gets the rounded macOS shape, other systems the square artwork.
+            val resource = if (DesktopPlatform.detect() == DesktopPlatform.MACOS) "macos/icon.png" else "icon.png"
+            DesktopDestination::class.java.classLoader.getResourceAsStream(resource)?.use { stream ->
                 ImageIO.read(stream)?.toComposeImageBitmap()?.let(::BitmapPainter)
             }
         }.getOrNull()
@@ -311,7 +312,7 @@ private fun desktopApplication(
         videoCanvas = videoCanvas,
         visible = playerVisible,
         icon = windowIcon,
-        menu = { VimivoMenuBar(viewModel, engine, recentEntries, playerState.fullscreen, menuActions) },
+        menu = { VimivoMenuBar(playerState, viewModel, engine, recentEntries, menuActions) },
         openStreamRequested = openStreamRequested && playerVisible,
         onOpenStreamHandled = { openStreamRequested = false },
         onOpenFiles = openFileHandler::submit,
@@ -358,7 +359,7 @@ private fun desktopApplication(
                 if (playerState.libraryRequest > 0) window.bringToFront()
             }
             LaunchedEffect(window) { window.installFileDrop(openFileHandler::submit) }
-            VimivoMenuBar(viewModel, engine, recentEntries, playerState.fullscreen, menuActions)
+            VimivoMenuBar(playerState, viewModel, engine, recentEntries, menuActions)
             DesktopPlayer(
                 engine,
                 queue,
@@ -421,6 +422,7 @@ private fun PlayerWindow(
         onCloseRequest = onCloseRequest,
         state = windowState,
         visible = visible,
+        alwaysOnTop = playerState.alwaysOnTop,
         title = title,
         icon = icon,
         onKeyEvent = { event -> handleWindowKey(event, viewModel) },
@@ -441,6 +443,13 @@ private fun PlayerWindow(
             if (playerState.focusRequest > 0) window.bringToFront()
         }
         LaunchedEffect(window) { window.installFileDrop(onOpenFiles) }
+        val thumbnailer = remember { MpvThumbnailer() }
+        DisposableEffect(thumbnailer) { onDispose { thumbnailer.close() } }
+        // Hover previews only for local video files: streams would download, audio has no pictures.
+        val previewPath = media?.takeIf { it.kind == MediaKind.VIDEO }?.uri?.takeIf { it.startsWith("file:") }
+            ?.let { uri -> runCatching { File(java.net.URI(uri)).absolutePath }.getOrNull() }
+        val preview: (suspend (Long) -> androidx.compose.ui.graphics.ImageBitmap?)? =
+            previewPath?.let { path -> { position: Long -> thumbnailer.thumbnail(path, position) } }
         DisposableEffect(videoCanvas) {
             val doubleClickListener = object : java.awt.event.MouseAdapter() {
                 override fun mouseClicked(event: java.awt.event.MouseEvent) {
@@ -463,13 +472,14 @@ private fun PlayerWindow(
                     engine = engine,
                     commands = viewModel.commands,
                     onIntent = viewModel::dispatch,
+                    preview = preview,
                 )
             }
             if (openStreamRequested) {
                 OpenStreamDialog(queue, engine, onDismiss = onOpenStreamHandled)
             }
             if (visible && playerState.fullscreen && playerState.presentation == PlayerPresentation.VIDEO) {
-                FullscreenController(playerState, window, videoCanvas, viewModel::dispatch)
+                FullscreenController(playerState, window, videoCanvas, viewModel::dispatch, preview)
                 playerState.panel?.let { panel ->
                     FullscreenPanelWindow(playerState, panel, window, engine, viewModel.commands, viewModel::dispatch)
                 }
@@ -530,240 +540,10 @@ private fun java.awt.Window.installFileDrop(onFiles: (List<File>) -> Unit) {
     })
 }
 
-/** What the menu bar does that depends on which windows are open. */
-private class AppMenuActions(
-    val onOpenFiles: (List<File>) -> Unit,
-    val onOpenStream: () -> Unit,
-    val onAddFolder: () -> Unit,
-    val onImportPlaylist: (File) -> Unit,
-    val onClearRecent: () -> Unit,
-    val onNavigate: (DesktopDestination) -> Unit,
-    val onShowLibrary: () -> Unit,
-)
-
 private const val MAC_OPEN_EVENT_GRACE_MILLIS = 400L
 private const val SMOKE_RESIZED_WIDTH = 720
 private const val SMOKE_RESIZED_HEIGHT = 480
 
-/** The same menu bar in the player and library windows. */
-@Composable
-private fun FrameWindowScope.VimivoMenuBar(
-    viewModel: PlayerViewModel,
-    engine: MpvPlayerEngine,
-    recentEntries: List<dev.vimivo.playback.RecentMediaEntry>,
-    isFullscreen: Boolean,
-    actions: AppMenuActions,
-) {
-    val onOpenFiles = actions.onOpenFiles
-    val onOpenStream = actions.onOpenStream
-    val onAddFolder = actions.onAddFolder
-    val onImportPlaylist = actions.onImportPlaylist
-    val onClearRecent = actions.onClearRecent
-    val onNavigate = actions.onNavigate
-    MenuBar {
-        Menu("File") {
-            Item(
-                "Open File…",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.O),
-                onClick = { onOpenFiles(chooseMediaFiles()) },
-            )
-            Item(
-                "Open Network Stream…",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.U),
-                onClick = onOpenStream,
-            )
-            Item(
-                "Add Folder…",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.O, shift = true),
-                onClick = onAddFolder,
-            )
-            Item(
-                "Import Playlist…",
-                onClick = { choosePlaylistFile()?.let(onImportPlaylist) },
-            )
-            Menu("Open Recent") {
-                if (recentEntries.isEmpty()) {
-                    Item("No Recent Media", enabled = false, onClick = {})
-                } else {
-                    recentEntries.forEach { entry ->
-                        Item(entry.title, onClick = {
-                            runCatching { File(java.net.URI(entry.uri)) }.getOrNull()
-                                ?.takeIf(File::isFile)
-                                ?.let { onOpenFiles(listOf(it)) }
-                        })
-                    }
-                    Separator()
-                    Item("Clear Recent Media", onClick = onClearRecent)
-                }
-            }
-            Separator()
-            Item(
-                "Media Information…",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.I),
-                onClick = { viewModel.commands.execute(DesktopPlayerCommand.MEDIA_INFO) },
-            )
-        }
-        Menu("Playback") {
-            Item(
-                "Play / Pause",
-                shortcut = androidx.compose.ui.input.key.KeyShortcut(
-                    androidx.compose.ui.input.key.Key.Spacebar,
-                    ctrl = true,
-                ),
-                onClick = { viewModel.dispatch(PlayerIntent.TogglePlayback) },
-            )
-            Item("Stop", onClick = { engine.stop() })
-            Item(
-                "Next Track",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.DirectionRight),
-                onClick = { viewModel.dispatch(PlayerIntent.Next) },
-            )
-            Item(
-                "Previous Track",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.DirectionLeft),
-                onClick = { viewModel.dispatch(PlayerIntent.Previous) },
-            )
-            Separator()
-            Item(
-                "Seek Backward",
-                shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionLeft, alt = true),
-                onClick = { viewModel.commands.execute(DesktopPlayerCommand.SEEK_BACK_MEDIUM) },
-            )
-            Item(
-                "Seek Forward",
-                shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionRight, alt = true),
-                onClick = { viewModel.commands.execute(DesktopPlayerCommand.SEEK_FORWARD_MEDIUM) },
-            )
-            Separator()
-            Item(
-                "Volume Up",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.DirectionUp),
-                onClick = { viewModel.commands.execute(DesktopPlayerCommand.VOLUME_UP) },
-            )
-            Item(
-                "Volume Down",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.DirectionDown),
-                onClick = { viewModel.commands.execute(DesktopPlayerCommand.VOLUME_DOWN) },
-            )
-            Item(
-                "Mute / Unmute",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.M),
-                onClick = { viewModel.commands.execute(DesktopPlayerCommand.TOGGLE_MUTE) },
-            )
-            Separator()
-            Item(
-                "Normal Speed  ⌫",
-                onClick = { viewModel.commands.execute(DesktopPlayerCommand.SPEED_RESET) },
-            )
-            Item(
-                "Faster  ]",
-                onClick = { viewModel.commands.execute(DesktopPlayerCommand.SPEED_UP) },
-            )
-            Item(
-                "Slower  [",
-                onClick = { viewModel.commands.execute(DesktopPlayerCommand.SPEED_DOWN) },
-            )
-        }
-        Menu("Video") {
-            commandItems(
-                viewModel.commands,
-                DesktopPlayerCommand.FRAME_STEP_FORWARD to "E",
-                DesktopPlayerCommand.FRAME_STEP_BACKWARD to "Shift+E",
-                DesktopPlayerCommand.SNAPSHOT to "Shift+S",
-                DesktopPlayerCommand.CYCLE_ASPECT_RATIO to "A",
-                DesktopPlayerCommand.TOGGLE_DEINTERLACE to "D",
-                DesktopPlayerCommand.AB_LOOP to "Shift+L",
-            )
-        }
-        Menu("Audio") {
-            commandItems(
-                viewModel.commands,
-                DesktopPlayerCommand.CYCLE_AUDIO_TRACK to "B",
-                DesktopPlayerCommand.AUDIO_DELAY_DOWN to "Shift+G",
-                DesktopPlayerCommand.AUDIO_DELAY_UP to "Shift+H",
-                DesktopPlayerCommand.TOGGLE_MUTE to "M",
-            )
-        }
-        Menu("Subtitle") {
-            commandItems(
-                viewModel.commands,
-                DesktopPlayerCommand.CYCLE_SUBTITLE_TRACK to "V",
-                DesktopPlayerCommand.SUBTITLE_DELAY_DOWN to "G",
-                DesktopPlayerCommand.SUBTITLE_DELAY_UP to "H",
-            )
-        }
-        Menu("View") {
-            Item(
-                "Library",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.L),
-                onClick = actions.onShowLibrary,
-            )
-            Item(
-                if (isFullscreen) "Exit Full Screen" else "Enter Full Screen",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.F, shift = true),
-                onClick = { viewModel.dispatch(PlayerIntent.SetFullscreen(!isFullscreen)) },
-            )
-        }
-        Menu("Navigate") {
-            Item(
-                "Home",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.One),
-                onClick = { onNavigate(DesktopDestination.Home) },
-            )
-            Item(
-                "Music",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.Two),
-                onClick = { onNavigate(DesktopDestination.Music) },
-            )
-            Item(
-                "Videos",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.Three),
-                onClick = { onNavigate(DesktopDestination.Videos) },
-            )
-            Item(
-                "Playlists",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.Four),
-                onClick = { onNavigate(DesktopDestination.Playlists) },
-            )
-            Item(
-                "Network Streams",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.Five),
-                onClick = { onNavigate(DesktopDestination.Network) },
-            )
-            Separator()
-            Item(
-                "Settings",
-                shortcut = primaryShortcut(androidx.compose.ui.input.key.Key.Comma),
-                onClick = { onNavigate(DesktopDestination.Settings) },
-            )
-        }
-        Menu("Help") {
-            Item(
-                "About Vimivo",
-                onClick = { onNavigate(DesktopDestination.Settings) },
-            )
-        }
-    }
-}
-
-/** Menu shortcuts use Cmd on macOS and Ctrl elsewhere, as documented in KEYBOARD_SHORTCUTS.md. */
-private fun primaryShortcut(key: androidx.compose.ui.input.key.Key, shift: Boolean = false) =
-    if (DesktopPlatform.detect() == DesktopPlatform.MACOS) {
-        androidx.compose.ui.input.key.KeyShortcut(key, meta = true, shift = shift)
-    } else {
-        androidx.compose.ui.input.key.KeyShortcut(key, ctrl = true, shift = shift)
-    }
-
-/** Single-key shortcuts are handled by the window, so menu items show them in the label only. */
-@Composable
-private fun androidx.compose.ui.window.MenuScope.commandItems(
-    commands: DesktopPlayerCommandExecutor,
-    vararg items: Pair<DesktopPlayerCommand, String>,
-) {
-    items.forEach { (command, keyHint) ->
-        Item("${command.label}  ($keyHint)", onClick = { commands.execute(command) })
-    }
-}
 
 @Composable
 private fun DesktopPlayer(
@@ -1696,18 +1476,18 @@ private fun formatBytes(bytes: Long): String = if (bytes < 1_048_576) "${bytes /
 
 
 
-private fun chooseMediaFiles(): List<File> {
+internal fun chooseMediaFiles(): List<File> {
     val dialog = FileDialog(null as Frame?, "Open media", FileDialog.LOAD)
     dialog.isMultipleMode = true
     dialog.isVisible = true
     return dialog.files.orEmpty().toList()
 }
 
-private fun clipboardText(): String? = runCatching {
+internal fun clipboardText(): String? = runCatching {
     java.awt.Toolkit.getDefaultToolkit().systemClipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String
 }.getOrNull()?.takeIf(String::isNotBlank)
 
-private fun choosePlaylistFile(): File? {
+internal fun choosePlaylistFile(): File? {
     val dialog = FileDialog(null as Frame?, "Import Playlist (M3U, XSPF)", FileDialog.LOAD)
     dialog.setFilenameFilter { _, name -> name.endsWith(".m3u", true) || name.endsWith(".m3u8", true) || name.endsWith(".xspf", true) }
     dialog.isVisible = true

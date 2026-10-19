@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+
 package dev.vimivo.desktop.player.ui
 
 import androidx.compose.animation.core.Spring
@@ -14,10 +16,10 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,7 +54,6 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
-import java.awt.MouseInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
@@ -65,6 +66,7 @@ import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import java.awt.MouseInfo
 
 /**
  * The player timeline (spec §3.1): one continuous thin bar (played / buffered / remaining), 3 dp growing to 5 dp on
@@ -76,6 +78,8 @@ import kotlinx.coroutines.isActive
  * Input: click seeks exactly; dragging scrubs with keyframe seeks (throttled) and seeks exactly on release; the wheel
  * seeks ±5 s; hovering shows the time, the chapter and, when [preview] returns one, a frame preview.
  */
+// Click, scrub, wheel, hover, semantics and drawing form one control; detekt counts every branch.
+@Suppress("CyclomaticComplexMethod")
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun VimivoTimeline(
@@ -140,7 +144,10 @@ internal fun VimivoTimeline(
                     var lastSeekNanos = 0L
                     detectDragGestures(
                         onDragStart = { offset -> scrubMillis = millisAt(offset.x) },
-                        onDragEnd = { scrubMillis?.let { seek(it, true) }; scrubMillis = null },
+                        onDragEnd = {
+                            scrubMillis?.let { seek(it, true) }
+                            scrubMillis = null
+                        },
                         onDragCancel = { scrubMillis = null },
                     ) { change, _ ->
                         hoverX = change.position.x
@@ -154,10 +161,15 @@ internal fun VimivoTimeline(
                 }
                 .semantics {
                     contentDescription = label
-                    stateDescription = "${playerClock(playback.positionMillis)} of ${duration?.let(::playerClock) ?: "unknown"}"
+                    val total = duration?.let(::playerClock) ?: "unknown"
+                    stateDescription = "${playerClock(playback.positionMillis)} of $total"
                     if (duration != null) {
-                        progressBarRangeInfo = ProgressBarRangeInfo(playback.positionMillis.toFloat(), 0f..duration.toFloat())
-                        setProgress { target -> seek(target.toLong().coerceIn(0, duration), true); true }
+                        val range = 0f..duration.toFloat()
+                        progressBarRangeInfo = ProgressBarRangeInfo(playback.positionMillis.toFloat(), range)
+                        setProgress { target ->
+                            seek(target.toLong().coerceIn(0, duration), true)
+                            true
+                        }
                     }
                 },
         ) {
@@ -176,10 +188,18 @@ internal fun VimivoTimeline(
             val played = (position / total).coerceIn(0f, 1f) * size.width
             drawRoundRect(PlayerPalette.trackPlayed, Offset(0f, top), Size(played, trackHeight), radius)
             playback.chapters.drop(1).forEach { chapter ->
-                drawRect(Color.Black.copy(alpha = 0.55f), Offset(x(chapter.startPositionMillis), top), Size(1f, trackHeight))
+                drawRect(
+                    Color.Black.copy(alpha = 0.55f),
+                    Offset(x(chapter.startPositionMillis), top),
+                    Size(1f, trackHeight)
+                )
             }
             if (alwaysShowThumb || hovered || scrubMillis != null) {
-                drawCircle(Color.Black.copy(alpha = 0.35f), THUMB_RADIUS.toPx() + 1f, Offset(played, size.height / 2 + 1f))
+                drawCircle(
+                    Color.Black.copy(alpha = 0.35f),
+                    THUMB_RADIUS.toPx() + 1f,
+                    Offset(played, size.height / 2 + 1f)
+                )
                 drawCircle(PlayerPalette.trackPlayed, THUMB_RADIUS.toPx(), Offset(played, size.height / 2))
             }
         }
@@ -255,11 +275,28 @@ private fun TimelineTooltip(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 image?.let {
-                    Image(it, contentDescription = null, modifier = Modifier.size(PREVIEW_WIDTH, PREVIEW_HEIGHT).clip(RoundedCornerShape(4.dp)))
+                    Image(
+                        it,
+                        contentDescription = null,
+                        modifier = Modifier.size(PREVIEW_WIDTH, PREVIEW_HEIGHT).clip(RoundedCornerShape(4.dp))
+                    )
                 }
-                Text(playerClock(millis), color = PlayerPalette.trackPlayed, style = TOOLTIP_TEXT, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                Text(
+                    playerClock(millis),
+                    color = PlayerPalette.trackPlayed,
+                    style = TOOLTIP_TEXT,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
                 chapter?.let {
-                    Text(it.title, color = PlayerPalette.contentMuted, style = TOOLTIP_TEXT, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = PREVIEW_WIDTH))
+                    Text(
+                        it.title,
+                        color = PlayerPalette.contentMuted,
+                        style = TOOLTIP_TEXT,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = PREVIEW_WIDTH)
+                    )
                 }
             }
         }
@@ -270,7 +307,15 @@ private fun TimelineTooltip(
 internal fun playerClock(millis: Long): String {
     val seconds = millis.coerceAtLeast(0) / 1_000
     val hours = seconds / 3_600
-    return if (hours > 0) "%d:%02d:%02d".format(hours, seconds / 60 % 60, seconds % 60) else "%02d:%02d".format(seconds / 60, seconds % 60)
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(
+            hours,
+            seconds / 60 % 60,
+            seconds % 60
+        )
+    } else {
+        "%02d:%02d".format(seconds / 60, seconds % 60)
+    }
 }
 
 private val HIT_HEIGHT = 20.dp

@@ -1,5 +1,9 @@
+@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+
 package dev.vimivo.desktop.player
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,8 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
@@ -36,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -88,6 +91,8 @@ internal fun PlayerWindowContent(
     engine: MpvPlayerEngine,
     commands: DesktopPlayerCommandExecutor,
     onIntent: (PlayerIntent) -> Unit,
+    /** Timeline hover preview for the current media, when it has pictures to show. */
+    preview: (suspend (Long) -> ImageBitmap?)? = null,
 ) {
     val media = state.playback.media
     val showsVideo = state.presentation == PlayerPresentation.VIDEO && state.loadingTitle == null
@@ -109,7 +114,7 @@ internal fun PlayerWindowContent(
             }
             PlayerMessages(state, onIntent)
             if (!state.fullscreen || state.presentation == PlayerPresentation.AUDIO) {
-                PlayerControlBar(state, onIntent)
+                PlayerControlBar(state, onIntent, preview)
             }
         }
     }
@@ -172,7 +177,11 @@ private fun PlayerMessages(state: PlayerState, onIntent: (PlayerIntent) -> Unit)
  * ⏮ ⏯ ⏭ ■ ≡ · timeline · time · volume · ⚙ · ⛶.
  */
 @Composable
-private fun PlayerControlBar(state: PlayerState, onIntent: (PlayerIntent) -> Unit) {
+private fun PlayerControlBar(
+    state: PlayerState,
+    onIntent: (PlayerIntent) -> Unit,
+    preview: (suspend (Long) -> ImageBitmap?)?
+) {
     val playback = state.playback
     val playing = playback.status == PlaybackStatus.Playing
     val controlsLabel = stringResource(Res.string.player_controls)
@@ -187,12 +196,18 @@ private fun PlayerControlBar(state: PlayerState, onIntent: (PlayerIntent) -> Uni
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        PlayerIconButton(Icons.Outlined.SkipPrevious, stringResource(Res.string.player_previous)) { onIntent(PlayerIntent.Previous) }
+        PlayerIconButton(
+            Icons.Outlined.SkipPrevious,
+            stringResource(Res.string.player_previous)
+        ) { onIntent(PlayerIntent.Previous) }
         PlayerIconButton(
             if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
             stringResource(if (playing) Res.string.player_pause else Res.string.player_play),
         ) { onIntent(PlayerIntent.TogglePlayback) }
-        PlayerIconButton(Icons.Outlined.SkipNext, stringResource(Res.string.player_next)) { onIntent(PlayerIntent.Next) }
+        PlayerIconButton(
+            Icons.Outlined.SkipNext,
+            stringResource(Res.string.player_next)
+        ) { onIntent(PlayerIntent.Next) }
         PlayerIconButton(Icons.Outlined.Stop, stringResource(Res.string.player_stop)) { onIntent(PlayerIntent.Stop) }
         PlayerIconButton(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(Res.string.player_playlist)) {
             onIntent(PlayerIntent.ShowLibrary)
@@ -203,6 +218,7 @@ private fun PlayerControlBar(state: PlayerState, onIntent: (PlayerIntent) -> Uni
             label = stringResource(Res.string.player_seek),
             onSeek = { position, exact -> onIntent(PlayerIntent.Seek(position, exact)) },
             modifier = Modifier.weight(1f),
+            preview = preview,
         )
         Spacer(Modifier.width(8.dp))
         TimeReadout(state, onIntent)
@@ -216,7 +232,11 @@ private fun PlayerControlBar(state: PlayerState, onIntent: (PlayerIntent) -> Uni
             onVolume = { onIntent(PlayerIntent.SetVolume(it)) },
             onToggleMute = { onIntent(PlayerIntent.Command(DesktopPlayerCommand.TOGGLE_MUTE)) },
         )
-        PlayerIconButton(Icons.Outlined.Settings, stringResource(Res.string.player_panel), selected = state.panel != null) {
+        PlayerIconButton(
+            Icons.Outlined.Settings,
+            stringResource(Res.string.player_panel),
+            selected = state.panel != null
+        ) {
             onIntent(PlayerIntent.ShowPanel(if (state.panel == null) PlayerPanel.VIDEO else null))
         }
         PlayerIconButton(

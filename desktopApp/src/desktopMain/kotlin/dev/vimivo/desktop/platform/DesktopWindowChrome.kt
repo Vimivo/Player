@@ -68,6 +68,7 @@ internal object DesktopWindowChrome {
         }
     }
 
+    @Suppress("LongParameterList") // Mirrors Xlib's C signatures.
     private interface Xlib : Library {
         fun XOpenDisplay(name: String?): Pointer?
         fun XInternAtom(display: Pointer, name: String, onlyIfExists: Boolean): Long

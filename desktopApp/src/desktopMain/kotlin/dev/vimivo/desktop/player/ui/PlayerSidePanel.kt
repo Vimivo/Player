@@ -1,7 +1,8 @@
+@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+
 package dev.vimivo.desktop.player.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -31,18 +32,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.vimivo.desktop.DesktopBookmarksPanel
-import dev.vimivo.desktop.player.PlayerIntent
-import dev.vimivo.desktop.player.PlayerPanel
-import dev.vimivo.desktop.player.PlayerState
 import dev.vimivo.desktop.playback.DesktopPlayerCommand
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.player.PlayerIntent
+import dev.vimivo.desktop.player.PlayerPanel
+import dev.vimivo.desktop.player.PlayerState
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.SubtitleStyle
-import dev.vimivo.playback.TrackInfo
 import dev.vimivo.playback.VideoAdjustments
 import dev.vimivo.playback.VideoAspectRatio
 import java.awt.FileDialog
@@ -183,7 +183,7 @@ private fun AudioTab(playback: PlaybackState, engine: MpvPlayerEngine, commands:
         PanelDropdown(
             options = PlaybackSpeeds.PRESETS,
             selected = PlaybackSpeeds.PRESETS.minByOrNull { abs(it - playback.speed) },
-            label = { "${it}×" },
+            label = { "$it×" },
             placeholder = "1.0×",
             onSelect = { speed -> commands.perform("Speed") { engine.setPlaybackSpeed(speed) } },
             modifier = Modifier.fillMaxWidth(),
@@ -225,7 +225,13 @@ private fun SubtitlesTab(playback: PlaybackState, engine: MpvPlayerEngine, comma
         }
     }
     PanelSection("Appearance")
-    SliderRow("Size", style.fontSizeSp.toFloat(), SUBTITLE_SIZE_RANGE, "${style.fontSizeSp} pt", reset = DEFAULT_SUBTITLE_SIZE) {
+    SliderRow(
+        "Size",
+        style.fontSizeSp.toFloat(),
+        SUBTITLE_SIZE_RANGE,
+        "${style.fontSizeSp} pt",
+        reset = DEFAULT_SUBTITLE_SIZE
+    ) {
         restyle(style.copy(fontSizeSp = it.roundToInt()))
     }
     PanelRow("Colour") {
@@ -237,7 +243,13 @@ private fun SubtitlesTab(playback: PlaybackState, engine: MpvPlayerEngine, comma
             modifier = Modifier.fillMaxWidth(),
         )
     }
-    SliderRow("Position", style.bottomMarginPercent.toFloat(), SUBTITLE_MARGIN_RANGE, "${style.bottomMarginPercent} %", reset = DEFAULT_SUBTITLE_MARGIN) {
+    SliderRow(
+        "Position",
+        style.bottomMarginPercent.toFloat(),
+        SUBTITLE_MARGIN_RANGE,
+        "${style.bottomMarginPercent} %",
+        reset = DEFAULT_SUBTITLE_MARGIN
+    ) {
         restyle(style.copy(bottomMarginPercent = it.roundToInt()))
     }
 }
@@ -245,15 +257,31 @@ private fun SubtitlesTab(playback: PlaybackState, engine: MpvPlayerEngine, comma
 @Composable
 private fun SyncTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: DesktopPlayerCommandExecutor) {
     PanelSection("Delays")
+    val audioStep = PlaybackControlPolicy.AUDIO_DELAY_STEP_MILLIS
+    val subtitleStep = PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS
     PanelRow("Audio delay") {
-        DelayStepper("Audio delay", playback.audioDelayMillis, PlaybackControlPolicy.AUDIO_DELAY_STEP_MILLIS, onStep = { delta ->
-            commands.perform("Audio delay") { engine.setAudioDelay(PlaybackControlPolicy.stepDelay(playback.audioDelayMillis, delta)) }
-        }, onReset = { commands.perform("Reset audio delay") { engine.setAudioDelay(0) } })
+        DelayStepper(
+            "Audio delay",
+            playback.audioDelayMillis,
+            audioStep,
+            onStep = { delta ->
+                val next = PlaybackControlPolicy.stepDelay(playback.audioDelayMillis, delta)
+                commands.perform("Audio delay") { engine.setAudioDelay(next) }
+            },
+            onReset = { commands.perform("Reset audio delay") { engine.setAudioDelay(0) } },
+        )
     }
     PanelRow("Subtitle delay") {
-        DelayStepper("Subtitle delay", playback.subtitleDelayMillis, PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS, onStep = { delta ->
-            commands.perform("Subtitle delay") { engine.setSubtitleDelay(PlaybackControlPolicy.stepDelay(playback.subtitleDelayMillis, delta)) }
-        }, onReset = { commands.perform("Reset subtitle delay") { engine.setSubtitleDelay(0) } })
+        DelayStepper(
+            "Subtitle delay",
+            playback.subtitleDelayMillis,
+            subtitleStep,
+            onStep = { delta ->
+                val next = PlaybackControlPolicy.stepDelay(playback.subtitleDelayMillis, delta)
+                commands.perform("Subtitle delay") { engine.setSubtitleDelay(next) }
+            },
+            onReset = { commands.perform("Reset subtitle delay") { engine.setSubtitleDelay(0) } },
+        )
     }
     PanelSection("A–B repeat")
     val ab = playback.abRepeat
@@ -262,10 +290,16 @@ private fun SyncTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: 
             commands.perform("Set point A") { engine.setABRepeat(ABRepeatRange(pointA = playback.positionMillis)) }
         }
         Spacer(Modifier.width(6.dp))
-        PanelButton(ab.pointB?.let { "B ${playerClock(it)}" } ?: "Set B", Modifier.weight(1f), enabled = ab.pointA != null) {
+        PanelButton(
+            ab.pointB?.let { "B ${playerClock(it)}" } ?: "Set B",
+            Modifier.weight(1f),
+            enabled = ab.pointA != null
+        ) {
             val start = ab.pointA ?: return@PanelButton
             if (playback.positionMillis > start) {
-                commands.perform("Set point B") { engine.setABRepeat(ABRepeatRange(start, playback.positionMillis, enabled = true)) }
+                commands.perform(
+                    "Set point B"
+                ) { engine.setABRepeat(ABRepeatRange(start, playback.positionMillis, enabled = true)) }
             }
         }
         if (ab.pointA != null) {
@@ -284,26 +318,6 @@ private fun SyncTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: 
         }
     }
 }
-
-@Composable
-private fun TrackDropdown(tracks: List<TrackInfo>, none: String, allowOff: Boolean = false, onSelect: (TrackInfo?) -> Unit) {
-    val options: List<TrackInfo?> = (if (allowOff) listOf(null) else emptyList<TrackInfo?>()) + tracks
-    PanelDropdown(
-        options = options,
-        selected = tracks.firstOrNull(TrackInfo::isSelected),
-        label = { track -> track?.let(::trackLabel) ?: none },
-        placeholder = none,
-        onSelect = onSelect,
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
-
-private fun trackLabel(track: TrackInfo): String = listOfNotNull(
-    track.label.takeIf(String::isNotBlank),
-    track.language?.takeIf { it != track.label },
-    track.codec,
-    track.channels?.let { "${it}ch" },
-).joinToString(" · ").ifBlank { "Track ${track.id}" }
 
 @Composable
 private fun SliderRow(

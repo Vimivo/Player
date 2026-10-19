@@ -13,7 +13,9 @@ import java.io.File
 internal enum class OpenMode { REPLACE, ADD_TO_QUEUE }
 
 /** The player's settings side panel; one tab at a time (spec §2.4). */
-internal enum class PlayerPanel(val title: String) { VIDEO("Video"), AUDIO("Audio"), SUBTITLES("Subtitles"), SYNC("Sync"), BOOKMARKS("Bookmarks") }
+internal enum class PlayerPanel(val title: String) { VIDEO(
+    "Video"
+), AUDIO("Audio"), SUBTITLES("Subtitles"), SYNC("Sync"), BOOKMARKS("Bookmarks") }
 
 /** Where the user dragged the fullscreen controller, as an offset from its default bottom-centre place. */
 internal data class ControllerOffset(val x: Int, val y: Int)
@@ -47,6 +49,8 @@ internal data class PlayerState(
     /** The control bar shows "-remaining / total" instead of "elapsed / total". */
     val showRemainingTime: Boolean = false,
     val controllerOffset: ControllerOffset = ControllerOffset(0, 0),
+    /** The player window floats above other apps' windows (View ▸ Always on Top). */
+    val alwaysOnTop: Boolean = false,
 )
 
 /** Every user action the player understands; the UI never calls the engine or queue directly for these. */
@@ -56,6 +60,7 @@ internal sealed interface PlayerIntent {
     data object Next : PlayerIntent
     data object Previous : PlayerIntent
     data object Stop : PlayerIntent
+
     /** [exact] false is a fast keyframe seek, used while scrubbing. */
     data class Seek(val positionMillis: Long, val exact: Boolean = true) : PlayerIntent
     data class SetVolume(val volume: Float) : PlayerIntent
@@ -98,6 +103,7 @@ internal sealed interface PlayerIntent {
     data class ShowPanel(val panel: PlayerPanel?) : PlayerIntent
     data object ToggleRemainingTime : PlayerIntent
     data class MoveController(val offset: ControllerOffset) : PlayerIntent
+    data object ToggleAlwaysOnTop : PlayerIntent
 }
 
 /**

@@ -94,6 +94,7 @@ internal class PlayerViewModel(
             panel = localState.panel,
             showRemainingTime = localState.showRemainingTime,
             controllerOffset = localState.controllerOffset,
+            alwaysOnTop = localState.alwaysOnTop,
         )
     }.stateIn(scope, SharingStarted.Eagerly, PlayerState(maxVolume = engine.capabilities.maxVolume))
 
@@ -194,6 +195,7 @@ internal class PlayerViewModel(
     private fun dispatchPlayerUi(intent: PlayerIntent) {
         when (intent) {
             is PlayerIntent.ShowPanel -> local.update { it.copy(panel = intent.panel) }
+            PlayerIntent.ToggleAlwaysOnTop -> local.update { it.copy(alwaysOnTop = !it.alwaysOnTop) }
             PlayerIntent.ToggleRemainingTime -> {
                 val remaining = !local.value.showRemainingTime
                 local.update { it.copy(showRemainingTime = remaining) }
@@ -446,6 +448,7 @@ internal class PlayerViewModel(
         val panel: PlayerPanel? = null,
         val showRemainingTime: Boolean = false,
         val controllerOffset: ControllerOffset = ControllerOffset(0, 0),
+        val alwaysOnTop: Boolean = false,
     )
 
     internal companion object {

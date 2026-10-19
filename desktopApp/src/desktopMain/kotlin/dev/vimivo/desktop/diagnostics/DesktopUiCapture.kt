@@ -36,7 +36,7 @@ internal object DesktopUiCapture {
         directory.mkdirs()
         dispatch(PlayerIntent.OpenFiles(listOf(video)))
         val playing = withTimeoutOrNull(START_TIMEOUT_MILLIS) {
-            state.first { it.playback.status == PlaybackStatus.Playing && it.playback.positionMillis > MIN_POSITION_MILLIS }
+            state.first { it.playback.status == PlaybackStatus.Playing && it.playback.positionMillis > MIN_POSITION }
         }
         if (playing == null) return false
         val window = playerWindow() ?: return false
@@ -107,7 +107,7 @@ internal object DesktopUiCapture {
     }
 
     private const val START_TIMEOUT_MILLIS = 20_000L
-    private const val MIN_POSITION_MILLIS = 1_000L
+    private const val MIN_POSITION = 1_000L
     private const val SETTLE_MILLIS = 900L
     private const val HOVER_SETTLE_MILLIS = 700L
     private const val HOVER_STEP_MILLIS = 120L

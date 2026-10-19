@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+
 package dev.vimivo.desktop.player.ui
 
 import androidx.compose.foundation.background
@@ -46,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.vimivo.playback.TrackInfo
 
 /** Every text in the panel: one line, no per-character wrapping, ellipsis when too long (spec §2.4). */
 @Composable
@@ -188,7 +191,10 @@ internal fun <T> PanelDropdown(
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             options.forEach { option ->
-                DropdownMenuItem(text = { PanelText(label(option)) }, onClick = { open = false; onSelect(option) })
+                DropdownMenuItem(text = { PanelText(label(option)) }, onClick = {
+                    open = false
+                    onSelect(option)
+                })
             }
         }
     }
@@ -211,6 +217,31 @@ internal fun PanelButton(text: String, modifier: Modifier = Modifier, enabled: B
         PanelText(text, color = if (enabled) PlayerPalette.content else PlayerPalette.contentMuted)
     }
 }
+
+@Composable
+internal fun TrackDropdown(
+    tracks: List<TrackInfo>,
+    none: String,
+    allowOff: Boolean = false,
+    onSelect: (TrackInfo?) -> Unit
+) {
+    val options: List<TrackInfo?> = (if (allowOff) listOf(null) else emptyList<TrackInfo?>()) + tracks
+    PanelDropdown(
+        options = options,
+        selected = tracks.firstOrNull(TrackInfo::isSelected),
+        label = { track -> track?.let(::trackLabel) ?: none },
+        placeholder = none,
+        onSelect = onSelect,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+private fun trackLabel(track: TrackInfo): String = listOfNotNull(
+    track.label.takeIf(String::isNotBlank),
+    track.language?.takeIf { it != track.label },
+    track.codec,
+    track.channels?.let { "${it}ch" },
+).joinToString(" · ").ifBlank { "Track ${track.id}" }
 
 internal val PANEL_TEXT = TextStyle(fontSize = 13.sp)
 private val LABEL_WIDTH = 120.dp
