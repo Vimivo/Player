@@ -49,18 +49,29 @@ internal fun AboutLicensesSection(platform: NoticePlatform = currentNoticePlatfo
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Open-source licences", style = MaterialTheme.typography.titleSmall)
         ThirdPartyNotices.lgplNotice(platform)?.let { notice ->
-            Text(notice, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                notice,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             OutlinedButton(onClick = { listVisible = true }) { Text("Third-party licences") }
-            OutlinedButton(onClick = { uriHandler.openUri(ThirdPartyNotices.SOURCE_REPOSITORY) }) { Text("Source code") }
+            OutlinedButton(onClick = { uriHandler.openUri(ThirdPartyNotices.SOURCE_REPOSITORY) }) {
+                Text("Source code")
+            }
             OutlinedButton(onClick = { uriHandler.openUri(ThirdPartyNotices.BUILD_SCRIPTS_URL) }) {
                 Text("Media build scripts")
             }
             if (licensesDir != null) {
                 OutlinedButton(
                     onClick = { scope.launch { withContext(Dispatchers.IO) { openFolder(licensesDir) } } },
-                    modifier = Modifier.semantics { contentDescription = "Open the folder with the full licence texts" },
+                    modifier = Modifier.semantics {
+                        contentDescription = "Open the folder with the full licence texts"
+                    },
                 ) { Text("Licence texts") }
             }
         }
@@ -82,7 +93,11 @@ private fun ComponentList(components: List<ThirdPartyComponent>, onOpen: (String
         items(components, key = { it.name }) { component ->
             Column(Modifier.fillMaxWidth()) {
                 Text("${component.name} ${component.version}", style = MaterialTheme.typography.bodyMedium)
-                Text(component.license, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    component.license,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
                 TextButton(onClick = { onOpen(component.sourceUrl) }) {
                     Text("Source", style = MaterialTheme.typography.labelSmall)
                 }

@@ -28,6 +28,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Check generated third-party notices are current
+        # About on every app reads this list; it must match scripts/build_media/manifest.json and the version catalog.
+        run: python3 scripts/generate_notices.py --check
+
       - name: Run Detekt static analysis
         run: ./gradlew detekt
 

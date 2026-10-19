@@ -24,9 +24,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.vimivo.app.R
 import dev.vimivo.core.legal.NoticePlatform
 import dev.vimivo.core.legal.ThirdPartyNotices
-import dev.vimivo.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -45,7 +45,10 @@ fun AndroidLicensesDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.third_party_notices)) },
         text = {
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 ThirdPartyNotices.lgplNotice(NoticePlatform.ANDROID)?.let { notice ->
                     item { Text(notice, style = MaterialTheme.typography.bodySmall) }
                     item {
