@@ -48,8 +48,10 @@ if [ -f "${SMOKE_MEDIA[0]}" ] && { [ "${HOST_OS}" = "Darwin" ] || [ -n "${DISPLA
     ./gradlew :desktopApp:run --quiet --args="${smoke_args}" 2>&1 | grep "^VIMIVO_SMOKE" | tee "${smoke_log}" || true
     passed="$(grep -c '^VIMIVO_SMOKE PASS' "${smoke_log}" || true)"
     rm -f "${smoke_log}"
-    if [ "${passed}" -ne "${#SMOKE_MEDIA[@]}" ]; then
-        echo "FAILURE: desktop smoke test passed ${passed}/${#SMOKE_MEDIA[@]} files" >&2
+    # Each file, plus the fullscreen-enter, fullscreen-exit and resize picture checks on the first video.
+    expected=$(( ${#SMOKE_MEDIA[@]} + 3 ))
+    if [ "${passed}" -ne "${expected}" ]; then
+        echo "FAILURE: desktop smoke test passed ${passed}/${expected} checks" >&2
         exit 1
     fi
 else

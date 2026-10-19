@@ -104,7 +104,8 @@ jobs:
           ./desktopApp/build/compose/binaries/main/app/Vimivo.app/Contents/MacOS/Vimivo --smoke-test \
             "$PWD/testmedia/video_landscape.mp4" "$PWD/testmedia/video_sample.mkv" \
             "$PWD/testmedia/track2_lunar.mp3" "$PWD/testmedia/track1_solaris.flac" | tee smoke.log
-          test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 4
+          # 4 files plus the fullscreen-enter, fullscreen-exit and resize picture checks.
+          test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 7
 
       - name: Collect DMG
         run: |

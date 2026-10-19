@@ -56,10 +56,15 @@ jobs:
       - name: Smoke-test the packaged app (launch + local video and audio playback)
         run: |
           # A hard limit turns a hang (e.g. a shutdown deadlock) into a failure instead of a stuck job.
+          export VIMIVO_MPV_LOG_FILE="$PWD/mpv.log"
           timeout 240 xvfb-run -a -s "-screen 0 1280x800x24" desktopApp/build/compose/binaries/main/app/Vimivo/bin/Vimivo --smoke-test \
             "$PWD/testmedia/video_landscape.mp4" "$PWD/testmedia/video_sample.mkv" \
-            "$PWD/testmedia/track2_lunar.mp3" "$PWD/testmedia/track1_solaris.flac" | tee smoke.log
-          test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 4
+            "$PWD/testmedia/track2_lunar.mp3" "$PWD/testmedia/track1_solaris.flac" 2>&1 | tee smoke.log || true
+          if [ "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -ne 7 ]; then
+            echo "--- libmpv log (warnings and errors) ---"
+            grep -E '\[(e|w)\]|\[vo|\[cplayer\]' mpv.log | tail -120 || true
+            exit 1
+          fi
 
       - name: Verify MPRIS media controls with playerctl
         run: bash desktopApp/scripts/verify_mpris.sh "$PWD/desktopApp/build/compose/binaries/main/app/Vimivo/bin/Vimivo"

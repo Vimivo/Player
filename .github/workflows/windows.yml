@@ -101,7 +101,7 @@ jobs:
           }
           if (Test-Path $report) { Get-Content $report }
           $passed = if (Test-Path $report) { (Select-String -Path $report -Pattern "^VIMIVO_SMOKE PASS").Count } else { 0 }
-          if ($process.ExitCode -ne 0 -or $passed -ne 4) {
+          if ($process.ExitCode -ne 0 -or $passed -ne 7) {  # 4 files + 3 window-change picture checks
             Write-Error "Smoke test failed (exit $($process.ExitCode), $passed/4 passed)"
             exit 1
           }

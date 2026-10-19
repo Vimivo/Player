@@ -465,6 +465,10 @@ class MpvPlayerEngine : PlayerEngine {
         context = created
         checkCode(loaded.mpv_set_option_string(created, "config", "no"))
         checkCode(loaded.mpv_set_option_string(created, "terminal", "no"))
+        // Opt-in diagnostics for bug reports and CI: libmpv's own log, written only where the user points it.
+        System.getenv("VIMIVO_MPV_LOG_FILE")?.takeIf(String::isNotBlank)?.let { path ->
+            checkCode(loaded.mpv_set_option_string(created, "log-file", path))
+        }
         // libmpv never opens its own top-level window: without a Vimivo surface (headless use, tests) video is
         // decoded but not displayed.
         val vo = when {

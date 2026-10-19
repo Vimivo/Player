@@ -56,7 +56,7 @@ val windowsMediaControlsBridge by tasks.registering(Exec::class) {
     outputs.file(File(outputDir, "vimivo_media_controls.dll"))
     doFirst { outputDir.mkdirs() }
     commandLine(
-        "cl", "/nologo", "/std:c++17", "/EHsc", "/O2", "/LD", "/permissive-",
+        "cl", "/nologo", "/std:c++20", "/EHsc", "/O2", "/LD", "/permissive-",
         "/I$javaHome\\include", "/I$javaHome\\include\\win32",
         source.absolutePath, "windowsapp.lib",
         "/Fe:${File(outputDir, "vimivo_media_controls.dll").absolutePath}",
