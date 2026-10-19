@@ -49,7 +49,7 @@ Raw logs: [docs/evidence/V0/](evidence/V0/README.md). Media pack: `scripts/gener
 | B7 | Android ReplayGain "Partial (metadata only)" | No ReplayGain code in `androidApp/src/main` | Matrix entry not backed by source |
 | B8 | iOS lyrics, sleep timer (corrected earlier in FEATURE_MATRIX.md) | Still absent | No iOS implementation; shared `SleepTimer`/`LrcLyricsParser` are not used from Swift |
 | B9 | Rule: native libraries pinned by version + SHA-256 | Only Windows is pinned (shinchiro `20261016`, SHA-256 checked) | macOS CI runs `brew install mpv` (whatever is current); Linux uses the runner's `libmpv2` apt package |
-| B10 | Rule: LGPL/GPL obligations shown in About | Desktop "About Vimivo" opens Settings with no notices, while the macOS bundle ships GPL x264/x265 (E6) | Licence screen exists only on Android (`VimivoAndroidApp.kt`); not on desktop or iOS |
+| B10 | Rule: LGPL/GPL obligations shown in About (see [ADR-004](adr/ADR-004-LGPL-MEDIA-STACK.md): today's desktop bundles are GPL works; LGPL rebuild not started) | Desktop "About Vimivo" opens Settings with no notices, while the macOS bundle ships GPL x264/x265 (E6) | Licence screen exists only on Android (`VimivoAndroidApp.kt`); not on desktop or iOS |
 | B11 | AGENTS.md: iOS persistence and non-UI logic in `shared` | `iosApp/Storage/IOSDatabase.swift` (580 lines) is a Swift SQLite store; queue, shuffle and bookmarks live in `AVPlayerPlaybackEngine.swift` | iOS predates the shared-framework rule; only `AppRouter`, `MediaModels`, `PlaybackPreferences` import `VimivoShared` |
 
 ## Decisions in force
