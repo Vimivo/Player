@@ -90,10 +90,10 @@ Priority: M = must-have, L = later. "UI" is today's location, then → the targe
 
 | # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| 12 | Aspect, crop presets + black-bar detection, zoom & pan | ⚠️ | ⚠️ | ⚠️ | M | D: A key, side panel; A: resize mode + pinch; I: fit/crop/stretch/16:9/4:3 + pinch | D: Fill broken (B2), zoom/pan no UI (B4), crop and auto-crop not built. A/I: no crop presets or black-bar detection |
-| 13 | Deinterlacing modes | ⚠️ | ❌ | ❌ | M | D: D key, Video menu, side panel | D on/off only (`deinterlace` yes/no); no yadif/bwdif choice. A/I need LibVLC/MPVKit routing for interlaced files |
-| 14 | Brightness, contrast, saturation, hue, gamma | ⚠️ | ❌ | ❌ | M | D: side panel | D UI has B/C/S; gamma engine-only; hue missing. Mobile "brightness" is the screen gesture |
-| 15 | Effects (sharpen, mirror, blur, grain…) | ⚠️ | ❌ | ❌ | L | D: side panel Rotate | D rotate only |
+| 12 | Aspect, crop presets + black-bar detection, zoom & pan | ⚠️ | ⚠️ | ⚠️ | M | D: A key, side panel; A: resize mode + pinch; I: fit/crop/stretch/16:9/4:3 + pinch | D: Fill broken (B2), zoom/pan no UI (B4), crop and auto-crop not built. A/I: no crop presets or black-bar detection LGPL build: black-bar detection uses `bbox` (+ `crop`); `cropdetect` is GPL-only and absent. |
+| 13 | Deinterlacing modes | ⚠️ | ❌ | ❌ | M | D: D key, Video menu, side panel | D on/off only (`deinterlace` yes/no); no yadif/bwdif choice. A/I need LibVLC/MPVKit routing for interlaced files LGPL build: `yadif`, `bwdif`, `w3fdif`, `estdif` available; `mcdeint`/`kerndeint` are GPL-only and not offered. |
+| 14 | Brightness, contrast, saturation, hue, gamma | ⚠️ | ❌ | ❌ | M | D: side panel | D UI has B/C/S; gamma engine-only; hue missing. Mobile "brightness" is the screen gesture LGPL build: B/C/S/gamma/hue come from libmpv's renderer (no `vf eq`, which is GPL-only); `colorbalance`, `colorlevels`, `curves`, `lutrgb` available for extras. |
+| 15 | Effects (sharpen, mirror, blur, grain…) | ⚠️ | ❌ | ❌ | L | D: side panel Rotate | D rotate only LGPL build: blur = `gblur`/`avgblur` (not GPL `boxblur`/`smartblur`), denoise = `nlmeans`/`atadenoise` (not GPL `hqdn3d`), plus `unsharp`, `hflip`/`vflip`/`transpose`/`rotate`, `noise`, `edgedetect`, `negate`, `vignette`, `deband`. |
 | 16 | Snapshot | ⚠️ | ❌ | ❌ | M | D: Shift+S, Video menu, side panel → `~/Pictures/Vimivo` | D: `screenshot-to-file … video` (no "with subtitles" choice), PNG only, no folder setting; no test |
 | 17 | Always-on-top, fullscreen, wallpaper | ⚠️ | ❓ | ❓ | M (wallpaper L) | D: F, double-click, View menu | D fullscreen in source; always-on-top and wallpaper not built. A/I equivalent = PiP (#62) |
 | 18 | Multiple video tracks | ❓ | ❓ | ⚠️ | M | D: side panel | D `vid`; I limited to `AVMediaSelection` groups |
@@ -102,12 +102,12 @@ Priority: M = must-have, L = later. "UI" is today's location, then → the targe
 
 | # | Feature | D | A | I | Pri | UI | Evidence / notes |
 |---|---|---|---|---|---|---|---|
-| 19 | 10-band EQ + presets + preamp | ✅ | ⚠️ | ❌ | M | D: Equalizer panel, **library window only** → player side panel | D filter chain unit-tested (`DesktopAudioEffectsTest`, `MpvAdvancedPlaybackTest`, E1); preamp is attenuation-only. A: platform `Equalizer` effect, band count is device-defined (often 5); mapping tested (`AndroidAudioEnhancementTest`). I needs AVAudioEngine or MPVKit |
-| 20 | Compressor, spatializer, widener | ❌ | ⚠️ | ❌ | L | — | A: BassBoost/Virtualizer only |
-| 21 | Volume boost to 200 % | ⚠️ | ❌ | ❌ | M | D: control-bar slider, red above 100 % → amber | D: 200 % verified live (E2), but no limiter (clipping possible) |
+| 19 | 10-band EQ + presets + preamp | ✅ | ⚠️ | ❌ | M | D: Equalizer panel, **library window only** → player side panel | D filter chain unit-tested (`DesktopAudioEffectsTest`, `MpvAdvancedPlaybackTest`, E1); preamp is attenuation-only. A: platform `Equalizer` effect, band count is device-defined (often 5); mapping tested (`AndroidAudioEnhancementTest`). I needs AVAudioEngine or MPVKit LGPL build: `equalizer`, `superequalizer`, `volume` verified. |
+| 20 | Compressor, spatializer, widener | ❌ | ⚠️ | ❌ | L | — | A: BassBoost/Virtualizer only LGPL build: `acompressor`, `extrastereo`, `stereowiden`, `haas`, `crossfeed` available; `sofalizer` (HRTF) needs libmysofa, not built. |
+| 21 | Volume boost to 200 % | ⚠️ | ❌ | ❌ | M | D: control-bar slider, red above 100 % → amber | D: 200 % verified live (E2), but no limiter (clipping possible) LGPL build: `alimiter` available for the missing limiter. |
 | 22 | Audio track switching | ❓ | ❓ | ❓ | M | D: B key, Audio menu, side panel; I: Audio sheet | 3-track MKV plays (E3), switching not exercised. Labels show title/language/codec, not channels; no default-language preference on any platform |
 | 23 | Audio/subtitle sync offset | ❓ | ❓ | ❌ | M | D: G/H, Shift+G/H, side panel; A: player sheet | D: `sub-delay`/`audio-delay`, delay steps unit-tested (`PlaybackControlPolicyTest`) |
-| 24 | Normalization + ReplayGain | ✅ | ❌ | ❌ | M | D: Equalizer panel ▸ Normalize | D `dynaudnorm` chain unit-tested (E1); `replaygain` track/album in source only. A: B7 |
+| 24 | Normalization + ReplayGain | ✅ | ❌ | ❌ | M | D: Equalizer panel ▸ Normalize | D `dynaudnorm` chain unit-tested (E1); `replaygain` track/album in source only. A: B7 LGPL build: `dynaudnorm`, `loudnorm` verified. |
 | 25 | Visualizations | ❌ | ⚠️ | ❌ | L | → Audio player ▸ Visualizer | A: settings switch and low-rate activity indicator only |
 | 26 | S/PDIF/HDMI passthrough | ❌ | ❌ | N/A | M (D, A) | → Audio ▸ Output | No `audio-spdif`, no Media3 passthrough. I: N/A, AirPlay carries multichannel |
 
@@ -200,3 +200,23 @@ Of the 49 M-items (counting "M (D) / L" rows), only these are verified: D #1, 7,
 - Windows and Linux, until CI is green (E8).
 - Optical discs and ISO images, CEA-608 captions, PGS, Bangla SRT in two encodings, live HLS/RTSP URLs: no fixtures
   yet. Missing fixtures are added to `scripts/generate_test_media.sh` in V1.
+
+## LGPL filter availability (ADR-004)
+
+The desktop media stack is built LGPL-only (`scripts/build_media`). `verify.py` loads the built libavfilter on each OS
+and fails CI unless every filter below exists and the GPL-only ones are absent. Last verified 2026-10-20 on the macOS
+universal package (arm64 and x86_64).
+
+| Item | LGPL filters (present) | GPL-only, absent → replacement |
+|---|---|---|
+| #12 | `bbox`, `crop` | `cropdetect` → `bbox` over sampled frames |
+| #13 | `yadif`, `bwdif`, `w3fdif`, `estdif` | `mcdeint`, `kerndeint` → `bwdif` |
+| #14 | `hue`, `colorbalance`, `colorlevels`, `curves`, `lutrgb` | `eq` → libmpv `brightness`/`contrast`/`saturation`/`gamma`/`hue` properties |
+| #15 | `unsharp`, `gblur`, `avgblur`, `nlmeans`, `atadenoise`, `noise`, `edgedetect`, `negate`, `vignette`, `deband`, `hflip`, `vflip`, `transpose`, `rotate` | `boxblur`, `smartblur` → `gblur`/`avgblur`; `hqdn3d` → `nlmeans`/`atadenoise`; `stereo3d`, `pp7`, `spp` → not offered |
+| #19 | `equalizer`, `superequalizer`, `volume` | — |
+| #20 | `acompressor`, `extrastereo`, `stereowiden`, `haas`, `crossfeed` | — (`sofalizer` is LGPL but needs libmysofa: deferred) |
+| #21 | `alimiter`, `volume` | — |
+| #24 | `dynaudnorm`, `loudnorm` | — |
+
+Code in use today (`DesktopAudioEffects`, `MpvThumbnailer`, the side panel) only uses LGPL filters and libmpv properties,
+so the switch changed no shipped behaviour.
