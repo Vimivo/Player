@@ -18,8 +18,9 @@ jobs:
         include:
           - runner: macos-15
             arch: arm64
-          - runner: macos-15-intel
-            arch: x86_64
+          # macos-15-intel is paused: Homebrew builds libmpv's dependency chain from source there (no Intel bottles),
+          # so the job never finishes. It returns with our own pinned universal LGPL libmpv from GitHub Releases
+          # (ADR-004, step (d)); the Intel smoke test is re-enabled then.
     runs-on: ${{ matrix.runner }}
     env:
       MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
