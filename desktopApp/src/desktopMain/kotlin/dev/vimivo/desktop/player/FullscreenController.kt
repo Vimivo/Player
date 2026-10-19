@@ -53,15 +53,15 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.DialogWindow
-import androidx.compose.ui.window.WindowPosition
-import androidx.compose.ui.window.rememberDialogState
 import dev.vimivo.desktop.playback.DesktopPlayerCommand
 import dev.vimivo.desktop.player.ui.PlayerIconButton
 import dev.vimivo.desktop.player.ui.PlayerIconFace
+import dev.vimivo.desktop.player.ui.OverlayWindow
+import dev.vimivo.desktop.player.ui.rememberWindowBounds
 import dev.vimivo.desktop.player.ui.PlayerPalette
 import dev.vimivo.desktop.player.ui.PlayerVolumeControl
 import dev.vimivo.desktop.player.ui.VimivoTimeline
@@ -133,27 +133,19 @@ internal fun FullscreenController(
     LaunchedEffect(awake) { videoSurface.cursor = if (awake) Cursor.getDefaultCursor() else BLANK_CURSOR }
     val alpha by animateFloatAsState(if (awake) 1f else 0f, tween(FADE_MILLIS), label = "controller fade")
 
-    val screen = owner.graphicsConfiguration.bounds
-    val width = (CONTROLLER_WIDTH.value.coerceAtMost(screen.width / 2f)).coerceAtLeast(MIN_WIDTH.value).dp
+    val ownerBounds by rememberWindowBounds(owner)
+    val width = CONTROLLER_WIDTH.value.coerceAtMost(ownerBounds.width / 2f).coerceAtLeast(MIN_WIDTH.value).dp
     // Follows the pointer while dragging; saved once when the drag ends.
     var liveOffset by remember(state.controllerOffset) { mutableStateOf(state.controllerOffset) }
-    val dialogState = rememberDialogState(size = DpSize(width + SHADOW * 2, CONTROLLER_HEIGHT + SHADOW * 2))
-    LaunchedEffect(liveOffset, width) {
-        val bounds = owner.bounds
-        dialogState.position = WindowPosition(
-            (bounds.x + (bounds.width - width.value) / 2 - SHADOW.value + liveOffset.x).dp,
-            (bounds.y + bounds.height - CONTROLLER_HEIGHT.value - BOTTOM_MARGIN.value - SHADOW.value + liveOffset.y).dp,
-        )
-    }
-    DialogWindow(
-        onCloseRequest = {},
-        state = dialogState,
-        visible = alpha > 0f,
+    OverlayWindow(
+        owner = owner,
+        position = DpOffset(
+            (ownerBounds.x + (ownerBounds.width - width.value) / 2 - SHADOW.value + liveOffset.x).dp,
+            (ownerBounds.y + ownerBounds.height - CONTROLLER_HEIGHT.value - BOTTOM_MARGIN.value - SHADOW.value + liveOffset.y).dp,
+        ),
+        size = DpSize(width + SHADOW * 2, CONTROLLER_HEIGHT + SHADOW * 2),
         title = "Vimivo controls",
-        undecorated = true,
-        transparent = true,
-        resizable = false,
-        focusable = false,
+        visible = alpha > 0f,
     ) {
         Box(
             Modifier
@@ -252,23 +244,17 @@ internal fun FullscreenPanelWindow(
     commands: dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor,
     onIntent: (PlayerIntent) -> Unit,
 ) {
-    val bounds = owner.bounds
-    val height = (bounds.height - PANEL_MARGIN.value * 2).dp
-    val dialogState = rememberDialogState(size = DpSize(PANEL_WIDTH, height))
-    LaunchedEffect(bounds) {
-        dialogState.position = WindowPosition(
+    val bounds by rememberWindowBounds(owner)
+    OverlayWindow(
+        owner = owner,
+        position = DpOffset(
             (bounds.x + bounds.width - PANEL_WIDTH.value - PANEL_MARGIN.value).dp,
             (bounds.y + PANEL_MARGIN.value).dp,
-        )
-    }
-    DialogWindow(
-        onCloseRequest = { onIntent(PlayerIntent.ShowPanel(null)) },
-        state = dialogState,
+        ),
+        size = DpSize(PANEL_WIDTH, (bounds.height - PANEL_MARGIN.value * 2).dp),
         title = "Vimivo settings",
-        undecorated = true,
-        transparent = true,
-        resizable = false,
         focusable = true,
+        onCloseRequest = { onIntent(PlayerIntent.ShowPanel(null)) },
     ) {
         dev.vimivo.desktop.player.ui.PlayerSidePanel(state, panel, engine, commands, onIntent, Modifier.clip(RoundedCornerShape(12.dp)))
     }

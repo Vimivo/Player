@@ -80,6 +80,7 @@ internal fun PlayerSidePanel(
                 label = PlayerPanel::title,
                 onSelect = { onIntent(PlayerIntent.ShowPanel(it)) },
                 modifier = Modifier.weight(1f),
+                weight = { it.title.length + TAB_PADDING_CHARS },
             )
             Spacer(Modifier.width(6.dp))
             PlayerIconButton(Icons.Outlined.Close, "Close panel") { onIntent(PlayerIntent.ShowPanel(null)) }
@@ -346,6 +347,7 @@ private fun chooseSubtitleFile(): File? {
 }
 
 private val PANEL_WIDTH = 380.dp
+private const val TAB_PADDING_CHARS = 2f
 private val VALUE_WIDTH = 64.dp
 private val COLOUR_RANGE = -50f..50f
 private val ZOOM_RANGE = -2f..2f

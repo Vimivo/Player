@@ -1,5 +1,6 @@
 package dev.vimivo.desktop.diagnostics
 
+import dev.vimivo.desktop.platform.MacWindows
 import dev.vimivo.desktop.player.PlayerIntent
 import dev.vimivo.desktop.player.PlayerPanel
 import dev.vimivo.desktop.player.PlayerState
@@ -56,7 +57,6 @@ internal object DesktopUiCapture {
         dispatch(PlayerIntent.SetFullscreen(true))
         delay(FULLSCREEN_SETTLE_MILLIS)
         captureScreen(window, directory, "09-fullscreen-controller")
-        onEdt { Window.getWindows().forEach { w -> System.err.println("VIMIVO_DBG window ${w.javaClass.simpleName} showing=${w.isShowing} visible=${w.isVisible} bounds=${w.bounds} owner=${w.owner?.javaClass?.simpleName} opacity=${w.opacity}") } }
         delay(IDLE_HIDE_MILLIS)
         captureScreen(window, directory, "10-fullscreen-idle")
         dispatch(PlayerIntent.SetFullscreen(false))
@@ -66,10 +66,17 @@ internal object DesktopUiCapture {
 
     /** Moves the pointer over the middle of the timeline so the hover tooltip shows, then puts it back. */
     private suspend fun hoverTimeline(window: Window, directory: File) {
+        // macOS delivers mouse-moved events only to the active app.
+        MacWindows.activate()
+        onEdt { window.toFront() }
+        delay(HOVER_SETTLE_MILLIS)
         val robot = Robot()
         val original = MouseInfo.getPointerInfo()?.location
         val bounds = onEdt { window.bounds }
-        robot.mouseMove(bounds.x + bounds.width / 2, bounds.y + bounds.height - TIMELINE_FROM_BOTTOM)
+        val y = bounds.y + bounds.height - TIMELINE_FROM_BOTTOM
+        robot.mouseMove(bounds.x + bounds.width / 2 - HOVER_NUDGE, y)
+        delay(HOVER_STEP_MILLIS)
+        robot.mouseMove(bounds.x + bounds.width / 2, y)
         delay(HOVER_SETTLE_MILLIS)
         capture(window, directory, "02-timeline-hover")
         original?.let { robot.mouseMove(it.x, it.y) }
@@ -103,6 +110,8 @@ internal object DesktopUiCapture {
     private const val MIN_POSITION_MILLIS = 1_000L
     private const val SETTLE_MILLIS = 900L
     private const val HOVER_SETTLE_MILLIS = 700L
+    private const val HOVER_STEP_MILLIS = 120L
+    private const val HOVER_NUDGE = 40
     private const val FULLSCREEN_SETTLE_MILLIS = 2_000L
     private const val IDLE_HIDE_MILLIS = 3_000L
     private const val TIMELINE_FROM_BOTTOM = 24

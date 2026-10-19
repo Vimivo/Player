@@ -129,6 +129,8 @@ internal fun <T> SegmentedChoice(
     label: (T) -> String,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
+    /** Relative widths; labels of different lengths (tabs) get room in proportion. */
+    weight: (T) -> Float = { 1f },
 ) {
     Row(
         modifier
@@ -140,7 +142,7 @@ internal fun <T> SegmentedChoice(
             val active = option == selected
             Box(
                 Modifier
-                    .weight(1f)
+                    .weight(weight(option))
                     .height(28.dp)
                     .background(if (active) Color.White.copy(alpha = 0.18f) else Color.Transparent)
                     .clickable { onSelect(option) }
@@ -148,7 +150,7 @@ internal fun <T> SegmentedChoice(
                         role = Role.Tab
                         this.selected = active
                     }
-                    .padding(horizontal = 6.dp),
+                    .padding(horizontal = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 PanelText(label(option), color = if (active) PlayerPalette.trackPlayed else PlayerPalette.content)

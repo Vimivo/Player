@@ -41,6 +41,7 @@ import dev.vimivo.desktop.platform.DesktopWindowChrome
 import dev.vimivo.desktop.platform.NativePreload
 import dev.vimivo.desktop.platform.WindowsFileAssociations
 import dev.vimivo.desktop.player.FullscreenController
+import dev.vimivo.desktop.player.ui.LocalHostWindow
 import dev.vimivo.desktop.player.FullscreenPanelWindow
 import dev.vimivo.desktop.player.LaunchArguments
 import dev.vimivo.desktop.player.LaunchSettingsSection
@@ -75,6 +76,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -424,7 +426,7 @@ private fun PlayerWindow(
         onKeyEvent = { event -> handleWindowKey(event, viewModel) },
     ) {
         LaunchedEffect(visible) { if (visible) StartupTrace.mark("window") }
-        LaunchedEffect(window) { DesktopWindowChrome.applyDark(window) }
+        LaunchedEffect(window, visible) { if (visible) DesktopWindowChrome.applyDark(window) }
         LaunchedEffect(media?.uri) {
             val localFile = media?.uri?.takeIf { it.startsWith("file:") }?.let { runCatching { File(java.net.URI(it)) }.getOrNull() }
             DesktopWindowChrome.setRepresentedFile(window, localFile?.takeIf(File::isFile))
@@ -452,15 +454,17 @@ private fun PlayerWindow(
         }
         menu()
         VimivoTheme(mode = ThemeMode.DARK) {
-            PlayerWindowContent(
-                state = playerState,
-                videoSurface = { modifier ->
-                    SwingPanel(background = Color.Black, factory = { videoCanvas }, modifier = modifier)
-                },
-                engine = engine,
-                commands = viewModel.commands,
-                onIntent = viewModel::dispatch,
-            )
+            CompositionLocalProvider(LocalHostWindow provides window) {
+                PlayerWindowContent(
+                    state = playerState,
+                    videoSurface = { modifier ->
+                        SwingPanel(background = Color.Black, factory = { videoCanvas }, modifier = modifier)
+                    },
+                    engine = engine,
+                    commands = viewModel.commands,
+                    onIntent = viewModel::dispatch,
+                )
+            }
             if (openStreamRequested) {
                 OpenStreamDialog(queue, engine, onDismiss = onOpenStreamHandled)
             }

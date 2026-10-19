@@ -313,3 +313,68 @@ Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_detachNative(JNIEnv *, jobject
         activeSurface = nil;
     });
 }
+
+// ---- Window helpers for the player's chrome and overlays (dev.vimivo.desktop.platform.MacWindows) ----
+
+// The NSWindow behind an AWT window, found from the CALayer JAWT exposes for it: walking up from that layer reaches
+// the window's content or frame view layer. Works on any JDK, without private AWT classes.
+static NSWindow *nativeWindowFor(JNIEnv *env, jobject component) {
+    JAWT awt;
+    awt.version = JAWT_VERSION_1_7;
+    if (!JAWT_GetAWT(env, &awt)) return nil;
+    JAWT_DrawingSurface *surface = awt.GetDrawingSurface(env, component);
+    if (!surface) return nil;
+    if (surface->Lock(surface) & JAWT_LOCK_ERROR) {
+        awt.FreeDrawingSurface(surface);
+        return nil;
+    }
+    JAWT_DrawingSurfaceInfo *info = surface->GetDrawingSurfaceInfo(surface);
+    id<JAWT_SurfaceLayers> layers = info ? (__bridge id<JAWT_SurfaceLayers>)info->platformInfo : nil;
+    CALayer *windowLayer = layers.windowLayer;
+    if (info) surface->FreeDrawingSurfaceInfo(info);
+    surface->Unlock(surface);
+    awt.FreeDrawingSurface(surface);
+    if (!windowLayer) return nil;
+    __block NSWindow *found = nil;
+    void (^search)(void) = ^{
+        for (NSWindow *window in NSApp.windows) {
+            for (CALayer *layer = windowLayer; layer && !found; layer = layer.superlayer) {
+                if (layer == window.contentView.layer || layer == window.contentView.superview.layer) found = window;
+            }
+            if (found) return;
+        }
+    };
+    if (NSThread.isMainThread) search();
+    else dispatch_sync(dispatch_get_main_queue(), search);
+    return found;
+}
+
+// Dark title bar and controls for one window (JDK 17 has no per-window appearance property).
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_vimivo_desktop_platform_MacWindows_setDarkAppearanceNative(JNIEnv *env, jobject, jobject window) {
+    NSWindow *nativeWindow = nativeWindowFor(env, window);
+    if (!nativeWindow) return JNI_FALSE;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        nativeWindow.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+    });
+    return JNI_TRUE;
+}
+
+// Makes an overlay a real child window: it moves with its owner and appears in the owner's fullscreen space.
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_vimivo_desktop_platform_MacWindows_attachChildNative(JNIEnv *env, jobject, jobject owner, jobject child) {
+    NSWindow *parent = nativeWindowFor(env, owner);
+    NSWindow *overlay = nativeWindowFor(env, child);
+    if (!parent || !overlay || parent == overlay) return JNI_FALSE;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (overlay.parentWindow != parent) [parent addChildWindow:overlay ordered:NSWindowAbove];
+        overlay.collectionBehavior |= NSWindowCollectionBehaviorFullScreenAuxiliary;
+    });
+    return JNI_TRUE;
+}
+
+// Brings Vimivo to the front; macOS sends mouse-moved (hover) events only to the active app. Used by --ui-capture.
+extern "C" JNIEXPORT void JNICALL
+Java_dev_vimivo_desktop_platform_MacWindows_activateNative(JNIEnv *, jobject) {
+    dispatch_async(dispatch_get_main_queue(), ^{ [NSApp activateIgnoringOtherApps:YES]; });
+}

@@ -13,6 +13,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -49,14 +51,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.text.style.TextOverflow
+import java.awt.MouseInfo
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.ChapterInfo
 import dev.vimivo.playback.PlaybackClock
@@ -99,6 +100,7 @@ internal fun VimivoTimeline(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     var hoverX by remember { mutableStateOf<Float?>(null) }
+    var hoverAnchor by remember { mutableStateOf<TooltipAnchor?>(null) }
     var scrubMillis by remember { mutableStateOf<Long?>(null) }
     var widthPx by remember { mutableStateOf(1f) }
     val track by animateDpAsState(
@@ -114,8 +116,15 @@ internal fun VimivoTimeline(
                 .matchParentSize()
                 .onSizeChanged { widthPx = it.width.toFloat().coerceAtLeast(1f) }
                 .hoverable(interaction)
-                .onPointerEvent(PointerEventType.Move) { hoverX = it.changes.firstOrNull()?.position?.x }
-                .onPointerEvent(PointerEventType.Exit) { hoverX = null }
+                .onPointerEvent(PointerEventType.Move) { event ->
+                    val position = event.changes.firstOrNull()?.position
+                    hoverX = position?.x
+                    hoverAnchor = position?.let { TooltipAnchor.fromPointer(it.y) }
+                }
+                .onPointerEvent(PointerEventType.Exit) {
+                    hoverX = null
+                    hoverAnchor = null
+                }
                 .onPointerEvent(PointerEventType.Scroll) { event ->
                     val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
                     if (delta != 0f && duration != null) {
@@ -176,8 +185,9 @@ internal fun VimivoTimeline(
         }
         val tipX = hoverX
         val tipMillis = tipX?.let(::millisAt)
-        if (tipX != null && tipMillis != null) {
-            TimelineTooltip(tipX, tipMillis, chapterAt(playback.chapters, tipMillis), preview)
+        val anchor = hoverAnchor
+        if (tipX != null && tipMillis != null && anchor != null) {
+            TimelineTooltip(anchor, tipMillis, chapterAt(playback.chapters, tipMillis), preview)
         }
     }
 }
@@ -196,48 +206,63 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAbRange(
 private fun chapterAt(chapters: List<ChapterInfo>, millis: Long): ChapterInfo? =
     chapters.lastOrNull { it.startPositionMillis <= millis }
 
-/** Time, chapter and (when available) a frame preview, floating above the cursor. */
+/**
+ * Where the pointer is on screen (AWT points) and how far below the timeline's top edge it is, taken at the hover
+ * event. Anchoring to the real pointer avoids mapping Compose coordinates to the screen.
+ */
+internal data class TooltipAnchor(val screenX: Int, val screenY: Int, val pointerYInTimelinePx: Float) {
+    /** Top-left of a tooltip of [size]: centred on the pointer, [gap] above the timeline's top edge. */
+    fun tooltipPosition(size: DpSize, density: Float, gap: Dp): DpOffset {
+        val timelineTop = screenY - pointerYInTimelinePx / density
+        return DpOffset((screenX - size.width.value / 2).dp, (timelineTop - size.height.value - gap.value).dp)
+    }
+
+    companion object {
+        fun fromPointer(yInTimelinePx: Float): TooltipAnchor? = MouseInfo.getPointerInfo()?.location?.let {
+            TooltipAnchor(it.x, it.y, yInTimelinePx)
+        }
+    }
+}
+
+/**
+ * Time, chapter and (when available) a frame preview above the cursor. It is its own small window: the video is a
+ * native layer above Compose, so a popup inside the player window would be hidden behind it.
+ */
 @Composable
 private fun TimelineTooltip(
-    x: Float,
+    anchor: TooltipAnchor,
     millis: Long,
     chapter: ChapterInfo?,
     preview: (suspend (Long) -> ImageBitmap?)?,
 ) {
-    // Previews are requested for 1 % steps of the hover position, so moving the mouse does not flood the decoder.
+    val window = LocalHostWindow.current ?: return
+    // Previews are requested per 2 s of hover position, so moving the mouse does not flood the decoder.
     val bucket = millis / PREVIEW_BUCKET_MILLIS
     val image by produceState<ImageBitmap?>(null, bucket, preview) {
         if (preview == null) return@produceState
         delay(PREVIEW_DEBOUNCE_MILLIS)
         value = preview(bucket * PREVIEW_BUCKET_MILLIS)
     }
-    val density = LocalDensity.current
-    val anchorX = with(density) { x.toInt() }
-    Popup(popupPositionProvider = AboveCursor(anchorX, with(density) { 8.dp.roundToPx() })) {
-        Column(
-            Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(PlayerPalette.glass)
-                .padding(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            image?.let { Image(it, contentDescription = null, modifier = Modifier.size(PREVIEW_WIDTH, PREVIEW_HEIGHT).clip(RoundedCornerShape(4.dp))) }
-            Text(playerClock(millis), color = PlayerPalette.trackPlayed, style = TOOLTIP_TEXT, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-            chapter?.let { Text(it.title, color = PlayerPalette.contentMuted, style = TOOLTIP_TEXT, maxLines = 1, softWrap = false) }
+    val size = if (preview != null) PREVIEW_TIP_SIZE else TEXT_TIP_SIZE
+    val position = anchor.tooltipPosition(size, LocalDensity.current.density, TIP_GAP)
+    OverlayWindow(owner = window, position = position, size = size, title = "Timeline preview") {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Column(
+                Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(PlayerPalette.glass)
+                    .padding(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                image?.let {
+                    Image(it, contentDescription = null, modifier = Modifier.size(PREVIEW_WIDTH, PREVIEW_HEIGHT).clip(RoundedCornerShape(4.dp)))
+                }
+                Text(playerClock(millis), color = PlayerPalette.trackPlayed, style = TOOLTIP_TEXT, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                chapter?.let {
+                    Text(it.title, color = PlayerPalette.contentMuted, style = TOOLTIP_TEXT, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = PREVIEW_WIDTH))
+                }
+            }
         }
-    }
-}
-
-/** Centres the popup horizontally on the cursor, just above the timeline. */
-private class AboveCursor(private val anchorX: Int, private val gap: Int) : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset {
-        val x = (anchorBounds.left + anchorX - popupContentSize.width / 2).coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
-        return IntOffset(x, anchorBounds.top - popupContentSize.height - gap)
     }
 }
 
@@ -249,6 +274,9 @@ internal fun playerClock(millis: Long): String {
 }
 
 private val HIT_HEIGHT = 20.dp
+private val TIP_GAP = 6.dp
+private val TEXT_TIP_SIZE = DpSize(176.dp, 52.dp)
+private val PREVIEW_TIP_SIZE = DpSize(176.dp, 148.dp)
 private val THUMB_RADIUS = 6.dp
 private val PREVIEW_WIDTH = 160.dp
 private val PREVIEW_HEIGHT = 90.dp
