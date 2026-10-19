@@ -24,7 +24,7 @@ smoke tests of `macos.yml`, `windows.yml` and `linux.yml`. With the old bridge l
 | File | What |
 |---|---|
 | `smoke-after-fix.log` | audio → colour bars → fullscreen enter/exit → resize, all PASS with pixel figures |
-| `captures/*.png` | what the probe saw (opt-in `VIMIVO_SMOKE_CAPTURE_DIR`), downscaled |
+| `screens/*.png` | what the probe saw (opt-in `VIMIVO_SMOKE_CAPTURE_DIR`), downscaled |
 
 The same run on the reporter's `park.mp4` passed (`lit=0.83 colours=23`); those frames are personal footage and are not
 committed.
