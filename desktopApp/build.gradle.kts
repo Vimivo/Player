@@ -35,12 +35,19 @@ val macosMpvBridge by tasks.registering(Exec::class) {
         "src/desktopMain/native/macos/MpvCocoaRenderer.mm", "-o", output.get().asFile.absolutePath,
         "-L$mpvPrefix/lib", "-L${javaHome.get()}/lib", "-lmpv", "-ljawt", "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "QuartzCore", "-framework", "MediaPlayer",
     )
-    // VIMIVO_MACOS_SDK pins an SDK; otherwise a locally installed stable Command Line Tools SDK is preferred.
+    // VIMIVO_MACOS_SDK pins an SDK; otherwise a locally installed stable Command Line Tools SDK is preferred, and
+    // failing that the active SDK from xcrun. Without -isysroot the Command Line Tools compiler may find no SDK
+    // at all ("'Cocoa/Cocoa.h' file not found" on the macos-15 runner image).
     val pinnedSdk = providers.environmentVariable("VIMIVO_MACOS_SDK").orNull?.let(::file)
         ?: file("/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk")
-    if (pinnedSdk.exists()) {
-        cmd.addAll(listOf("-isysroot", pinnedSdk.absolutePath))
-    }
+    val sdkPath = pinnedSdk.takeIf(File::exists)?.absolutePath
+        ?: if (macHost) {
+            providers.exec { commandLine("xcrun", "--sdk", "macosx", "--show-sdk-path") }
+                .standardOutput.asText.get().trim().takeIf(String::isNotEmpty)
+        } else {
+            null
+        }
+    sdkPath?.let { cmd.addAll(listOf("-isysroot", it)) }
     commandLine(cmd)
 }
 
