@@ -68,6 +68,8 @@ Before this decision every desktop build was GPL:
 | Little CMS | 2.19.1 | MIT | all | GPL-3 fast-float/threaded plug-ins **off** |
 | zimg | 3.0.6 | WTFPL | all | |
 | zlib | 1.3.2 | Zlib | Windows | the system zlib is used elsewhere |
+| GNU libiconv | 1.18 | LGPL-2.1-or-later | Windows | library only (the GPL `iconv` program is not shipped); subtitle charsets |
+| libdisplay-info | 0.3.0 | MIT (PNP ID table from hwdata under XFree86-1.0) | Linux | needed by mpv's DRM path for VA-API |
 | shaderc | 2026.4 | Apache-2.0 | Windows | for mpv's Direct3D 11 renderer |
 | glslang (in shaderc) | e1b562a8 | BSD-3/BSD-2/MIT/Apache-2.0; parser GPL-3.0+ **with Bison exception** | Windows | the exception allows any licence |
 | SPIRV-Tools, SPIRV-Headers (in shaderc) | ef96ed76, 04fd3caa | Apache-2.0, MIT | Windows | |
@@ -88,12 +90,21 @@ clause allows this for every LGPL component here.
 
 **Platform choices:**
 
-- **Linux baseline:** the build runs on Ubuntu 22.04 (glibc 2.35). Wayland, DRM and PipeWire outputs are off: Vimivo
-  embeds video in its own X11 window (XWayland on Wayland sessions), and PipeWire is reached through PulseAudio.
+- **Linux has no mpv X11 code:** under `-Dgpl=false`, mpv 0.41 refuses `-Dx11=enabled`, because its X11 code is GPL.
+  - Linux therefore renders through the libmpv render API into Vimivo's own EGL context on its X11 window
+    (`MpvEglRenderer`, JNA only), as macOS already did.
+  - VA-API reaches the GPU through a DRM render node, which needs libdisplay-info.
+- **Linux baseline:** the build runs on Ubuntu 22.04 (glibc 2.35). Wayland output and PipeWire are off: XWayland
+  covers Wayland sessions, and PipeWire is reached through PulseAudio.
 - **macOS:** deployment target 11.0, universal arm64 + x86_64.
 
 ## Behaviour changes with the new binaries
 
+- **Linux video output changed:** libmpv's own X11 `vo=gpu` embedding via `wid` → `vo=libmpv` rendered by
+  `MpvEglRenderer`. The smoke test checks the picture with the same pixel probes. The X error-handler workaround for
+  libmpv is gone, because libmpv no longer touches Xlib.
+- **Windows** additionally ships `libiconv-2.dll` and the mingw-w64 runtime DLLs (`libwinpthread-1.dll`,
+  `libgcc_s_seh-1.dll`, `libstdc++-6.dll`), replacing the single monolithic GPL `libmpv-2.dll`.
 - **No user-visible regressions** found in the smoke tests (see the CI table in the (d) report).
   - Hardware decoding stays on: VideoToolbox (zero-copy, `videotoolbox-gl`) on macOS, D3D11VA/DXVA2 on Windows,
     VA-API on Linux.
