@@ -46,6 +46,7 @@ import dev.vimivo.playback.TrackInfo
 import dev.vimivo.playback.TrackOrigin
 import dev.vimivo.playback.TrackType
 import dev.vimivo.playback.VideoAdjustments
+import dev.vimivo.playback.VideoAspectRatio
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -316,7 +317,9 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("video-zoom", adjustments.zoom.toString())
         setProperty("video-pan-x", adjustments.panX.toString())
         setProperty("video-pan-y", adjustments.panY.toString())
-        setProperty("video-aspect-override", adjustments.aspectRatio.value)
+        setProperty("video-aspect-override", mpvAspectOverride(adjustments.aspectRatio))
+        // Fill crops the picture to cover the window; every other preset shows the whole picture.
+        setProperty("panscan", if (adjustments.aspectRatio == VideoAspectRatio.FILL) "1.0" else "0.0")
         mutableState.value = mutableState.value.copy(videoAdjustments = adjustments)
     }
 
@@ -653,10 +656,14 @@ class MpvPlayerEngine : PlayerEngine {
         }
     }
 
+    /**
+     * Runs a control (property or command) against the loaded media. A failed control is returned to the caller,
+     * which reports it; it never becomes a playback error, so the queue does not skip a file that still plays.
+     */
     private fun action(block: () -> Unit): Result<Unit> = runCatching {
         check(!closed && context != null) { "Open media before using playback controls" }
         block()
-    }.onFailure(::publishFailure)
+    }
 
     private fun checkCode(code: Int) {
         if (code < 0) error(native?.mpv_error_string(code) ?: "libmpv error $code")
@@ -755,6 +762,15 @@ class MpvPlayerEngine : PlayerEngine {
                 ExternalSubtitle(it.toPath().toUri().toString(), it.name, languageFromSubtitleName(it.name), subtitleMimeType(it.extension))
             }
         private val SUPPORTED_SCHEMES = setOf("file", "http", "https", "rtsp", "rtsps")
+
+        /** libmpv `video-aspect-override` values; Fill keeps the source aspect and crops through `panscan`. */
+        internal fun mpvAspectOverride(ratio: VideoAspectRatio): String = when (ratio) {
+            VideoAspectRatio.ORIGINAL, VideoAspectRatio.FILL -> "-1"
+            VideoAspectRatio.FIT -> "0"
+            VideoAspectRatio.RATIO_16_9 -> "16:9"
+            VideoAspectRatio.RATIO_4_3 -> "4:3"
+            VideoAspectRatio.RATIO_21_9 -> "2.35:1"
+        }
 
         /**
          * libmpv rejects single-slash `file:/path` URIs (what `File.toURI()` produces), so local media is always

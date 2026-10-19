@@ -589,12 +589,12 @@ private fun FrameWindowScope.VimivoMenuBar(
             Item(
                 "Seek Backward",
                 shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionLeft, alt = true),
-                onClick = { engine.seekTo((engine.state.value.positionMillis - 10_000).coerceAtLeast(0)) },
+                onClick = { viewModel.commands.execute(DesktopPlayerCommand.SEEK_BACK_MEDIUM) },
             )
             Item(
                 "Seek Forward",
                 shortcut = androidx.compose.ui.input.key.KeyShortcut(androidx.compose.ui.input.key.Key.DirectionRight, alt = true),
-                onClick = { engine.seekTo(engine.state.value.positionMillis + 10_000) },
+                onClick = { viewModel.commands.execute(DesktopPlayerCommand.SEEK_FORWARD_MEDIUM) },
             )
             Separator()
             Item(
@@ -615,7 +615,7 @@ private fun FrameWindowScope.VimivoMenuBar(
             Separator()
             Item(
                 "Normal Speed  ⌫",
-                onClick = { engine.setPlaybackSpeed(1.0f) },
+                onClick = { viewModel.commands.execute(DesktopPlayerCommand.SPEED_RESET) },
             )
             Item(
                 "Faster  ]",

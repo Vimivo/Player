@@ -252,6 +252,13 @@ internal class DesktopPlayerCommandExecutor(
         return true
     }
 
+    /**
+     * Runs a control from a panel. A failure is shown on the HUD ("<action> failed: <reason>") and playback carries
+     * on; returns whether the control succeeded.
+     */
+    fun perform(action: String, control: () -> Result<*>): Boolean =
+        control().onFailure { error -> mutableStatus.value = HudMessage.Failed(action, error.message) }.isSuccess
+
     /** Shows [message] on the HUD; returns true so command handlers can use it as their result. */
     fun report(message: HudMessage): Boolean {
         mutableStatus.value = message

@@ -38,6 +38,7 @@ import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.SubtitleStyle
+import dev.vimivo.playback.VideoAdjustments
 import dev.vimivo.playback.VideoAspectRatio
 import dev.vimivo.ui.components.VimivoAccessibleSlider
 import dev.vimivo.ui.components.VimivoGlassSurface
@@ -64,6 +65,16 @@ internal fun DesktopVideoControlsPanel(
     var subtitleFontSize by remember { mutableStateOf(24) }
     var subtitleColorHex by remember { mutableStateOf("#FFFFFF") }
 
+    /** Applies [next]; on failure the HUD says why and the controls fall back to what the engine has. */
+    fun adjust(label: String, next: VideoAdjustments) {
+        currentAdjustments = next
+        if (!commands.perform(label) { engine.applyVideoAdjustments(next) }) currentAdjustments = state.videoAdjustments
+    }
+
+    fun subtitleStyle(size: Int, colorHex: String) = commands.perform("Subtitle style") {
+        engine.applySubtitleStyle(SubtitleStyle(fontSizeSp = size, textColorHex = colorHex, bottomMarginPercent = 5))
+    }
+
     VimivoGlassSurface(
         variant = VimivoGlassVariant.POPOVER,
         modifier = modifier.fillMaxWidth(),
@@ -83,8 +94,7 @@ internal fun DesktopVideoControlsPanel(
                     FilterChip(
                         selected = isSelected,
                         onClick = {
-                            currentAdjustments = currentAdjustments.copy(aspectRatio = ratio)
-                            engine.applyVideoAdjustments(currentAdjustments)
+                            adjust("${ratio.label} aspect", currentAdjustments.copy(aspectRatio = ratio))
                         },
                         label = { Text(ratio.label) },
                     )
@@ -93,8 +103,7 @@ internal fun DesktopVideoControlsPanel(
                 OutlinedButton(
                     onClick = {
                         val nextRotation = (currentAdjustments.rotationDegrees + 90) % 360
-                        currentAdjustments = currentAdjustments.copy(rotationDegrees = nextRotation)
-                        engine.applyVideoAdjustments(currentAdjustments)
+                        adjust("Rotate", currentAdjustments.copy(rotationDegrees = nextRotation))
                     },
                     modifier = Modifier.semantics {
                         role = Role.Button
@@ -116,18 +125,18 @@ internal fun DesktopVideoControlsPanel(
                 }
 
                 OutlinedButton(
-                    onClick = { engine.frameStep(forward = false) },
+                    onClick = { commands.execute(DesktopPlayerCommand.FRAME_STEP_BACKWARD) },
                     enabled = engine.capabilities.frameStepping,
                     modifier = Modifier.semantics { contentDescription = "Step back one frame" },
                 ) { Text("◀ Frame") }
                 OutlinedButton(
-                    onClick = { engine.frameStep(forward = true) },
+                    onClick = { commands.execute(DesktopPlayerCommand.FRAME_STEP_FORWARD) },
                     enabled = engine.capabilities.frameStepping,
                     modifier = Modifier.semantics { contentDescription = "Step forward one frame" },
                 ) { Text("Frame ▶") }
                 FilterChip(
                     selected = state.deinterlace,
-                    onClick = { engine.setDeinterlace(!state.deinterlace) },
+                    onClick = { commands.execute(DesktopPlayerCommand.TOGGLE_DEINTERLACE) },
                     enabled = engine.capabilities.deinterlacing,
                     label = { Text("Deinterlace") },
                 )
@@ -144,7 +153,7 @@ internal fun DesktopVideoControlsPanel(
                     val isSelected = kotlin.math.abs(state.speed - speed) < 0.05f
                     FilterChip(
                         selected = isSelected,
-                        onClick = { engine.setPlaybackSpeed(speed) },
+                        onClick = { commands.perform("Speed $speed×") { engine.setPlaybackSpeed(speed) } },
                         label = { Text("${speed}x") },
                     )
                 }
@@ -169,7 +178,7 @@ internal fun DesktopVideoControlsPanel(
                         state.audioTracks.forEach { track ->
                             FilterChip(
                                 selected = track.isSelected,
-                                onClick = { engine.selectAudioTrack(track.id) },
+                                onClick = { commands.perform("Audio track") { engine.selectAudioTrack(track.id) } },
                                 label = {
                                     val desc = listOfNotNull(track.label, track.language, track.codec).joinToString(" • ")
                                     Text(desc.ifEmpty { "Track ${track.id}" })
@@ -199,7 +208,7 @@ internal fun DesktopVideoControlsPanel(
                 ) { Text("+$audioStep ms") }
                 if (audioDelayMs != 0L) {
                     OutlinedButton(
-                        onClick = { engine.setAudioDelay(0) },
+                        onClick = { commands.perform("Reset audio delay") { engine.setAudioDelay(0) } },
                         modifier = Modifier.semantics {
                             role = Role.Button
                             contentDescription = "Reset audio delay to 0 milliseconds"
@@ -224,7 +233,7 @@ internal fun DesktopVideoControlsPanel(
                                 language = null,
                                 mimeType = "application/x-subrip",
                             )
-                            engine.addExternalSubtitle(sub).onSuccess {
+                            if (commands.perform("Load subtitle") { engine.addExternalSubtitle(sub) }) {
                                 message = "Loaded external subtitle: ${file.name}"
                             }
                         }
@@ -235,7 +244,7 @@ internal fun DesktopVideoControlsPanel(
 
                 FilterChip(
                     selected = state.subtitleTracks.none { it.isSelected },
-                    onClick = { engine.selectSubtitleTrack(null) },
+                    onClick = { commands.perform("Subtitles off") { engine.selectSubtitleTrack(null) } },
                     label = { Text("None (Off)") },
                 )
 
@@ -249,7 +258,7 @@ internal fun DesktopVideoControlsPanel(
                         state.subtitleTracks.forEach { track ->
                             FilterChip(
                                 selected = track.isSelected,
-                                onClick = { engine.selectSubtitleTrack(track.id) },
+                                onClick = { commands.perform("Subtitle track") { engine.selectSubtitleTrack(track.id) } },
                                 label = {
                                     val desc = listOfNotNull(track.label, track.language).joinToString(" • ")
                                     Text(desc.ifEmpty { "Subtitle ${track.id}" })
@@ -277,7 +286,7 @@ internal fun DesktopVideoControlsPanel(
                 ) { Text("+$subtitleStep ms") }
                 if (subtitleDelayMs != 0L) {
                     OutlinedButton(
-                        onClick = { engine.setSubtitleDelay(0) },
+                        onClick = { commands.perform("Reset subtitle delay") { engine.setSubtitleDelay(0) } },
                         modifier = Modifier.semantics {
                             role = Role.Button
                             contentDescription = "Reset subtitle delay to 0 milliseconds"
@@ -298,13 +307,7 @@ internal fun DesktopVideoControlsPanel(
                         selected = subtitleFontSize == size,
                         onClick = {
                             subtitleFontSize = size
-                            engine.applySubtitleStyle(
-                                SubtitleStyle(
-                                    fontSizeSp = size,
-                                    textColorHex = subtitleColorHex,
-                                    bottomMarginPercent = 5,
-                                ),
-                            )
+                            subtitleStyle(size, subtitleColorHex)
                         },
                         label = { Text("${size}sp") },
                     )
@@ -316,13 +319,7 @@ internal fun DesktopVideoControlsPanel(
                         selected = subtitleColorHex == hex,
                         onClick = {
                             subtitleColorHex = hex
-                            engine.applySubtitleStyle(
-                                SubtitleStyle(
-                                    fontSizeSp = subtitleFontSize,
-                                    textColorHex = hex,
-                                    bottomMarginPercent = 5,
-                                ),
-                            )
+                            subtitleStyle(subtitleFontSize, hex)
                         },
                         label = { Text(name) },
                     )
@@ -341,8 +338,7 @@ internal fun DesktopVideoControlsPanel(
                     VimivoAccessibleSlider(
                         value = currentAdjustments.brightness.toFloat(),
                         onValueChange = {
-                            currentAdjustments = currentAdjustments.copy(brightness = it.roundToInt())
-                            engine.applyVideoAdjustments(currentAdjustments)
+                            adjust("Brightness", currentAdjustments.copy(brightness = it.roundToInt()))
                         },
                         valueRange = -50f..50f,
                         label = "Brightness",
@@ -353,8 +349,7 @@ internal fun DesktopVideoControlsPanel(
                     VimivoAccessibleSlider(
                         value = currentAdjustments.contrast.toFloat(),
                         onValueChange = {
-                            currentAdjustments = currentAdjustments.copy(contrast = it.roundToInt())
-                            engine.applyVideoAdjustments(currentAdjustments)
+                            adjust("Contrast", currentAdjustments.copy(contrast = it.roundToInt()))
                         },
                         valueRange = -50f..50f,
                         label = "Contrast",
@@ -365,8 +360,7 @@ internal fun DesktopVideoControlsPanel(
                     VimivoAccessibleSlider(
                         value = currentAdjustments.saturation.toFloat(),
                         onValueChange = {
-                            currentAdjustments = currentAdjustments.copy(saturation = it.roundToInt())
-                            engine.applyVideoAdjustments(currentAdjustments)
+                            adjust("Saturation", currentAdjustments.copy(saturation = it.roundToInt()))
                         },
                         valueRange = -50f..50f,
                         label = "Saturation",
@@ -376,8 +370,7 @@ internal fun DesktopVideoControlsPanel(
                 if (currentAdjustments.brightness != 0 || currentAdjustments.contrast != 0 || currentAdjustments.saturation != 0) {
                     OutlinedButton(
                         onClick = {
-                            currentAdjustments = currentAdjustments.copy(brightness = 0, contrast = 0, saturation = 0, gamma = 0)
-                            engine.applyVideoAdjustments(currentAdjustments)
+                            adjust("Reset colours", currentAdjustments.copy(brightness = 0, contrast = 0, saturation = 0, gamma = 0))
                         },
                     ) {
                         Text("Reset Colors")
@@ -393,14 +386,14 @@ internal fun DesktopVideoControlsPanel(
             ) {
                 Text("Chapters:", style = MaterialTheme.typography.labelMedium)
                 OutlinedButton(
-                    onClick = { engine.previousChapter() },
+                    onClick = { commands.perform("Previous chapter") { engine.previousChapter() } },
                     modifier = Modifier.semantics {
                         role = Role.Button
                         contentDescription = "Skip to previous chapter"
                     },
                 ) { Text("◀ Prev") }
                 OutlinedButton(
-                    onClick = { engine.nextChapter() },
+                    onClick = { commands.perform("Next chapter") { engine.nextChapter() } },
                     modifier = Modifier.semantics {
                         role = Role.Button
                         contentDescription = "Skip to next chapter"
@@ -410,8 +403,9 @@ internal fun DesktopVideoControlsPanel(
                 Text("A-B Loop:", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 12.dp))
                 OutlinedButton(
                     onClick = {
-                        engine.setABRepeat(ABRepeatRange(pointA = state.positionMillis))
-                        message = "Point A set at ${formatMs(state.positionMillis)}"
+                        if (commands.perform("Set point A") { engine.setABRepeat(ABRepeatRange(pointA = state.positionMillis)) }) {
+                            message = "Point A set at ${formatMs(state.positionMillis)}"
+                        }
                     },
                     modifier = Modifier.semantics {
                         role = Role.Button
@@ -425,8 +419,9 @@ internal fun DesktopVideoControlsPanel(
                         val a = abRepeatA ?: 0L
                         val b = state.positionMillis
                         if (b > a) {
-                            engine.setABRepeat(ABRepeatRange(a, b, enabled = true))
-                            message = "Looping ${formatMs(a)} to ${formatMs(b)}"
+                            if (commands.perform("Set point B") { engine.setABRepeat(ABRepeatRange(a, b, enabled = true)) }) {
+                                message = "Looping ${formatMs(a)} to ${formatMs(b)}"
+                            }
                         } else {
                             message = "Point B must be after point A"
                         }
@@ -442,8 +437,9 @@ internal fun DesktopVideoControlsPanel(
                 if (abRepeatA != null || abRepeatB != null) {
                     OutlinedButton(
                         onClick = {
-                            engine.setABRepeat(ABRepeatRange(null, null, enabled = false))
-                            message = "A-B Repeat cleared"
+                            if (commands.perform("Clear loop") { engine.setABRepeat(ABRepeatRange(null, null, enabled = false)) }) {
+                                message = "A-B Repeat cleared"
+                            }
                         },
                         modifier = Modifier.semantics {
                             role = Role.Button

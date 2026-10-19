@@ -157,6 +157,16 @@ class DesktopPlayerCommandsTest {
         assertTrue(both.startsWith("lavfi=[equalizer=") && both.endsWith("dB,${DesktopAudioEffects.NORMALIZER_FILTER}]"))
     }
 
+    /** Regression (V0 B2): a failed panel control is reported on the HUD instead of being dropped. */
+    @Test
+    fun failedPanelControlIsReportedOnTheHud() {
+        val commands = executor(FakeEngine(loaded()))
+        val ok = commands.perform("Fill aspect") { Result.failure<Unit>(IllegalArgumentException("not supported")) }
+        assertFalse(ok)
+        assertEquals(HudMessage.Failed("Fill aspect", "not supported"), commands.status.value)
+        assertTrue(commands.perform("Rotate") { Result.success(Unit) })
+    }
+
     private fun executor(engine: FakeEngine, snapshotFile: () -> java.io.File = { java.io.File("unused.png") }) =
         DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, snapshotFile)
 
