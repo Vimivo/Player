@@ -488,6 +488,9 @@ class MpvPlayerEngine : PlayerEngine {
         // Without any working audio output (no device, device unplugged, headless machine) keep playing
         // the picture instead of stalling the whole player.
         checkCode(loaded.mpv_set_option_string(created, "audio-fallback-to-null", "yes"))
+        // Vimivo draws cover art itself. Left to libmpv, embedded art becomes a video track, and where no GPU
+        // context can be created (headless Linux, broken EGL) the failed video output aborts the whole song.
+        checkCode(loaded.mpv_set_option_string(created, "audio-display", "no"))
         // Sidecar subtitles load with the file: "movie.srt", "movie.en.srt", and the same names in Subs/ or
         // Subtitles/. Letting libmpv match at load time avoids racing sub-add against an unfinished load.
         checkCode(loaded.mpv_set_option_string(created, "sub-auto", "fuzzy"))

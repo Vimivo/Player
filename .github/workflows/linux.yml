@@ -32,7 +32,7 @@ jobs:
       - name: Install Linux packaging tools and libmpv
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev ffmpeg xvfb dbus playerctl
+          sudo apt-get install -y rpm fakeroot libmpv-dev libmpv2 libsecret-1-dev libdbus-1-dev ffmpeg xvfb dbus dbus-x11 gnome-keyring playerctl
 
       - name: Generate smoke-test media
         run: python3 testmedia/generate_media.py
@@ -41,7 +41,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Compile and run tests
-        run: ./gradlew :desktopApp:compileKotlinDesktop :desktopApp:desktopTest :shared:desktopTest :desktopApp:detekt
+        # Live libmpv, AWT and Secret Service tests need a display, a D-Bus session and an unlocked keyring.
+        run: |
+          xvfb-run -a dbus-run-session -- bash -c '
+            echo -n "ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
+            ./gradlew :desktopApp:compileKotlinDesktop :desktopApp:desktopTest :shared:desktopTest :desktopApp:detekt
+          '
 
       - name: Build Linux Distributable & Bundle Native Dependencies
         run: |

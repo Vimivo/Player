@@ -1738,6 +1738,7 @@ private fun GlobalSearch(
     }
 }
 
+@androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 @Composable
 private fun NowPlayingSheet(
     player: PlaybackUiState,

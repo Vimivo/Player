@@ -32,9 +32,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Compile and run tests
-        run: ./gradlew :desktopApp:compileKotlinDesktop :desktopApp:desktopTest :shared:desktopTest :desktopApp:detekt
-
       - name: Download pinned libmpv for Windows x64
         shell: pwsh
         env:
@@ -60,6 +57,12 @@ jobs:
         run: |
           choco install ffmpeg --no-progress -y
           python testmedia/generate_media.py
+
+      - name: Compile and run tests
+        env:
+          # Live libmpv tests load the pinned DLL; without it they skip.
+          VIMIVO_TEST_MPV_DIR: ${{ github.workspace }}\windows-mpv
+        run: ./gradlew :desktopApp:compileKotlinDesktop :desktopApp:desktopTest :shared:desktopTest :desktopApp:detekt
 
       - name: Build Windows distributable (with the MSVC environment for the media controls bridge)
         shell: cmd

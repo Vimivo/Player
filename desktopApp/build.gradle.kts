@@ -383,3 +383,10 @@ detekt {
 }
 
 dependencies { detektPlugins(libs.detekt.formatting) }
+
+// CI points the live libmpv tests at a pinned build (Windows ships no system libmpv); locally they find Homebrew's.
+tasks.withType<Test>().configureEach {
+    providers.environmentVariable("VIMIVO_TEST_MPV_DIR").orNull?.let { dir ->
+        systemProperty("vimivo.mpv.library", file(dir).resolve("libmpv-2.dll").absolutePath)
+    }
+}
