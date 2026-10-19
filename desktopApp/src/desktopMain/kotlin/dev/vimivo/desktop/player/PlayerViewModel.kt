@@ -249,6 +249,8 @@ internal class PlayerViewModel(
         }.orEmpty()
         val all = results + transitions
         DesktopSmokeTest.publish(all, System.getenv("VIMIVO_SMOKE_REPORT"))
+        // What the Info panel reports as the renderer (software rendering switches to performance mode).
+        engine.containerInfo()?.rendering?.let { println("VIMIVO_SMOKE INFO rendering=$it") }
         return all.isNotEmpty() && all.all { it is DesktopSmokeResult.Passed }
     }
 
