@@ -105,6 +105,10 @@ clause allows this for every LGPL component here.
   libmpv is gone, because libmpv no longer touches Xlib.
 - **Windows** additionally ships `libiconv-2.dll` and the mingw-w64 runtime DLLs (`libwinpthread-1.dll`,
   `libgcc_s_seh-1.dll`, `libstdc++-6.dll`), replacing the single monolithic GPL `libmpv-2.dll`.
+- **Library video metadata and thumbnails** now come from the bundled libmpv (`MpvMediaInspector`). They used to come
+  from external `ffprobe`/`ffmpeg` programs, which the apps never shipped, so on machines without ffmpeg they silently
+  failed; CI hid that by installing ffmpeg. The media-info probe still uses a system ffprobe when present and falls
+  back to header sniffing.
 - **No user-visible regressions** found in the smoke tests (see the CI table in the (d) report).
   - Hardware decoding stays on: VideoToolbox (zero-copy, `videotoolbox-gl`) on macOS, D3D11VA/DXVA2 on Windows,
     VA-API on Linux.

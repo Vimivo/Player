@@ -8,8 +8,8 @@ package dev.vimivo.desktop.library
 import java.io.File
 
 /**
- * Discovers system multimedia inspection and frame extraction tools safely.
- * Never executes shell commands or passes unsanitized parameters.
+ * Finds an optional system ffprobe for the media-info probe (which falls back to header sniffing without it).
+ * Library metadata and thumbnails use the bundled libmpv instead (`MpvMediaInspector`). Never runs a shell.
  */
 internal object DesktopMediaToolLocator {
     fun ffprobePath(): String? = findExecutable(
@@ -21,18 +21,6 @@ internal object DesktopMediaToolLocator {
             "/usr/local/bin/ffprobe",
             "/usr/bin/ffprobe",
             "C:\\ffmpeg\\bin\\ffprobe.exe",
-        ),
-    )
-
-    fun ffmpegPath(): String? = findExecutable(
-        systemProperty = "vimivo.ffmpeg.path",
-        environmentVariable = "FFMPEG_PATH",
-        commandName = "ffmpeg",
-        candidatePaths = listOf(
-            "/opt/homebrew/bin/ffmpeg",
-            "/usr/local/bin/ffmpeg",
-            "/usr/bin/ffmpeg",
-            "C:\\ffmpeg\\bin\\ffmpeg.exe",
         ),
     )
 
