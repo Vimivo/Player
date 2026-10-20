@@ -619,6 +619,30 @@ class MpvPlayerEngine : PlayerEngine {
         if (rendererWatch.firstSoftwareRendererReport(messages)) runCatching { command("apply-profile", "fast") }
     }
 
+    /**
+     * Shuts playback down while the libmpv core is still alive, before `mpv_terminate_destroy`:
+     * 1. without gapless audio, `stop` closes the audio output (mpv otherwise keeps it open into idle and only tears it
+     *    down inside terminate), which removes its CoreAudio device listener;
+     * 2. wait until the player is idle;
+     * 3. on macOS, give CoreAudio a moment to deliver the device notifications it sends when the AudioUnit closes, while
+     *    every listener's owner (the device-list watcher lives until terminate) still exists.
+     * A notification arriving after terminate crashed in mpv's `hotplug_cb` (docs/evidence/D-coreaudio-shutdown).
+     */
+    private fun stopBeforeDestroy(mpv: MpvNative, handle: Pointer) {
+        runCatching {
+            mpv.mpv_set_property_string(handle, "gapless-audio", "no")
+            mpv.mpv_command(handle, StringArray(arrayOf("stop")))
+            val deadline = System.nanoTime() + SHUTDOWN_IDLE_TIMEOUT_NANOS
+            while (System.nanoTime() < deadline && !isIdle(mpv, handle)) Thread.sleep(SHUTDOWN_POLL_MILLIS)
+            if (desktopPlatform == DesktopPlatform.MACOS) Thread.sleep(COREAUDIO_QUIESCE_MILLIS)
+        }
+    }
+
+    private fun isIdle(mpv: MpvNative, handle: Pointer): Boolean {
+        val value = mpv.mpv_get_property_string(handle, "idle-active") ?: return false
+        return try { value.getString(0) == "yes" } finally { mpv.mpv_free(value) }
+    }
+
     private fun command(vararg arguments: String) {
         synchronized(nativeLock) {
             if (closed || context == null) return
@@ -723,6 +747,8 @@ class MpvPlayerEngine : PlayerEngine {
         polling?.cancel()
         synchronized(nativeLock) {
             val closing = renderer
+            val loaded = native
+            context?.let { handle -> loaded?.let { stopBeforeDestroy(it, handle) } }
             closing?.detach()
             renderer = null
             context?.let { native?.mpv_terminate_destroy(it) }
@@ -739,6 +765,9 @@ class MpvPlayerEngine : PlayerEngine {
         private const val MAX_VOLUME = 2f
         private const val SURFACE_READY_TIMEOUT_MILLIS = 5_000L
         private const val SURFACE_POLL_MILLIS = 16L
+        private const val SHUTDOWN_IDLE_TIMEOUT_NANOS = 2_000_000_000L
+        private const val SHUTDOWN_POLL_MILLIS = 10L
+        private const val COREAUDIO_QUIESCE_MILLIS = 150L
         private const val MPV_FORMAT_FLAG = 3
         private const val MPV_FORMAT_INT64 = 4
         private const val MPV_FORMAT_DOUBLE = 5
