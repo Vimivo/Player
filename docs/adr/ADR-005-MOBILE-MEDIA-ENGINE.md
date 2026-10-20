@@ -1,6 +1,6 @@
 # ADR-005: Mobile media engine (Android fallback, iOS fallback)
 
-Status: **Proposed**, waiting for a product decision. Date: 2026-10-20. Builds on ADR-004 and
+Status: **Accepted** (2026-10-20): Android option (a), role (i) first; armeabi-v7a kept; iOS plan as below. Date: 2026-10-20. Builds on ADR-004 and
 `docs/LICENSE_AUDIT_MOBILE.md`.
 
 ## Context
@@ -102,4 +102,8 @@ Same pipeline, `ios` target, no third-party binaries:
 
 ## Decision
 
-Pending: Android (a) recommended, role (i) first; iOS plan as above. Implementation starts after approval.
+Accepted on 2026-10-20:
+
+- **Android (a):** our own LGPL libmpv. It replaces LibVLC 1:1 as the fallback engine; Media3 stays preferred.
+- **ABIs:** arm64-v8a, armeabi-v7a and x86_64 (the ABIs requested; armeabi-v7a kept).
+- **iOS:** dynamic LGPL-2.1-or-later frameworks as above, after the iOS persistence migration.
