@@ -56,3 +56,5 @@ Audio features supported:
 Hardware acceleration is configured with graceful fallbacks:
 - `hwdec = auto-safe` (utilizes VA-API on Intel/AMD GPUs or VDPAU/NVDEC on NVIDIA).
 - If hardware decoding initialization fails or the codec is unsupported, libmpv falls back seamlessly to software decoding without dropping playback or crashing the process.
+
+Manual verification on real hardware (GPUs, VA-API, X11/XWayland, PulseAudio/PipeWire): [LINUX_MANUAL_TEST_CHECKLIST.md](LINUX_MANUAL_TEST_CHECKLIST.md).

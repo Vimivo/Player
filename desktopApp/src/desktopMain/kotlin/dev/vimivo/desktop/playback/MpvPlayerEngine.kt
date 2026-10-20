@@ -491,7 +491,10 @@ class MpvPlayerEngine : PlayerEngine {
             // by default and shows no picture at all; a slower picture is better than none.
             checkCode(loaded.mpv_set_option_string(created, "gpu-sw", "yes"))
         }
-        loaded.mpv_set_option_string(created, "hwdec", hwdecValue(hwdecMode))
+        // VIMIVO_HWDEC (e.g. "no", "vaapi", "auto-safe") overrides the decoder for hardware test runs
+        // (docs/LINUX_MANUAL_TEST_CHECKLIST.md); normal use follows the hardware acceleration mode.
+        val hwdec = System.getenv("VIMIVO_HWDEC")?.takeIf { it.matches(HWDEC_OVERRIDE) } ?: hwdecValue(hwdecMode)
+        loaded.mpv_set_option_string(created, "hwdec", hwdec)
         loaded.mpv_set_option_string(created, "demuxer-max-bytes", "33554432")
         loaded.mpv_set_option_string(created, "demuxer-readahead-secs", "5.0")
         loaded.mpv_set_option_string(created, "network-timeout", "15")
@@ -768,6 +771,7 @@ class MpvPlayerEngine : PlayerEngine {
         private const val SHUTDOWN_IDLE_TIMEOUT_NANOS = 2_000_000_000L
         private const val SHUTDOWN_POLL_MILLIS = 10L
         private const val COREAUDIO_QUIESCE_MILLIS = 150L
+        private val HWDEC_OVERRIDE = Regex("[a-z0-9,-]{1,64}")
         private const val MPV_FORMAT_FLAG = 3
         private const val MPV_FORMAT_INT64 = 4
         private const val MPV_FORMAT_DOUBLE = 5
