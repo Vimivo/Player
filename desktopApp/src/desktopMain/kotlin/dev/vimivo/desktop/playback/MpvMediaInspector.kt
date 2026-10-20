@@ -14,21 +14,36 @@ import java.util.Locale
 internal class MpvMediaInspector(private val loadNative: () -> MpvNative = MpvNative::load) {
 
     data class Track(
+        val id: Int?,
         val type: String,
         val codec: String?,
-        val albumArt: Boolean,
-        val width: Int?,
-        val height: Int?,
-        val fps: Float?,
-        val sampleRate: Int?,
-        val channels: Int?,
+        val profile: String? = null,
+        val albumArt: Boolean = false,
+        val width: Int? = null,
+        val height: Int? = null,
+        val fps: Float? = null,
+        val sampleRate: Int? = null,
+        val channels: Int? = null,
+        val bitrate: Int? = null,
+        val language: String? = null,
+        val title: String? = null,
+        val isDefault: Boolean = false,
+        val isForced: Boolean = false,
+        val isExternal: Boolean = false,
     )
+
+    data class Chapter(val title: String?, val startMillis: Long)
+
+    /** The decoded picture's format, known once libmpv has decoded the first frame. */
+    data class VideoParams(val pixelFormat: String?, val primaries: String?, val transfer: String?)
 
     data class Inspection(
         val durationMillis: Long?,
         val fileFormat: String?,
         val title: String?,
         val tracks: List<Track>,
+        val chapters: List<Chapter> = emptyList(),
+        val videoParams: VideoParams? = null,
     )
 
     /** Container, duration, title and every track of [file], read while the file is loaded but paused. */
@@ -37,11 +52,37 @@ internal class MpvMediaInspector(private val loadNative: () -> MpvNative = MpvNa
         val outcome = awaitEvent(mpv, handle, EVENT_FILE_LOADED)
         check(outcome == null) { "libmpv could not open ${file.name}: $outcome" }
         val count = mpv.string(handle, "track-list/count")?.toIntOrNull() ?: 0
+        val tracks = (0 until count).map { index -> track(mpv, handle, "track-list/$index") }
+        val chapterCount = mpv.string(handle, "chapter-list/count")?.toIntOrNull() ?: 0
         Inspection(
             durationMillis = mpv.string(handle, "duration")?.toDoubleOrNull()?.let { (it * MILLIS).toLong() },
             fileFormat = mpv.string(handle, "file-format"),
             title = mpv.string(handle, "metadata/by-key/title")?.takeIf(String::isNotBlank),
-            tracks = (0 until count).map { index -> track(mpv, handle, "track-list/$index") },
+            tracks = tracks,
+            chapters = (0 until chapterCount).map { index ->
+                Chapter(
+                    title = mpv.string(handle, "chapter-list/$index/title")?.takeIf(String::isNotBlank),
+                    startMillis = ((mpv.string(handle, "chapter-list/$index/time")?.toDoubleOrNull() ?: 0.0) * MILLIS)
+                        .toLong(),
+                )
+            },
+            videoParams = if (tracks.any { it.type == "video" && !it.albumArt }) videoParams(mpv, handle) else null,
+        )
+    }
+
+    /** Waits briefly for the first decoded frame (paused, null output) and reads its colour parameters. */
+    private fun videoParams(mpv: MpvNative, handle: Pointer): VideoParams? {
+        val deadline = System.nanoTime() + VIDEO_PARAMS_TIMEOUT_NANOS
+        var pixelFormat = mpv.string(handle, "video-params/pixelformat")
+        while (pixelFormat == null && System.nanoTime() < deadline) {
+            mpv.mpv_wait_event(handle, WAIT_SECONDS)
+            pixelFormat = mpv.string(handle, "video-params/pixelformat")
+        }
+        if (pixelFormat == null) return null
+        return VideoParams(
+            pixelFormat = pixelFormat,
+            primaries = mpv.string(handle, "video-params/primaries"),
+            transfer = mpv.string(handle, "video-params/gamma"),
         )
     }
 
@@ -118,15 +159,25 @@ internal class MpvMediaInspector(private val loadNative: () -> MpvNative = MpvNa
     }
 
     private fun track(mpv: MpvNative, handle: Pointer, prefix: String) = Track(
+        id = mpv.string(handle, "$prefix/id")?.toIntOrNull(),
         type = mpv.string(handle, "$prefix/type").orEmpty(),
         codec = mpv.string(handle, "$prefix/codec"),
-        albumArt = mpv.string(handle, "$prefix/albumart") == "yes",
+        profile = mpv.string(handle, "$prefix/codec-profile"),
+        albumArt = mpv.flag(handle, "$prefix/albumart"),
         width = mpv.string(handle, "$prefix/demux-w")?.toIntOrNull(),
         height = mpv.string(handle, "$prefix/demux-h")?.toIntOrNull(),
         fps = mpv.string(handle, "$prefix/demux-fps")?.toFloatOrNull(),
         sampleRate = mpv.string(handle, "$prefix/demux-samplerate")?.toIntOrNull(),
         channels = mpv.string(handle, "$prefix/demux-channel-count")?.toIntOrNull(),
+        bitrate = mpv.string(handle, "$prefix/demux-bitrate")?.toIntOrNull(),
+        language = mpv.string(handle, "$prefix/lang"),
+        title = mpv.string(handle, "$prefix/title"),
+        isDefault = mpv.flag(handle, "$prefix/default"),
+        isForced = mpv.flag(handle, "$prefix/forced"),
+        isExternal = mpv.flag(handle, "$prefix/external"),
     )
+
+    private fun MpvNative.flag(handle: Pointer, property: String) = string(handle, property) == "yes"
 
     private fun MpvNative.string(handle: Pointer, property: String): String? {
         val pointer = mpv_get_property_string(handle, property) ?: return null
@@ -144,6 +195,7 @@ internal class MpvMediaInspector(private val loadNative: () -> MpvNative = MpvNa
         const val EVENT_DATA_OFFSET = 16L
         const val WAIT_SECONDS = 0.1
         const val TIMEOUT_NANOS = 5_000_000_000L
+        const val VIDEO_PARAMS_TIMEOUT_NANOS = 1_500_000_000L
         const val MILLIS = 1_000.0
 
         // No configuration, scripts, terminal, network helpers or hardware decoding: deterministic and headless.

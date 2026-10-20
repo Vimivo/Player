@@ -31,7 +31,7 @@ Measured via `DesktopMediaProbeService` across small, medium, and synthetic medi
 | **Synthetic OGG Sniff** | `OggS` container identification | < 10.0 ms | **0.11 ms** | **Instant** |
 | **Synthetic WAV Sniff** | `RIFF....WAVE` header check | < 10.0 ms | **0.14 ms** | **Instant** |
 | **Synthetic MKV Sniff** | EBML `\x1A\x45\xDF\xA3` identifier | < 10.0 ms | **0.12 ms** | **Instant** |
-| **Deep ffprobe Demux Probe** | Subprocess probe for streams & metadata | < 150.0 ms | **42.5 ms** | Clean asynchronous probing |
+| **Deep libmpv Demux Probe** | In-process libmpv probe for streams & metadata (was an ffprobe subprocess when measured) | < 150.0 ms | **42.5 ms** | Clean asynchronous probing |
 
 ---
 

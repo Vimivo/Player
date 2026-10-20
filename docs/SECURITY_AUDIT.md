@@ -18,9 +18,9 @@ Vimivo is an offline-first, privacy-first local media player. The core assets to
 ## 2. Ingestion & File Processing Security
 
 - **Shell Injection Prevention**:
-  - All external process invocations (`ffprobe`, `ffmpeg`) use argument-safe array APIs (`ProcessBuilder(listOf(...))` / `Process()`), NEVER shell string concatenation (`/bin/sh -c ...`).
+  - Desktop media inspection runs in-process through the bundled libmpv (`MpvMediaInspector`); no `ffprobe`/`ffmpeg` subprocess is started. Remaining process launches (e.g. `Process()` on Apple platforms) use argument arrays, NEVER shell string concatenation (`/bin/sh -c ...`).
   - Inputs (file paths, stream URLs) are passed directly as distinct arguments.
-  - Subprocesses are strictly timeout-bounded (5 seconds max for metadata extraction) to prevent hangs on crafted malicious files.
+  - Metadata extraction is time-bounded (5 seconds max per file) to prevent hangs on crafted malicious files.
 - **Path Traversal Protection**:
   - Playlist imports (`M3U`, `JSON`, backup restores) sanitize relative and absolute paths.
   - No writes occur outside designated app data or cache directories (`%LOCALAPPDATA%\Vimivo`, `~/Library/Application Support/Vimivo`, `~/.local/share/vimivo`, Android internal storage, iOS app sandbox container).

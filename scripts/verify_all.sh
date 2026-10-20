@@ -38,9 +38,6 @@ echo "==> Step 6: Assembling Android debug package (:androidApp:assembleDebug)..
 
 echo "==> Step 7: Desktop smoke test (real window, local video + audio playback)..."
 SMOKE_MEDIA=(testmedia/video_landscape.mp4 testmedia/video_sample.mkv testmedia/track2_lunar.mp3 testmedia/track1_solaris.flac)
-if [ ! -f "${SMOKE_MEDIA[0]}" ] && command -v ffmpeg >/dev/null 2>&1 && [ -f testmedia/generate_media.py ]; then
-    python3 testmedia/generate_media.py >/dev/null
-fi
 if [ -f "${SMOKE_MEDIA[0]}" ] && { [ "${HOST_OS}" = "Darwin" ] || [ -n "${DISPLAY:-}" ]; }; then
     smoke_args="--smoke-test"
     for media in "${SMOKE_MEDIA[@]}"; do smoke_args="${smoke_args} ${PROJECT_ROOT}/${media}"; done
@@ -55,7 +52,7 @@ if [ -f "${SMOKE_MEDIA[0]}" ] && { [ "${HOST_OS}" = "Darwin" ] || [ -n "${DISPLA
         exit 1
     fi
 else
-    echo "Skipped: needs testmedia/ (or ffmpeg to generate it) and a display."
+    echo "Skipped: needs a display (the test media is checked in under testmedia/)."
     CI_ONLY+=("Desktop smoke test on this host")
 fi
 

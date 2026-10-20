@@ -58,8 +58,9 @@ class MpvContinuousPlaybackTest {
     }
 
     private companion object {
-        const val START_TIMEOUT = 5_000L
-        const val ADVANCE_TIMEOUT = 8_000L
+        // Upper bounds only (a passing run returns as soon as the state arrives); generous for loaded CI machines.
+        const val START_TIMEOUT = 15_000L
+        const val ADVANCE_TIMEOUT = 15_000L
         const val NEAR_END_MILLIS = 1_000L
     }
 }

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Developer tool: regenerates the checked-in test media with a local ffmpeg. Neither the apps nor CI run
+# ffmpeg; they use the committed files (and the bundled libmpv for playback and inspection).
 import subprocess
 import os
 

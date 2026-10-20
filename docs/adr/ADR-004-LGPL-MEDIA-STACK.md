@@ -107,8 +107,8 @@ clause allows this for every LGPL component here.
   `libgcc_s_seh-1.dll`, `libstdc++-6.dll`), replacing the single monolithic GPL `libmpv-2.dll`.
 - **Library video metadata and thumbnails** now come from the bundled libmpv (`MpvMediaInspector`). They used to come
   from external `ffprobe`/`ffmpeg` programs, which the apps never shipped, so on machines without ffmpeg they silently
-  failed; CI hid that by installing ffmpeg. The media-info probe still uses a system ffprobe when present and falls
-  back to header sniffing.
+  failed; CI hid that by installing ffmpeg. Media Info uses the same inspector (header sniffing only for files libmpv
+  cannot open). Neither the apps nor CI run an ffmpeg/ffprobe program any more.
 - **No user-visible regressions** found in the smoke tests (see the CI table in the (d) report).
   - Hardware decoding stays on: VideoToolbox (zero-copy, `videotoolbox-gl`) on macOS, D3D11VA/DXVA2 on Windows,
     VA-API on Linux.
