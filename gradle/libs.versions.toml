@@ -11,7 +11,6 @@ coreKtx = "1.18.0"
 lifecycle = "2.9.6"
 datastore = "1.2.1"
 media3 = "1.11.1"
-libvlc = "3.7.7"
 coil = "3.4.0"
 detekt = "1.23.8"
 junit = "4.13.2"
@@ -53,7 +52,6 @@ media3-session = { module = "androidx.media3:media3-session", version.ref = "med
 media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3" }
 media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 media3-exoplayer-rtsp = { module = "androidx.media3:media3-exoplayer-rtsp", version.ref = "media3" }
-libvlc = { module = "org.videolan.android:libvlc-all", version.ref = "libvlc" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }

@@ -42,7 +42,9 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             themeMode = preferences[Keys.theme]
                 ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: ThemeMode.SYSTEM,
-            preferredEngine = preferences[Keys.engine]?.let { runCatching { PreferredEngine.valueOf(it) }.getOrNull() }
+            // "LIBVLC" was stored before libmpv replaced LibVLC as the fallback engine (ADR-005).
+            preferredEngine = preferences[Keys.engine]
+                ?.let { runCatching { PreferredEngine.valueOf(it.replace("LIBVLC", "LIBMPV")) }.getOrNull() }
                 ?: PreferredEngine.AUTOMATIC,
             resumePlayback = preferences[Keys.resume] ?: true,
             dynamicColor = preferences[Keys.dynamicColor] ?: true,

@@ -23,7 +23,9 @@ APP = json.loads((ROOT / "scripts/notices/app_components.json").read_text())
 VERSIONS = tomllib.loads((ROOT / "gradle/libs.versions.toml").read_text())["versions"]
 KOTLIN_OUT = ROOT / "shared/src/commonMain/kotlin/dev/vimivo/core/legal/ThirdPartyComponents.kt"
 DOC_OUT = ROOT / "docs/THIRD_PARTY_NOTICES.md"
-DESKTOP = ["macos", "windows", "linux"]
+DEFAULT_MEDIA_PLATFORMS = ["macos", "windows", "linux", "android"]  # as in scripts/build_media/build.py
+LOCK = json.loads((ROOT / "scripts/build_media/media.lock").read_text())
+LOCK_TARGETS = {"macos": "macos-universal", "windows": "windows-x86_64", "linux": "linux-x86_64", "android": "android"}
 PLATFORM_ENUM = {"android": "ANDROID", "ios": "IOS", "macos": "MACOS", "windows": "WINDOWS", "linux": "LINUX"}
 PLATFORM_LABEL = {"android": "Android", "ios": "iOS", "macos": "macOS", "windows": "Windows", "linux": "Linux"}
 
@@ -36,7 +38,7 @@ def components():
             version = VERSIONS[version[len("toml:"):]]
         result.append({**entry, "version": version, "media": False})
     for component in MANIFEST["components"]:
-        platforms = component.get("platforms", DESKTOP)
+        platforms = component.get("platforms", DEFAULT_MEDIA_PLATFORMS)
         result.append({"name": component["name"], "version": component["version"], "license": component["license"],
                        "url": component["url"], "platforms": platforms, "media": True})
         for dep in component.get("stage", []):
@@ -44,6 +46,16 @@ def components():
                 result.append({"name": f"{dep['name']} (in {component['name']})", "version": dep["version"],
                                "license": dep["license"], "url": dep["url"], "platforms": platforms, "media": True})
     return result
+
+
+def media_releases():
+    """Platform -> release of the media package it ships (only platforms with a published package)."""
+    releases = {}
+    for platform, target in LOCK_TARGETS.items():
+        asset = LOCK["assets"].get(target)
+        if asset:
+            releases[platform] = asset.get("release", LOCK["release"])
+    return releases
 
 
 def kotlin_string(value):
@@ -58,7 +70,11 @@ def render_kotlin(items):
         "",
         "package dev.vimivo.core.legal",
         "",
-        f"internal const val MEDIA_RELEASE: String = {kotlin_string(MANIFEST['release'])}",
+        "/** The media package release each app ships, from scripts/build_media/media.lock. */",
+        "internal val MEDIA_RELEASES: Map<NoticePlatform, String> = mapOf(",
+        *[f"    NoticePlatform.{PLATFORM_ENUM[platform]} to {kotlin_string(release)},"
+          for platform, release in media_releases().items()],
+        ")",
         "",
         "internal val generatedComponents: List<ThirdPartyComponent> = listOf(",
     ]
@@ -104,15 +120,17 @@ def render_markdown(items):
         "GNU Lesser General Public License 2.1 or later (ADR-004). They are built without any GPL or non-free component",
         "(`scripts/build_media/verify.py` checks this) and can be replaced by a modified build:",
         "",
-        f"- Build scripts: <https://github.com/Vimivo/Player/tree/main/scripts/build_media> (release `{MANIFEST['release']}`).",
-        f"- Prebuilt packages and checksums: <https://github.com/Vimivo/Player/releases/tag/{MANIFEST['release']}>.",
+        "- Build scripts: <https://github.com/Vimivo/Player/tree/main/scripts/build_media>.",
+        "- Prebuilt packages and checksums: "
+        + ", ".join(f"{PLATFORM_LABEL[p]} <https://github.com/Vimivo/Player/releases/tag/{r}>" for p, r in media_releases().items())
+        + ".",
         "- Each component's exact source archive is listed below and pinned by SHA-256 in `manifest.json`.",
         "- Full licence texts ship inside each desktop app (`media-licenses/`).",
         "",
-        "The Android app links LibVLC (LGPL-2.1-or-later) dynamically; see `docs/LICENSE_AUDIT_MOBILE.md` for its",
-        "current GPL modules and the planned LGPL-only build.",
+        "The Android app ships the same LGPL libmpv/FFmpeg package as its fallback engine (ADR-005), as plain shared",
+        "libraries inside the APK.",
         "",
-        "## Desktop media package (macOS, Windows, Linux)",
+        "## Media package (macOS, Windows, Linux, Android)",
         "",
         *table([i for i in items if i["media"]]),
         "",

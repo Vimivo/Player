@@ -5,7 +5,7 @@ package dev.vimivo.playback
 import dev.vimivo.core.model.MediaItem
 import kotlinx.coroutines.flow.StateFlow
 
-enum class EngineId { MEDIA3, LIBVLC, MPV }
+enum class EngineId { MEDIA3, MPV }
 enum class TrackType { AUDIO, VIDEO, SUBTITLE }
 enum class TrackOrigin { EMBEDDED, EXTERNAL }
 enum class SupportLevel { PREFERRED, FALLBACK, UNSUPPORTED }

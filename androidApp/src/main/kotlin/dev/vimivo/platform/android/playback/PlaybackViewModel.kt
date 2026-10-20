@@ -346,7 +346,6 @@ class PlaybackViewModel(
 
     private fun diagnosticsCapabilities(engine: EngineId): EngineCapabilities = when (engine) {
         EngineId.MEDIA3 -> Media3PlayerEngine.CAPABILITIES
-        EngineId.LIBVLC -> LibVlcPlayerEngine.CAPABILITIES
         EngineId.MPV -> LibmpvPlayerEngine.CAPABILITIES
     }
 

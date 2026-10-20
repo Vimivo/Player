@@ -4,7 +4,12 @@
 
 package dev.vimivo.core.legal
 
-internal const val MEDIA_RELEASE: String = "media-1"
+/** The media package release each app ships, from scripts/build_media/media.lock. */
+internal val MEDIA_RELEASES: Map<NoticePlatform, String> = mapOf(
+    NoticePlatform.MACOS to "media-1",
+    NoticePlatform.WINDOWS to "media-1",
+    NoticePlatform.LINUX to "media-1",
+)
 
 internal val generatedComponents: List<ThirdPartyComponent> = listOf(
     ThirdPartyComponent(
@@ -121,14 +126,6 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
         mediaPackage = false,
     ),
     ThirdPartyComponent(
-        name = "LibVLC for Android",
-        version = "3.7.7",
-        license = "LGPL-2.1-or-later",
-        sourceUrl = "https://code.videolan.org/videolan/libvlcjni",
-        platforms = setOf(NoticePlatform.ANDROID),
-        mediaPackage = false,
-    ),
-    ThirdPartyComponent(
         name = "Coil",
         version = "3.4.0",
         license = "Apache-2.0",
@@ -205,11 +202,22 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
         mediaPackage = false,
     ),
     ThirdPartyComponent(
+        name = "LLVM libc++ (Android NDK runtime, in the media package)",
+        version = "NDK r27b",
+        license = "Apache-2.0 WITH LLVM-exception",
+        sourceUrl = "https://github.com/llvm/llvm-project",
+        platforms = setOf(NoticePlatform.ANDROID),
+        mediaPackage = false,
+    ),
+    ThirdPartyComponent(
         name = "libiconv",
         version = "1.18",
         license = "LGPL-2.1-or-later",
         sourceUrl = "https://ftpmirror.gnu.org/libiconv/libiconv-1.18.tar.gz",
-        platforms = setOf(NoticePlatform.WINDOWS),
+        platforms = setOf(
+            NoticePlatform.WINDOWS,
+            NoticePlatform.ANDROID,
+        ),
         mediaPackage = true,
     ),
     ThirdPartyComponent(
@@ -229,6 +237,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -241,6 +250,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -253,6 +263,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -265,6 +276,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -277,6 +289,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -289,6 +302,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -301,6 +315,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -313,6 +328,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -377,6 +393,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -389,6 +406,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -401,6 +419,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -421,6 +440,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),
@@ -433,6 +453,7 @@ internal val generatedComponents: List<ThirdPartyComponent> = listOf(
             NoticePlatform.MACOS,
             NoticePlatform.WINDOWS,
             NoticePlatform.LINUX,
+            NoticePlatform.ANDROID,
         ),
         mediaPackage = true,
     ),

@@ -25,10 +25,12 @@ class ThirdPartyNoticesTest {
     }
 
     @Test
-    fun mobileAppsDoNotListTheDesktopMediaPackage() {
-        listOf(NoticePlatform.ANDROID, NoticePlatform.IOS).forEach { platform ->
-            assertTrue(ThirdPartyNotices.forPlatform(platform).none { it.mediaPackage }, "$platform")
-        }
+    fun androidShipsTheMediaPackageAndIosDoesNot() {
+        val android = ThirdPartyNotices.forPlatform(NoticePlatform.ANDROID).filter { it.mediaPackage }.map { it.name }
+        assertTrue("mpv" in android && "ffmpeg" in android, "$android")
+        assertFalse("libbluray" in android, "$android")
+        assertTrue(ThirdPartyNotices.forPlatform(NoticePlatform.IOS).none { it.mediaPackage })
+        assertTrue(ThirdPartyNotices.components.none { "LibVLC" in it.name })
     }
 
     @Test
@@ -47,7 +49,7 @@ class ThirdPartyNoticesTest {
     fun lgplNoticeNamesTheLgplLibrariesAndTheSource() {
         val notice = assertNotNull(ThirdPartyNotices.lgplNotice(NoticePlatform.LINUX))
         assertTrue("mpv" in notice && "ffmpeg" in notice && ThirdPartyNotices.SOURCE_REPOSITORY in notice)
-        assertTrue("LibVLC" in assertNotNull(ThirdPartyNotices.lgplNotice(NoticePlatform.ANDROID)))
+        assertTrue("mpv" in assertNotNull(ThirdPartyNotices.lgplNotice(NoticePlatform.ANDROID)))
         assertNull(ThirdPartyNotices.lgplNotice(NoticePlatform.IOS))
     }
 

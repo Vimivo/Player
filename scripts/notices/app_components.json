@@ -110,15 +110,6 @@
       ]
     },
     {
-      "name": "LibVLC for Android",
-      "version": "toml:libvlc",
-      "license": "LGPL-2.1-or-later",
-      "url": "https://code.videolan.org/videolan/libvlcjni",
-      "platforms": [
-        "android"
-      ]
-    },
-    {
       "name": "Coil",
       "version": "toml:coil",
       "license": "Apache-2.0",
@@ -189,6 +180,15 @@
       "url": "https://sourceforge.net/projects/mingw-w64/",
       "platforms": [
         "windows"
+      ]
+    },
+    {
+      "name": "LLVM libc++ (Android NDK runtime, in the media package)",
+      "version": "NDK r27b",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "url": "https://github.com/llvm/llvm-project",
+      "platforms": [
+        "android"
       ]
     }
   ]

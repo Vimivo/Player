@@ -24,7 +24,10 @@ object ThirdPartyNotices {
     const val SOURCE_REPOSITORY: String = "https://github.com/Vimivo/Player"
     const val BUILD_SCRIPTS_URL: String = "$SOURCE_REPOSITORY/tree/main/scripts/build_media"
     const val NOTICES_URL: String = "$SOURCE_REPOSITORY/blob/main/docs/THIRD_PARTY_NOTICES.md"
-    val mediaReleaseUrl: String get() = "$SOURCE_REPOSITORY/releases/tag/$MEDIA_RELEASE"
+
+    /** Where the media package [platform] ships is published, or null when it ships none (iOS today). */
+    fun mediaReleaseUrl(platform: NoticePlatform): String? =
+        MEDIA_RELEASES[platform]?.let { "$SOURCE_REPOSITORY/releases/tag/$it" }
 
     val components: List<ThirdPartyComponent> get() = generatedComponents
 
@@ -36,12 +39,9 @@ object ThirdPartyNotices {
         val lgpl = forPlatform(platform).filter(ThirdPartyComponent::isLgpl)
         if (lgpl.isEmpty()) return null
         val names = lgpl.joinToString { it.name }
-        val replacing = if (platform == NoticePlatform.ANDROID) {
-            "LibVLC is loaded as a separate shared library (libvlc.so) inside the app package."
-        } else {
-            "They are separate shared libraries next to the app (media package $MEDIA_RELEASE), built LGPL-only " +
-                "from the published build scripts; you may replace them with your own modified build."
-        }
+        val release = MEDIA_RELEASES[platform]?.let { " (media package $it)" }.orEmpty()
+        val replacing = "They are separate shared libraries inside the app$release, built LGPL-only from the " +
+            "published build scripts; you may replace them with your own modified build."
         return "Vimivo is MIT-licensed. This app uses libraries licensed under the GNU Lesser General Public " +
             "License version 2.1 or later: $names. $replacing The exact sources, build scripts and licence texts " +
             "are available at $SOURCE_REPOSITORY."

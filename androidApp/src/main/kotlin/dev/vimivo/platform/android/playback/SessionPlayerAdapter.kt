@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 import dev.vimivo.core.model.MediaItem as VimivoMediaItem
 
-/** Media3 session-facing player that keeps Media3 and LibVLC behind one system session. */
+/** Media3 session-facing player that keeps Media3 and the libmpv fallback engine behind one system session. */
 class SessionPlayerAdapter(
     private val manager: PlaybackEngineManager,
     private val scope: CoroutineScope,
@@ -262,7 +262,6 @@ class SessionPlayerAdapter(
 
     override fun handleClearVideoOutput(videoOutput: Any?): ListenableFuture<*> = done().also {
         (manager.activeEngine.value as? Media3PlayerEngine)?.player?.clearVideoSurface()
-        (manager.activeEngine.value as? LibVlcPlayerEngine)?.clearVideoSurface()
         (manager.activeEngine.value as? LibmpvPlayerEngine)?.clearVideoSurface()
         this.videoOutput = null
         attachedVideoEngine = null
@@ -277,7 +276,6 @@ class SessionPlayerAdapter(
                 is Surface -> engine.player.setVideoSurface(output)
                 is SurfaceHolder -> engine.player.setVideoSurfaceHolder(output)
             }
-            is LibVlcPlayerEngine -> if (output is SurfaceHolder) engine.setVideoSurfaceHolder(output)
             is LibmpvPlayerEngine -> if (output is SurfaceHolder) engine.setVideoSurfaceHolder(output)
             else -> return
         }

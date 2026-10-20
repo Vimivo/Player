@@ -118,7 +118,6 @@ dependencies {
     implementation(libs.media3.session)
     implementation(libs.media3.ui.compose)
     implementation(libs.media3.ui)
-    implementation(libs.libvlc)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.documentfile)

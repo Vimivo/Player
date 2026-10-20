@@ -5,7 +5,7 @@ import dev.vimivo.playback.AudioEnhancementSettings
 import kotlinx.coroutines.flow.Flow
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
-enum class PreferredEngine { AUTOMATIC, MEDIA3, LIBVLC }
+enum class PreferredEngine { AUTOMATIC, MEDIA3, LIBMPV }
 enum class SubtitleEdgeStyle { NONE, OUTLINE, DROP_SHADOW }
 enum class AccentColor { AURORA, VIOLET, BLUE, GREEN, ORANGE, PINK }
 enum class ShuffleBehavior { OFF, ON, REMEMBER }
