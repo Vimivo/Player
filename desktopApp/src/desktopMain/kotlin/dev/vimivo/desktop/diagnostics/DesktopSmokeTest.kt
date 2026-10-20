@@ -2,6 +2,7 @@ package dev.vimivo.desktop.diagnostics
 
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.desktop.playback.PresentedFrame
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.Dispatchers
@@ -84,12 +85,36 @@ internal object DesktopSmokeTest {
         steps: List<Pair<String, () -> Unit>>,
         replay: suspend () -> Unit,
         probePicture: () -> VideoPixelSample?,
+        presentedFrame: () -> PresentedFrame? = { null },
     ): List<DesktopSmokeResult> = steps.map { (name, step) ->
         replay()
+        val before = presentedFrame()
         step()
-        delay(TRANSITION_SETTLE_MILLIS)
+        awaitFrameAfterWindowChange(before, presentedFrame)
         val passed = DesktopSmokeResult.Passed(File("${file.name}#$name"), positionMillis = 0, videoTracks = 1)
         checkPicture(passed, probePicture)
+    }
+
+    /**
+     * Waits until the renderer has presented a frame at the window's new, settled size: the size differs from
+     * [before], stays the same across polls, and another frame arrives at it. A cold software renderer needs several
+     * seconds for its first 1080p frame after entering fullscreen, which a fixed delay did not always cover. Renderers
+     * that do not count frames (Windows, where libmpv presents itself) fall back to a fixed settle time.
+     */
+    internal suspend fun awaitFrameAfterWindowChange(before: PresentedFrame?, presentedFrame: () -> PresentedFrame?) {
+        if (before == null) {
+            delay(TRANSITION_SETTLE_MILLIS)
+            return
+        }
+        withTimeoutOrNull(FRAME_WAIT_MILLIS) {
+            val tracker = FrameSettleTracker(before)
+            var done = false
+            while (!done) {
+                val now = presentedFrame()
+                done = now == null || tracker.isSettled(now)
+                if (!done) delay(FRAME_POLL_MILLIS)
+            }
+        }
     }
 
     /**
@@ -130,6 +155,8 @@ internal object DesktopSmokeTest {
     // Up to 3 s: a cold software renderer (no GPU, CI) presents its first 1080p frames slowly, in strips.
     private const val PICTURE_ATTEMPTS = 10
     private const val TRANSITION_SETTLE_MILLIS = 1_500L
+    private const val FRAME_WAIT_MILLIS = 15_000L
+    private const val FRAME_POLL_MILLIS = 100L
     private const val PICTURE_RETRY_MILLIS = 300L
 
     private fun PlaybackState.isTerminalFor(): Boolean =
@@ -153,5 +180,28 @@ internal object DesktopSmokeTest {
                 DesktopSmokeResult.Failed(file, "playback advanced but no video track was decoded")
             else -> DesktopSmokeResult.Passed(file, playback.positionMillis, playback.videoTracks.size)
         }
+    }
+}
+
+/**
+ * Decides when a window change has produced a real frame: the presented size differs from [before], the same new size
+ * is seen twice, and the frame count has advanced at that size (so the frame was drawn after the size settled).
+ */
+internal class FrameSettleTracker(private val before: PresentedFrame) {
+    private var candidate: PresentedFrame? = null
+
+    fun isSettled(now: PresentedFrame): Boolean {
+        val previous = candidate
+        val settled = when {
+            now.sameSizeAs(before) -> false
+            previous == null || !previous.sameSizeAs(now) -> false
+            else -> now.count > previous.count
+        }
+        if (now.sameSizeAs(before)) {
+            candidate = null
+        } else if (previous == null || !previous.sameSizeAs(now)) {
+            candidate = now
+        }
+        return settled
     }
 }

@@ -46,6 +46,8 @@ internal class MpvEglRenderer : DesktopVideoRenderer {
         thread = null
     }
 
+    override fun presentedFrame(): PresentedFrame? = thread?.presented
+
     private class RenderThread(private val window: Long, private val mpvHandle: Pointer) : Thread("vimivo-mpv-egl") {
         private val mpv = MpvNative.load()
         private val ready = CountDownLatch(1)
@@ -56,6 +58,9 @@ internal class MpvEglRenderer : DesktopVideoRenderer {
 
         @Volatile private var failure: Throwable? = null
         private var pendingUpdate = true
+
+        @Volatile var presented: PresentedFrame = PresentedFrame(0, 0, 0)
+            private set
 
         // Strong references: libmpv calls these from its own threads for as long as the render context lives.
         private val getProcAddress = GetProcAddress { _, name -> Egl.lib.eglGetProcAddress(name) }
@@ -163,6 +168,7 @@ internal class MpvEglRenderer : DesktopVideoRenderer {
             mpv.mpv_render_context_render(renderContext, params)
             target.swap()
             mpv.mpv_render_context_report_swap(renderContext)
+            presented = PresentedFrame(presented.count + 1, size.first, size.second)
         }
     }
 

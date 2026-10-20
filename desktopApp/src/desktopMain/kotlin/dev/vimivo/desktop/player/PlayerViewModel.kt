@@ -273,7 +273,13 @@ internal class PlayerViewModel(
         // The picture must survive fullscreen and resize too; replay the first video for each window change.
         val video = files.firstOrNull { mediaItemFor(it).kind == MediaKind.VIDEO }
         val transitions = video?.let { file ->
-            DesktopSmokeTest.checkTransitions(file, windowChanges, replay = { play(mediaItemFor(file)) }, probePicture)
+            DesktopSmokeTest.checkTransitions(
+                file,
+                windowChanges,
+                replay = { play(mediaItemFor(file)) },
+                probePicture = probePicture,
+                presentedFrame = engine::presentedFrame,
+            )
         }.orEmpty()
         val all = results + transitions
         DesktopSmokeTest.publish(all, System.getenv("VIMIVO_SMOKE_REPORT"))

@@ -355,6 +355,9 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("hwdec", hwdecValue(mode))
     }
 
+    /** Frames the video renderer has presented, for tests that wait on real frames (null where not tracked). */
+    internal fun presentedFrame(): PresentedFrame? = renderer?.presentedFrame()
+
     private fun hwdecValue(mode: HardwareAccelerationMode): String = when (mode) {
         HardwareAccelerationMode.AUTO -> "auto-safe"
         HardwareAccelerationMode.SOFTWARE -> "no"

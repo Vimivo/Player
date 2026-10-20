@@ -27,6 +27,13 @@ internal class MpvCocoaRenderer : DesktopVideoRenderer {
         attached = false
     }
 
+    override fun presentedFrame(): PresentedFrame? {
+        if (!attached) return null
+        val (count, width, height) = presentedFrameNative() ?: return null
+        return PresentedFrame(count, width.toInt(), height.toInt())
+    }
+
+    private external fun presentedFrameNative(): LongArray?
     private external fun attachNative(canvas: Canvas, mpvHandle: Long): Int
     private external fun detachNative()
 

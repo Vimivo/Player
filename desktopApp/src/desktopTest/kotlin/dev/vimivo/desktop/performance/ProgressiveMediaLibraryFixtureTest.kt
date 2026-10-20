@@ -158,7 +158,7 @@ class ProgressiveMediaLibraryFixtureTest {
                 }
             }
             println("Progressive Fixture [$size items] - Insertion Time: ${insertTimeMs}ms")
-            assertTrue(insertTimeMs < 30_000, "Progressive insertion took too long: ${insertTimeMs}ms")
+            PerformanceBudget.check("Progressive insertion", insertTimeMs, 30_000)
 
             // 2. Profile SQLite Query Plans with EXPLAIN QUERY PLAN
             database.transaction { conn ->
@@ -199,7 +199,7 @@ class ProgressiveMediaLibraryFixtureTest {
                 bengaliResults = libraryRepo.media(MediaKind.AUDIO, query = "সোনার বাংলা")
             }
             println("Progressive [$size items] - Bengali Search ('সোনার বাংলা'): ${bengaliSearchMs}ms (found ${bengaliResults.size})")
-            assertTrue(bengaliSearchMs <= targetSearchMs * 3, "Bengali search exceeded budget: ${bengaliSearchMs}ms")
+            PerformanceBudget.check("Bengali search", bengaliSearchMs, targetSearchMs * 3)
             assertTrue(bengaliResults.isNotEmpty(), "Must find matching Bengali media items")
 
             // 4. Album & Artist Aggregation Performance
@@ -208,14 +208,14 @@ class ProgressiveMediaLibraryFixtureTest {
                 assertTrue(albums.isNotEmpty())
             }
             println("Progressive [$size items] - Album Grouping: ${albumGroupingMs}ms")
-            assertTrue(albumGroupingMs <= targetGroupingMs * 3, "Album aggregation exceeded budget: ${albumGroupingMs}ms")
+            PerformanceBudget.check("Album aggregation", albumGroupingMs, targetGroupingMs * 3)
 
             val artistGroupingMs = measureTimeMillis {
                 val artists = libraryRepo.artists()
                 assertTrue(artists.isNotEmpty())
             }
             println("Progressive [$size items] - Artist Grouping: ${artistGroupingMs}ms")
-            assertTrue(artistGroupingMs <= targetGroupingMs * 3, "Artist aggregation exceeded budget: ${artistGroupingMs}ms")
+            PerformanceBudget.check("Artist aggregation", artistGroupingMs, targetGroupingMs * 3)
 
             // 5. Large Playlist Operations
             val playlist = personalRepo.createPlaylist("Mega Playlist $size")

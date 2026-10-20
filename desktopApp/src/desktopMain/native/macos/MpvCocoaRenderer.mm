@@ -7,6 +7,7 @@
 #include <jawt_md.h>
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
+#include <atomic>
 
 static void *get_proc_address(void *, const char *name) {
     CFStringRef symbol = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingASCII);
@@ -47,6 +48,12 @@ static CGLPixelFormatObj createPixelFormat(void) {
     CGLPixelFormatObj format = choosePixelFormat(PixelFormatKind::Accelerated);
     return format ? format : choosePixelFormat(PixelFormatKind::Any);
 }
+
+// Frames libmpv has rendered into the layer and the size of the last one, so tests can wait for a real frame after a
+// window change instead of sleeping.
+static std::atomic<long long> presentedFrames{0};
+static std::atomic<int> presentedWidth{0};
+static std::atomic<int> presentedHeight{0};
 
 // libmpv's render context owns GL objects (FBOs, shaders) that belong to the context it was created on,
 // so Core Animation must draw with that same context rather than a fresh one per layer.
@@ -89,6 +96,9 @@ static CGLPixelFormatObj createPixelFormat(void) {
             { MPV_RENDER_PARAM_INVALID, NULL },
         };
         mpv_render_context_render(self.renderContext, params);
+        presentedWidth = width;
+        presentedHeight = height;
+        presentedFrames++;
     } else {
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -377,4 +387,12 @@ Java_dev_vimivo_desktop_platform_MacWindows_attachChildNative(JNIEnv *env, jobje
 extern "C" JNIEXPORT void JNICALL
 Java_dev_vimivo_desktop_platform_MacWindows_activateNative(JNIEnv *, jobject) {
     dispatch_async(dispatch_get_main_queue(), ^{ [NSApp activateIgnoringOtherApps:YES]; });
+}
+
+extern "C" JNIEXPORT jlongArray JNICALL
+Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_presentedFrameNative(JNIEnv *env, jobject) {
+    jlong values[3] = { presentedFrames.load(), presentedWidth.load(), presentedHeight.load() };
+    jlongArray result = env->NewLongArray(3);
+    if (result) env->SetLongArrayRegion(result, 0, 3, values);
+    return result;
 }
