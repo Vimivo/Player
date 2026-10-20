@@ -1,7 +1,7 @@
 {
-  "release": "media-1",
+  "release": "media-2",
   "macos_deployment_target": "11.0",
-  "comment": "Vimivo's LGPL-only media stack (ADR-004). Every source is pinned by version and SHA-256; build.py refuses anything else. 'platforms' limits a component to some targets (macos, windows, linux); 'license' is the SPDX expression under which Vimivo uses it. Options may use {arch} and {macos_min}.",
+  "comment": "Vimivo's LGPL-only media stack (ADR-004). Every source is pinned by version and SHA-256; build.py refuses anything else. 'platforms' limits a component to some targets (macos, windows, linux); 'license' is the SPDX expression under which Vimivo uses it. Options may use {arch} and {macos_min}. Components without 'platforms' build for macos, windows, linux and android.",
   "tools": [
     {
       "name": "pkgconf",
@@ -65,10 +65,11 @@
       "version": "1.18",
       "license": "LGPL-2.1-or-later",
       "platforms": [
-        "windows"
+        "windows",
+        "android"
       ],
       "build": "autotools",
-      "comment": "Windows has no iconv; mpv needs it for subtitle charset conversion (uchardet). Only the LGPL library is built, not the GPL iconv program.",
+      "comment": "Windows has no iconv and Android bionic only from API 28 (minSdk is 26); mpv needs it for subtitle charset conversion (uchardet). Only the LGPL library is built, not the GPL iconv program.",
       "url": "https://ftpmirror.gnu.org/libiconv/libiconv-1.18.tar.gz",
       "sha256": "3b08f5f4f9b4eb82f151a7040bfd6fe6c6fb922efe4b1659c66ea933276965e8",
       "options": [
@@ -184,6 +185,12 @@
       ],
       "license_files": [
         "COPYING"
+      ],
+      "options_android": [
+        "-Dfontconfig=disabled",
+        "-Dcoretext=disabled",
+        "-Ddirectwrite=disabled",
+        "-Drequire-system-font-provider=false"
       ]
     },
     {
@@ -272,6 +279,11 @@
       ],
       "license_files": [
         "COPYING"
+      ],
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
       ]
     },
     {
@@ -502,6 +514,12 @@
       "license_files": [
         "COPYING.LGPLv2.1",
         "LICENSE.md"
+      ],
+      "options_android": [
+        "--enable-jni",
+        "--enable-mediacodec",
+        "--disable-vulkan",
+        "--disable-indev=android_camera"
       ]
     },
     {
@@ -579,7 +597,30 @@
         "LICENSE.LGPL",
         "Copyright"
       ],
-      "comment": "mpv's X11 code is GPL, so the LGPL build has none: on Linux Vimivo renders through the libmpv render API into its own EGL context on its X11 window (as on macOS with Cocoa), and VA-API reaches the GPU through DRM render nodes. Wayland and PipeWire outputs are not built (Ubuntu 22.04 baseline: wayland 1.20, pipewire 0.3.48 are older than mpv's minimums); PipeWire systems are reached through PulseAudio."
+      "comment": "mpv's X11 code is GPL, so the LGPL build has none: on Linux Vimivo renders through the libmpv render API into its own EGL context on its X11 window (as on macOS with Cocoa), and VA-API reaches the GPU through DRM render nodes. Wayland and PipeWire outputs are not built (Ubuntu 22.04 baseline: wayland 1.20, pipewire 0.3.48 are older than mpv's minimums); PipeWire systems are reached through PulseAudio.",
+      "options_android": [
+        "-Dandroid-media-ndk=enabled",
+        "-Degl-android=enabled",
+        "-Daaudio=enabled",
+        "-Daudiotrack=enabled",
+        "-Dopensles=disabled",
+        "-Dx11=disabled",
+        "-Dwayland=disabled",
+        "-Dshaderc=disabled",
+        "-Dspirv-cross=disabled",
+        "-Diconv=enabled",
+        "-Dlibbluray=disabled"
+      ]
     }
-  ]
+  ],
+  "android": {
+    "ndk": "27.1.12297006",
+    "api": 26,
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86_64"
+    ],
+    "comment": "NDK r27b (pinned by its Pkg.Revision); libraries carry 16 KB-aligned segments for Android 15+ page sizes. zimg (libtool) links the NDK's libc++_shared.so, which the package then ships."
+  }
 }

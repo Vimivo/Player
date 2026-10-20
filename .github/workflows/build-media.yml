@@ -136,3 +136,31 @@ jobs:
         with:
           name: verify-windows-x86_64
           path: verify-windows-x86_64.json
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Android NDK (pinned by manifest.json) and patchelf
+        run: |
+          ndk="$(python3 -c "import json; print(json.load(open('scripts/build_media/manifest.json'))['android']['ndk'])")"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends patchelf
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$ndk" >> "$GITHUB_ENV"
+      - name: Build tools (hash-pinned)
+        run: python3 -m pip install --require-hashes -r scripts/build_media/requirements-build.txt
+      - name: Build arm64-v8a, armeabi-v7a, x86_64 (verified statically per ABI before packaging)
+        run: python3 scripts/build_media/build.py --target android --work "$RUNNER_TEMP/media" --out out
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-android
+          path: |
+            out/*.tar.xz
+            out/*.sha256
+

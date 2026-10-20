@@ -16,6 +16,7 @@ Exits non-zero on any violation.
 import ctypes
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -50,11 +51,48 @@ GPL_ONLY_FILTERS = ["cropdetect", "hqdn3d", "boxblur", "eq", "mcdeint", "kerndei
 def library_path(directory, name):
     """The shared library file for name (libavcodec, mpv) on this platform."""
     candidates = sorted(directory.glob(f"lib{name}.*dylib")) + sorted(directory.glob(f"lib{name}.so.*")) + \
+        sorted(directory.glob(f"lib{name}.so")) + \
         sorted(directory.glob(f"{name}-*.dll")) + sorted(directory.glob(f"lib{name}-*.dll"))
     regular = [c for c in candidates if not c.is_symlink()] or candidates
     if not regular:
         sys.exit(f"missing library {name} in {directory}")
     return regular[0]
+
+
+def static_report(libdir, ffmpeg_build):
+    """The same checks without loading the libraries (Android binaries on a build host):
+    - the licence string each FFmpeg library embeds ("lib<name> license: LGPL version 2.1 or later");
+    - FFmpeg's generated config.h (CONFIG_GPL/CONFIG_NONFREE/CONFIG_VERSION3 must be 0);
+    - FFmpeg's generated libavfilter/filter_list.c, the exact list of compiled filters;
+    - libmpv's embedded configuration (-Dgpl=false)."""
+    libdir, ffmpeg_build = Path(libdir), Path(ffmpeg_build)
+    failures = []
+    report = {"ffmpeg": {}, "mpv": {}, "filters": {}}
+    for name in FFMPEG_LIBRARIES:
+        license_ok = f"lib{name} license: {EXPECTED_LICENSE}".encode() in library_path(libdir, name).read_bytes()
+        report["ffmpeg"][name] = {"license": EXPECTED_LICENSE if license_ok else "not LGPL-2.1+"}
+        if not license_ok:
+            failures.append(f"lib{name} does not embed '{EXPECTED_LICENSE}'")
+    config = (ffmpeg_build / "config.h").read_text()
+    for flag in ("GPL", "NONFREE", "VERSION3"):
+        if f"#define CONFIG_{flag} 0" not in config:
+            failures.append(f"FFmpeg was configured with CONFIG_{flag}")
+    compiled = set(re.findall(r"&ff_(?:vf|af|vsrc|asrc|avf|vsink|asink)_(\w+),",
+                              (ffmpeg_build / "libavfilter" / "filter_list.c").read_text()))
+    for name, items in REQUIRED_FILTERS.items():
+        present = name in compiled
+        report["filters"][name] = {"present": present, "matrix": items}
+        if not present:
+            failures.append(f"filter {name} ({items}) is missing")
+    for name in GPL_ONLY_FILTERS:
+        if name in compiled:
+            failures.append(f"GPL-only filter {name} is present")
+    report["mpv"]["gpl_false"] = b"-Dgpl=false" in library_path(libdir, "mpv").read_bytes()
+    if not report["mpv"]["gpl_false"]:
+        failures.append("libmpv does not embed -Dgpl=false in its configuration")
+    report["result"] = "fail" if failures else "pass"
+    report["failures"] = failures
+    return report
 
 
 def main():

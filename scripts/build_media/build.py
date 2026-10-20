@@ -105,6 +105,36 @@ def check_member(archive, member):
         sys.exit(f"{archive.name}: device file {member.name}")
 
 
+DEFAULT_PLATFORMS = ["macos", "windows", "linux", "android"]
+# Android ABI -> (clang target triple prefix, FFmpeg --arch, meson cpu_family, meson cpu).
+ANDROID_ABIS = {
+    "arm64-v8a": ("aarch64-linux-android", "aarch64", "aarch64", "armv8-a"),
+    "armeabi-v7a": ("armv7a-linux-androideabi", "arm", "arm", "armv7-a"),
+    "x86_64": ("x86_64-linux-android", "x86_64", "x86_64", "x86_64"),
+}
+# Android 15+ devices may use 16 KB pages; Play requires native libraries aligned for them.
+ANDROID_LINK_FLAGS = ["-Wl,-z,max-page-size=16384", "-static-libstdc++"]
+
+
+def android_ndk():
+    """The pinned NDK (ANDROID_NDK_HOME, or ndk/<version> in the SDK), refusing any other version."""
+    pinned = MANIFEST["android"]["ndk"]
+    candidates = [os.environ.get("ANDROID_NDK_HOME"), os.environ.get("ANDROID_NDK_ROOT")]
+    for sdk in (os.environ.get("ANDROID_HOME"), os.environ.get("ANDROID_SDK_ROOT")):
+        if sdk:
+            candidates.append(str(Path(sdk) / "ndk" / pinned))
+    for candidate in filter(None, candidates):
+        properties = Path(candidate) / "source.properties"
+        if properties.is_file() and f"Pkg.Revision = {pinned}" in properties.read_text():
+            return Path(candidate)
+    sys.exit(f"Android NDK {pinned} not found (set ANDROID_NDK_HOME or install ndk;{pinned} with sdkmanager)")
+
+
+def android_toolchain_bin():
+    host = "darwin-x86_64" if sys.platform == "darwin" else "linux-x86_64"
+    return android_ndk() / "toolchains" / "llvm" / "prebuilt" / host / "bin"
+
+
 class Target:
     """One build: a platform, an architecture and a prefix everything installs into."""
 
@@ -115,7 +145,14 @@ class Target:
         self.work = work / self.name
         self.prefix = self.work / "prefix"
         self.host_arch = platform.machine().replace("aarch64", "arm64").replace("AMD64", "x86_64")
-        self.cross = system == "windows" or (system == "macos" and arch != self.host_arch)
+        self.cross = system in ("windows", "android") or (system == "macos" and arch != self.host_arch)
+
+    def android_tool(self, name):
+        """An NDK LLVM tool, or the API-levelled clang driver for this ABI ("clang", "clang++")."""
+        if name in ("clang", "clang++"):
+            triple = ANDROID_ABIS[self.arch][0]
+            return android_toolchain_bin() / f"{triple}{MANIFEST['android']['api']}-{name}"
+        return android_toolchain_bin() / f"llvm-{name}"
 
     # ---- environment -------------------------------------------------------------------------------------------
     def env(self, tools_bin):
@@ -138,6 +175,13 @@ class Target:
             env["MACOSX_DEPLOYMENT_TARGET"] = minimum
         if self.system == "windows":
             ldflags += " -static-libgcc -static-libstdc++"
+        if self.system == "android":
+            flags += " -fPIC"
+            ldflags += " " + " ".join(ANDROID_LINK_FLAGS)
+            env["CC"] = str(self.android_tool("clang"))
+            env["CXX"] = str(self.android_tool("clang++"))
+            for tool in ("ar", "ranlib", "nm", "strip"):
+                env[tool.upper()] = str(self.android_tool(tool))
         env["CFLAGS"] = flags
         env["CXXFLAGS"] = flags
         env["LDFLAGS"] = ldflags
@@ -149,6 +193,9 @@ class Target:
             ("macos", "arm64"): "aarch64-apple-darwin",
             ("windows", "x86_64"): "x86_64-w64-mingw32",
             ("linux", "x86_64"): "x86_64-linux-gnu",
+            ("android", "arm64-v8a"): "aarch64-linux-android",
+            ("android", "armeabi-v7a"): "armv7a-linux-androideabi",
+            ("android", "x86_64"): "x86_64-linux-android",
         }[(self.system, self.arch)]
 
     def meson_cross_file(self):
@@ -166,6 +213,20 @@ class Target:
                 f"[built-in options]\nc_args = {arch_args}\ncpp_args = {arch_args}\nobjc_args = {arch_args}\n"
                 f"c_link_args = {link_args}\ncpp_link_args = {link_args}\nobjc_link_args = {link_args}\n"
                 f"[host_machine]\nsystem = 'darwin'\ncpu_family = '{cpu}'\ncpu = '{cpu}'\nendian = 'little'\n"
+            )
+        elif self.system == "android":
+            _, _, cpu_family, cpu = ANDROID_ABIS[self.arch]
+            link = ", ".join(f"'{flag}'" for flag in [f"-L{self.prefix}/lib", *ANDROID_LINK_FLAGS])
+            path.write_text(
+                "[binaries]\n"
+                f"c = '{self.android_tool('clang')}'\ncpp = '{self.android_tool('clang++')}'\n"
+                f"ar = '{self.android_tool('ar')}'\nstrip = '{self.android_tool('strip')}'\n"
+                "pkg-config = 'pkg-config'\n"
+                "[built-in options]\n"
+                f"c_args = ['-I{self.prefix}/include', '-fPIC']\ncpp_args = ['-I{self.prefix}/include', '-fPIC']\n"
+                f"c_link_args = [{link}]\ncpp_link_args = [{link}]\n"
+                f"[host_machine]\nsystem = 'android'\ncpu_family = '{cpu_family}'\ncpu = '{cpu}'\n"
+                "endian = 'little'\n"
             )
         else:
             prefix = "x86_64-w64-mingw32-"
@@ -190,6 +251,11 @@ class Target:
             args += ["-DCMAKE_SYSTEM_NAME=Windows", "-DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc",
                      "-DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++", "-DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres",
                      f"-DCMAKE_FIND_ROOT_PATH={self.prefix}"]
+        if self.system == "android":
+            args += [f"-DCMAKE_TOOLCHAIN_FILE={android_ndk() / 'build' / 'cmake' / 'android.toolchain.cmake'}",
+                     f"-DANDROID_ABI={self.arch}", f"-DANDROID_PLATFORM=android-{MANIFEST['android']['api']}",
+                     "-DANDROID_STL=c++_static", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
+                     f"-DCMAKE_FIND_ROOT_PATH={self.prefix}", "-DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH"]
         return args
 
     def platform_options(self, component):
@@ -236,6 +302,14 @@ def build_ffmpeg(target, component, source, env):
             args += ["--enable-cross-compile"]
     if target.system == "windows":
         args += ["--target-os=mingw32", "--arch=x86_64", "--cross-prefix=x86_64-w64-mingw32-", "--enable-cross-compile"]
+    if target.system == "android":
+        ffmpeg_arch = ANDROID_ABIS[target.arch][1]
+        args += ["--target-os=android", f"--arch={ffmpeg_arch}", "--enable-cross-compile",
+                 f"--cc={target.android_tool('clang')}", f"--cxx={target.android_tool('clang++')}",
+                 f"--ar={target.android_tool('ar')}", f"--nm={target.android_tool('nm')}",
+                 f"--ranlib={target.android_tool('ranlib')}", f"--strip={target.android_tool('strip')}"]
+        if target.arch == "armeabi-v7a":
+            args += ["--cpu=armv7-a", "--enable-neon"]
     run(["./configure", *args, *target.platform_options(component)], cwd=source, env=env)
     run(["make", "-j", JOBS], cwd=source, env=env)
     run(["make", "install"], cwd=source, env=env)
@@ -291,7 +365,7 @@ def build_target(target, tools_bin):
     target.prefix.mkdir(parents=True, exist_ok=True)
     env = target.env(tools_bin)
     for component in MANIFEST["components"]:
-        if target.system not in component.get("platforms", ["macos", "windows", "linux"]):
+        if target.system not in component.get("platforms", DEFAULT_PLATFORMS):
             continue
         stamp = target.work / f".{component['name']}-{component['version']}"
         if stamp.exists():
@@ -433,10 +507,15 @@ def package(prefix, target_name, out):
                 run(["patchelf", "--set-rpath", "$ORIGIN", library])
     if system == "windows":
         bundle_windows_runtime(libs, staging / "licenses")
+    return finish_package(staging, target_name, system, out)
+
+
+def finish_package(staging, target_name, system, out):
+    """Writes build-info.json, then the .tar.xz archive and its .sha256 file."""
     fields = ("name", "version", "license", "url", "sha256")
     components = []
     for c in MANIFEST["components"]:
-        if system not in c.get("platforms", ["macos", "windows", "linux"]):
+        if system not in c.get("platforms", DEFAULT_PLATFORMS):
             continue
         components.append({key: c[key] for key in fields})
         components += [dict({key: d[key] for key in fields}, part_of=c["name"])
@@ -452,9 +531,101 @@ def package(prefix, target_name, out):
     return staging
 
 
+# ---- Android -------------------------------------------------------------------------------------------------------
+ANDROID_SYSTEM_LIBRARIES = {
+    "libc.so", "libm.so", "libdl.so", "liblog.so", "libandroid.so", "libEGL.so", "libGLESv2.so", "libGLESv3.so",
+    "libz.so", "libmediandk.so", "libaaudio.so", "libOpenSLES.so", "libvulkan.so", "libnativewindow.so",
+    "libjnigraphics.so",
+}
+
+
+def elf_dynamic(target, library):
+    """(SONAME, [NEEDED…]) of an ELF shared library, read with the NDK's llvm-readelf."""
+    dump = subprocess.run([target.android_tool("readelf"), "-d", library], capture_output=True, text=True,
+                          check=True).stdout
+    soname, needed = None, []
+    for line in dump.splitlines():
+        if "(SONAME)" in line:
+            soname = line.split("[")[1].rstrip("]")
+        elif "(NEEDED)" in line:
+            needed.append(line.split("[")[1].rstrip("]"))
+    return soname, needed
+
+
+def android_libraries(target, destination):
+    """Copies one ABI's libraries into destination with plain lib*.so names (the APK loader resolves DT_NEEDED by
+    exact file name and packages only lib*.so), strips them, and bundles the NDK C++ runtime if anything needs it."""
+    destination.mkdir(parents=True)
+    renamed = {}
+    for library in sorted((target.prefix / "lib").glob("lib*.so*")):
+        if library.is_symlink():
+            continue
+        plain = library.name.split(".so")[0] + ".so"
+        shutil.copy2(library, destination / plain)
+        soname, _ = elf_dynamic(target, library)
+        renamed[soname or library.name] = plain
+        renamed[library.name] = plain
+    ours = set(renamed.values())
+    for library in sorted(destination.glob("*.so")):
+        soname, needed = elf_dynamic(target, library)
+        if soname != library.name:
+            run(["patchelf", "--set-soname", library.name, library])
+        for dependency in needed:
+            if dependency in renamed and renamed[dependency] != dependency:
+                run(["patchelf", "--replace-needed", dependency, renamed[dependency], library])
+        run([target.android_tool("strip"), "--strip-unneeded", library])
+    unresolved = set()
+    for library in destination.glob("*.so"):
+        unresolved |= {d for d in elf_dynamic(target, library)[1] if d not in ours}
+    if "libc++_shared.so" in unresolved:
+        triple = "arm-linux-androideabi" if target.arch == "armeabi-v7a" else ANDROID_ABIS[target.arch][0]
+        runtime = android_toolchain_bin().parent / "sysroot" / "usr" / "lib" / triple / "libc++_shared.so"
+        shutil.copy2(runtime, destination / runtime.name)
+        log(f"{target.name}: bundled the NDK libc++_shared.so")
+        unresolved.discard("libc++_shared.so")
+    foreign = unresolved - ANDROID_SYSTEM_LIBRARIES
+    if foreign:
+        sys.exit(f"{target.name}: libraries depend on {sorted(foreign)}, which are neither bundled nor Android's")
+
+
+def package_android(targets, out):
+    """One archive for every ABI: jniLibs/<abi>/, include/mpv, licenses/, build-info.json and the static licence
+    verification report per ABI (made from the unstripped libraries)."""
+    sys.path.insert(0, str(HERE))
+    import verify  # noqa: E402 - the verifier sits next to this script
+
+    target_name = "android"
+    staging = out / f"vimivo-media-{MANIFEST['release']}-{target_name}"
+    if staging.exists():
+        shutil.rmtree(staging)
+    first = targets[0].prefix
+    shutil.copytree(first / "include" / "mpv", staging / "include" / "mpv")
+    shutil.copytree(first / "licenses", staging / "licenses")
+    (staging / "verify").mkdir()
+    failures = []
+    for target in targets:
+        ffmpeg_build = next((target.work / "src" / "ffmpeg").iterdir())
+        report = verify.static_report(target.prefix / "lib", ffmpeg_build)
+        (staging / "verify" / f"android-{target.arch}.json").write_text(json.dumps(report, indent=2) + "\n")
+        failures += [f"{target.arch}: {failure}" for failure in report["failures"]]
+        android_libraries(target, staging / "jniLibs" / target.arch)
+    if failures:
+        sys.exit("Android licence verification failed:\n" + "\n".join(failures))
+    if any((staging / "jniLibs").glob("*/libc++_shared.so")):
+        notice = staging / "licenses" / "llvm-libc++"
+        notice.mkdir(exist_ok=True)
+        (notice / "NOTICE").write_text(
+            "libc++_shared.so is the Android NDK's LLVM C++ runtime, Apache-2.0 WITH LLVM-exception.\n"
+            "Source: https://github.com/llvm/llvm-project (NDK " + MANIFEST["android"]["ndk"] + ")\n")
+    finish_package(staging, target_name, "android", out)
+    return staging
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--target", choices=["macos", "linux", "windows"], required=True)
+    parser.add_argument("--target", choices=["macos", "linux", "windows", "android"], required=True)
+    parser.add_argument("--abi", action="append", choices=list(ANDROID_ABIS),
+                        help="android only: build just these ABIs (default: all from manifest.json)")
     parser.add_argument("--work", type=Path, default=Path("build-media"))
     parser.add_argument("--out", type=Path, default=Path("build-media/out"))
     args = parser.parse_args()
@@ -469,6 +640,11 @@ def main():
         universal = work / "macos-universal"
         universal_macos(slices, universal)
         package(universal, "macos-universal", out)
+    elif args.target == "android":
+        targets = [Target("android", abi, work) for abi in (args.abi or MANIFEST["android"]["abis"])]
+        for target in targets:
+            build_target(target, tools_bin)
+        package_android(targets, out)
     else:
         target = Target(args.target, "x86_64", work)
         build_target(target, tools_bin)

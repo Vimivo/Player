@@ -2,9 +2,9 @@
 """
 Downloads Vimivo's prebuilt LGPL media package for one target from our own GitHub Release and verifies it (ADR-004).
 
-    fetch_media.py --target macos-universal|windows-x86_64|linux-x86_64 --dest DIR
+    fetch_media.py --target macos-universal|windows-x86_64|linux-x86_64|android --dest DIR
 
-The release tag, asset names and SHA-256 checksums come from media.lock next to this script; a package whose
+The release tag (per asset, or the lock's default), asset names and SHA-256 checksums come from media.lock next to this script; a package whose
 checksum differs is deleted and the script fails. DIR receives the unpacked package (lib/ or bin/, include/mpv,
 licenses/, build-info.json). Already-downloaded archives in VIMIVO_MEDIA_CACHE (CI restores it with actions/cache)
 are reused after the same checksum check.
@@ -45,7 +45,8 @@ def main():
     if archive.exists() and sha256(archive) != asset["sha256"]:
         archive.unlink()
     if not archive.exists():
-        url = f"https://github.com/{LOCK['repository']}/releases/download/{LOCK['release']}/{asset['file']}"
+        release = asset.get("release", LOCK["release"])
+        url = f"https://github.com/{LOCK['repository']}/releases/download/{release}/{asset['file']}"
         print(f"Downloading {url}", flush=True)
         partial = archive.with_suffix(".part")
         with urllib.request.urlopen(url) as response, open(partial, "wb") as out:

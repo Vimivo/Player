@@ -1,10 +1,22 @@
 {
-  "comment": "Published LGPL media packages (ADR-004). Built and verified by build-media.yml run 39305242030; app workflows download only these, from our own release, and refuse any other checksum. Update together with manifest.json's release.",
+  "comment": "Published LGPL media packages (ADR-004, ADR-005), each pinned to its release and SHA-256. App workflows download only these, from our own releases, and refuse any other checksum. media-1: desktop (build-media.yml run 39305242030).",
   "repository": "Vimivo/Player",
   "release": "media-1",
   "assets": {
-    "macos-universal": {"file": "vimivo-media-media-1-macos-universal.tar.xz", "sha256": "9a7c1e5306bb16239543e8deb0cf608542c7a4fb44d29aeb112ee14e260f6364"},
-    "windows-x86_64": {"file": "vimivo-media-media-1-windows-x86_64.tar.xz", "sha256": "e02cdded31c216f6163274bad06adaa0adaed45b70b5f2c6541acb38a97c0188"},
-    "linux-x86_64": {"file": "vimivo-media-media-1-linux-x86_64.tar.xz", "sha256": "a405f7afb68e1872ec45390a832622d152807dbaf57547bdfb65be431be1992e"}
+    "macos-universal": {
+      "file": "vimivo-media-media-1-macos-universal.tar.xz",
+      "sha256": "9a7c1e5306bb16239543e8deb0cf608542c7a4fb44d29aeb112ee14e260f6364",
+      "release": "media-1"
+    },
+    "windows-x86_64": {
+      "file": "vimivo-media-media-1-windows-x86_64.tar.xz",
+      "sha256": "e02cdded31c216f6163274bad06adaa0adaed45b70b5f2c6541acb38a97c0188",
+      "release": "media-1"
+    },
+    "linux-x86_64": {
+      "file": "vimivo-media-media-1-linux-x86_64.tar.xz",
+      "sha256": "a405f7afb68e1872ec45390a832622d152807dbaf57547bdfb65be431be1992e",
+      "release": "media-1"
+    }
   }
 }
