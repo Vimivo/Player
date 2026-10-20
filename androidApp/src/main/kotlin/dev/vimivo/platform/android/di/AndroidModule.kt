@@ -18,6 +18,7 @@ import dev.vimivo.platform.android.library.PlaylistViewModel
 import dev.vimivo.platform.android.library.PlaylistDocuments
 import dev.vimivo.platform.android.library.SafMediaScanner
 import dev.vimivo.platform.android.playback.LibVlcPlayerEngineFactory
+import dev.vimivo.platform.android.playback.LibmpvPlayerEngineFactory
 import dev.vimivo.platform.android.playback.AndroidSubtitleRepository
 import dev.vimivo.platform.android.playback.Media3PlayerEngineFactory
 import dev.vimivo.platform.android.playback.PlaybackController
@@ -65,6 +66,7 @@ val androidModule = module {
     single { LocalBackupManager(get(), get(), get(), get(), get(), get(), get()) }
     single { Media3PlayerEngineFactory(get()) }
     single { LibVlcPlayerEngineFactory(get(), get()) }
+    single { LibmpvPlayerEngineFactory(get(), get()) }
     single { AndroidSubtitleRepository(get(), get()) }
     single { PlaybackStateStore(get()) }
     single { PlaybackController(get(), get()) }

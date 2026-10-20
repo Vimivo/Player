@@ -44,7 +44,7 @@ import android.widget.Toast
 
 class VimivoPlaybackService : MediaLibraryService() {
     private val media3Factory: Media3PlayerEngineFactory by inject()
-    private val libVlcFactory: LibVlcPlayerEngineFactory by inject()
+    private val libmpvFactory: LibmpvPlayerEngineFactory by inject()
     private val mediaRepository: MediaRepository by inject()
     private val stateStore: PlaybackStateStore by inject()
     private val diagnostics: PlaybackDiagnostics by inject()
@@ -63,7 +63,7 @@ class VimivoPlaybackService : MediaLibraryService() {
     override fun onCreate() {
         super.onCreate()
         val engineManager = PlaybackEngineManager(
-            factories = mapOf(EngineId.MEDIA3 to media3Factory, EngineId.LIBVLC to libVlcFactory),
+            factories = mapOf(EngineId.MEDIA3 to media3Factory, EngineId.MPV to libmpvFactory),
             scope = serviceScope,
         )
         diagnostics.attach(engineManager)

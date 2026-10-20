@@ -7,9 +7,32 @@ plugins {
     alias(libs.plugins.room)
 }
 
+/**
+ * Vimivo's LGPL media package (libmpv + FFmpeg, ADR-005): VIMIVO_ANDROID_MEDIA_DIR names an unpacked package (a local
+ * scripts/build_media build); otherwise the package pinned in scripts/build_media/media.lock is downloaded from our
+ * own GitHub Release and its SHA-256 verified before the build uses it.
+ */
+val androidMediaOverride: String? = providers.environmentVariable("VIMIVO_ANDROID_MEDIA_DIR").orNull
+val androidMediaDir: File = androidMediaOverride?.let(::file)
+    ?: layout.buildDirectory.dir("vimivo-media/android").get().asFile
+
+val fetchAndroidMedia by tasks.registering(Exec::class) {
+    val override = androidMediaOverride
+    onlyIf { override == null }
+    inputs.file(rootProject.file("scripts/build_media/media.lock"))
+    outputs.dir(androidMediaDir)
+    commandLine(
+        "python3",
+        rootProject.file("scripts/build_media/fetch_media.py").absolutePath,
+        "--target", "android",
+        "--dest", androidMediaDir.absolutePath,
+    )
+}
+
 android {
     namespace = "dev.vimivo.app"
     compileSdk = 36
+    ndkVersion = "27.1.12297006"
 
     defaultConfig {
         applicationId = providers.gradleProperty("vimivo.applicationId").orElse("dev.vimivo.app").get()
@@ -19,7 +42,16 @@ android {
         versionName = providers.gradleProperty("vimivo.versionName").orElse("1.0.0").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64") }
+        externalNativeBuild { cmake { arguments += "-DVIMIVO_ANDROID_MEDIA=${androidMediaDir.absolutePath}" } }
     }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+    sourceSets["main"].jniLibs.srcDir(androidMediaDir.resolve("jniLibs"))
 
     buildFeatures { compose = true }
     sourceSets["androidTest"].assets.srcDir("$projectDir/schemas")
@@ -107,4 +139,6 @@ detekt {
     buildUponDefaultConfig = true
     config.setFrom(rootProject.files("config/detekt/detekt.yml"))
 }
+
+tasks.named("preBuild") { dependsOn(fetchAndroidMedia) }
 

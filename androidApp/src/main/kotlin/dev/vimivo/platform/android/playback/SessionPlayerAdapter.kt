@@ -263,6 +263,7 @@ class SessionPlayerAdapter(
     override fun handleClearVideoOutput(videoOutput: Any?): ListenableFuture<*> = done().also {
         (manager.activeEngine.value as? Media3PlayerEngine)?.player?.clearVideoSurface()
         (manager.activeEngine.value as? LibVlcPlayerEngine)?.clearVideoSurface()
+        (manager.activeEngine.value as? LibmpvPlayerEngine)?.clearVideoSurface()
         this.videoOutput = null
         attachedVideoEngine = null
     }
@@ -277,6 +278,7 @@ class SessionPlayerAdapter(
                 is SurfaceHolder -> engine.player.setVideoSurfaceHolder(output)
             }
             is LibVlcPlayerEngine -> if (output is SurfaceHolder) engine.setVideoSurfaceHolder(output)
+            is LibmpvPlayerEngine -> if (output is SurfaceHolder) engine.setVideoSurfaceHolder(output)
             else -> return
         }
         attachedVideoEngine = engine
