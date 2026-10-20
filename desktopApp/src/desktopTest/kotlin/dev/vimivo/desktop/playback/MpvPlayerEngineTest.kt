@@ -39,4 +39,10 @@ class MpvPlayerEngineTest {
     }
 
     private fun media(uri: String) = MediaItem(MediaId(uri), uri, uri, MediaKind.STREAM)
+
+    @Test
+    fun aspectPresetsMapToValuesLibmpvAccepts() {
+        assertEquals("-1", MpvPlayerEngine.mpvAspectOverride(dev.vimivo.playback.VideoAspectRatio.FILL))
+        assertEquals("16:9", MpvPlayerEngine.mpvAspectOverride(dev.vimivo.playback.VideoAspectRatio.RATIO_16_9))
+    }
 }

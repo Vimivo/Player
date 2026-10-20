@@ -147,7 +147,7 @@ private fun RecommendationCard(
 internal fun DesktopSmartPlaylistsPanel(
     state: DesktopLibraryUiState,
     controller: DesktopLibraryController,
-    onPlay: (MediaItem) -> Unit,
+    onPlay: (List<MediaItem>, Int) -> Unit,
 ) {
     var newPlaylistName by remember { mutableStateOf("") }
     var selectedField by remember { mutableStateOf(SmartRuleField.ARTIST) }
@@ -232,7 +232,7 @@ internal fun DesktopSmartPlaylistsPanel(
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (matches.isNotEmpty()) {
-                                Button(onClick = { onPlay(matches.first()) }) { Text("Play All") }
+                                Button(onClick = { onPlay(matches, 0) }) { Text("Play All") }
                             }
                             if (!definition.id.startsWith("builtin-")) {
                                 OutlinedButton(onClick = { controller.deleteSmartPlaylist(definition.id) }) {

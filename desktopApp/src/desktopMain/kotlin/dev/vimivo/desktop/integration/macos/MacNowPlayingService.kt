@@ -25,9 +25,7 @@ internal class MacNowPlayingService(
     private var configured = false
 
     fun start() {
-        val frameworks = MpvNative.findBundledFrameworksDir()
-        val bridge = frameworks?.resolve("libvimivo_mpv_cocoa.dylib")
-        if (bridge?.exists() == true) System.load(bridge.absolutePath) else System.loadLibrary("vimivo_mpv_cocoa")
+        MpvNative.loadCocoaBridge()
         check(configureNative()) { "Unable to configure macOS Now Playing commands" }
         configured = true
     }
@@ -46,9 +44,9 @@ internal class MacNowPlayingService(
         if (!configured) return
         val media = playback.media
         updateNative(
-            title = media?.title,
-            artist = media?.artist,
-            album = media?.album,
+            title = media?.let { playback.metadata.title ?: it.title },
+            artist = media?.let { playback.metadata.artist ?: it.artist },
+            album = media?.let { playback.metadata.album ?: it.album },
             durationMillis = playback.durationMillis ?: 0L,
             positionMillis = playback.positionMillis,
             playing = playback.status == PlaybackStatus.Playing,

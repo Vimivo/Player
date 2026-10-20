@@ -48,7 +48,8 @@ class DesktopDiagnosticExporterTest {
     @Test
     fun refusesToExportToProtectedSystemLocations() {
         val exporter = DesktopDiagnosticExporter()
-        val protectedPath = Paths.get("/etc/vimivo-leak.md")
+        val windows = System.getProperty("os.name").orEmpty().startsWith("Windows")
+        val protectedPath = Paths.get(if (windows) "C:\\Windows\\vimivo-leak.md" else "/etc/vimivo-leak.md")
 
         val result = exporter.exportToPath(protectedPath)
         assertTrue(result.isFailure, "Must refuse to export to protected system directory")

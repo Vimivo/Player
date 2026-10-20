@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Developer tool: regenerates the checked-in test media with a local ffmpeg. Neither the apps nor CI run
+# ffmpeg; they use the committed files (and the bundled libmpv for playback and inspection).
 import subprocess
 import os
 
@@ -117,6 +119,20 @@ run([
     "-metadata", "title=Matroska Multi-Track Test",
     "-metadata:s:s:0", "language=eng",
     os.path.join(MEDIA_DIR, "video_sample.mkv")
+])
+
+# 8b. 30 s tagged track for the MPRIS check (desktopApp/scripts/verify_mpris.sh)
+run([
+    "ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=30",
+    "-ac", "1", "-b:a", "32k",
+    "-metadata", "title=MPRIS Check", "-metadata", "artist=Vimivo CI",
+    os.path.join(MEDIA_DIR, "mpris_check.mp3")
+])
+run([
+    "ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=660:duration=30",
+    "-ac", "1", "-b:a", "32k",
+    "-metadata", "title=Second Song",
+    os.path.join(MEDIA_DIR, "mpris_second.mp3")
 ])
 
 # 9. Public HLS stream URLs

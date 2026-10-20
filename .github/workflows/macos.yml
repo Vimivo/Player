@@ -46,15 +46,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install libmpv via Homebrew
-        run: |
-          brew update
-          brew install mpv
-          echo "VIMIVO_MPV_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
+      - name: Restore the LGPL media package cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/vimivo-media-packages
+          key: vimivo-media-${{ hashFiles('scripts/build_media/media.lock') }}
 
-      - name: Generate smoke-test media
-        # ffmpeg is installed as an mpv dependency.
-        run: python3 testmedia/generate_media.py
+      - name: Fetch the pinned LGPL libmpv (our GitHub Release, SHA-256 verified)
+        # Universal arm64 + x86_64 package built by build-media.yml from scripts/build_media (ADR-004).
+        # No Homebrew and no third-party download sites; the test media is checked in.
+        run: |
+          python3 scripts/build_media/fetch_media.py --target macos-universal --dest "$RUNNER_TEMP/vimivo-media"
+          echo "VIMIVO_MPV_PREFIX=$RUNNER_TEMP/vimivo-media" >> "$GITHUB_ENV"
+          echo "VIMIVO_TEST_MPV_DIR=$RUNNER_TEMP/vimivo-media/lib" >> "$GITHUB_ENV"
 
       - name: Verify runner architecture
         run: |
@@ -104,7 +108,8 @@ jobs:
           ./desktopApp/build/compose/binaries/main/app/Vimivo.app/Contents/MacOS/Vimivo --smoke-test \
             "$PWD/testmedia/video_landscape.mp4" "$PWD/testmedia/video_sample.mkv" \
             "$PWD/testmedia/track2_lunar.mp3" "$PWD/testmedia/track1_solaris.flac" | tee smoke.log
-          test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 4
+          # 4 files plus the fullscreen-enter, fullscreen-exit and resize picture checks.
+          test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 7
 
       - name: Collect DMG
         run: |

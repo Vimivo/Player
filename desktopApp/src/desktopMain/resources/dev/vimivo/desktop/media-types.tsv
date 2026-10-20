@@ -1,0 +1,53 @@
+# extension	mime	family	description	system UTI (macOS; empty = Vimivo declares an imported type)
+mp4	video/mp4	video	MPEG-4 video	public.mpeg-4
+m4v	video/x-m4v	video	MPEG-4 video	com.apple.m4v-video
+mkv	video/x-matroska	video	Matroska video	
+webm	video/webm	video	WebM video	
+avi	video/x-msvideo	video	AVI video	public.avi
+mov	video/quicktime	video	QuickTime movie	com.apple.quicktime-movie
+wmv	video/x-ms-wmv	video	Windows Media video	
+flv	video/x-flv	video	Flash video	
+ts	video/mp2t	video	MPEG transport stream	public.mpeg-2-transport-stream
+m2ts	video/mp2t	video	MPEG-2 transport stream	
+mts	video/mp2t	video	AVCHD video	
+mpg	video/mpeg	video	MPEG video	public.mpeg
+mpeg	video/mpeg	video	MPEG video	public.mpeg
+vob	video/dvd	video	DVD video object	
+ogv	video/ogg	video	Ogg video	
+3gp	video/3gpp	video	3GPP video	public.3gpp
+3g2	video/3gpp2	video	3GPP2 video	public.3gpp2
+divx	video/x-divx	video	DivX video	
+rmvb	application/vnd.rn-realmedia-vbr	video	RealMedia video	
+asf	video/x-ms-asf	video	Advanced Systems Format video	
+f4v	video/x-f4v	video	Flash MP4 video	
+hevc	video/hevc	video	HEVC video stream	
+mp3	audio/mpeg	audio	MP3 audio	public.mp3
+m4a	audio/mp4	audio	MPEG-4 audio	com.apple.m4a-audio
+aac	audio/aac	audio	AAC audio	public.aac-audio
+flac	audio/flac	audio	FLAC audio	
+alac	audio/x-alac	audio	Apple Lossless audio	
+wav	audio/wav	audio	WAVE audio	com.microsoft.waveform-audio
+aiff	audio/aiff	audio	AIFF audio	public.aiff-audio
+aif	audio/aiff	audio	AIFF audio	public.aiff-audio
+ogg	audio/ogg	audio	Ogg audio	
+oga	audio/ogg	audio	Ogg audio	
+opus	audio/opus	audio	Opus audio	
+wma	audio/x-ms-wma	audio	Windows Media audio	
+ape	audio/x-ape	audio	Monkey's Audio	
+wv	audio/x-wavpack	audio	WavPack audio	
+dsf	audio/x-dsf	audio	DSD audio	
+dff	audio/x-dff	audio	DSD audio	
+mka	audio/x-matroska	audio	Matroska audio	
+ac3	audio/ac3	audio	Dolby Digital audio	public.ac3-audio
+dts	audio/vnd.dts	audio	DTS audio	
+amr	audio/amr	audio	AMR audio	org.3gpp.adaptive-multi-rate-audio
+m3u	audio/x-mpegurl	playlist	M3U playlist	public.m3u-playlist
+m3u8	application/vnd.apple.mpegurl	playlist	M3U8 playlist	
+pls	audio/x-scpls	playlist	PLS playlist	public.pls-playlist
+xspf	application/xspf+xml	playlist	XSPF playlist	
+cue	application/x-cue	playlist	Cue sheet	
+srt	application/x-subrip	subtitle	SubRip subtitles	
+ass	text/x-ssa	subtitle	Advanced SubStation subtitles	
+ssa	text/x-ssa	subtitle	SubStation subtitles	
+vtt	text/vtt	subtitle	WebVTT subtitles	
+sub	text/x-microdvd	subtitle	MicroDVD subtitles	

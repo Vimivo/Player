@@ -3,6 +3,7 @@
 package dev.vimivo.desktop.playback
 
 import androidx.compose.ui.input.key.Key
+import dev.vimivo.desktop.player.HudMessage
 import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.TrackCycleResult
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import kotlin.math.roundToInt
 
 /** Player commands reachable from single-key shortcuts and the menu bar. */
 internal enum class DesktopPlayerCommand(val label: String) {
@@ -23,6 +25,8 @@ internal enum class DesktopPlayerCommand(val label: String) {
     SEEK_FORWARD_LONG("Seek forward 30 s"),
     VOLUME_UP("Volume up"),
     VOLUME_DOWN("Volume down"),
+    VOLUME_UP_FINE("Volume up 1%"),
+    VOLUME_DOWN_FINE("Volume down 1%"),
     TOGGLE_MUTE("Mute / Unmute"),
     TOGGLE_SHUFFLE("Toggle shuffle"),
     CYCLE_REPEAT("Cycle repeat mode"),
@@ -35,10 +39,10 @@ internal enum class DesktopPlayerCommand(val label: String) {
     FRAME_STEP_BACKWARD("Previous frame"),
     CYCLE_AUDIO_TRACK("Cycle audio track"),
     CYCLE_SUBTITLE_TRACK("Cycle subtitle track"),
-    SUBTITLE_DELAY_DOWN("Subtitle delay −100 ms"),
-    SUBTITLE_DELAY_UP("Subtitle delay +100 ms"),
-    AUDIO_DELAY_DOWN("Audio delay −50 ms"),
-    AUDIO_DELAY_UP("Audio delay +50 ms"),
+    SUBTITLE_DELAY_DOWN("Subtitle delay −${PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS} ms"),
+    SUBTITLE_DELAY_UP("Subtitle delay +${PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS} ms"),
+    AUDIO_DELAY_DOWN("Audio delay −${PlaybackControlPolicy.AUDIO_DELAY_STEP_MILLIS} ms"),
+    AUDIO_DELAY_UP("Audio delay +${PlaybackControlPolicy.AUDIO_DELAY_STEP_MILLIS} ms"),
     AB_LOOP("A-B loop"),
     SNAPSHOT("Take snapshot"),
     CYCLE_ASPECT_RATIO("Cycle aspect ratio"),
@@ -81,6 +85,8 @@ internal object DesktopPlayerShortcuts {
     }
 
     private fun shifted(key: Key): DesktopPlayerCommand? = when (key) {
+        Key.DirectionUp -> DesktopPlayerCommand.VOLUME_UP_FINE
+        Key.DirectionDown -> DesktopPlayerCommand.VOLUME_DOWN_FINE
         Key.DirectionLeft -> DesktopPlayerCommand.SEEK_BACK_LONG
         Key.DirectionRight -> DesktopPlayerCommand.SEEK_FORWARD_LONG
         Key.E -> DesktopPlayerCommand.FRAME_STEP_BACKWARD
@@ -112,12 +118,12 @@ internal class DesktopPlayerCommandExecutor(
     private val fullscreen: DesktopFullscreenControl,
     private val snapshotFile: () -> File = { File(defaultSnapshotDirectory(), "vimivo-snapshot-${System.currentTimeMillis()}.png") },
 ) {
-    private val mutableStatus = MutableStateFlow<String?>(null)
+    private val mutableStatus = MutableStateFlow<HudMessage?>(null)
     private val mutableMediaInfoVisible = MutableStateFlow(false)
     private var volumeBeforeMute = 1f
 
     /** Short feedback for the last command (on-screen display), or null. */
-    val status: StateFlow<String?> = mutableStatus.asStateFlow()
+    val status: StateFlow<HudMessage?> = mutableStatus.asStateFlow()
     val mediaInfoVisible: StateFlow<Boolean> = mutableMediaInfoVisible.asStateFlow()
 
     fun dismissMediaInfo() {
@@ -134,8 +140,8 @@ internal class DesktopPlayerCommandExecutor(
         val hasMedia = state.media != null
         return when (command) {
             DesktopPlayerCommand.TOGGLE_PLAYBACK -> { togglePlayback(); true }
-            DesktopPlayerCommand.TOGGLE_SHUFFLE -> { toggleShuffle(); report("Shuffle toggled") }
-            DesktopPlayerCommand.CYCLE_REPEAT -> { cycleRepeat(); report("Repeat mode changed") }
+            DesktopPlayerCommand.TOGGLE_SHUFFLE -> { toggleShuffle(); report(HudMessage.ShuffleToggled) }
+            DesktopPlayerCommand.CYCLE_REPEAT -> { cycleRepeat(); report(HudMessage.RepeatChanged) }
             DesktopPlayerCommand.TOGGLE_FULLSCREEN -> { fullscreen.toggle(); true }
             DesktopPlayerCommand.EXIT_FULLSCREEN -> fullscreen.exit() || dismissMediaInfoIfVisible()
             DesktopPlayerCommand.MEDIA_INFO -> {
@@ -149,18 +155,20 @@ internal class DesktopPlayerCommandExecutor(
     private fun executeMediaCommand(command: DesktopPlayerCommand): Boolean {
         val state = engine.state.value
         fun seek(delta: Long) = engine.seekTo(PlaybackControlPolicy.seekTarget(state.positionMillis, delta, state.durationMillis), exact = false)
-        val result: Result<String?> = when (command) {
+        val result: Result<HudMessage?> = when (command) {
             DesktopPlayerCommand.SEEK_BACK_SHORT -> seek(-PlaybackControlPolicy.SHORT_SEEK_MILLIS).map { null }
             DesktopPlayerCommand.SEEK_FORWARD_SHORT -> seek(PlaybackControlPolicy.SHORT_SEEK_MILLIS).map { null }
             DesktopPlayerCommand.SEEK_BACK_MEDIUM -> seek(-MEDIUM_SEEK_MILLIS).map { null }
             DesktopPlayerCommand.SEEK_FORWARD_MEDIUM -> seek(MEDIUM_SEEK_MILLIS).map { null }
             DesktopPlayerCommand.SEEK_BACK_LONG -> seek(-PlaybackControlPolicy.LONG_SEEK_MILLIS).map { null }
             DesktopPlayerCommand.SEEK_FORWARD_LONG -> seek(PlaybackControlPolicy.LONG_SEEK_MILLIS).map { null }
-            DesktopPlayerCommand.VOLUME_UP -> setVolume(PlaybackControlPolicy.stepVolume(state.volume, PlaybackControlPolicy.DEFAULT_VOLUME_STEP))
-            DesktopPlayerCommand.VOLUME_DOWN -> setVolume(PlaybackControlPolicy.stepVolume(state.volume, -PlaybackControlPolicy.DEFAULT_VOLUME_STEP))
+            DesktopPlayerCommand.VOLUME_UP -> stepVolume(state.volume, PlaybackControlPolicy.DEFAULT_VOLUME_STEP)
+            DesktopPlayerCommand.VOLUME_DOWN -> stepVolume(state.volume, -PlaybackControlPolicy.DEFAULT_VOLUME_STEP)
+            DesktopPlayerCommand.VOLUME_UP_FINE -> stepVolume(state.volume, PlaybackControlPolicy.FINE_VOLUME_STEP)
+            DesktopPlayerCommand.VOLUME_DOWN_FINE -> stepVolume(state.volume, -PlaybackControlPolicy.FINE_VOLUME_STEP)
             DesktopPlayerCommand.TOGGLE_MUTE -> if (state.volume > 0f) {
                 volumeBeforeMute = state.volume
-                engine.setVolume(0f).map { "Muted" }
+                engine.setVolume(0f).map { HudMessage.Muted }
             } else {
                 setVolume(volumeBeforeMute.takeIf { it > 0f } ?: 1f)
             }
@@ -170,13 +178,13 @@ internal class DesktopPlayerCommandExecutor(
             DesktopPlayerCommand.FRAME_STEP_FORWARD -> engine.frameStep(forward = true).map { null }
             DesktopPlayerCommand.FRAME_STEP_BACKWARD -> engine.frameStep(forward = false).map { null }
             DesktopPlayerCommand.CYCLE_AUDIO_TRACK -> when (val next = PlaybackControlPolicy.nextTrack(state.audioTracks, allowOff = false)) {
-                is TrackCycleResult.Select -> engine.selectAudioTrack(next.track.id).map { "Audio: ${next.track.label}" }
-                else -> Result.success("No audio tracks")
+                is TrackCycleResult.Select -> engine.selectAudioTrack(next.track.id).map { HudMessage.AudioTrack(next.track.label) }
+                else -> Result.success(HudMessage.NoAudioTracks)
             }
             DesktopPlayerCommand.CYCLE_SUBTITLE_TRACK -> when (val next = PlaybackControlPolicy.nextTrack(state.subtitleTracks, allowOff = true)) {
-                is TrackCycleResult.Select -> engine.selectSubtitleTrack(next.track.id).map { "Subtitles: ${next.track.label}" }
-                TrackCycleResult.Disable -> engine.selectSubtitleTrack(null).map { "Subtitles off" }
-                TrackCycleResult.Unavailable -> Result.success("No subtitle tracks")
+                is TrackCycleResult.Select -> engine.selectSubtitleTrack(next.track.id).map { HudMessage.SubtitleTrack(next.track.label) }
+                TrackCycleResult.Disable -> engine.selectSubtitleTrack(null).map { HudMessage.SubtitlesOff }
+                TrackCycleResult.Unavailable -> Result.success(HudMessage.NoSubtitleTracks)
             }
             DesktopPlayerCommand.SUBTITLE_DELAY_DOWN -> setSubtitleDelay(state.subtitleDelayMillis, -PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS)
             DesktopPlayerCommand.SUBTITLE_DELAY_UP -> setSubtitleDelay(state.subtitleDelayMillis, PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS)
@@ -186,9 +194,9 @@ internal class DesktopPlayerCommandExecutor(
                 val next = PlaybackControlPolicy.nextABRepeat(state.abRepeat, state.positionMillis)
                 engine.setABRepeat(next).map {
                     when {
-                        next.enabled -> "A-B loop on"
-                        next.pointA != null -> "Loop point A set"
-                        else -> "A-B loop off"
+                        next.enabled -> HudMessage.LoopOn
+                        next.pointA != null -> HudMessage.LoopPointA
+                        else -> HudMessage.LoopOff
                     }
                 }
             }
@@ -196,33 +204,46 @@ internal class DesktopPlayerCommandExecutor(
                 val target = snapshotFile()
                 runCatching { target.parentFile?.mkdirs() }
                     .mapCatching { engine.takeScreenshot(target.absolutePath).getOrThrow() }
-                    .map { "Snapshot saved: ${target.name}" }
+                    .map { HudMessage.SnapshotSaved(target.name) }
             }
             DesktopPlayerCommand.CYCLE_ASPECT_RATIO -> {
                 val ratios = VideoAspectRatio.entries
                 val next = ratios[(ratios.indexOf(state.videoAdjustments.aspectRatio) + 1) % ratios.size]
-                engine.applyVideoAdjustments(state.videoAdjustments.copy(aspectRatio = next)).map { "Aspect ratio: ${next.label}" }
+                engine.applyVideoAdjustments(state.videoAdjustments.copy(aspectRatio = next)).map { HudMessage.AspectRatio(next.label) }
             }
             DesktopPlayerCommand.TOGGLE_DEINTERLACE -> {
                 val enabled = !state.deinterlace
-                engine.setDeinterlace(enabled).map { if (enabled) "Deinterlacing on" else "Deinterlacing off" }
+                engine.setDeinterlace(enabled).map { HudMessage.Deinterlace(enabled) }
             }
             else -> Result.success(null)
         }
         result.onSuccess { message -> if (message != null) mutableStatus.value = message }
-            .onFailure { error -> mutableStatus.value = "${command.label} failed: ${error.message ?: "unavailable"}" }
+            .onFailure { error -> mutableStatus.value = HudMessage.Failed(command.label, error.message) }
         return true
     }
 
-    private fun setVolume(volume: Float) = engine.setVolume(volume).map { "Volume ${(volume * PERCENT).toInt()}%" }
-    private fun setSpeed(speed: Float) = engine.setPlaybackSpeed(speed).map { "Speed ${speed}x" }
-    private fun setSubtitleDelay(current: Long, delta: Long): Result<String> {
-        val next = PlaybackControlPolicy.stepDelay(current, delta)
-        return engine.setSubtitleDelay(next).map { "Subtitle delay $next ms" }
+    private fun stepVolume(current: Float, delta: Float) =
+        setVolume(PlaybackControlPolicy.stepVolume(current, delta, engine.capabilities.maxVolume))
+
+    private fun setVolume(volume: Float): Result<HudMessage> {
+        val clamped = volume.coerceIn(0f, engine.capabilities.maxVolume)
+        return engine.setVolume(clamped).map { HudMessage.Volume((clamped * PERCENT).roundToInt()) }
     }
-    private fun setAudioDelay(current: Long, delta: Long): Result<String> {
+
+    /** Absolute volume from the slider; clamped to the engine maximum and echoed on the HUD. */
+    fun setVolumeLevel(volume: Float) {
+        setVolume(volume)
+            .onSuccess { mutableStatus.value = it }
+            .onFailure { error -> mutableStatus.value = HudMessage.Failed(DesktopPlayerCommand.VOLUME_UP.label, error.message) }
+    }
+    private fun setSpeed(speed: Float) = engine.setPlaybackSpeed(speed).map { HudMessage.Speed(speed) }
+    private fun setSubtitleDelay(current: Long, delta: Long): Result<HudMessage> {
         val next = PlaybackControlPolicy.stepDelay(current, delta)
-        return engine.setAudioDelay(next).map { "Audio delay $next ms" }
+        return engine.setSubtitleDelay(next).map { HudMessage.SubtitleDelay(next) }
+    }
+    private fun setAudioDelay(current: Long, delta: Long): Result<HudMessage> {
+        val next = PlaybackControlPolicy.stepDelay(current, delta)
+        return engine.setAudioDelay(next).map { HudMessage.AudioDelay(next) }
     }
 
     private fun dismissMediaInfoIfVisible(): Boolean {
@@ -231,7 +252,15 @@ internal class DesktopPlayerCommandExecutor(
         return true
     }
 
-    private fun report(message: String): Boolean {
+    /**
+     * Runs a control from a panel. A failure is shown on the HUD ("<action> failed: <reason>") and playback carries
+     * on; returns whether the control succeeded.
+     */
+    fun perform(action: String, control: () -> Result<*>): Boolean =
+        control().onFailure { error -> mutableStatus.value = HudMessage.Failed(action, error.message) }.isSuccess
+
+    /** Shows [message] on the HUD; returns true so command handlers can use it as their result. */
+    fun report(message: HudMessage): Boolean {
         mutableStatus.value = message
         return true
     }

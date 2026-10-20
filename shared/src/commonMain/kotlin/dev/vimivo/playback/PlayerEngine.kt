@@ -53,13 +53,14 @@ data class ChapterInfo(
     val startPositionMillis: Long,
 )
 
-enum class VideoAspectRatio(val label: String, val value: String) {
-    ORIGINAL("Original", "-1"),
-    FIT("Fit", "0"),
-    FILL("Fill", "none"),
-    RATIO_16_9("16:9", "16:9"),
-    RATIO_4_3("4:3", "4:3"),
-    RATIO_21_9("21:9", "2.35:1"),
+/** Platform-neutral aspect presets; each engine maps them to its own controls. */
+enum class VideoAspectRatio(val label: String) {
+    ORIGINAL("Original"),
+    FIT("Fit"),
+    FILL("Fill"),
+    RATIO_16_9("16:9"),
+    RATIO_4_3("4:3"),
+    RATIO_21_9("21:9"),
 }
 
 data class VideoAdjustments(
@@ -114,6 +115,8 @@ data class EngineCapabilities(
     val frameStepping: Boolean = false,
     val deinterlacing: Boolean = false,
     val supportedSpeedRange: ClosedFloatingPointRange<Float> = PlaybackSpeeds.RANGE,
+    /** Highest volume the engine accepts; values above 1.0 amplify (e.g. 2.0 = 200%). */
+    val maxVolume: Float = PlaybackControlPolicy.UNITY_VOLUME,
     val audioEnhancements: AudioEnhancementCapabilities = AudioEnhancementCapabilities(
         limitation = "Audio enhancements are unavailable with this engine",
     ),

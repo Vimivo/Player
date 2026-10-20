@@ -1,0 +1,376 @@
+@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+
+package dev.vimivo.desktop.player.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.RestartAlt
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import dev.vimivo.desktop.DesktopBookmarksPanel
+import dev.vimivo.desktop.playback.DesktopPlayerCommand
+import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
+import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.player.PlayerIntent
+import dev.vimivo.desktop.player.PlayerPanel
+import dev.vimivo.desktop.player.PlayerState
+import dev.vimivo.playback.ABRepeatRange
+import dev.vimivo.playback.PlaybackControlPolicy
+import dev.vimivo.playback.PlaybackSpeeds
+import dev.vimivo.playback.PlaybackState
+import dev.vimivo.playback.SubtitleStyle
+import dev.vimivo.playback.VideoAdjustments
+import dev.vimivo.playback.VideoAspectRatio
+import java.awt.FileDialog
+import java.awt.Frame
+import java.io.File
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+/**
+ * The player's settings panel (spec §2.4): 380 dp, full height beside the video, tabs as a segmented control,
+ * content scrolling inside the panel. Every engine call goes through [DesktopPlayerCommandExecutor.perform], so a
+ * failure shows on the HUD and playback continues.
+ */
+@Composable
+internal fun PlayerSidePanel(
+    state: PlayerState,
+    panel: PlayerPanel,
+    engine: MpvPlayerEngine,
+    commands: DesktopPlayerCommandExecutor,
+    onIntent: (PlayerIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier
+            .width(PANEL_WIDTH)
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
+            .background(PlayerPalette.glass)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SegmentedChoice(
+                options = PlayerPanel.entries,
+                selected = panel,
+                label = PlayerPanel::title,
+                onSelect = { onIntent(PlayerIntent.ShowPanel(it)) },
+                modifier = Modifier.weight(1f),
+                weight = { it.title.length + TAB_PADDING_CHARS },
+            )
+            Spacer(Modifier.width(6.dp))
+            PlayerIconButton(Icons.Outlined.Close, "Close panel") { onIntent(PlayerIntent.ShowPanel(null)) }
+        }
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 12.dp)) {
+            val playback = state.playback
+            when (panel) {
+                PlayerPanel.VIDEO -> VideoTab(playback, engine, commands)
+                PlayerPanel.AUDIO -> AudioTab(playback, engine, commands)
+                PlayerPanel.SUBTITLES -> SubtitlesTab(playback, engine, commands)
+                PlayerPanel.SYNC -> SyncTab(playback, engine, commands)
+                PlayerPanel.BOOKMARKS -> {
+                    Spacer(Modifier.height(12.dp))
+                    DesktopBookmarksPanel(
+                        media = playback.media,
+                        positionMillis = playback.positionMillis,
+                        bookmarks = state.bookmarks,
+                        onAdd = { _, _, label -> onIntent(PlayerIntent.AddBookmark(label)) },
+                        onSeek = { onIntent(PlayerIntent.Seek(it)) },
+                        onRename = { id, label -> onIntent(PlayerIntent.RenameBookmark(id, label)) },
+                        onDelete = { onIntent(PlayerIntent.DeleteBookmark(it)) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VideoTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: DesktopPlayerCommandExecutor) {
+    val adjustments = playback.videoAdjustments
+    fun adjust(label: String, next: VideoAdjustments) {
+        commands.perform(label) { engine.applyVideoAdjustments(next) }
+    }
+    PanelSection("Picture")
+    PanelRow("Aspect ratio") {
+        PanelDropdown(
+            options = VideoAspectRatio.entries,
+            selected = adjustments.aspectRatio,
+            label = VideoAspectRatio::label,
+            placeholder = "Original",
+            onSelect = { adjust("${it.label} aspect", adjustments.copy(aspectRatio = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Rotation") {
+        SegmentedChoice(
+            options = listOf(0, 90, 180, 270),
+            selected = adjustments.rotationDegrees,
+            label = { "$it°" },
+            onSelect = { adjust("Rotate", adjustments.copy(rotationDegrees = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Deinterlace") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = playback.deinterlace,
+            label = { if (it) "On" else "Off" },
+            onSelect = { enabled -> commands.perform("Deinterlace") { engine.setDeinterlace(enabled) } },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelSection("Zoom and position")
+    SliderRow("Zoom", adjustments.zoom, ZOOM_RANGE, "%+.2f".format(adjustments.zoom), reset = 0f) {
+        adjust("Zoom", adjustments.copy(zoom = it))
+    }
+    SliderRow("Pan horizontal", adjustments.panX, PAN_RANGE, "%+.2f".format(adjustments.panX), reset = 0f) {
+        adjust("Pan", adjustments.copy(panX = it))
+    }
+    SliderRow("Pan vertical", adjustments.panY, PAN_RANGE, "%+.2f".format(adjustments.panY), reset = 0f) {
+        adjust("Pan", adjustments.copy(panY = it))
+    }
+    PanelSection("Colour")
+    ColourSlider("Brightness", adjustments.brightness) { adjust("Brightness", adjustments.copy(brightness = it)) }
+    ColourSlider("Contrast", adjustments.contrast) { adjust("Contrast", adjustments.copy(contrast = it)) }
+    ColourSlider("Saturation", adjustments.saturation) { adjust("Saturation", adjustments.copy(saturation = it)) }
+    ColourSlider("Gamma", adjustments.gamma) { adjust("Gamma", adjustments.copy(gamma = it)) }
+    PanelSection("Frames")
+    PanelRow("Step") {
+        PanelButton("◀ Previous", Modifier.weight(1f)) { commands.execute(DesktopPlayerCommand.FRAME_STEP_BACKWARD) }
+        Spacer(Modifier.width(6.dp))
+        PanelButton("Next ▶", Modifier.weight(1f)) { commands.execute(DesktopPlayerCommand.FRAME_STEP_FORWARD) }
+    }
+    PanelRow("Snapshot") {
+        PanelButton("Save frame", Modifier.fillMaxWidth()) { commands.execute(DesktopPlayerCommand.SNAPSHOT) }
+    }
+}
+
+@Composable
+private fun AudioTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: DesktopPlayerCommandExecutor) {
+    PanelSection("Track")
+    PanelRow("Audio track") {
+        TrackDropdown(playback.audioTracks, "Default") { track ->
+            commands.perform("Audio track") { engine.selectAudioTrack(track?.id) }
+        }
+    }
+    PanelSection("Speed")
+    PanelRow("Playback speed") {
+        PanelDropdown(
+            options = PlaybackSpeeds.PRESETS,
+            selected = PlaybackSpeeds.PRESETS.minByOrNull { abs(it - playback.speed) },
+            label = { "$it×" },
+            placeholder = "1.0×",
+            onSelect = { speed -> commands.perform("Speed") { engine.setPlaybackSpeed(speed) } },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Fine") {
+        SpeedStepper(playback.speed) { speed -> commands.perform("Speed") { engine.setPlaybackSpeed(speed) } }
+    }
+}
+
+/** Speed in ±0.05× steps (spec #4). */
+@Composable
+private fun RowScope.SpeedStepper(speed: Float, onSpeed: (Float) -> Unit) {
+    fun next(delta: Float) =
+        ((speed + delta) * SPEED_PRECISION).roundToInt().div(SPEED_PRECISION).coerceIn(PlaybackSpeeds.RANGE)
+    PlayerIconButton(Icons.Outlined.Remove, "Slower 0.05×") { onSpeed(next(-SPEED_STEP)) }
+    PanelText("%.2f×".format(speed), modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+    PlayerIconButton(Icons.Outlined.Add, "Faster 0.05×") { onSpeed(next(SPEED_STEP)) }
+    if (abs(speed - 1f) > SPEED_EPSILON) PlayerIconButton(Icons.Outlined.RestartAlt, "Normal speed") { onSpeed(1f) }
+}
+
+@Composable
+private fun SubtitlesTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: DesktopPlayerCommandExecutor) {
+    var style by remember { mutableStateOf(SubtitleStyle()) }
+    fun restyle(next: SubtitleStyle) {
+        if (commands.perform("Subtitle style") { engine.applySubtitleStyle(next) }) style = next
+    }
+    PanelSection("Track")
+    PanelRow("Subtitles") {
+        TrackDropdown(playback.subtitleTracks, "Off", allowOff = true) { track ->
+            commands.perform("Subtitle track") { engine.selectSubtitleTrack(track?.id) }
+        }
+    }
+    PanelRow("File") {
+        PanelButton("Load subtitle file…", Modifier.fillMaxWidth()) {
+            chooseSubtitleFile()?.let(MpvPlayerEngine::externalSubtitleFor)?.let { subtitle ->
+                commands.perform("Load subtitle") { engine.addExternalSubtitle(subtitle) }
+            }
+        }
+    }
+    PanelSection("Appearance")
+    SliderRow(
+        "Size",
+        style.fontSizeSp.toFloat(),
+        SUBTITLE_SIZE_RANGE,
+        "${style.fontSizeSp} pt",
+        reset = DEFAULT_SUBTITLE_SIZE
+    ) {
+        restyle(style.copy(fontSizeSp = it.roundToInt()))
+    }
+    PanelRow("Colour") {
+        SegmentedChoice(
+            options = SUBTITLE_COLOURS.keys.toList(),
+            selected = style.textColorHex,
+            label = { SUBTITLE_COLOURS.getValue(it) },
+            onSelect = { restyle(style.copy(textColorHex = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    SliderRow(
+        "Position",
+        style.bottomMarginPercent.toFloat(),
+        SUBTITLE_MARGIN_RANGE,
+        "${style.bottomMarginPercent} %",
+        reset = DEFAULT_SUBTITLE_MARGIN
+    ) {
+        restyle(style.copy(bottomMarginPercent = it.roundToInt()))
+    }
+}
+
+@Composable
+private fun SyncTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: DesktopPlayerCommandExecutor) {
+    PanelSection("Delays")
+    val audioStep = PlaybackControlPolicy.AUDIO_DELAY_STEP_MILLIS
+    val subtitleStep = PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS
+    PanelRow("Audio delay") {
+        DelayStepper(
+            "Audio delay",
+            playback.audioDelayMillis,
+            audioStep,
+            onStep = { delta ->
+                val next = PlaybackControlPolicy.stepDelay(playback.audioDelayMillis, delta)
+                commands.perform("Audio delay") { engine.setAudioDelay(next) }
+            },
+            onReset = { commands.perform("Reset audio delay") { engine.setAudioDelay(0) } },
+        )
+    }
+    PanelRow("Subtitle delay") {
+        DelayStepper(
+            "Subtitle delay",
+            playback.subtitleDelayMillis,
+            subtitleStep,
+            onStep = { delta ->
+                val next = PlaybackControlPolicy.stepDelay(playback.subtitleDelayMillis, delta)
+                commands.perform("Subtitle delay") { engine.setSubtitleDelay(next) }
+            },
+            onReset = { commands.perform("Reset subtitle delay") { engine.setSubtitleDelay(0) } },
+        )
+    }
+    PanelSection("A–B repeat")
+    val ab = playback.abRepeat
+    PanelRow("Loop") {
+        PanelButton(ab.pointA?.let { "A ${playerClock(it)}" } ?: "Set A", Modifier.weight(1f)) {
+            commands.perform("Set point A") { engine.setABRepeat(ABRepeatRange(pointA = playback.positionMillis)) }
+        }
+        Spacer(Modifier.width(6.dp))
+        PanelButton(
+            ab.pointB?.let { "B ${playerClock(it)}" } ?: "Set B",
+            Modifier.weight(1f),
+            enabled = ab.pointA != null
+        ) {
+            val start = ab.pointA ?: return@PanelButton
+            if (playback.positionMillis > start) {
+                commands.perform(
+                    "Set point B"
+                ) { engine.setABRepeat(ABRepeatRange(start, playback.positionMillis, enabled = true)) }
+            }
+        }
+        if (ab.pointA != null) {
+            Spacer(Modifier.width(6.dp))
+            PanelButton("Clear") { commands.perform("Clear loop") { engine.setABRepeat(ABRepeatRange()) } }
+        }
+    }
+    PanelSection("Chapters")
+    PanelRow("Chapter") {
+        PanelButton("◀ Previous", Modifier.weight(1f), enabled = playback.chapters.isNotEmpty()) {
+            commands.perform("Previous chapter") { engine.previousChapter() }
+        }
+        Spacer(Modifier.width(6.dp))
+        PanelButton("Next ▶", Modifier.weight(1f), enabled = playback.chapters.isNotEmpty()) {
+            commands.perform("Next chapter") { engine.nextChapter() }
+        }
+    }
+}
+
+@Composable
+private fun SliderRow(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    valueText: String,
+    reset: Float,
+    onChange: (Float) -> Unit,
+) {
+    PanelRow(label) {
+        VimivoSlider(
+            value = value,
+            onValueChange = onChange,
+            valueRange = range,
+            label = label,
+            valueText = valueText,
+            resetValue = reset,
+            modifier = Modifier.weight(1f),
+        )
+        PanelText(
+            valueText,
+            modifier = Modifier.width(VALUE_WIDTH).padding(start = 8.dp),
+            color = PlayerPalette.contentMuted,
+            style = PANEL_TEXT.copy(fontFeatureSettings = "tnum"),
+            textAlign = TextAlign.End,
+        )
+    }
+}
+
+@Composable
+private fun ColourSlider(label: String, value: Int, onChange: (Int) -> Unit) {
+    SliderRow(label, value.toFloat(), COLOUR_RANGE, "%+d".format(value), reset = 0f) { onChange(it.roundToInt()) }
+}
+
+private fun chooseSubtitleFile(): File? {
+    val dialog = FileDialog(null as Frame?, "Open Subtitle File", FileDialog.LOAD)
+    dialog.setFilenameFilter { _, name -> File(name).extension.lowercase() in MpvPlayerEngine.SUBTITLE_EXTENSIONS }
+    dialog.isVisible = true
+    return dialog.files?.firstOrNull() ?: dialog.file?.let { File(dialog.directory, it) }
+}
+
+private val PANEL_WIDTH = 380.dp
+private const val TAB_PADDING_CHARS = 2f
+private val VALUE_WIDTH = 64.dp
+private val COLOUR_RANGE = -50f..50f
+private val ZOOM_RANGE = -2f..2f
+private val PAN_RANGE = -1f..1f
+private val SUBTITLE_SIZE_RANGE = 12f..64f
+private val SUBTITLE_MARGIN_RANGE = 0f..30f
+private const val DEFAULT_SUBTITLE_SIZE = 24f
+private const val DEFAULT_SUBTITLE_MARGIN = 5f
+private const val SPEED_STEP = 0.05f
+private const val SPEED_PRECISION = 100f
+private const val SPEED_EPSILON = 0.001f
+private val SUBTITLE_COLOURS = linkedMapOf("#FFFFFF" to "White", "#FFFF00" to "Yellow", "#00FFFF" to "Cyan")

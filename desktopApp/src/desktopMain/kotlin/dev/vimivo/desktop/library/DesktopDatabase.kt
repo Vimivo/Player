@@ -61,6 +61,7 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             if (version < 4) migrateToVersion4(statement)
             if (version < 5) migrateToVersion5(statement)
             if (version < 6) migrateToVersion6(statement)
+            if (version < 7) migrateToVersion7(statement)
             ensurePerformanceIndexes(statement)
         }
     }
@@ -202,10 +203,23 @@ internal class DesktopDatabase private constructor(private val connection: Conne
         statement.execute("UPDATE schema_version SET version=6")
     }
 
+    /**
+     * v7: resume positions for files opened outside the library (Finder, "Open with", command line). They
+     * are keyed by file URI because such files have no media_items row to reference.
+     */
+    private fun migrateToVersion7(statement: java.sql.Statement) {
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS external_playback_positions (uri TEXT PRIMARY KEY, position_ms INTEGER NOT NULL, " +
+                "duration_ms INTEGER, completed INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL)",
+        )
+        statement.execute("CREATE INDEX IF NOT EXISTS external_positions_updated ON external_playback_positions(updated_at_ms DESC)")
+        statement.execute("UPDATE schema_version SET version=7")
+    }
+
     override fun close() = connection.close()
 
     companion object {
-        const val SCHEMA_VERSION = 6
+        const val SCHEMA_VERSION = 7
 
         fun open(path: Path = defaultPath()): DesktopDatabase {
             Files.createDirectories(path.parent)

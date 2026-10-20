@@ -1,18 +1,7 @@
-@file:Suppress(
-    "ArgumentListWrapping",
-    "ComplexCondition",
-    "CyclomaticComplexMethod",
-    "MagicNumber",
-    "MaximumLineLength",
-    "MaxLineLength",
-    "NestedBlockDepth",
-    "ReturnCount",
-    "TooGenericExceptionCaught",
-)
+@file:Suppress("ArgumentListWrapping", "MagicNumber", "MaxLineLength", "MaximumLineLength") // Header magic numbers.
 
 package dev.vimivo.desktop.playback
 
-import dev.vimivo.desktop.library.DesktopMediaToolLocator
 import dev.vimivo.playback.AudioStreamDetails
 import dev.vimivo.playback.ChapterInfo
 import dev.vimivo.playback.CodecSupportLevel
@@ -22,221 +11,96 @@ import dev.vimivo.playback.MediaProbeDetails
 import dev.vimivo.playback.MediaProbeService
 import dev.vimivo.playback.SubtitleStreamDetails
 import dev.vimivo.playback.VideoStreamDetails
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URI
-import java.util.concurrent.TimeUnit
 
 /**
- * Resilient native media probing service for desktop.
- * Uses ffprobe with strict argument safety and bounded timeouts when present,
- * and falls back to resilient magic header sniffing when external tools are absent.
+ * Media Info for desktop: streams, colour, chapters and compatibility read with the bundled LGPL libmpv/FFmpeg
+ * ([MpvMediaInspector], ADR-004); no external programs. Files libmpv cannot open fall back to container sniffing
+ * from the first bytes, so damaged or truncated files still get a useful answer.
  */
-class DesktopMediaProbeService : MediaProbeService {
+class DesktopMediaProbeService internal constructor(
+    private val inspector: MpvMediaInspector,
+) : MediaProbeService {
+    constructor() : this(MpvMediaInspector())
 
     override suspend fun probeUri(uri: String): Result<MediaProbeDetails> = withContext(Dispatchers.IO) {
         runCatching {
             val file = resolveFile(uri)
-            if (file == null || !file.exists()) {
-                return@runCatching MediaProbeDetails(
+            when {
+                file == null || !file.exists() -> MediaProbeDetails(
                     container = "UNKNOWN",
                     overallCompatibility = CodecSupportLevel.UNSUPPORTED,
                     statusMessage = "Media file does not exist",
                 )
-            }
-            if (file.length() == 0L) {
-                return@runCatching MediaProbeDetails(
+                file.length() == 0L -> MediaProbeDetails(
                     container = file.extension.uppercase(),
                     overallCompatibility = CodecSupportLevel.UNSUPPORTED,
                     statusMessage = "File is empty (0 bytes)",
                 )
-            }
-
-            if (file.length() < MIN_FFPROBE_BYTES) {
-                return@runCatching probeWithHeaderSniffing(file)
-            }
-
-            val ffprobe = DesktopMediaToolLocator.ffprobePath()
-            if (ffprobe != null) {
-                runCatching { probeWithFfprobe(ffprobe, file) }.getOrElse {
-                    probeWithHeaderSniffing(file)
-                }
-            } else {
-                probeWithHeaderSniffing(file)
+                file.length() < MIN_INSPECTABLE_BYTES -> probeWithHeaderSniffing(file)
+                else -> runCatching { describe(file, inspector.inspect(file)) }
+                    .getOrElse { probeWithHeaderSniffing(file) }
             }
         }
     }
 
     private fun resolveFile(uri: String): File? = runCatching {
-        if (uri.startsWith("file:")) {
-            File(URI(uri))
-        } else {
-            File(uri)
-        }
+        if (uri.startsWith("file:")) File(URI(uri)) else File(uri)
     }.getOrNull()
 
-    private fun probeWithFfprobe(ffprobe: String, file: File): MediaProbeDetails {
-        val arguments = listOf(
-            ffprobe,
-            "-v", "quiet",
-            "-print_format", "flat",
-            "-show_format",
-            "-show_streams",
-            "-show_chapters",
-            file.absolutePath,
-        )
-        val process = ProcessBuilder(arguments)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-
-        val output = try {
-            val bytes = process.inputStream.readNBytes(MAX_PROBE_BYTES)
-            val finished = process.waitFor(PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            if (!finished) {
-                process.destroyForcibly()
-                error("ffprobe probe timed out on ${file.name}")
-            }
-            if (process.exitValue() != 0) {
-                error("ffprobe probe failed with code ${process.exitValue()}")
-            }
-            bytes.decodeToString()
-        } catch (cancelled: CancellationException) {
-            process.destroyForcibly()
-            throw cancelled
-        } catch (error: Throwable) {
-            process.destroyForcibly()
-            throw error
-        }
-
-        return parseFfprobeFlatOutput(file, output)
-    }
-
-    private fun parseFfprobeFlatOutput(file: File, output: String): MediaProbeDetails {
-        val props = mutableMapOf<String, String>()
-        output.lines().forEach { line ->
-            val index = line.indexOf('=')
-            if (index > 0) {
-                val key = line.substring(0, index).trim()
-                val value = line.substring(index + 1).trim().removeSurrounding("\"")
-                props[key] = value
-            }
-        }
-
-        val formatName = props["format.format_name"].orEmpty().lowercase()
-        val durationSec = props["format.duration"]?.toDoubleOrNull()
-        val durationMillis = durationSec?.let { (it * 1000.0).toLong() }
-        val bitrate = props["format.bit_rate"]?.toIntOrNull()
-        val nbStreams = props["format.nb_streams"]?.toIntOrNull() ?: 0
-
-        val videoStreams = mutableListOf<VideoStreamDetails>()
-        val audioStreams = mutableListOf<AudioStreamDetails>()
-        val subtitleStreams = mutableListOf<SubtitleStreamDetails>()
-        val chapters = mutableListOf<ChapterInfo>()
-
-        for (i in 0 until nbStreams) {
-            val prefix = "streams.stream.$i"
-            val codecType = props["$prefix.codec_type"] ?: continue
-            val codecName = props["$prefix.codec_name"] ?: "unknown"
-
-            when (codecType) {
-                "video" -> {
-                    val profile = props["$prefix.profile"]
-                    val width = props["$prefix.width"]?.toIntOrNull()
-                    val height = props["$prefix.height"]?.toIntOrNull()
-                    val fps = parseFrameRate(props["$prefix.avg_frame_rate"] ?: props["$prefix.r_frame_rate"])
-                    val pixFmt = props["$prefix.pix_fmt"].orEmpty()
-                    val bitDepth = props["$prefix.bits_per_raw_sample"]?.toIntOrNull()
-                        ?: if (pixFmt.contains("10") || pixFmt.contains("p10")) 10 else 8
-
-                    val transferStr = (props["$prefix.color_transfer"] ?: "").lowercase()
-                    val primariesStr = (props["$prefix.color_primaries"] ?: "").lowercase()
-
-                    val colorTransfer = when {
-                        transferStr.contains("2084") || transferStr.contains("pq") -> ColorTransfer.HDR10_PQ
-                        transferStr.contains("arib") || transferStr.contains("hlg") -> ColorTransfer.HLG
-                        transferStr.contains("709") -> ColorTransfer.SDR_BT709
-                        else -> ColorTransfer.UNKNOWN
-                    }
-
-                    val colorSpace = when {
-                        primariesStr.contains("2020") -> ColorSpace.BT2020
-                        primariesStr.contains("709") -> ColorSpace.BT709
-                        primariesStr.contains("601") -> ColorSpace.BT601
-                        else -> ColorSpace.UNKNOWN
-                    }
-
-                    val isHw = codecName in HARDWARE_ACCELERATED_CODECS
-
-                    videoStreams.add(
-                        VideoStreamDetails(
-                            codec = codecName,
-                            profile = profile,
-                            width = width,
-                            height = height,
-                            frameRate = fps,
-                            bitDepth = bitDepth,
-                            colorTransfer = colorTransfer,
-                            colorSpace = colorSpace,
-                            isHardwareAccelerated = isHw,
-                        ),
-                    )
-                }
-
-                "audio" -> {
-                    audioStreams.add(
-                        AudioStreamDetails(
-                            codec = codecName,
-                            sampleRate = props["$prefix.sample_rate"]?.toIntOrNull(),
-                            channels = props["$prefix.channels"]?.toIntOrNull(),
-                            bitrate = props["$prefix.bit_rate"]?.toIntOrNull(),
-                            sampleFormat = props["$prefix.sample_fmt"],
-                        ),
-                    )
-                }
-
-                "subtitle" -> {
-                    val subId = props["$prefix.index"] ?: i.toString()
-                    val lang = props["$prefix.tags.language"]
-                    val title = props["$prefix.tags.title"]
-                    val isDefault = props["$prefix.disposition.default"] == "1"
-                    val isForced = props["$prefix.disposition.forced"] == "1"
-
-                    subtitleStreams.add(
-                        SubtitleStreamDetails(
-                            id = subId,
-                            codec = codecName,
-                            language = lang,
-                            title = title,
-                            isDefault = isDefault,
-                            isForced = isForced,
-                        ),
-                    )
-                }
-            }
-        }
-
-        // Chapters
-        val nbChapters = props["format.nb_chapters"]?.toIntOrNull() ?: 0
-        for (c in 0 until nbChapters) {
-            val prefix = "chapters.chapter.$c"
-            val title = props["$prefix.tags.title"] ?: "Chapter ${c + 1}"
-            val startSec = props["$prefix.start_time"]?.toDoubleOrNull() ?: 0.0
-            chapters.add(
-                ChapterInfo(
-                    index = c,
-                    title = title,
-                    startPositionMillis = (startSec * 1000.0).toLong(),
-                ),
+    private fun describe(file: File, inspection: MpvMediaInspector.Inspection): MediaProbeDetails {
+        val tracks = inspection.tracks.filterNot { it.albumArt }
+        val params = inspection.videoParams
+        val videoStreams = tracks.filter { it.type == "video" }.map { track ->
+            val codec = track.codec ?: "unknown"
+            VideoStreamDetails(
+                codec = codec,
+                profile = track.profile,
+                width = track.width,
+                height = track.height,
+                frameRate = track.fps,
+                bitDepth = bitDepth(params?.pixelFormat),
+                colorTransfer = colorTransfer(params?.transfer),
+                colorSpace = colorSpace(params?.primaries),
+                isHardwareAccelerated = codec in HARDWARE_ACCELERATED_CODECS,
             )
         }
-
-        val container = resolveContainerName(formatName, file.extension)
+        val audioStreams = tracks.filter { it.type == "audio" }.map { track ->
+            AudioStreamDetails(
+                codec = track.codec ?: "unknown",
+                sampleRate = track.sampleRate,
+                channels = track.channels,
+                bitrate = track.bitrate,
+            )
+        }
+        val subtitleStreams = tracks.filter { it.type == "sub" }.map { track ->
+            SubtitleStreamDetails(
+                id = track.id?.toString() ?: "",
+                codec = track.codec,
+                language = track.language,
+                title = track.title,
+                isDefault = track.isDefault,
+                isForced = track.isForced,
+                isExternal = track.isExternal,
+            )
+        }
+        val chapters = inspection.chapters.mapIndexed { index, chapter ->
+            ChapterInfo(
+                index = index,
+                title = chapter.title ?: "Chapter ${index + 1}",
+                startPositionMillis = chapter.startMillis,
+            )
+        }
+        val durationMillis = inspection.durationMillis
+        val bitrate = durationMillis?.takeIf { it > 0 }
+            ?.let { (file.length() * BITS_PER_BYTE * MILLIS_PER_SECOND / it).coerceAtMost(Int.MAX_VALUE.toLong()) }
+            ?.toInt()
         val compatibility = evaluateCompatibility(videoStreams, audioStreams)
-
         return MediaProbeDetails(
-            container = container,
+            container = resolveContainerName(inspection.fileFormat.orEmpty(), file.extension),
             durationMillis = durationMillis,
             bitrate = bitrate,
             videoStreams = videoStreams,
@@ -246,6 +110,36 @@ class DesktopMediaProbeService : MediaProbeService {
             overallCompatibility = compatibility,
             statusMessage = "Probed via native inspection (${compatibility.name})",
         )
+    }
+
+    /** Bit depth from libmpv's pixel format name (yuv420p10, p010, yuv444p12, …); 8 otherwise. */
+    private fun bitDepth(pixelFormat: String?): Int {
+        val name = pixelFormat.orEmpty().lowercase()
+        return when {
+            name == "p010" || name.contains("p10") -> 10
+            name.contains("p12") -> 12
+            name.contains("p16") -> 16
+            else -> 8
+        }
+    }
+
+    /** libmpv's `video-params/gamma` names (pq, hlg, bt.1886, …). */
+    private fun colorTransfer(transfer: String?): ColorTransfer = when (transfer?.lowercase()) {
+        "pq" -> ColorTransfer.HDR10_PQ
+        "hlg" -> ColorTransfer.HLG
+        "bt.1886", "srgb", "linear", "gamma2.2" -> ColorTransfer.SDR_BT709
+        else -> ColorTransfer.UNKNOWN
+    }
+
+    /** libmpv's `video-params/primaries` names (bt.709, bt.2020, bt.601-525, bt.601-625, …). */
+    private fun colorSpace(primaries: String?): ColorSpace {
+        val name = primaries.orEmpty().lowercase()
+        return when {
+            name.contains("2020") -> ColorSpace.BT2020
+            name.contains("709") -> ColorSpace.BT709
+            name.contains("601") -> ColorSpace.BT601
+            else -> ColorSpace.UNKNOWN
+        }
     }
 
     internal fun probeWithHeaderSniffing(file: File): MediaProbeDetails {
@@ -274,56 +168,18 @@ class DesktopMediaProbeService : MediaProbeService {
     }
 
     private fun detectContainerFromBytes(header: ByteArray, fallback: String): String {
-        // Matroska / WebM EBML header 0x1A, 0x45, 0xDF, 0xA3
-        if (header.size >= 4 &&
-            header[0] == 0x1A.toByte() && header[1] == 0x45.toByte() &&
-            header[2] == 0xDF.toByte() && header[3] == 0xA3.toByte()
-        ) {
-            return if (fallback.equals("WEBM", ignoreCase = true)) "WEBM" else "MKV"
+        fun has(offset: Int, magic: String) = header.size >= offset + magic.length &&
+            magic.indices.all { header[offset + it] == magic[it].code.toByte() }
+        val ebml = header.size >= 4 && header.copyOfRange(0, 4).contentEquals(EBML_MAGIC)
+        return when {
+            ebml -> if (fallback.equals("WEBM", ignoreCase = true)) "WEBM" else "MKV"
+            has(0, "fLaC") -> "FLAC"
+            has(0, "OggS") -> "OGG"
+            has(0, "RIFF") -> RIFF_TYPES.entries.firstOrNull { (tag, _) -> has(8, tag) }?.value ?: fallback
+            has(4, "ftyp") -> if (fallback.equals("MOV", ignoreCase = true)) "MOV" else "MP4"
+            has(0, "ID3") -> "MP3"
+            else -> fallback
         }
-
-        // FLAC "fLaC"
-        if (header.size >= 4 &&
-            header[0] == 'f'.code.toByte() && header[1] == 'L'.code.toByte() &&
-            header[2] == 'a'.code.toByte() && header[3] == 'C'.code.toByte()
-        ) {
-            return "FLAC"
-        }
-
-        // Ogg "OggS"
-        if (header.size >= 4 &&
-            header[0] == 'O'.code.toByte() && header[1] == 'g'.code.toByte() &&
-            header[2] == 'g'.code.toByte() && header[3] == 'S'.code.toByte()
-        ) {
-            return "OGG"
-        }
-
-        // RIFF (WAV / AVI)
-        if (header.size >= 12 &&
-            header[0] == 'R'.code.toByte() && header[1] == 'I'.code.toByte() &&
-            header[2] == 'F'.code.toByte() && header[3] == 'F'.code.toByte()
-        ) {
-            val waveOrAvi = String(header, 8, 4)
-            if (waveOrAvi == "WAVE") return "WAV"
-            if (waveOrAvi == "AVI ") return "AVI"
-        }
-
-        // MP4 / MOV: "ftyp" box at offset 4
-        if (header.size >= 8 &&
-            header[4] == 'f'.code.toByte() && header[5] == 't'.code.toByte() &&
-            header[6] == 'y'.code.toByte() && header[7] == 'p'.code.toByte()
-        ) {
-            return if (fallback.equals("MOV", ignoreCase = true)) "MOV" else "MP4"
-        }
-
-        // MP3 ID3 header "ID3"
-        if (header.size >= 3 &&
-            header[0] == 'I'.code.toByte() && header[1] == 'D'.code.toByte() && header[2] == '3'.code.toByte()
-        ) {
-            return "MP3"
-        }
-
-        return fallback
     }
 
     private fun evaluateCompatibility(
@@ -346,17 +202,6 @@ class DesktopMediaProbeService : MediaProbeService {
         }
     }
 
-    private fun parseFrameRate(raw: String?): Float? {
-        if (raw == null) return null
-        val slash = raw.indexOf('/')
-        if (slash > 0) {
-            val num = raw.substring(0, slash).toFloatOrNull() ?: return null
-            val den = raw.substring(slash + 1).toFloatOrNull() ?: return null
-            if (den > 0f) return num / den
-        }
-        return raw.toFloatOrNull()
-    }
-
     private fun resolveContainerName(formatName: String, extension: String): String = when {
         formatName.contains("mp4") || formatName.contains("mov") -> "MP4"
         formatName.contains("matroska") || formatName.contains("webm") -> {
@@ -371,10 +216,12 @@ class DesktopMediaProbeService : MediaProbeService {
     }
 
     companion object {
-        private const val MIN_FFPROBE_BYTES = 64L
-        private const val MAX_PROBE_BYTES = 1024 * 1024
-        private const val PROBE_TIMEOUT_SECONDS = 5L
+        private const val MIN_INSPECTABLE_BYTES = 64L
         private const val HEADER_READ_LIMIT = 4096
+        private val EBML_MAGIC = byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte())
+        private val RIFF_TYPES = mapOf("WAVE" to "WAV", "AVI " to "AVI")
+        private const val BITS_PER_BYTE = 8L
+        private const val MILLIS_PER_SECOND = 1_000L
 
         private val HARDWARE_ACCELERATED_CODECS = setOf(
             "h264", "hevc", "h265", "vp9", "av1",

@@ -41,7 +41,7 @@ Startup performance was evaluated to ensure the main UI appears immediately with
 - **Disk Cache**:
   - Atomic writes (`.tmp` file renamed atomically to target cache hash) prevent partial file reads.
   - Least-Recently-Used (LRU) disk cache bounds prevent unbounded storage growth.
-  - Cache hits avoid re-running `ffprobe` / `ffmpeg` or `AVAssetImageGenerator` on previously indexed media.
+  - Cache hits avoid re-running the libmpv inspector (`MpvMediaInspector`) or `AVAssetImageGenerator` on previously indexed media.
 
 ---
 

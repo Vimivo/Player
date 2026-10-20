@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
     private val playbackController: PlaybackController by inject()
     private val thumbnailRepository: AndroidThumbnailRepository by inject()
     private val permissionPolicy: MediaPermissionPolicy by inject()
+    private val folderSiblings by lazy { AndroidFolderSiblings(applicationContext) }
     private var videoPlayerActive = false
     private var videoPlaying = false
     private var externalOpen by mutableStateOf<ExternalOpenRequest?>(null)
@@ -68,7 +69,9 @@ class MainActivity : ComponentActivity() {
             val mimeType = intent.type ?: contentResolver.getType(data)
             val request = ExternalMediaRequest.parse(intent.action, data.toString(), mimeType, displayName)
                 ?: return@launch
-            playbackController.play(request.media)
+            // Like desktop: the opened file, then the rest of its folder ("Up Next"), in natural order.
+            val queue = withContext(Dispatchers.IO) { folderSiblings.queueFor(request.media) }
+            playbackController.playQueue(queue.items, queue.startIndex)
             externalOpen = ExternalOpenRequest(System.nanoTime(), request.media.kind)
         }
     }

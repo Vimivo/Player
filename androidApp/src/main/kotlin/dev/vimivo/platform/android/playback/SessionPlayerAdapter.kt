@@ -31,6 +31,8 @@ import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.QueueContext
+import dev.vimivo.playback.QueueNavigation
+import dev.vimivo.playback.QueueRepeatMode
 import dev.vimivo.settings.RepeatBehavior
 import dev.vimivo.settings.ShuffleBehavior
 import kotlinx.coroutines.CoroutineScope
@@ -51,6 +53,8 @@ class SessionPlayerAdapter(
     private var currentIndex = 0
     private var repeatMode = Player.REPEAT_MODE_OFF
     private var shuffle = false
+    private var shuffleOrder: List<Int>? = null
+    private var consecutiveFailures = 0
     private var released = false
     private var restorePosition = 0L
     private var persistJob: Job? = null
@@ -63,8 +67,14 @@ class SessionPlayerAdapter(
         scope.launch {
             manager.state.collectLatest { state ->
                 attachVideoOutputIfNeeded()
-                if (state.status == PlaybackStatus.Completed) {
+                val status = state.status
+                if (status == PlaybackStatus.Completed) {
+                    consecutiveFailures = 0
                     if (sleepTimer.consumeStopAfterCurrent()) manager.stop() else advanceAfterCompletion()
+                } else if (status is PlaybackStatus.Error && !status.error.recoverableByFallback) {
+                    skipFailedItem()
+                } else if (status == PlaybackStatus.Playing) {
+                    consecutiveFailures = 0
                 }
                 persistDebounced(state)
                 invalidateState()
@@ -168,6 +178,8 @@ class SessionPlayerAdapter(
 
     override fun handleSetMediaItems(items: List<MediaItem>, startIndex: Int, startPositionMs: Long): ListenableFuture<*> {
         playlist = items
+        shuffleOrder = null
+        consecutiveFailures = 0
         currentIndex = startIndex.takeUnless { it == C.INDEX_UNSET }?.coerceIn(playlist.indices) ?: 0
         openCurrent(startPositionMs.takeUnless { it == C.TIME_UNSET } ?: 0)
         return done()
@@ -230,6 +242,7 @@ class SessionPlayerAdapter(
 
     override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean): ListenableFuture<*> = done().also {
         shuffle = shuffleModeEnabled
+        shuffleOrder = null
         persistNow()
     }
 
@@ -285,17 +298,37 @@ class SessionPlayerAdapter(
         }
     }
 
-    private fun advanceAfterCompletion() {
+    private fun advanceAfterCompletion(afterFailure: Boolean = false) {
         if (playlist.isEmpty()) return
-        val next = when {
-            repeatMode == Player.REPEAT_MODE_ONE -> currentIndex
-            shuffle && playlist.size > 1 -> playlist.indices.filterNot { it == currentIndex }.random()
-            currentIndex < playlist.lastIndex -> currentIndex + 1
-            repeatMode == Player.REPEAT_MODE_ALL -> 0
-            else -> return
-        }
+        val next = QueueNavigation.next(currentIndex, playlist.size, queueRepeatMode(), currentShuffleOrder(), afterFailure)
+            ?: return
         currentIndex = next
         openCurrent(0, play = true)
+    }
+
+    /** An unplayable item never stops the queue; once every item has failed in a row, playback stops. */
+    private fun skipFailedItem() {
+        val failed = playlist.getOrNull(currentIndex) ?: return
+        consecutiveFailures++
+        skippedListener?.invoke(failed)
+        if (consecutiveFailures >= playlist.size) manager.stop() else advanceAfterCompletion(afterFailure = true)
+    }
+
+    /** Notified with each item skipped because it could not be played. */
+    var skippedListener: ((MediaItem) -> Unit)? = null
+
+    private fun queueRepeatMode() = when (repeatMode) {
+        Player.REPEAT_MODE_ONE -> QueueRepeatMode.ONE
+        Player.REPEAT_MODE_ALL -> QueueRepeatMode.ALL
+        else -> QueueRepeatMode.OFF
+    }
+
+    /** Shuffle visits each item once, starting from the current one; rebuilt whenever the list changes. */
+    private fun currentShuffleOrder(): List<Int>? {
+        if (!shuffle) return null
+        val order = shuffleOrder
+        if (order != null && order.size == playlist.size && currentIndex in order) return order
+        return QueueNavigation.shuffledOrder(playlist.size, currentIndex).also { shuffleOrder = it }
     }
 
     private fun persistDebounced(state: PlaybackState) {

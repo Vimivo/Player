@@ -1,0 +1,166 @@
+name: LGPL Media Stack (libmpv + FFmpeg)
+
+# Builds Vimivo's LGPL-only libmpv/FFmpeg packages from the pinned sources in scripts/build_media (ADR-004) and
+# verifies each one on its own OS: every FFmpeg library must report LGPL, libmpv must say -Dgpl=false, and the
+# filters the VLC-parity matrix relies on must exist. Desktop workflows never run this; they download the
+# published, checksum-pinned packages (scripts/build_media/media.lock) from our own GitHub Release.
+on:
+  workflow_dispatch:
+  # push, not pull_request: a pull_request path filter matches the whole PR diff, so every later push to the PR would
+  # rebuild the stack (1-2 h per OS). A push filter only looks at the pushed commits.
+  push:
+    paths:
+      - "scripts/build_media/**"
+      - "!scripts/build_media/media.lock"
+      - "!scripts/build_media/fetch_media.py"
+      - "!scripts/build_media/README.md"
+      - ".github/workflows/build-media.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build tools (hash-pinned)
+        run: python3 -m pip install --require-hashes -r scripts/build_media/requirements-build.txt
+      - name: Build universal arm64 + x86_64
+        run: python3 scripts/build_media/build.py --target macos --work "$RUNNER_TEMP/media" --out out
+      - name: Verify (arm64)
+        run: |
+          mkdir verify && tar -xJf out/*.tar.xz -C verify
+          python3 scripts/build_media/verify.py verify/* --report out/verify-macos-arm64.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: media-macos-universal
+          path: out/
+
+  macos-intel-verify:
+    needs: macos
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: media-macos-universal
+          path: out
+      - name: Verify the x86_64 slice on Intel
+        run: |
+          mkdir verify && tar -xJf out/*.tar.xz -C verify
+          python3 scripts/build_media/verify.py verify/* --report verify-macos-x86_64.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verify-macos-x86_64
+          path: verify-macos-x86_64.json
+
+  linux:
+    runs-on: ubuntu-24.04
+    # The oldest supported distribution baseline (glibc 2.35); system libraries come from its packages and
+    # are not shipped.
+    container: ubuntu:22.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build dependencies (distribution packages)
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential ca-certificates curl xz-utils bzip2 \
+            python3 python3-venv patchelf zlib1g-dev libssl-dev libfontconfig-dev \
+            libx11-dev libxext-dev libxrandr-dev libxss-dev libxpresent-dev libxinerama-dev libxfixes-dev \
+            libegl-dev libgl-dev libva-dev libdrm-dev libpulse-dev libasound2-dev hwdata
+      - name: Build tools (hash-pinned)
+        run: |
+          python3 -m venv /opt/buildenv
+          /opt/buildenv/bin/pip install --require-hashes -r scripts/build_media/requirements-build.txt
+      - name: Build x86_64
+        run: PATH=/opt/buildenv/bin:$PATH python3 scripts/build_media/build.py --target linux --work "$RUNNER_TEMP/media" --out out
+      - name: Verify
+        run: |
+          mkdir verify && tar -xJf out/*.tar.xz -C verify
+          python3 scripts/build_media/verify.py verify/* --report out/verify-linux-x86_64.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: media-linux-x86_64
+          path: out/
+
+  windows:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: mingw-w64 cross toolchain (distribution packages)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64 g++-mingw-w64-x86-64-posix gcc-mingw-w64-x86-64-posix
+          # POSIX threads: glslang, SPIRV-Tools and SPIRV-Cross use std::thread/std::mutex.
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+      - name: Build tools (hash-pinned)
+        run: python3 -m pip install --require-hashes -r scripts/build_media/requirements-build.txt
+      - name: Build x86_64
+        run: python3 scripts/build_media/build.py --target windows --work "$RUNNER_TEMP/media" --out out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: media-windows-x86_64
+          path: out/
+
+  windows-verify:
+    needs: windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: media-windows-x86_64
+          path: out
+      - name: Verify on Windows
+        shell: bash
+        run: |
+          mkdir verify && tar -xJf out/*.tar.xz -C verify
+          python scripts/build_media/verify.py verify/* --report verify-windows-x86_64.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verify-windows-x86_64
+          path: verify-windows-x86_64.json
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Android NDK (pinned by manifest.json) and patchelf
+        run: |
+          ndk="$(python3 -c "import json; print(json.load(open('scripts/build_media/manifest.json'))['android']['ndk'])")"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends patchelf
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$ndk" >> "$GITHUB_ENV"
+      - name: Build tools (hash-pinned)
+        run: python3 -m pip install --require-hashes -r scripts/build_media/requirements-build.txt
+      - name: Build arm64-v8a, armeabi-v7a, x86_64 (verified statically per ABI before packaging)
+        run: python3 scripts/build_media/build.py --target android --work "$RUNNER_TEMP/media" --out out
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-android
+          path: |
+            out/*.tar.xz
+            out/*.sha256
+

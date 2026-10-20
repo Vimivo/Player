@@ -57,12 +57,13 @@ class PlaybackController(
     fun playQueue(
         items: List<VimivoMediaItem>,
         index: Int = 0,
-        shuffle: Boolean = false,
+        shuffle: Boolean? = null,
         positionMillis: Long? = null,
     ) {
         if (items.isEmpty()) return
         withController {
-            shuffleModeEnabled = shuffle
+            // Tapping a row keeps the user's shuffle choice; only explicit "Shuffle" actions change it.
+            if (shuffle != null) shuffleModeEnabled = shuffle
             val start = positionMillis ?: items.getOrNull(index)?.preferredResumePosition() ?: 0
             setMediaItems(items.map(VimivoMediaItem::toMedia3), index.coerceIn(items.indices), start)
             prepare()

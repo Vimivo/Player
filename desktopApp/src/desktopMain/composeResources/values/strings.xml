@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- On-screen HUD feedback for player commands -->
+    <string name="hud_volume">Volume %1$s</string>
+    <string name="hud_muted">Muted</string>
+    <string name="hud_speed">Speed %1$s×</string>
+    <string name="hud_subtitle_delay">Subtitle delay %1$s ms</string>
+    <string name="hud_audio_delay">Audio delay %1$s ms</string>
+    <string name="hud_audio_track">Audio: %1$s</string>
+    <string name="hud_subtitle_track">Subtitles: %1$s</string>
+    <string name="hud_subtitles_off">Subtitles off</string>
+    <string name="hud_no_audio_tracks">No audio tracks</string>
+    <string name="hud_no_subtitle_tracks">No subtitle tracks</string>
+    <string name="hud_shuffle_toggled">Shuffle toggled</string>
+    <string name="hud_repeat_changed">Repeat mode changed</string>
+    <string name="hud_loop_point_a">Loop point A set</string>
+    <string name="hud_loop_on">A-B loop on</string>
+    <string name="hud_loop_off">A-B loop off</string>
+    <string name="hud_snapshot_saved">Snapshot saved: %1$s</string>
+    <string name="hud_aspect_ratio">Aspect ratio: %1$s</string>
+    <string name="hud_deinterlace_on">Deinterlacing on</string>
+    <string name="hud_deinterlace_off">Deinterlacing off</string>
+    <string name="hud_subtitle_loaded">Subtitles loaded: %1$s</string>
+    <string name="hud_subtitle_failed">Could not load %1$s</string>
+    <string name="hud_command_failed">%1$s failed: %2$s</string>
+    <string name="hud_unavailable">unavailable</string>
+    <string name="hud_stream_opened">Opening stream</string>
+    <string name="hud_clipboard_not_url">The clipboard does not contain a playable link</string>
+    <string name="hud_skipped">Skipped: %1$s (could not be played)</string>
+    <string name="hud_added_to_queue">Added %1$d to Up Next</string>
+
+    <!-- Launch and resume -->
+    <string name="player_loading">Opening %1$s…</string>
+    <string name="player_resume_from">Resume from %1$s</string>
+    <string name="player_start_over">Start over</string>
+    <string name="player_resume_dismiss">Dismiss</string>
+    <string name="player_back_to_library">Library</string>
+    <string name="player_back_to_library_description">Back to the library</string>
+    <string name="player_now_playing">Now playing</string>
+    <string name="launch_settings_title">Opening files</string>
+    <string name="launch_open_mode_replace">When Vimivo is already open, play the new file</string>
+    <string name="launch_open_mode_queue">When Vimivo is already open, add it to Up Next</string>
+    <string name="launch_folder_siblings">Play the other files in the same folder next</string>
+    <string name="launch_make_default">Make Vimivo the default player</string>
+    <string name="launch_make_default_confirm_title">Use Vimivo for media files?</string>
+    <string name="launch_make_default_confirm_body">Vimivo will become the default app for video, audio and playlist files for your user account. You can change this later in your system settings.</string>
+    <string name="launch_make_default_confirm">Use Vimivo</string>
+    <string name="launch_make_default_cancel">Cancel</string>
+    <string name="launch_make_default_opened">Choose Vimivo in Default apps, then close the window.</string>
+    <string name="launch_make_default_applied">Vimivo is now the default for %1$d file types.</string>
+    <string name="launch_make_default_failed">Could not change the default player: %1$s</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_previous">Previous</string>
+    <string name="player_next">Next</string>
+    <string name="player_back_10">Back 10 seconds</string>
+    <string name="player_forward_10">Forward 10 seconds</string>
+    <string name="player_fullscreen">Full screen</string>
+    <string name="player_exit_fullscreen">Exit full screen</string>
+    <string name="player_panel">Video, subtitle and bookmark settings</string>
+    <string name="player_open_library">Open the library</string>
+    <string name="player_volume">Volume</string>
+    <string name="player_seek">Playback position</string>
+    <string name="player_speed">Playback speed %1$s×</string>
+    <string name="player_tab_video">Video</string>
+    <string name="player_tab_bookmarks">Bookmarks</string>
+    <string name="player_close_panel">Close panel</string>
+    <string name="player_stop">Stop</string>
+    <string name="player_playlist">Playlist</string>
+    <string name="player_time_toggle">Show elapsed or remaining time</string>
+    <string name="player_tab_audio">Audio</string>
+    <string name="player_tab_subtitles">Subtitles</string>
+    <string name="player_tab_sync">Sync</string>
+    <string name="player_controls">Playback controls</string>
+    <string name="player_unknown_time">--:--</string>
+</resources>

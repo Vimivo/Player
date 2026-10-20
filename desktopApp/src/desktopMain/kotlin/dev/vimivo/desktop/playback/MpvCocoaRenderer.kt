@@ -16,13 +16,7 @@ internal class MpvCocoaRenderer : DesktopVideoRenderer {
         check(!attached) { "A render target is already attached" }
         // JAWT dereferences the canvas peer; calling it before the canvas is displayable crashes the JVM.
         check(canvas.isDisplayable) { "The video surface is not displayable yet" }
-        val frameworks = MpvNative.findBundledFrameworksDir()
-        val bundledBridge = frameworks?.resolve("libvimivo_mpv_cocoa.dylib")
-        if (bundledBridge != null && bundledBridge.exists()) {
-            System.load(bundledBridge.absolutePath)
-        } else {
-            System.loadLibrary("vimivo_mpv_cocoa")
-        }
+        MpvNative.loadCocoaBridge()
         val result = attachNative(canvas, Pointer.nativeValue(context))
         check(result == 0) { "Unable to attach libmpv to the Cocoa render target: ${describeAttachFailure(result)}" }
         attached = true
@@ -33,6 +27,13 @@ internal class MpvCocoaRenderer : DesktopVideoRenderer {
         attached = false
     }
 
+    override fun presentedFrame(): PresentedFrame? {
+        if (!attached) return null
+        val (count, width, height) = presentedFrameNative() ?: return null
+        return PresentedFrame(count, width.toInt(), height.toInt())
+    }
+
+    private external fun presentedFrameNative(): LongArray?
     private external fun attachNative(canvas: Canvas, mpvHandle: Long): Int
     private external fun detachNative()
 

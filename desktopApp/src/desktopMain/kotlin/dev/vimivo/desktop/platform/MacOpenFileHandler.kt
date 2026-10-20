@@ -18,9 +18,16 @@ internal class MacOpenFileHandler : AutoCloseable {
         desktop.setOpenFileHandler { event -> submit(event.files) }
     }
 
+    /** Whether any file has arrived; a launch that received one opens the player, not the library. */
+    @Volatile var received: Boolean = false
+        private set
+
     fun submit(files: List<File>) {
         val playable = files.filter(File::isFile)
-        if (playable.isNotEmpty()) pendingFiles.trySend(playable)
+        if (playable.isNotEmpty()) {
+            received = true
+            pendingFiles.trySend(playable)
+        }
     }
 
     override fun close() {

@@ -238,6 +238,40 @@ internal class DesktopPersonalMediaRepository(private val database: DesktopDatab
         }
     }
 
+    /** Resume position for a file opened outside the library, keyed by its URI. */
+    fun saveExternalPosition(uri: String, positionMillis: Long, durationMillis: Long?, completed: Boolean, now: Long = System.currentTimeMillis()) =
+        database.transaction { connection ->
+            connection.prepareStatement(
+                "INSERT INTO external_playback_positions(uri,position_ms,duration_ms,completed,updated_at_ms) VALUES(?,?,?,?,?) " +
+                    "ON CONFLICT(uri) DO UPDATE SET position_ms=excluded.position_ms, " +
+                    "duration_ms=COALESCE(excluded.duration_ms, external_playback_positions.duration_ms), " +
+                    "completed=excluded.completed, updated_at_ms=excluded.updated_at_ms",
+            ).use { statement ->
+                statement.setString(1, uri)
+                statement.setLong(2, positionMillis.coerceAtLeast(0))
+                if (durationMillis != null) statement.setLong(3, durationMillis) else statement.setNull(3, java.sql.Types.INTEGER)
+                statement.setInt(4, if (completed) 1 else 0)
+                statement.setLong(5, now)
+                statement.executeUpdate()
+            }
+        }
+
+    fun externalPosition(uri: String): ResumePosition? = database.transaction { connection ->
+        connection.prepareStatement(
+            "SELECT position_ms,duration_ms,completed,updated_at_ms FROM external_playback_positions WHERE uri=?",
+        ).use { statement ->
+            statement.setString(1, uri)
+            statement.executeQuery().use { rows ->
+                if (!rows.next()) {
+                    null
+                } else {
+                    val duration = rows.getLong(2).takeIf { !rows.wasNull() }
+                    ResumePosition(MediaId(uri), rows.getLong(1), duration, rows.getInt(3) != 0, rows.getLong(4))
+                }
+            }
+        }
+    }
+
     fun allPositions(): Map<String, ResumePosition> = database.transaction { connection ->
         connection.prepareStatement(
             "SELECT media_id,position_ms,duration_ms,completed,updated_at_ms FROM playback_positions",

@@ -33,6 +33,15 @@ class PlaybackControlPolicyTest {
     }
 
     @Test
+    fun amplifiedVolumeClampsToEngineMaximumAndPausesAtUnity() {
+        assertEquals(1f, PlaybackControlPolicy.stepVolume(0.98f, 0.05f, max = 2f))
+        assertEquals(1.05f, PlaybackControlPolicy.stepVolume(1f, 0.05f, max = 2f))
+        assertEquals(2f, PlaybackControlPolicy.stepVolume(1.98f, 0.05f, max = 2f))
+        assertEquals(1f, PlaybackControlPolicy.stepVolume(1.03f, -0.05f, max = 2f))
+        assertEquals(1.36f, PlaybackControlPolicy.stepVolume(1.35f, PlaybackControlPolicy.FINE_VOLUME_STEP, max = 2f))
+    }
+
+    @Test
     fun seekTargetIsClampedToMediaBounds() {
         assertEquals(0L, PlaybackControlPolicy.seekTarget(3_000, -5_000, 60_000))
         assertEquals(60_000L, PlaybackControlPolicy.seekTarget(58_000, 5_000, 60_000))

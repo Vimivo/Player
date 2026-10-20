@@ -19,7 +19,7 @@ Overrides must be absolute paths; relative overrides are rejected and fallback t
 ## 2. Native multimedia playback
 
 Vimivo uses libmpv (`libmpv.so.2` / `libmpv.so`) via JNA in-process:
-- **Embedded video rendering**: `MpvX11Renderer` obtains the native X11/XWayland Window ID (`XID`) of an AWT `Canvas` using JNA's `Native.getComponentID(canvas)`. It sets libmpv's `wid` property with `vo = gpu` (or fallback `vo = x11`). This eliminates the need for a separate C++ Cocoa/Win32-style bridge and works under native X11 as well as XWayland compositors.
+- **Embedded video rendering**: `MpvEglRenderer` renders through the libmpv render API into Vimivo's own EGL context on the AWT `Canvas`'s X11/XWayland window (JNA only, no compiled bridge). The LGPL libmpv (ADR-004) has no X11 output (mpv's X11 code is GPL), so `wid` embedding is not possible; VA-API decodes through a DRM render node. See `LINUX_NATIVE_PLAYBACK.md`.
 - **Audio output**: Handled natively by libmpv, interfacing automatically with PipeWire, PulseAudio, or ALSA depending on the active Linux distribution.
 - **Engine capabilities**: On Linux, `MpvPlayerEngine` reports `localVideo = true` and `hdr = true`.
 

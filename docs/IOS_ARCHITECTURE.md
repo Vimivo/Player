@@ -23,9 +23,26 @@ Vimivo on iOS and iPadOS combines a native SwiftUI mobile interface with Kotlin 
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │      Kotlin Multiplatform Core (VimivoShared)          │
-│  Domain Contracts, Playlist/Queue State Logic, Models  │
+│  ResumePolicy, PlaybackSpeeds (consumed today);        │
+│  persistence, indexing, queue next (ADR-020/021)       │
 └────────────────────────────────────────────────────────┘
 ```
+
+`PlaybackPreferences.swift` is the bridge to shared rules: it maps the Swift `MediaKind` to the Kotlin enum and calls
+`ResumePolicy` and `PlaybackSpeeds`, so iOS resumes and offers speeds exactly like Android and desktop. Xcode links
+the framework from `shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)`, built by the
+`embedAndSignAppleFrameworkForXcode` script phase for whichever SDK and configuration is being built.
+
+## Getting Media In
+
+- **Files app / document picker**: security-scoped bookmarks (below).
+- **On My iPhone › Vimivo**: `DocumentsLibraryImporter` indexes the app's Documents folder (also reachable from Finder
+  over USB) on launch and whenever the app becomes active. Items get stable `documents:<relative path>` IDs, and their
+  stored URIs are refreshed because the container path changes when the app is updated.
+- **Open in Vimivo / share sheet**: `CFBundleDocumentTypes` declares `public.audio` and `public.movie` with the
+  `Alternate` rank; `AppRouter` imports and plays the file.
+- **Deep links**: `vimivo://now-playing` (widgets) and `vimivo://play?id=<media id>`. Debug builds also accept
+  `-VimivoOpenURL <url>` as a launch argument so simulator and CI smoke tests can drive playback.
 
 ## Native Multimedia Playback
 
@@ -96,9 +113,13 @@ The full-screen player (`VideoPlayerView`) mirrors the Android `AdvancedVideoPla
   - `media_items`: imported local and network media references, metadata, durations, and security bookmarks.
   - `playlists` & `playlist_items`: user playlists with preserved ordering.
   - `favorites`: bookmarked favorite tracks.
-  - `playback_history`: play counts, last played timestamps, and completion statuses.
-  - `playback_queue`: persisted active queue state.
-  - `bookmarks`: saved timestamp markers within media items.
+  - `playback_history`: play counts, last played timestamps, resume positions, and completion statuses. Starting
+    playback counts a play without touching the saved position; the position is saved every 10 s, on pause, when the
+    app resigns active or enters the background, and when switching items.
+  - `queue_items` + `queue_state`: the persisted queue and current index, restored paused at launch.
+  - `bookmarks`: saved positions within media items, managed from the video player's options sheet.
+- This Swift store is transitional: ADR-021 moves it into a shared Room database with a one-time, non-destructive
+  import of existing rows.
 
 ## Secure Credential Storage
 

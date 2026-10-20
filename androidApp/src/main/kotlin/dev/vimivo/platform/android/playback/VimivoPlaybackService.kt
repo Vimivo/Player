@@ -38,6 +38,9 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import org.koin.android.ext.android.inject
 import dev.vimivo.settings.SettingsRepository
+import dev.vimivo.app.R
+import androidx.core.content.ContextCompat
+import android.widget.Toast
 
 class VimivoPlaybackService : MediaLibraryService() {
     private val media3Factory: Media3PlayerEngineFactory by inject()
@@ -64,7 +67,15 @@ class VimivoPlaybackService : MediaLibraryService() {
             scope = serviceScope,
         )
         diagnostics.attach(engineManager)
-        sessionPlayer = SessionPlayerAdapter(engineManager, serviceScope, stateStore, sleepTimer)
+        sessionPlayer = SessionPlayerAdapter(engineManager, serviceScope, stateStore, sleepTimer).also { player ->
+            player.skippedListener = { item ->
+                val name = item.mediaMetadata.title ?: item.mediaId
+                // The adapter reports from its playback scope; toasts must be shown on the main thread.
+                ContextCompat.getMainExecutor(this).execute {
+                    Toast.makeText(this, getString(R.string.playback_skipped, name), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, LibraryCallback()).build()
         registerNoisyReceiver()
         serviceScope.launch {

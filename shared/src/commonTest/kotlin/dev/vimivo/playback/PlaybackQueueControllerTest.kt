@@ -8,8 +8,10 @@ import dev.vimivo.core.model.MediaKind
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -60,6 +62,44 @@ class PlaybackQueueControllerTest {
         assertTrue(controller.state.value.shuffleEnabled)
         controller.remove(controller.state.value.items.indexOfFirst { it.media.id.value == "three" })
         assertEquals(4, controller.state.value.items.size)
+    }
+
+    /** Q1 regression: a file that fails while playing must not stop the rest of the list. */
+    @Test
+    fun skipsItemsThatFailWhilePlayingAndReportsThem() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        val skipped = mutableListOf<String>()
+        backgroundScope.launch { controller.skipped.collect { skipped += it.id.value } }
+        controller.play(listOf(media("one"), media("broken"), media("three"))).getOrThrow()
+        runCurrent()
+
+        engine.complete()
+        runCurrent()
+        engine.fail()
+        runCurrent()
+
+        assertEquals("three", controller.state.value.currentMedia?.id?.value)
+        assertEquals(listOf("broken"), skipped)
+    }
+
+    @Test
+    fun stopsInsteadOfLoopingWhenEveryItemFailsUnderRepeatAll() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("a"), media("b"))).getOrThrow()
+        controller.cycleRepeat()
+        controller.cycleRepeat()
+        assertEquals(QueueRepeatMode.ALL, controller.state.value.repeatMode)
+        runCurrent()
+
+        repeat(2) {
+            engine.fail()
+            runCurrent()
+        }
+
+        assertTrue(engine.stopped)
+        assertEquals(listOf("a", "b"), engine.opened)
     }
 
     @Test
@@ -280,6 +320,21 @@ class PlaybackQueueControllerTest {
         assertTrue(engine.stopped, "Engine must be stopped when all items fail to open")
     }
 
+    @Test
+    fun aControlErrorBeforeAnyMediaDoesNotSkipTheItemBeingOpened() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        runCurrent()
+        engine.failWithoutMedia()
+        engine.yieldBeforeOpen = true
+
+        controller.play(listOf(media("first"), media("second"), media("third")), startIndex = 1).getOrThrow()
+        runCurrent()
+
+        assertEquals(listOf("second"), engine.opened)
+        assertEquals("second", controller.state.value.currentMedia?.id?.value)
+    }
+
     private fun media(id: String) = MediaItem(MediaId(id), "file:///$id.mp3", id, MediaKind.AUDIO)
 }
 
@@ -300,9 +355,11 @@ private class FakeQueueEngine : PlayerEngine {
     var openHook: (() -> Unit)? = null
     var failOnOpen = false
     var stopped = false
+    var yieldBeforeOpen = false
 
     override fun supportFor(media: MediaItem) = SupportLevel.PREFERRED
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> {
+        if (yieldBeforeOpen) yield()
         if (failOnOpen) {
             return Result.failure(IllegalStateException("Simulated decoder open failure"))
         }
@@ -336,6 +393,17 @@ private class FakeQueueEngine : PlayerEngine {
 
     fun complete() {
         mutableState.value = state.value.copy(status = PlaybackStatus.Completed)
+    }
+
+    fun fail() {
+        val error = PlaybackError(PlaybackErrorCode.UNSUPPORTED_CODEC, "no decoder", engine = id)
+        mutableState.value = state.value.copy(status = PlaybackStatus.Error(error))
+    }
+
+    /** A control used before any media was opened, as libmpv-backed engines report it. */
+    fun failWithoutMedia() {
+        val error = PlaybackError(PlaybackErrorCode.ENGINE_INITIALIZATION, "Open media first", engine = id)
+        mutableState.value = state.value.copy(media = null, status = PlaybackStatus.Error(error))
     }
 
     fun setPosition(pos: Long) {

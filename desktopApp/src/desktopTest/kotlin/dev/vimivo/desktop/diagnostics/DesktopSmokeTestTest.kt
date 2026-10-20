@@ -30,23 +30,49 @@ class DesktopSmokeTestTest {
     }
 
     @Test
-    fun passesOnceVideoPlaybackAdvancesWithADecodedTrack() = runTest {
+    fun passesOnceVideoPlaybackAdvancesAndThePictureIsOnScreen() = runTest {
         val file = tempFile("clip.mp4")
         val state = MutableStateFlow(PlaybackState())
 
-        val results = DesktopSmokeTest.run(listOf(file), state, ::media, play = { media ->
-            state.value = PlaybackState(
-                media = media,
-                status = PlaybackStatus.Playing,
-                positionMillis = 2_000,
-                videoTracks = listOf(TrackInfo("1", TrackType.VIDEO, "h264")),
-            )
-            Result.success(Unit)
-        })
+        val results = DesktopSmokeTest.run(
+            listOf(file),
+            state,
+            ::media,
+            play = playsVideo(state),
+            probePicture = { PICTURE },
+        )
 
         val passed = assertIs<DesktopSmokeResult.Passed>(results.single())
         assertEquals(2_000, passed.positionMillis)
         assertTrue(DesktopSmokeTest.format(passed).startsWith("VIMIVO_SMOKE PASS clip.mp4"))
+    }
+
+    /** Regression (D1): audio and a moving clock with a black window used to pass. */
+    @Test
+    fun failsVideoThatDecodesButShowsABlackWindow() = runTest {
+        val file = tempFile("clip.mp4")
+        val state = MutableStateFlow(PlaybackState())
+
+        val results = DesktopSmokeTest.run(
+            listOf(file),
+            state,
+            ::media,
+            play = playsVideo(state),
+            probePicture = { BLACK },
+        )
+
+        val failed = assertIs<DesktopSmokeResult.Failed>(results.single())
+        assertTrue("shows no picture" in failed.reason, failed.reason)
+    }
+
+    private fun playsVideo(state: MutableStateFlow<PlaybackState>): suspend (MediaItem) -> Result<Unit> = { media ->
+        state.value = PlaybackState(
+            media = media,
+            status = PlaybackStatus.Playing,
+            positionMillis = 2_000,
+            videoTracks = listOf(TrackInfo("1", TrackType.VIDEO, "h264")),
+        )
+        Result.success(Unit)
     }
 
     @Test
@@ -134,4 +160,9 @@ class DesktopSmokeTestTest {
         kind = if (file.extension in setOf("mp4", "mkv")) MediaKind.VIDEO else MediaKind.AUDIO,
         fileName = file.name,
     )
+
+    private companion object {
+        val PICTURE = VideoPixelSample(litFraction = 0.7, distinctColours = 12, width = 960, height = 456)
+        val BLACK = VideoPixelSample(litFraction = 0.0, distinctColours = 0, width = 960, height = 456)
+    }
 }

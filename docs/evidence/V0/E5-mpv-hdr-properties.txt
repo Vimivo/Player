@@ -1,0 +1,2 @@
+$ mpv ... --term-playing-msg=... hdr10.mkv
+colormatrix=bt.2020-ncl video-params/colormatrix=bt.2020-ncl video-params/gamma=pq

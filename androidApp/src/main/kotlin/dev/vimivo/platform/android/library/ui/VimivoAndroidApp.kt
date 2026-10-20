@@ -593,7 +593,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.mediaSection(
     item { SectionTitle(title) }
     item {
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(media, key = { it.id.value }) { item -> MediaCard(item, thumbnails) { playback.play(item) } }
+            items(media, key = { it.id.value }) { item ->
+                MediaCard(item, thumbnails) { playback.playQueue(media, media.indexOf(item)) }
+            }
         }
     }
     item { Spacer(Modifier.height(24.dp)) }
@@ -1551,12 +1553,9 @@ private fun SettingsScreen(
             dismissButton = { OutlinedButton({ confirmAction = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
-    if (noticesVisible) AlertDialog(
-        onDismissRequest = { noticesVisible = false },
-        title = { Text(stringResource(R.string.third_party_notices)) },
-        text = { Text(stringResource(R.string.notices_text)) },
-        confirmButton = { Button({ noticesVisible = false }) { Text(stringResource(R.string.ok)) } },
-    )
+    if (noticesVisible) {
+        dev.vimivo.platform.android.ui.components.AndroidLicensesDialog(onDismiss = { noticesVisible = false })
+    }
     if (feedbackVisible) {
         dev.vimivo.platform.android.ui.components.AndroidFeedbackDialog(
             onDismiss = { feedbackVisible = false },
@@ -1723,13 +1722,20 @@ private fun GlobalSearch(
                         },
                     )
                 }
-                items(state.items.take(20), key = { it.id.value }) { SongRow(it, thumbnails, { playback.play(it); onClose() }) }
+                val visibleResults = state.items.take(20)
+                items(visibleResults, key = { it.id.value }) { result ->
+                    SongRow(result, thumbnails, {
+                        playback.playQueue(visibleResults, visibleResults.indexOf(result))
+                        onClose()
+                    })
+                }
                 if (!state.isLoading && state.items.isEmpty() && playlistResults.isEmpty()) item { EmptyState(title = "No results", detail = "Try a different title, artist, album, folder, filename, or playlist.") }
             }
         }
     }
 }
 
+@androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 @Composable
 private fun NowPlayingSheet(
     player: PlaybackUiState,

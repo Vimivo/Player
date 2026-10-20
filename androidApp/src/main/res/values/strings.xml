@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Vimivo</string>
+    <string name="playback_skipped">Skipped: %1$s (could not be played)</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_music">Music playback</string>
     <string name="settings_video">Video playback</string>
@@ -81,7 +82,6 @@
     <string name="value_hide">Hide</string><string name="value_show">Show</string><string name="value_outline">Outline</string><string name="value_drop_shadow">Drop shadow</string><string name="value_none">None</string>
     <string name="value_title">Title</string><string name="value_artist">Artist</string><string name="value_album">Album</string><string name="value_duration">Duration</string><string name="value_date_added">Date added</string><string name="value_date_modified">Date modified</string><string name="value_file_size">File size</string><string name="value_track_number">Track number</string><string name="value_last_played">Last played</string>
     <string name="irreversible_warning">This action cannot be undone.</string>
-    <string name="notices_text">AndroidX and Media3: Apache License 2.0\nLibVLC: LGPL 2.1 or later\nCoil, Koin, Kotlin and kotlinx.coroutines use permissive open-source licenses. See docs/THIRD_PARTY_NOTICES.md for source links and complete notices.</string>
     <string name="ok">OK</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
@@ -91,4 +91,8 @@
     <string name="next_short">Next</string>
     <string name="widget_nothing_playing">Nothing playing</string>
     <string name="widget_description">Control the current Vimivo playback session</string>
+    <string name="source_code">Source code</string>
+    <string name="component_source">Source</string>
+    <string name="lgpl_text">GNU LGPL 2.1 text</string>
+    <string name="close_notices">Close</string>
 </resources>

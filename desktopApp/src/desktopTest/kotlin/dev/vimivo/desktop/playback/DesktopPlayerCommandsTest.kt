@@ -6,10 +6,12 @@ import androidx.compose.ui.input.key.Key
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.desktop.player.HudMessage
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
@@ -72,7 +74,7 @@ class DesktopPlayerCommandsTest {
         executor.execute(DesktopPlayerCommand.VOLUME_UP)
         executor.execute(DesktopPlayerCommand.SPEED_UP)
         assertEquals(listOf("seek:0", "volume:0.55", "speed:1.25"), engine.calls)
-        assertEquals("Speed 1.25x", executor.status.value)
+        assertEquals<HudMessage?>(HudMessage.Speed(1.25f), executor.status.value)
     }
 
     @Test
@@ -93,7 +95,7 @@ class DesktopPlayerCommandsTest {
         executor.execute(DesktopPlayerCommand.SUBTITLE_DELAY_UP)
         executor.execute(DesktopPlayerCommand.CYCLE_AUDIO_TRACK)
         assertEquals(listOf("sid:null", "subdelay:300"), engine.calls)
-        assertEquals("No audio tracks", executor.status.value)
+        assertEquals<HudMessage?>(HudMessage.NoAudioTracks, executor.status.value)
     }
 
     @Test
@@ -123,7 +125,7 @@ class DesktopPlayerCommandsTest {
         val engine = FakeEngine(loaded(), failFrameStep = true)
         val executor = executor(engine)
         assertTrue(executor.execute(DesktopPlayerCommand.FRAME_STEP_FORWARD))
-        assertEquals("Next frame failed: no frames", executor.status.value)
+        assertEquals<HudMessage?>(HudMessage.Failed("Next frame", "no frames"), executor.status.value)
     }
 
     @Test
@@ -155,8 +157,67 @@ class DesktopPlayerCommandsTest {
         assertTrue(both.startsWith("lavfi=[equalizer=") && both.endsWith("dB,${DesktopAudioEffects.NORMALIZER_FILTER}]"))
     }
 
+    /** Regression (V0 B2): a failed panel control is reported on the HUD instead of being dropped. */
+    @Test
+    fun failedPanelControlIsReportedOnTheHud() {
+        val commands = executor(FakeEngine(loaded()))
+        val ok = commands.perform("Fill aspect") { Result.failure<Unit>(IllegalArgumentException("not supported")) }
+        assertFalse(ok)
+        assertEquals(HudMessage.Failed("Fill aspect", "not supported"), commands.status.value)
+        assertTrue(commands.perform("Rotate") { Result.success(Unit) })
+    }
+
     private fun executor(engine: FakeEngine, snapshotFile: () -> java.io.File = { java.io.File("unused.png") }) =
         DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, snapshotFile)
+
+    @Test
+    fun volumeAmplifiesToTwoHundredPercentWithAStopAtOneHundred() {
+        val engine = FakeEngine(loaded(volume = 0.98f))
+        val executor = executor(engine)
+
+        executor.execute(DesktopPlayerCommand.VOLUME_UP)
+        assertEquals<HudMessage?>(HudMessage.Volume(100), executor.status.value)
+        executor.execute(DesktopPlayerCommand.VOLUME_UP)
+        executor.execute(DesktopPlayerCommand.VOLUME_UP_FINE)
+        assertEquals<HudMessage?>(HudMessage.Volume(106), executor.status.value)
+
+        executor.setVolumeLevel(5f)
+        assertEquals(listOf("volume:1.0", "volume:1.05", "volume:1.06", "volume:2.0"), engine.calls)
+        assertEquals<HudMessage?>(HudMessage.Volume(200), executor.status.value)
+    }
+
+    @Test
+    fun shiftArrowsAreFineVolumeSteps() {
+        assertEquals(DesktopPlayerCommand.VOLUME_UP_FINE, DesktopPlayerShortcuts.resolve(Key.DirectionUp, shift = true, ctrl = false, alt = false, meta = false))
+        assertEquals(DesktopPlayerCommand.VOLUME_DOWN_FINE, DesktopPlayerShortcuts.resolve(Key.DirectionDown, shift = true, ctrl = false, alt = false, meta = false))
+    }
+
+    @Test
+    fun delayStepsMatchTheirLabelsSoKeysMenuAndPanelAgree() {
+        val engine = FakeEngine(loaded())
+        val executor = executor(engine)
+
+        executor.execute(DesktopPlayerCommand.SUBTITLE_DELAY_UP)
+        executor.execute(DesktopPlayerCommand.AUDIO_DELAY_DOWN)
+
+        assertEquals(100L, PlaybackControlPolicy.SUBTITLE_DELAY_STEP_MILLIS)
+        assertEquals(50L, PlaybackControlPolicy.AUDIO_DELAY_STEP_MILLIS)
+        assertEquals("Subtitle delay +100 ms", DesktopPlayerCommand.SUBTITLE_DELAY_UP.label)
+        assertEquals("Audio delay −50 ms", DesktopPlayerCommand.AUDIO_DELAY_DOWN.label)
+        assertEquals(listOf("subdelay:100", "audiodelay:-50"), engine.calls)
+    }
+
+    @Test
+    fun snapshotsGoToOneFolderNamedForVimivo() {
+        val directory = defaultSnapshotDirectory()
+        val pictures = java.io.File(System.getProperty("user.home"), "Pictures")
+        assertEquals(if (pictures.isDirectory) java.io.File(pictures, "Vimivo") else pictures.parentFile, directory)
+    }
+
+    @Test
+    fun mpvAdvertisesTwoHundredPercentVolume() {
+        assertEquals(2f, MpvPlayerEngine.capabilitiesFor(dev.vimivo.desktop.platform.DesktopPlatform.LINUX).maxVolume)
+    }
 
     private fun loaded(position: Long = 0, duration: Long = 120_000, volume: Float = 1f, speed: Float = 1f) = PlaybackState(
         engine = EngineId.MPV,
