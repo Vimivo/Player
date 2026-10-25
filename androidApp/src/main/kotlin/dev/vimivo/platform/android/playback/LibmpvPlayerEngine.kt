@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import java.util.Locale
 
 /**
@@ -60,6 +61,9 @@ class LibmpvPlayerEngine(
     @Volatile private var released = false
 
     @Volatile private var fileLoaded = false
+
+    /** Bumped by every open(); a state sample taken before it is stale. */
+    @Volatile private var generation = 0
     private var surfaceReference = 0L
     private var surfaceHolder: SurfaceHolder? = null
     private var volumeBeforeDuck = MAX_VOLUME
@@ -88,6 +92,8 @@ class LibmpvPlayerEngine(
         checkOpen()
         require(supportFor(media) != SupportLevel.UNSUPPORTED) { "libmpv does not support this URI" }
         val target = sources.resolve(media.uri)
+        generation++
+        fileLoaded = false
         mutableState.value = PlaybackState(
             engine = id,
             media = media,
@@ -144,12 +150,12 @@ class LibmpvPlayerEngine(
 
     override fun setSubtitleDelay(delayMillis: Long): Result<Unit> = runCatching {
         setProperty("sub-delay", seconds(delayMillis))
-        mutableState.value = mutableState.value.copy(subtitleDelayMillis = delayMillis)
+        mutableState.update { it.copy(subtitleDelayMillis = delayMillis) }
     }
 
     override fun setAudioDelay(delayMillis: Long): Result<Unit> = runCatching {
         setProperty("audio-delay", seconds(delayMillis))
-        mutableState.value = mutableState.value.copy(audioDelayMillis = delayMillis)
+        mutableState.update { it.copy(audioDelayMillis = delayMillis) }
     }
 
     /** Renders into [holder]'s Surface from now on; follows its size and lets go of it when it is destroyed. */
@@ -240,34 +246,73 @@ class LibmpvPlayerEngine(
     }
 
     private fun updateStatus(status: PlaybackStatus) {
-        mutableState.value = mutableState.value.copy(status = status)
+        mutableState.update { it.copy(status = status) }
     }
 
-    /** Reads position, duration, flags and tracks after every event and timeout (four times a second at most). */
+    private class Timing(val positionMillis: Long?, val bufferedMillis: Long?, val durationMillis: Long?)
+
+    private class Flags(val seekable: Boolean, val pausedForCache: Boolean, val paused: Boolean)
+
+    private class TrackLists(val audio: List<TrackInfo>, val video: List<TrackInfo>, val subtitles: List<TrackInfo>)
+
+    /** What libmpv reports right now, read without touching [state] so the write below is one atomic update. */
+    private class Sample(
+        val generation: Int,
+        val timing: Timing,
+        val flags: Flags,
+        val tracks: TrackLists,
+        val speed: Float?,
+        val volume: Float?,
+    )
+
+    private fun sample() = Sample(
+        generation = generation,
+        timing = Timing(millis("time-pos"), millis("demuxer-cache-time"), millis("duration")),
+        flags = Flags(
+            seekable = property("seekable") == "yes",
+            pausedForCache = property("paused-for-cache") == "yes",
+            paused = property("pause") == "yes",
+        ),
+        tracks = TrackLists(tracks(TrackType.AUDIO), tracks(TrackType.VIDEO), tracks(TrackType.SUBTITLE)),
+        speed = property("speed")?.toFloatOrNull(),
+        volume = property("volume")?.toFloatOrNull()?.div(MAX_VOLUME)?.coerceIn(0f, 1f),
+    )
+
+    /**
+     * Folds libmpv's current values into [state] after every event and timeout (four times a second at most). Slow
+     * (dozens of JNI calls) and run on the event thread while other threads write state, so it samples first and then
+     * applies the sample in one atomic update, dropping a sample that predates the latest open().
+     */
     private fun publish() {
-        if (released) return
-        val current = mutableState.value
-        mutableState.value = current.copy(
-            status = statusFor(current),
-            positionMillis = millis("time-pos")?.coerceAtLeast(0) ?: current.positionMillis,
-            bufferedPositionMillis = millis("demuxer-cache-time") ?: current.bufferedPositionMillis,
-            durationMillis = millis("duration") ?: current.durationMillis,
-            speed = property("speed")?.toFloatOrNull() ?: current.speed,
-            volume = property("volume")?.toFloatOrNull()?.div(MAX_VOLUME)?.coerceIn(0f, 1f) ?: current.volume,
-            isSeekable = property("seekable") == "yes",
-            audioTracks = tracks(TrackType.AUDIO),
-            videoTracks = tracks(TrackType.VIDEO),
-            subtitleTracks = tracks(TrackType.SUBTITLE),
-        )
+        if (released || mutableState.value.media == null) return
+        val sample = sample()
+        mutableState.update { current ->
+            if (sample.generation != generation) return@update current
+            current.copy(
+                status = statusFor(current, sample),
+                positionMillis = sample.timing.positionMillis?.coerceAtLeast(0) ?: current.positionMillis,
+                bufferedPositionMillis = sample.timing.bufferedMillis ?: current.bufferedPositionMillis,
+                durationMillis = sample.timing.durationMillis ?: current.durationMillis,
+                speed = sample.speed ?: current.speed,
+                volume = sample.volume ?: current.volume,
+                isSeekable = sample.flags.seekable,
+                audioTracks = sample.tracks.audio,
+                videoTracks = sample.tracks.video,
+                subtitleTracks = sample.tracks.subtitles,
+            )
+        }
     }
 
     /** Terminal states and the time before the file is loaded keep their status; otherwise libmpv's flags decide. */
-    private fun statusFor(current: PlaybackState): PlaybackStatus {
+    private fun statusFor(current: PlaybackState, sample: Sample): PlaybackStatus {
         val terminal = current.status is PlaybackStatus.Completed || current.status is PlaybackStatus.Error
+        // A valid time-pos means the file is playing, even when its FILE_LOADED event is still queued behind a slow
+        // publish on the event thread (cold emulators); the event only covers the time before playback starts.
+        val loaded = fileLoaded || sample.timing.positionMillis != null
         return when {
-            terminal || current.media == null || !fileLoaded -> current.status
-            property("paused-for-cache") == "yes" -> PlaybackStatus.Buffering
-            property("pause") != "yes" -> PlaybackStatus.Playing
+            terminal || current.media == null || !loaded -> current.status
+            sample.flags.pausedForCache -> PlaybackStatus.Buffering
+            !sample.flags.paused -> PlaybackStatus.Playing
             current.status == PlaybackStatus.Preparing -> PlaybackStatus.Ready
             else -> PlaybackStatus.Paused
         }

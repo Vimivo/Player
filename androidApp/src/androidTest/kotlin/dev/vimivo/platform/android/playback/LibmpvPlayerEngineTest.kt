@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -41,11 +42,13 @@ class LibmpvPlayerEngineTest {
 
     @Test
     fun audioPlaysAndItsPositionAdvances() = runBlocking {
-        LibmpvPlayerEngine(context, settings).use { engine ->
+        LibmpvPlayerEngine(context, settings, File(context.cacheDir, "mpv-audio.log")).use { engine ->
             engine.open(item(asset("track2_lunar.mp3"), MediaKind.AUDIO)).getOrThrow()
             engine.setVolume(0f).getOrThrow()
             engine.play().getOrThrow()
-            val playing = withTimeout(TIMEOUT) { engine.state.first { it.positionMillis > 500 } }
+            val playing = withTimeout(TIMEOUT) {
+                engine.state.first { it.status == PlaybackStatus.Playing && it.positionMillis > 500 }
+            }
             assertEquals(PlaybackStatus.Playing, playing.status)
             assertTrue(playing.durationMillis!! > 5_000)
             assertEquals("mp3", playing.audioTracks.single().codec)
@@ -77,7 +80,12 @@ class LibmpvPlayerEngineTest {
                 assertEquals("h264", state.videoTracks.single { it.isSelected }.codec)
                 assertEquals(1280, state.videoTracks.single { it.isSelected }.width)
                 assertEquals("eng", state.subtitleTracks.single().language)
-                assertTrue("the SurfaceView shows no picture", litFraction(view) > MIN_LIT_FRACTION)
+                // The compositor can lag the first frames; the last frame stays up (keep-open), so poll for the picture.
+                val shown = withTimeoutOrNull(PICTURE_TIMEOUT) {
+                    while (litFraction(view) <= MIN_LIT_FRACTION) kotlinx.coroutines.delay(PICTURE_POLL)
+                    true
+                }
+                assertTrue("the SurfaceView shows no picture", shown == true)
             }
         } finally {
             scenario.close()
@@ -131,5 +139,7 @@ class LibmpvPlayerEngineTest {
     private companion object {
         const val TIMEOUT = 15_000L
         const val MIN_LIT_FRACTION = 0.3
+        const val PICTURE_TIMEOUT = 8_000L
+        const val PICTURE_POLL = 200L
     }
 }

@@ -9,7 +9,7 @@ GNU Lesser General Public License 2.1 or later (ADR-004). They are built without
 (`scripts/build_media/verify.py` checks this) and can be replaced by a modified build:
 
 - Build scripts: <https://github.com/Vimivo/Player/tree/main/scripts/build_media>.
-- Prebuilt packages and checksums: macOS <https://github.com/Vimivo/Player/releases/tag/media-1>, Windows <https://github.com/Vimivo/Player/releases/tag/media-1>, Linux <https://github.com/Vimivo/Player/releases/tag/media-1>.
+- Prebuilt packages and checksums: macOS <https://github.com/Vimivo/Player/releases/tag/media-1>, Windows <https://github.com/Vimivo/Player/releases/tag/media-1>, Linux <https://github.com/Vimivo/Player/releases/tag/media-1>, Android <https://github.com/Vimivo/Player/releases/tag/media-2>.
 - Each component's exact source archive is listed below and pinned by SHA-256 in `manifest.json`.
 - Full licence texts ship inside each desktop app (`media-licenses/`).
 

@@ -9,6 +9,7 @@ internal val MEDIA_RELEASES: Map<NoticePlatform, String> = mapOf(
     NoticePlatform.MACOS to "media-1",
     NoticePlatform.WINDOWS to "media-1",
     NoticePlatform.LINUX to "media-1",
+    NoticePlatform.ANDROID to "media-2",
 )
 
 internal val generatedComponents: List<ThirdPartyComponent> = listOf(
