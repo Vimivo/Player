@@ -1,0 +1,159 @@
+@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+
+package dev.vimivo.desktop.player.ui
+
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import dev.vimivo.desktop.playback.AutoCrop
+import dev.vimivo.desktop.playback.DesktopPlayerCommand
+import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
+import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.player.HudMessage
+import dev.vimivo.playback.CropPreset
+import dev.vimivo.playback.CropRect
+import dev.vimivo.playback.DeinterlaceMode
+import dev.vimivo.playback.PlaybackState
+import dev.vimivo.playback.VideoAdjustments
+import dev.vimivo.playback.VideoAspectRatio
+import dev.vimivo.playback.VideoCropMath
+import kotlinx.coroutines.launch
+
+@Composable
+internal fun VideoTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: DesktopPlayerCommandExecutor) {
+    val adjustments = playback.videoAdjustments
+    fun adjust(label: String, next: VideoAdjustments) {
+        commands.perform(label) { engine.applyVideoAdjustments(next) }
+    }
+    PictureSection(playback, engine, commands, ::adjust)
+    PanelSection("Zoom and position")
+    SliderRow("Zoom", adjustments.zoom, ZOOM_RANGE, "%+.2f".format(adjustments.zoom), reset = 0f) {
+        adjust("Zoom", adjustments.copy(zoom = it))
+    }
+    SliderRow("Pan horizontal", adjustments.panX, PAN_RANGE, "%+.2f".format(adjustments.panX), reset = 0f) {
+        adjust("Pan", adjustments.copy(panX = it))
+    }
+    SliderRow("Pan vertical", adjustments.panY, PAN_RANGE, "%+.2f".format(adjustments.panY), reset = 0f) {
+        adjust("Pan", adjustments.copy(panY = it))
+    }
+    PanelSection("Colour")
+    ColourSlider("Brightness", adjustments.brightness) { adjust("Brightness", adjustments.copy(brightness = it)) }
+    ColourSlider("Contrast", adjustments.contrast) { adjust("Contrast", adjustments.copy(contrast = it)) }
+    ColourSlider("Saturation", adjustments.saturation) { adjust("Saturation", adjustments.copy(saturation = it)) }
+    ColourSlider("Hue", adjustments.hue) { adjust("Hue", adjustments.copy(hue = it)) }
+    ColourSlider("Gamma", adjustments.gamma) { adjust("Gamma", adjustments.copy(gamma = it)) }
+    PanelSection("Frames")
+    PanelRow("Step") {
+        PanelButton("◀ Previous", Modifier.weight(1f)) { commands.execute(DesktopPlayerCommand.FRAME_STEP_BACKWARD) }
+        Spacer(Modifier.width(6.dp))
+        PanelButton("Next ▶", Modifier.weight(1f)) { commands.execute(DesktopPlayerCommand.FRAME_STEP_FORWARD) }
+    }
+    PanelRow("Snapshot") {
+        PanelButton("Save frame", Modifier.fillMaxWidth()) { commands.execute(DesktopPlayerCommand.SNAPSHOT) }
+    }
+}
+
+/** Aspect ratio, crop, rotation and deinterlacing: how the picture is framed and cleaned up. */
+@Composable
+private fun PictureSection(
+    playback: PlaybackState,
+    engine: MpvPlayerEngine,
+    commands: DesktopPlayerCommandExecutor,
+    adjust: (String, VideoAdjustments) -> Unit,
+) {
+    val adjustments = playback.videoAdjustments
+    PanelSection("Picture")
+    PanelRow("Aspect ratio") {
+        PanelDropdown(
+            options = VideoAspectRatio.entries,
+            selected = adjustments.aspectRatio,
+            label = VideoAspectRatio::label,
+            placeholder = "Original",
+            onSelect = { adjust("${it.label} aspect", adjustments.copy(aspectRatio = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    CropRow(playback, commands, adjust)
+    PanelRow("Rotation") {
+        SegmentedChoice(
+            options = listOf(0, 90, 180, 270),
+            selected = adjustments.rotationDegrees,
+            label = { "$it°" },
+            onSelect = { adjust("Rotate", adjustments.copy(rotationDegrees = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Deinterlace") {
+        PanelDropdown(
+            options = DeinterlaceMode.entries,
+            selected = playback.deinterlaceMode,
+            label = DeinterlaceMode::label,
+            placeholder = "Off",
+            onSelect = { mode ->
+                if (commands.perform("Deinterlace") { engine.setDeinterlaceMode(mode) }) {
+                    commands.report(HudMessage.DeinterlaceModeChanged(mode.label))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** Crop presets are computed from the picture size; "Auto" finds black bars in the file (bbox, sampled). */
+@Composable
+private fun CropRow(
+    playback: PlaybackState,
+    commands: DesktopPlayerCommandExecutor,
+    adjust: (String, VideoAdjustments) -> Unit,
+) {
+    val adjustments = playback.videoAdjustments
+    val scope = rememberCoroutineScope()
+    val autoCrop = remember { AutoCrop() }
+    val picture = playback.videoTracks.firstOrNull { it.isSelected }
+    fun apply(preset: CropPreset, crop: CropRect?) {
+        adjust("Crop", adjustments.copy(crop = crop, cropPreset = preset))
+        commands.report(HudMessage.CropChanged(preset.label))
+    }
+    fun fail(action: String, reason: Throwable) = commands.perform(action) { Result.failure<Unit>(reason) }
+    fun detect() = scope.launch {
+        val media = playback.media ?: return@launch
+        autoCrop.detect(media, playback.durationMillis).fold(
+            onSuccess = { crop ->
+                if (crop == null) commands.report(HudMessage.NoBlackBars) else apply(CropPreset.AUTO, crop)
+            },
+            onFailure = { error -> fail("Auto crop", error) },
+        )
+    }
+    fun choose(preset: CropPreset) {
+        val width = picture?.width
+        val height = picture?.height
+        val ratio = preset.ratio
+        when {
+            preset == CropPreset.NONE -> apply(preset, null)
+            preset == CropPreset.AUTO -> detect()
+            width == null || height == null || ratio == null ->
+                fail("Crop", IllegalStateException(PICTURE_SIZE_UNKNOWN))
+            else -> apply(preset, VideoCropMath.centered(width, height, ratio))
+        }
+    }
+    PanelRow("Crop") {
+        PanelDropdown(
+            options = CropPreset.entries,
+            selected = adjustments.cropPreset,
+            label = CropPreset::label,
+            placeholder = "None",
+            onSelect = ::choose,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+private const val PICTURE_SIZE_UNKNOWN = "The picture size is not known yet"
+
+private val ZOOM_RANGE = -2f..2f
+private val PAN_RANGE = -1f..1f

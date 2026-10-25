@@ -26,6 +26,7 @@ import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.AudioOutputDevice
 import dev.vimivo.playback.ChapterInfo
+import dev.vimivo.playback.DeinterlaceMode
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
@@ -135,7 +136,7 @@ class MpvPlayerEngine : PlayerEngine {
         }
         userStopped = false
         userPaused = false
-        val previousDeinterlace = mutableState.value.deinterlace
+        val previousDeinterlace = mutableState.value.deinterlaceMode
         mutableState.value = PlaybackState(
             engine = id,
             media = media,
@@ -164,8 +165,8 @@ class MpvPlayerEngine : PlayerEngine {
         growing = GrowingFileTracker.forMedia(media)
         fatalPlaybackText = null
         setProperty("pause", "yes")
-        setProperty("deinterlace", if (previousDeinterlace) "yes" else "no")
-        mutableState.update { it.copy(deinterlace = previousDeinterlace) }
+        // The deinterlacing filter outlives the file in libmpv's filter list; the state must say so.
+        mutableState.update { it.copy(deinterlace = previousDeinterlace != DeinterlaceMode.OFF, deinterlaceMode = previousDeinterlace) }
         startPolling(currentSession)
     }.onFailure(::publishFailure)
 
@@ -234,9 +235,16 @@ class MpvPlayerEngine : PlayerEngine {
         command(if (forward) "frame-step" else "frame-back-step")
     }
 
-    override fun setDeinterlace(enabled: Boolean): Result<Unit> = action {
-        setProperty("deinterlace", if (enabled) "yes" else "no")
-        mutableState.update { it.copy(deinterlace = enabled) }
+    override fun setDeinterlace(enabled: Boolean): Result<Unit> =
+        setDeinterlaceMode(if (enabled) DeinterlaceMode.AUTO else DeinterlaceMode.OFF)
+
+    /** Replaces the labelled deinterlacing filter in libmpv's video filter chain (V1 #13). */
+    override fun setDeinterlaceMode(mode: DeinterlaceMode): Result<Unit> = action {
+        // Removing a filter that is not there is an error libmpv reports; nothing to undo in that case.
+        runCatching { command("vf", "remove", "@$DEINTERLACE_LABEL") }
+        mode.lavfiFilter?.let { command("vf", "add", "@$DEINTERLACE_LABEL:lavfi=[$it]") }
+        setProperty("deinterlace", "no")
+        mutableState.update { it.copy(deinterlace = mode != DeinterlaceMode.OFF, deinterlaceMode = mode) }
     }
 
     /** Container-level details for the media information dialog; null when nothing is loaded. */
@@ -321,6 +329,8 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("contrast", adjustments.contrast.toString())
         setProperty("saturation", adjustments.saturation.toString())
         setProperty("gamma", adjustments.gamma.toString())
+        setProperty("hue", adjustments.hue.toString())
+        setProperty("video-crop", adjustments.crop?.toMpvValue().orEmpty())
         setProperty("video-rotate", adjustments.rotationDegrees.toString())
         setProperty("video-zoom", adjustments.zoom.toString())
         setProperty("video-pan-x", adjustments.panX.toString())
@@ -777,6 +787,7 @@ class MpvPlayerEngine : PlayerEngine {
         private const val MAX_VOLUME = 2f
         private const val SURFACE_READY_TIMEOUT_MILLIS = 5_000L
         private const val SURFACE_POLL_MILLIS = 16L
+        private const val DEINTERLACE_LABEL = "vimivo-deint"
         private const val SHUTDOWN_IDLE_TIMEOUT_NANOS = 2_000_000_000L
         private const val SHUTDOWN_POLL_MILLIS = 10L
         private const val COREAUDIO_QUIESCE_MILLIS = 150L

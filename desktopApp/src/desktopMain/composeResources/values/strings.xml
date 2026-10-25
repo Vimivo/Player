@@ -73,4 +73,7 @@
     <string name="player_tab_sync">Sync</string>
     <string name="player_controls">Playback controls</string>
     <string name="player_unknown_time">--:--</string>
+    <string name="hud_deinterlace_mode">Deinterlacing: %1$s</string>
+    <string name="hud_crop">Crop: %1$s</string>
+    <string name="hud_no_black_bars">No black bars found</string>
 </resources>

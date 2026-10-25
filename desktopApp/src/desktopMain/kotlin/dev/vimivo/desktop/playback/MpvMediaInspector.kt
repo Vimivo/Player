@@ -86,8 +86,74 @@ internal class MpvMediaInspector(private val loadNative: () -> MpvNative = MpvNa
         )
     }
 
-    /** One JPEG frame of [file] at [positionSeconds], at most [maxWidth] wide, or null when none was decoded. */
-    fun captureFrame(file: File, positionSeconds: Double, maxWidth: Int): ByteArray? {
+    /** The non-black rectangle of a frame, in pixels of the decoded picture. */
+    data class ContentBounds(
+        val x: Int,
+        val y: Int,
+        val width: Int,
+        val height: Int,
+        val frameWidth: Int,
+        val frameHeight: Int,
+    )
+
+    /**
+     * The picture area inside black bars, from FFmpeg's `bbox` filter at several positions (the union over the
+     * samples, so a dark scene cannot crop real picture). Null when no sample produced a result.
+     */
+    fun detectContentBounds(file: File, durationSeconds: Double): ContentBounds? {
+        val samples = SAMPLE_FRACTIONS.map { it * durationSeconds }
+        val bounds = samples.mapNotNull { position -> runCatching { boundsAt(file, position) }.getOrNull() }
+        if (bounds.isEmpty()) return null
+        val left = bounds.minOf { it.x }
+        val top = bounds.minOf { it.y }
+        val right = bounds.maxOf { it.x + it.width }
+        val bottom = bounds.maxOf { it.y + it.height }
+        val first = bounds.first()
+        return ContentBounds(left, top, right - left, bottom - top, first.frameWidth, first.frameHeight)
+    }
+
+    private fun boundsAt(file: File, positionSeconds: Double): ContentBounds? {
+        val options = listOf(
+            "vo" to "null",
+            "ao" to "null",
+            "aid" to "no",
+            "sid" to "no",
+            "hwdec" to "no",
+            "pause" to "yes",
+            "vf" to "@bars:lavfi=[bbox=min_val=$BLACK_LEVEL]",
+            "start" to String.format(Locale.US, "%.3f", positionSeconds),
+        )
+        return withHandle(options) { mpv, handle ->
+            mpv.mpv_command(handle, StringArray(arrayOf("loadfile", file.absolutePath, "replace")))
+            check(awaitEvent(mpv, handle, EVENT_FILE_LOADED) == null) { "libmpv could not open ${file.name}" }
+            // Step one frame so the filter has seen a decoded picture, then read the metadata it attached.
+            mpv.mpv_command(handle, StringArray(arrayOf("frame-step")))
+            val deadline = System.nanoTime() + TIMEOUT_NANOS
+            var x1 = mpv.string(handle, "vf-metadata/bars/lavfi.bbox.x1")
+            while (x1 == null && System.nanoTime() < deadline) {
+                mpv.mpv_wait_event(handle, WAIT_SECONDS)
+                x1 = mpv.string(handle, "vf-metadata/bars/lavfi.bbox.x1")
+            }
+            val left = x1?.toIntOrNull() ?: return@withHandle null
+            val top = mpv.string(handle, "vf-metadata/bars/lavfi.bbox.y1")?.toIntOrNull() ?: return@withHandle null
+            val right = mpv.string(handle, "vf-metadata/bars/lavfi.bbox.x2")?.toIntOrNull() ?: return@withHandle null
+            val bottom = mpv.string(handle, "vf-metadata/bars/lavfi.bbox.y2")?.toIntOrNull() ?: return@withHandle null
+            val frameWidth = mpv.string(handle, "video-params/w")?.toIntOrNull() ?: return@withHandle null
+            val frameHeight = mpv.string(handle, "video-params/h")?.toIntOrNull() ?: return@withHandle null
+            ContentBounds(left, top, right - left + 1, bottom - top + 1, frameWidth, frameHeight)
+        }
+    }
+
+    /**
+     * One JPEG frame of [file] at [positionSeconds], at most [maxWidth] wide, or null when none was decoded.
+     * [filtersBeforeScale] is an optional libmpv `vf` chain applied first (the tests use it to compare deinterlacers).
+     */
+    fun captureFrame(
+        file: File,
+        positionSeconds: Double,
+        maxWidth: Int,
+        filtersBeforeScale: String? = null,
+    ): ByteArray? {
         val outputDir = Files.createTempDirectory("vimivo-frame").toFile()
         return try {
             val options = listOf(
@@ -95,7 +161,8 @@ internal class MpvMediaInspector(private val loadNative: () -> MpvNative = MpvNa
                 "vo-image-format" to "jpg",
                 "vo-image-jpeg-quality" to "85",
                 "vo-image-outdir" to outputDir.absolutePath,
-                "vf" to "lavfi=[scale=w='min($maxWidth,iw)':h=-2]",
+                "vf" to listOfNotNull(filtersBeforeScale, "lavfi=[scale=w='min($maxWidth,iw)':h=-2]")
+                    .joinToString(","),
                 "frames" to "1",
                 "ao" to "null",
                 "aid" to "no",
@@ -196,6 +263,12 @@ internal class MpvMediaInspector(private val loadNative: () -> MpvNative = MpvNa
         const val WAIT_SECONDS = 0.1
         const val TIMEOUT_NANOS = 5_000_000_000L
         const val VIDEO_PARAMS_TIMEOUT_NANOS = 1_500_000_000L
+
+        /** Where black-bar detection samples the video, as fractions of its duration. */
+        val SAMPLE_FRACTIONS = listOf(0.2, 0.4, 0.6, 0.8)
+
+        /** Luma at or below this counts as black (limited-range black is 16). */
+        const val BLACK_LEVEL = 24
         const val MILLIS = 1_000.0
 
         // No configuration, scripts, terminal, network helpers or hardware decoding: deterministic and headless.

@@ -71,4 +71,7 @@
     <string name="player_tab_sync">সিঙ্ক</string>
     <string name="player_controls">প্লেব্যাক নিয়ন্ত্রণ</string>
     <string name="player_unknown_time">--:--</string>
+    <string name="hud_deinterlace_mode">ডিইন্টারলেসিং: %1$s</string>
+    <string name="hud_crop">ক্রপ: %1$s</string>
+    <string name="hud_no_black_bars">কোনো কালো বার পাওয়া যায়নি</string>
 </resources>

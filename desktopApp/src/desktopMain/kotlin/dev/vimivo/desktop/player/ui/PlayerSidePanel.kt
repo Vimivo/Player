@@ -32,7 +32,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.vimivo.desktop.DesktopBookmarksPanel
-import dev.vimivo.desktop.playback.DesktopPlayerCommand
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.MpvPlayerEngine
 import dev.vimivo.desktop.player.PlayerIntent
@@ -43,8 +42,6 @@ import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.SubtitleStyle
-import dev.vimivo.playback.VideoAdjustments
-import dev.vimivo.playback.VideoAspectRatio
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -106,67 +103,6 @@ internal fun PlayerSidePanel(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun VideoTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: DesktopPlayerCommandExecutor) {
-    val adjustments = playback.videoAdjustments
-    fun adjust(label: String, next: VideoAdjustments) {
-        commands.perform(label) { engine.applyVideoAdjustments(next) }
-    }
-    PanelSection("Picture")
-    PanelRow("Aspect ratio") {
-        PanelDropdown(
-            options = VideoAspectRatio.entries,
-            selected = adjustments.aspectRatio,
-            label = VideoAspectRatio::label,
-            placeholder = "Original",
-            onSelect = { adjust("${it.label} aspect", adjustments.copy(aspectRatio = it)) },
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-    PanelRow("Rotation") {
-        SegmentedChoice(
-            options = listOf(0, 90, 180, 270),
-            selected = adjustments.rotationDegrees,
-            label = { "$it°" },
-            onSelect = { adjust("Rotate", adjustments.copy(rotationDegrees = it)) },
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-    PanelRow("Deinterlace") {
-        SegmentedChoice(
-            options = listOf(false, true),
-            selected = playback.deinterlace,
-            label = { if (it) "On" else "Off" },
-            onSelect = { enabled -> commands.perform("Deinterlace") { engine.setDeinterlace(enabled) } },
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-    PanelSection("Zoom and position")
-    SliderRow("Zoom", adjustments.zoom, ZOOM_RANGE, "%+.2f".format(adjustments.zoom), reset = 0f) {
-        adjust("Zoom", adjustments.copy(zoom = it))
-    }
-    SliderRow("Pan horizontal", adjustments.panX, PAN_RANGE, "%+.2f".format(adjustments.panX), reset = 0f) {
-        adjust("Pan", adjustments.copy(panX = it))
-    }
-    SliderRow("Pan vertical", adjustments.panY, PAN_RANGE, "%+.2f".format(adjustments.panY), reset = 0f) {
-        adjust("Pan", adjustments.copy(panY = it))
-    }
-    PanelSection("Colour")
-    ColourSlider("Brightness", adjustments.brightness) { adjust("Brightness", adjustments.copy(brightness = it)) }
-    ColourSlider("Contrast", adjustments.contrast) { adjust("Contrast", adjustments.copy(contrast = it)) }
-    ColourSlider("Saturation", adjustments.saturation) { adjust("Saturation", adjustments.copy(saturation = it)) }
-    ColourSlider("Gamma", adjustments.gamma) { adjust("Gamma", adjustments.copy(gamma = it)) }
-    PanelSection("Frames")
-    PanelRow("Step") {
-        PanelButton("◀ Previous", Modifier.weight(1f)) { commands.execute(DesktopPlayerCommand.FRAME_STEP_BACKWARD) }
-        Spacer(Modifier.width(6.dp))
-        PanelButton("Next ▶", Modifier.weight(1f)) { commands.execute(DesktopPlayerCommand.FRAME_STEP_FORWARD) }
-    }
-    PanelRow("Snapshot") {
-        PanelButton("Save frame", Modifier.fillMaxWidth()) { commands.execute(DesktopPlayerCommand.SNAPSHOT) }
     }
 }
 
@@ -320,7 +256,7 @@ private fun SyncTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: 
 }
 
 @Composable
-private fun SliderRow(
+internal fun SliderRow(
     label: String,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
@@ -349,7 +285,7 @@ private fun SliderRow(
 }
 
 @Composable
-private fun ColourSlider(label: String, value: Int, onChange: (Int) -> Unit) {
+internal fun ColourSlider(label: String, value: Int, onChange: (Int) -> Unit) {
     SliderRow(label, value.toFloat(), COLOUR_RANGE, "%+d".format(value), reset = 0f) { onChange(it.roundToInt()) }
 }
 
@@ -364,8 +300,6 @@ private val PANEL_WIDTH = 380.dp
 private const val TAB_PADDING_CHARS = 2f
 private val VALUE_WIDTH = 64.dp
 private val COLOUR_RANGE = -50f..50f
-private val ZOOM_RANGE = -2f..2f
-private val PAN_RANGE = -1f..1f
 private val SUBTITLE_SIZE_RANGE = 12f..64f
 private val SUBTITLE_MARGIN_RANGE = 0f..30f
 private const val DEFAULT_SUBTITLE_SIZE = 24f

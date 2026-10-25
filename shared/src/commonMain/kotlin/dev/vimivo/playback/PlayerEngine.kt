@@ -68,6 +68,10 @@ data class VideoAdjustments(
     val contrast: Int = 0,
     val saturation: Int = 0,
     val gamma: Int = 0,
+    val hue: Int = 0,
+    /** The crop applied to the picture, or null for none; [cropPreset] is the choice that produced it. */
+    val crop: CropRect? = null,
+    val cropPreset: CropPreset = CropPreset.NONE,
     val rotationDegrees: Int = 0,
     val zoom: Float = 0f,
     val panX: Float = 0f,
@@ -185,6 +189,7 @@ data class PlaybackState(
     val subtitleDelayMillis: Long = 0L,
     val audioDelayMillis: Long = 0L,
     val deinterlace: Boolean = false,
+    val deinterlaceMode: DeinterlaceMode = DeinterlaceMode.OFF,
     val sessionId: Long = 0L,
 )
 
@@ -239,6 +244,9 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Frame stepping is not supported"))
     fun setDeinterlace(enabled: Boolean): Result<Unit> =
         Result.failure(UnsupportedOperationException("Deinterlacing is not supported"))
+
+    /** Selects a deinterlacing filter (V1 #13); engines without modes fall back to on/off. */
+    fun setDeinterlaceMode(mode: DeinterlaceMode): Result<Unit> = setDeinterlace(mode != DeinterlaceMode.OFF)
     fun getAudioOutputDevices(): List<AudioOutputDevice> = emptyList()
     fun selectAudioOutputDevice(deviceId: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("Audio output selection is not supported"))

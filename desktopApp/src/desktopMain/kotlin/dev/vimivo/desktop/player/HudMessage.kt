@@ -8,6 +8,8 @@ import dev.vimivo.desktop.resources.hud_audio_delay
 import dev.vimivo.desktop.resources.hud_audio_track
 import dev.vimivo.desktop.resources.hud_clipboard_not_url
 import dev.vimivo.desktop.resources.hud_command_failed
+import dev.vimivo.desktop.resources.hud_crop
+import dev.vimivo.desktop.resources.hud_deinterlace_mode
 import dev.vimivo.desktop.resources.hud_deinterlace_off
 import dev.vimivo.desktop.resources.hud_deinterlace_on
 import dev.vimivo.desktop.resources.hud_loop_off
@@ -15,6 +17,7 @@ import dev.vimivo.desktop.resources.hud_loop_on
 import dev.vimivo.desktop.resources.hud_loop_point_a
 import dev.vimivo.desktop.resources.hud_muted
 import dev.vimivo.desktop.resources.hud_no_audio_tracks
+import dev.vimivo.desktop.resources.hud_no_black_bars
 import dev.vimivo.desktop.resources.hud_no_subtitle_tracks
 import dev.vimivo.desktop.resources.hud_repeat_changed
 import dev.vimivo.desktop.resources.hud_shuffle_toggled
@@ -55,6 +58,9 @@ internal sealed interface HudMessage {
     data class SnapshotSaved(val fileName: String) : HudMessage
     data class AspectRatio(val label: String) : HudMessage
     data class Deinterlace(val enabled: Boolean) : HudMessage
+    data class DeinterlaceModeChanged(val label: String) : HudMessage
+    data class CropChanged(val label: String) : HudMessage
+    data object NoBlackBars : HudMessage
     data class SubtitleLoaded(val label: String) : HudMessage
     data class SubtitleFailed(val label: String) : HudMessage
     data class AddedToQueue(val count: Int) : HudMessage
@@ -94,6 +100,8 @@ private fun HudMessage.formatted(): Pair<StringResource, Array<Any>> = when (thi
     is HudMessage.Skipped -> Res.string.hud_skipped to arrayOf(title)
     is HudMessage.Deinterlace ->
         (if (enabled) Res.string.hud_deinterlace_on else Res.string.hud_deinterlace_off) to emptyArray()
+    is HudMessage.DeinterlaceModeChanged -> Res.string.hud_deinterlace_mode to arrayOf(label)
+    is HudMessage.CropChanged -> Res.string.hud_crop to arrayOf(label)
     is HudMessage.Failed -> Res.string.hud_command_failed to arrayOf(action, reason.orEmpty())
     else -> Res.string.hud_muted to emptyArray()
 }
@@ -110,6 +118,7 @@ private val fixedText: Map<HudMessage, StringResource> = mapOf(
     HudMessage.LoopOff to Res.string.hud_loop_off,
     HudMessage.StreamOpened to Res.string.hud_stream_opened,
     HudMessage.ClipboardNotUrl to Res.string.hud_clipboard_not_url,
+    HudMessage.NoBlackBars to Res.string.hud_no_black_bars,
 )
 
 /** "1×", "1.25×": no trailing zeros, matching the speed pickers. */

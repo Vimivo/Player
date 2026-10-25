@@ -147,6 +147,21 @@ for name, transfer, extra in (
         os.path.join(MEDIA_DIR, name)
     ])
 
+# 8d. Letterboxed clip (320x180 picture padded to 320x240 with 30 black rows above and below): black-bar detection
+run([
+    "ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=24:duration=3",
+    "-vf", "pad=320:240:0:30:black", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p",
+    os.path.join(MEDIA_DIR, "letterbox_tiny.mp4")
+])
+
+# 8e. Interlaced MPEG-2 transport stream (top field first): deinterlacing modes
+run([
+    # Vertical bars sweeping sideways ~20 px per frame: interleaving two frames per picture combs the whole image.
+    "ffmpeg", "-y", "-f", "lavfi", "-i", "nullsrc=size=320x240:rate=30,geq=lum='128+100*sin((X+T*600)/12)':cb=128:cr=128", "-t", "2",
+    "-vf", "tinterlace=mode=interleave_top,fieldorder=tff", "-c:v", "mpeg2video", "-flags", "+ilme+ildct",
+    "-b:v", "800k", "-pix_fmt", "yuv420p", os.path.join(MEDIA_DIR, "interlaced_tiny.ts")
+])
+
 # 9. Public HLS stream URLs
 with open(os.path.join(MEDIA_DIR, "stream_urls.txt"), "w") as f:
     f.write("https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8\n")
