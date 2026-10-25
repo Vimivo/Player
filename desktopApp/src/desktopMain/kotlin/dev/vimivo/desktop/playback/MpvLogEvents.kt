@@ -17,6 +17,10 @@ internal object MpvLogEvents {
     /** At most this many events per drain, so a flood never stalls the caller. */
     private const val MAX_EVENTS_PER_DRAIN = 64
 
+    /** The text of a fatal player message (libmpv's `[f]` level from the player core), else null. */
+    fun fatalPlaybackText(message: MpvLogMessage): String? =
+        message.text.takeIf { message.level == "fatal" && message.prefix == "cplayer" && it.isNotBlank() }
+
     /** Takes every queued event and returns the log messages among them. Not thread-safe: one caller at a time. */
     fun drain(native: MpvNative, context: Pointer): List<MpvLogMessage> {
         val messages = mutableListOf<MpvLogMessage>()

@@ -86,6 +86,11 @@ class MpvPlayerEngine : PlayerEngine {
     private var sessionGeneration = 0L
     private var userPaused = false
 
+    /** libmpv's latest fatal player message for the current file, until the next open. */
+    @Volatile private var fatalPlaybackText: String? = null
+
+    /** Set for local files; reloads them at the end while they are still growing. */
+    @Volatile private var growing: GrowingFileTracker? = null
     private var userStopped = false
     var liveLatencyMode: LiveLatencyMode = LiveLatencyMode.BALANCED
         private set
@@ -156,6 +161,8 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("sub-delay", "0")
         setProperty("audio-delay", "0")
         command("loadfile", mpvTarget(media.uri), "replace")
+        growing = GrowingFileTracker.forMedia(media)
+        fatalPlaybackText = null
         setProperty("pause", "yes")
         setProperty("deinterlace", if (previousDeinterlace) "yes" else "no")
         mutableState.update { it.copy(deinterlace = previousDeinterlace) }
@@ -544,11 +551,18 @@ class MpvPlayerEngine : PlayerEngine {
                     // Track lists only exist once a demuxer opened the file, so this separates "loading" from "failed".
                     if (duration != null || (!idle && currentTrackCount > 0)) everLoaded = true
                     val loadFailed = idle && !everLoaded && openedAt.elapsedNow() >= LOAD_FAILURE_GRACE
+                    // Opened but nothing could be played (output or decoder failed): libmpv says so with a fatal line.
+                    val playbackFatal = fatalPlaybackText?.takeIf { idle && everLoaded && position <= 0 }
                     // With keep-open=yes libmpv pauses on the last frame at end of file and never goes idle;
                     // eof-reached is its end-of-file signal. Without it the queue never advanced (Q1).
                     val eofReached = flagProperty("eof-reached") ?: false
+                    // A file that is still being written (a download or recording) is reloaded at its end position
+                    // and keeps playing; it completes only once it stopped growing (V1 #3).
+                    val followingGrowingFile = eofReached && everLoaded && reloadGrowingFile(duration ?: position)
                     val status = when {
                         loadFailed -> PlaybackStatus.Error(MpvPlaybackErrors.loadFailure(mutableState.value.media))
+                        playbackFatal != null -> PlaybackStatus.Error(MpvPlaybackErrors.playbackFailure(playbackFatal))
+                        followingGrowingFile -> PlaybackStatus.Buffering
                         eofReached && everLoaded -> PlaybackStatus.Completed
                         idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
                         idle -> PlaybackStatus.Ready
@@ -591,6 +605,17 @@ class MpvPlayerEngine : PlayerEngine {
         }
     }
 
+    /** Reloads a still-growing local file from [positionMillis]; true when it did (the file is not finished yet). */
+    private fun reloadGrowingFile(positionMillis: Long): Boolean {
+        val tracker = growing?.takeIf { it.reloadDue() } ?: return false
+        val media = mutableState.value.media ?: return false
+        return runCatching {
+            command("loadfile", mpvTarget(media.uri), "replace", "-1", "start=${positionMillis / 1_000.0}")
+            if (!userPaused) setProperty("pause", "no")
+            tracker.markReloaded()
+        }.isSuccess
+    }
+
     /** Reads libmpv's queued events; switches to the `fast` profile when it reports a software renderer. */
     private fun handleLogMessages() {
         val messages = synchronized(nativeLock) {
@@ -599,6 +624,7 @@ class MpvPlayerEngine : PlayerEngine {
             if (closed || handle == null || loaded == null) return
             MpvLogEvents.drain(loaded, handle)
         }
+        messages.firstNotNullOfOrNull(MpvLogEvents::fatalPlaybackText)?.let { fatalPlaybackText = it }
         if (rendererWatch.firstSoftwareRendererReport(messages)) runCatching { command("apply-profile", "fast") }
     }
 

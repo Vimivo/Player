@@ -29,6 +29,27 @@ internal object MpvPlaybackErrors {
         return PlaybackError(code, message, engine = EngineId.MPV)
     }
 
+    /**
+     * A file libmpv opened but could not play at all, from its fatal message ("Error opening/initializing the selected
+     * video_out", "No video or audio streams selected"): the user sees a reason instead of a silent standstill.
+     */
+    fun playbackFailure(fatalText: String): PlaybackError {
+        val lower = fatalText.lowercase()
+        return when {
+            "video_out" in lower || "--vo" in lower -> PlaybackError(
+                PlaybackErrorCode.ENGINE_INITIALIZATION,
+                "The video output could not be started, so this file cannot be shown",
+                engine = EngineId.MPV,
+            )
+            "no video or audio streams" in lower -> PlaybackError(
+                PlaybackErrorCode.UNSUPPORTED_CODEC,
+                "Nothing in this file could be decoded; its codec may be unsupported or the file damaged",
+                engine = EngineId.MPV,
+            )
+            else -> PlaybackError(PlaybackErrorCode.DECODING_FAILED, fatalText, engine = EngineId.MPV)
+        }
+    }
+
     /** An exception from opening media, classified by type and libmpv's error text. */
     fun fromException(error: Throwable): PlaybackError {
         val message = error.message.orEmpty()
