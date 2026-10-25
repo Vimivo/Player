@@ -362,6 +362,9 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("hwdec", hwdecValue(mode))
     }
 
+    /** libmpv's value of [name] right now (null when unset or unavailable); for diagnostics and live tests. */
+    internal fun readProperty(name: String): String? = stringProperty(name)
+
     /** Frames the video renderer has presented, for tests that wait on real frames (null where not tracked). */
     internal fun presentedFrame(): PresentedFrame? = renderer?.presentedFrame()
 
