@@ -82,6 +82,8 @@ class MpvPlayerEngine : PlayerEngine {
     private var renderer: DesktopVideoRenderer? = null
     private var videoSurface: Canvas? = null
     private var hwdecMode: HardwareAccelerationMode = HardwareAccelerationMode.AUTO
+    private var requestedVolume = 1f
+    private var audioSettings = AudioEnhancementSettings()
     private var attemptedSoftwareFallback = false
     private val rendererWatch = MpvRendererWatch()
     private var closed = false
@@ -215,7 +217,16 @@ class MpvPlayerEngine : PlayerEngine {
     }
     override fun setVolume(volume: Float) = action {
         require(volume in 0f..capabilities.maxVolume) { "Volume must be between 0 and ${capabilities.maxVolume}" }
-        setProperty("volume", (volume * 100).toString())
+        requestedVolume = volume
+        // Up to 100 % is mpv's own volume; above that the gain and a limiter go into the audio filter chain.
+        setProperty("volume", (volume.coerceAtMost(1f) * 100).toString())
+        refreshAudioFilter()
+        mutableState.update { it.copy(volume = volume) }
+    }
+
+    private fun refreshAudioFilter() {
+        val boost = requestedVolume.coerceAtLeast(1f)
+        setProperty("af", DesktopAudioEffects.filter(audioSettings, boost).orEmpty())
     }
     override fun selectAudioTrack(trackId: String?) = action { setProperty("aid", trackId ?: "no") }
     override fun selectVideoTrack(trackId: String?) = action { setProperty("vid", trackId ?: "no") }
@@ -437,7 +448,8 @@ class MpvPlayerEngine : PlayerEngine {
 
     override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> = action {
         val effective = DesktopAudioEffects.effectiveSettings(settings)
-        setProperty("af", DesktopAudioEffects.filter(effective).orEmpty())
+        audioSettings = effective
+        refreshAudioFilter()
         val active = effective.enabled || effective.volumeNormalization
         setProperty("balance", effective.balance.toString())
         mutableAudio.value = AudioEnhancementState(
@@ -594,7 +606,6 @@ class MpvPlayerEngine : PlayerEngine {
                     }
 
                     val speed = doubleProperty("speed")?.toFloat()
-                    val volume = doubleProperty("volume")?.let { (it / 100.0).toFloat().coerceIn(0f, capabilities.maxVolume) }
                     val seekable = flagProperty("seekable") ?: false
 
                     if (sessionGeneration != expectedSession) break
@@ -607,7 +618,6 @@ class MpvPlayerEngine : PlayerEngine {
                             bufferedPositionMillis = bufferedPosition,
                             durationMillis = duration,
                             speed = speed ?: current.speed,
-                            volume = volume ?: current.volume,
                             isSeekable = seekable,
                             audioTracks = cachedAudio,
                             videoTracks = cachedVideo,

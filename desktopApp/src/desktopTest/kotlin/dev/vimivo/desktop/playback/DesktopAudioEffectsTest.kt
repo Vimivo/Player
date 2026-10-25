@@ -15,6 +15,14 @@ class DesktopAudioEffectsTest {
     }
 
     @Test
+    fun boostAboveFullVolumeIsLimitedAndComesLastInTheChain() {
+        val filter = DesktopAudioEffects.filter(AudioEnhancementSettings(volumeNormalization = true), boostGain = 1.5f)
+        assertTrue(filter.orEmpty().endsWith("volume=1.5:precision=float,alimiter=limit=0.97:level=0]"), "$filter")
+        assertTrue(filter.orEmpty().indexOf("dynaudnorm") < filter.orEmpty().indexOf("alimiter"))
+        assertNull(DesktopAudioEffects.filter(AudioEnhancementSettings(), boostGain = 1f))
+    }
+
+    @Test
     fun positiveGainAddsEquivalentClippingHeadroom() {
         val filter = DesktopAudioEffects.filter(
             AudioEnhancementSettings(enabled = true, preset = EqualizerPreset.ROCK),

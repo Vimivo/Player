@@ -8,12 +8,22 @@ internal object DesktopAudioEffects {
     val frequencies = listOf(31, 62, 125, 250, 500, 1_000, 2_000, 4_000, 8_000, 16_000)
 
     /** dynaudnorm smooths loudness jumps between and within tracks without hard limiting. */
+    const val LIMITER_CEILING = 0.97
+
     const val NORMALIZER_FILTER = "dynaudnorm=f=250:g=31:p=0.9"
 
-    fun filter(settings: AudioEnhancementSettings): String? {
+    /**
+     * mpv applies its own `volume` after the filter chain, so a limiter cannot sit in front of it. Boost above 100 %
+     * is therefore done here, followed by a limiter that stops the extra gain from clipping.
+     */
+    fun boostStage(gain: Float): String? =
+        if (gain <= 1f) null else "volume=${gain.toDouble()}:precision=float,alimiter=limit=$LIMITER_CEILING:level=0"
+
+    fun filter(settings: AudioEnhancementSettings, boostGain: Float = 1f): String? {
         val stages = listOfNotNull(
             equalizerChain(settings).takeIf { settings.enabled },
             NORMALIZER_FILTER.takeIf { settings.volumeNormalization },
+            boostStage(boostGain),
         )
         return if (stages.isEmpty()) null else "lavfi=[${stages.joinToString(",")}]"
     }

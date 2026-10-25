@@ -300,6 +300,7 @@ internal class PlayerViewModel(
                 SnapshotSubtitleSmoke.check(
                     file,
                     replay = { play(mediaItemFor(file)) },
+                    playback = { engine.state.value },
                     selectSubtitles = { engine.selectSubtitleTrack("1") },
                     pause = { engine.pause() },
                     snapshot = { subtitles, destination ->
