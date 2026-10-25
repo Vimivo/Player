@@ -239,6 +239,10 @@ interface PlayerEngine : AutoCloseable {
     fun takeScreenshot(destinationFilePath: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("Video screenshot capture is not supported"))
 
+    /** Saves the current frame to [destinationFilePath] (the extension picks the format); V1 #16. */
+    fun takeSnapshot(destinationFilePath: String, options: SnapshotOptions): Result<Unit> =
+        takeScreenshot(destinationFilePath)
+
     /** Steps one decoded frame forward or backward; playback is left paused. */
     fun frameStep(forward: Boolean = true): Result<Unit> =
         Result.failure(UnsupportedOperationException("Frame stepping is not supported"))

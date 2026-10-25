@@ -10,6 +10,7 @@ import dev.vimivo.core.streaming.StreamValidationResult
 import dev.vimivo.core.streaming.StreamValidator
 import dev.vimivo.desktop.diagnostics.DesktopSmokeResult
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
+import dev.vimivo.desktop.diagnostics.SnapshotSubtitleSmoke
 import dev.vimivo.desktop.diagnostics.StartupTrace
 import dev.vimivo.desktop.diagnostics.VideoPixelSample
 import dev.vimivo.desktop.integration.mpris.MprisService
@@ -18,9 +19,12 @@ import dev.vimivo.desktop.library.DesktopRecentMediaRepository
 import dev.vimivo.desktop.playback.DesktopFullscreenControl
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.playback.SnapshotPlan
 import dev.vimivo.playback.PlaybackQueueController
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.RecentMediaEntry
+import dev.vimivo.playback.SnapshotFormat
+import dev.vimivo.playback.SnapshotOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -60,6 +64,7 @@ internal class PlayerViewModel(
         togglePlayback = { scope.launch { togglePlayback() } },
         toggleShuffle = queue::toggleShuffle,
         cycleRepeat = queue::cycleRepeat,
+        snapshots = SnapshotPlan(options = { local.value.snapshot }),
         fullscreen = object : DesktopFullscreenControl {
             override fun toggle() = local.update { it.copy(fullscreen = !it.fullscreen) }
             override fun exit(): Boolean = local.value.fullscreen.also { wasFullscreen ->
@@ -96,6 +101,7 @@ internal class PlayerViewModel(
             controllerOffset = localState.controllerOffset,
             alwaysOnTop = localState.alwaysOnTop,
             autoHideControls = localState.autoHideControls,
+            snapshot = localState.snapshot,
         )
     }.stateIn(scope, SharingStarted.Eagerly, PlayerState(maxVolume = engine.capabilities.maxVolume))
 
@@ -197,6 +203,14 @@ internal class PlayerViewModel(
         when (intent) {
             is PlayerIntent.ShowPanel -> local.update { it.copy(panel = intent.panel) }
             PlayerIntent.ToggleAlwaysOnTop -> local.update { it.copy(alwaysOnTop = !it.alwaysOnTop) }
+            is PlayerIntent.SetSnapshotOptions -> {
+                local.update { it.copy(snapshot = intent.options) }
+                scope.launch {
+                    store.setUiSetting(SNAPSHOT_FORMAT_KEY, intent.options.format.name)
+                    store.setUiSetting(SNAPSHOT_SUBTITLES_KEY, intent.options.includeSubtitles.toString())
+                    store.setUiSetting(SNAPSHOT_FOLDER_KEY, intent.options.folder.orEmpty())
+                }
+            }
             PlayerIntent.ToggleAutoHideControls -> {
                 val enabled = !local.value.autoHideControls
                 local.update { it.copy(autoHideControls = enabled) }
@@ -281,7 +295,20 @@ internal class PlayerViewModel(
                 presentedFrame = engine::presentedFrame,
             )
         }.orEmpty()
-        val all = results + transitions
+        val snapshots = files.firstOrNull { it.name == SUBTITLED_SMOKE_FILE }?.let { file ->
+            listOf(
+                SnapshotSubtitleSmoke.check(
+                    file,
+                    replay = { play(mediaItemFor(file)) },
+                    selectSubtitles = { engine.selectSubtitleTrack("1") },
+                    pause = { engine.pause() },
+                    snapshot = { subtitles, destination ->
+                        engine.takeSnapshot(destination.path, SnapshotOptions(includeSubtitles = subtitles))
+                    },
+                ),
+            )
+        }.orEmpty()
+        val all = results + transitions + snapshots
         DesktopSmokeTest.publish(all, System.getenv("VIMIVO_SMOKE_REPORT"))
         // What the Info panel reports as the renderer (software rendering switches to performance mode).
         engine.containerInfo()?.rendering?.let { println("VIMIVO_SMOKE INFO rendering=$it") }
@@ -388,7 +415,10 @@ internal class PlayerViewModel(
             FOLDER_SIBLINGS_KEY,
             REMAINING_TIME_KEY,
             CONTROLLER_OFFSET_KEY,
-            AUTO_HIDE_CONTROLS_KEY
+            AUTO_HIDE_CONTROLS_KEY,
+            SNAPSHOT_FORMAT_KEY,
+            SNAPSHOT_SUBTITLES_KEY,
+            SNAPSHOT_FOLDER_KEY,
         )
         val saved = withContext(Dispatchers.IO) {
             StartupTrace.mark("preferencesIo")
@@ -401,6 +431,13 @@ internal class PlayerViewModel(
                 folderSiblings = saved[FOLDER_SIBLINGS_KEY]?.toBooleanStrictOrNull() ?: true,
                 showRemainingTime = saved[REMAINING_TIME_KEY]?.toBooleanStrictOrNull() ?: false,
                 autoHideControls = saved[AUTO_HIDE_CONTROLS_KEY]?.toBooleanStrictOrNull() ?: false,
+                snapshot = SnapshotOptions(
+                    format = saved[SNAPSHOT_FORMAT_KEY]
+                        ?.let { name -> runCatching { SnapshotFormat.valueOf(name) }.getOrNull() }
+                        ?: SnapshotFormat.PNG,
+                    includeSubtitles = saved[SNAPSHOT_SUBTITLES_KEY]?.toBooleanStrictOrNull() ?: false,
+                    folder = saved[SNAPSHOT_FOLDER_KEY]?.takeIf(String::isNotBlank),
+                ),
                 controllerOffset = saved[CONTROLLER_OFFSET_KEY]?.split(',')?.mapNotNull(String::toIntOrNull)
                     ?.takeIf { offset -> offset.size == 2 }?.let { (x, y) -> ControllerOffset(x, y) }
                     ?: ControllerOffset(0, 0),
@@ -469,9 +506,13 @@ internal class PlayerViewModel(
         val controllerOffset: ControllerOffset = ControllerOffset(0, 0),
         val alwaysOnTop: Boolean = false,
         val autoHideControls: Boolean = false,
+        val snapshot: SnapshotOptions = SnapshotOptions(),
     )
 
     internal companion object {
+        /** The smoke fixture with an embedded subtitle track, used to prove subtitles reach saved snapshots. */
+        private const val SUBTITLED_SMOKE_FILE = "video_sample.mkv"
+
         const val HUD_VISIBLE_MILLIS = 2_000L
         const val RESUME_PROMPT_MILLIS = 4_000L
         const val OPEN_MODE_KEY = "launch_open_mode"
@@ -479,6 +520,9 @@ internal class PlayerViewModel(
         const val REMAINING_TIME_KEY = "player_show_remaining_time"
         const val CONTROLLER_OFFSET_KEY = "player_fullscreen_controller_offset"
         const val AUTO_HIDE_CONTROLS_KEY = "player_auto_hide_controls"
+        const val SNAPSHOT_FORMAT_KEY = "player_snapshot_format"
+        const val SNAPSHOT_SUBTITLES_KEY = "player_snapshot_subtitles"
+        const val SNAPSHOT_FOLDER_KEY = "player_snapshot_folder"
 
         fun mediaItemFor(file: File): MediaItem = LaunchPlanner.mediaItemFor(file)
 

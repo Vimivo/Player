@@ -85,7 +85,9 @@ internal fun PlayerSidePanel(
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 12.dp)) {
             val playback = state.playback
             when (panel) {
-                PlayerPanel.VIDEO -> VideoTab(playback, engine, commands)
+                PlayerPanel.VIDEO -> VideoTab(playback, state.snapshot, engine, commands) {
+                    onIntent(PlayerIntent.SetSnapshotOptions(it))
+                }
                 PlayerPanel.AUDIO -> AudioTab(playback, engine, commands)
                 PlayerPanel.SUBTITLES -> SubtitlesTab(playback, engine, commands)
                 PlayerPanel.SYNC -> SyncTab(playback, engine, commands)

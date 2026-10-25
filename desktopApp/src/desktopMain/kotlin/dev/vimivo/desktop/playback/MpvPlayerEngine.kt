@@ -38,6 +38,7 @@ import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.ReplayGainMode
+import dev.vimivo.playback.SnapshotOptions
 import dev.vimivo.playback.SubtitleStyle
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.TrackInfo
@@ -348,8 +349,12 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("sub-pos", (100 - style.bottomMarginPercent).coerceIn(0, 100).toString())
     }
 
-    override fun takeScreenshot(destinationFilePath: String): Result<Unit> = action {
-        command("screenshot-to-file", destinationFilePath, "video")
+    override fun takeScreenshot(destinationFilePath: String): Result<Unit> =
+        takeSnapshot(destinationFilePath, SnapshotOptions())
+
+    /** `screenshot-to-file`: "subtitles" burns the visible subtitles in, "video" is the bare picture. */
+    override fun takeSnapshot(destinationFilePath: String, options: SnapshotOptions): Result<Unit> = action {
+        command("screenshot-to-file", destinationFilePath, if (options.includeSubtitles) "subtitles" else "video")
     }
 
     override fun getAudioOutputDevices(): List<AudioOutputDevice> = synchronized(nativeLock) {
@@ -378,11 +383,14 @@ class MpvPlayerEngine : PlayerEngine {
     /** Frames the video renderer has presented, for tests that wait on real frames (null where not tracked). */
     internal fun presentedFrame(): PresentedFrame? = renderer?.presentedFrame()
 
+    // macOS uses VideoToolbox's copy variant: zero-copy frames cannot be saved as snapshots or run through filters
+    // (crop detection, deinterlacing), and on unified memory the copy costs little.
     private fun hwdecValue(mode: HardwareAccelerationMode): String = when (mode) {
-        HardwareAccelerationMode.AUTO -> "auto-safe"
+        HardwareAccelerationMode.AUTO ->
+            if (desktopPlatform == DesktopPlatform.MACOS) "videotoolbox-copy" else "auto-safe"
         HardwareAccelerationMode.SOFTWARE -> "no"
         HardwareAccelerationMode.HARDWARE_PREFERRED -> when (desktopPlatform) {
-            DesktopPlatform.MACOS -> "videotoolbox"
+            DesktopPlatform.MACOS -> "videotoolbox-copy"
             DesktopPlatform.WINDOWS -> "d3d11va"
             DesktopPlatform.LINUX -> "vaapi"
             DesktopPlatform.UNKNOWN -> "auto"
@@ -518,6 +526,7 @@ class MpvPlayerEngine : PlayerEngine {
         // Software amplification up to 200%; the UI marks the range above 100% as boosted.
         checkCode(loaded.mpv_set_option_string(created, "volume-max", (capabilities.maxVolume * 100).toInt().toString()))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
+        loaded.mpv_set_option_string(created, "screenshot-jpeg-quality", SNAPSHOT_JPEG_QUALITY)
         checkCode(loaded.mpv_initialize(created))
         // Log lines arrive as events; the polling loop reads them (see handleLogMessages). "v" includes the renderer
         // name libmpv reports when its video output starts.
@@ -788,6 +797,7 @@ class MpvPlayerEngine : PlayerEngine {
         private const val SURFACE_READY_TIMEOUT_MILLIS = 5_000L
         private const val SURFACE_POLL_MILLIS = 16L
         private const val DEINTERLACE_LABEL = "vimivo-deint"
+        private const val SNAPSHOT_JPEG_QUALITY = "92"
         private const val SHUTDOWN_IDLE_TIMEOUT_NANOS = 2_000_000_000L
         private const val SHUTDOWN_POLL_MILLIS = 10L
         private const val COREAUDIO_QUIESCE_MILLIS = 150L

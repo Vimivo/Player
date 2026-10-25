@@ -7,6 +7,7 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.desktop.playback.DesktopPlayerCommand
 import dev.vimivo.playback.PlaybackQueueState
 import dev.vimivo.playback.PlaybackState
+import dev.vimivo.playback.SnapshotOptions
 import java.io.File
 
 /** How files sent to an already running Vimivo are handled. */
@@ -53,6 +54,8 @@ internal data class PlayerState(
     val alwaysOnTop: Boolean = false,
     /** Windowed video hides the control bar after the pointer rests (View ▸ Auto-hide Controls; off by default). */
     val autoHideControls: Boolean = false,
+    /** Snapshot format, subtitles and folder (Video panel ▸ Snapshot); remembered. */
+    val snapshot: SnapshotOptions = SnapshotOptions(),
 )
 
 /** Every user action the player understands; the UI never calls the engine or queue directly for these. */
@@ -103,6 +106,7 @@ internal sealed interface PlayerIntent {
 
     /** Opens the side panel on [panel], or closes it when null. */
     data class ShowPanel(val panel: PlayerPanel?) : PlayerIntent
+    data class SetSnapshotOptions(val options: SnapshotOptions) : PlayerIntent
     data object ToggleRemainingTime : PlayerIntent
     data class MoveController(val offset: ControllerOffset) : PlayerIntent
     data object ToggleAlwaysOnTop : PlayerIntent

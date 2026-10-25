@@ -15,6 +15,8 @@ import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
+import dev.vimivo.playback.SnapshotFormat
+import dev.vimivo.playback.SnapshotOptions
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.TrackInfo
 import dev.vimivo.playback.TrackType
@@ -116,8 +118,32 @@ class DesktopPlayerCommandsTest {
         val executor = executor(engine, snapshotFile = { directory.resolve("vimivo-snapshot-42.png") })
         executor.execute(DesktopPlayerCommand.SNAPSHOT)
         assertTrue(directory.isDirectory)
-        assertEquals("shot:${directory.resolve("vimivo-snapshot-42.png").absolutePath}", engine.calls.single())
+        assertEquals("snap:${directory.resolve("vimivo-snapshot-42.png").absolutePath}:PNG:false", engine.calls.single())
         directory.parentFile.deleteRecursively()
+    }
+
+    @Test
+    fun snapshotOptionsReachTheEngineAndChooseTheFolderAndExtension() {
+        val directory = Files.createTempDirectory("vimivo-snapshot-options").toFile()
+        val options = SnapshotOptions(SnapshotFormat.JPEG, includeSubtitles = true, folder = directory.absolutePath)
+        val engine = FakeEngine(loaded())
+        val plan = SnapshotPlan(options = { options })
+        DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, plan).execute(DesktopPlayerCommand.SNAPSHOT)
+        val call = engine.calls.single()
+        assertTrue(call.startsWith("snap:${directory.absolutePath}${java.io.File.separator}"), call)
+        assertTrue(call.endsWith(".jpg:JPEG:true"), call)
+        directory.deleteRecursively()
+    }
+
+    @Test
+    fun snapshotNamesCarryTheTitleAndPosition() {
+        val directory = Files.createTempDirectory("vimivo-snapshot-name").toFile()
+        val engine = FakeEngine(loaded())
+        val plan = SnapshotPlan(options = { SnapshotOptions(folder = directory.absolutePath) })
+        DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, plan).execute(DesktopPlayerCommand.SNAPSHOT)
+        val name = java.io.File(engine.calls.single().removePrefix("snap:").substringBefore(":PNG")).name
+        assertTrue(name.matches(Regex(".+-\\dh\\d\\dm\\d\\ds-\\d+\\.png")), name)
+        directory.deleteRecursively()
     }
 
     @Test
@@ -167,8 +193,11 @@ class DesktopPlayerCommandsTest {
         assertTrue(commands.perform("Rotate") { Result.success(Unit) })
     }
 
-    private fun executor(engine: FakeEngine, snapshotFile: () -> java.io.File = { java.io.File("unused.png") }) =
-        DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, snapshotFile)
+    private fun executor(
+        engine: FakeEngine,
+        snapshotFile: (SnapshotOptions) -> java.io.File = { java.io.File("unused.png") },
+        snapshotOptions: () -> SnapshotOptions = { SnapshotOptions() },
+    ) = DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, SnapshotPlan(snapshotOptions, snapshotFile))
 
     @Test
     fun volumeAmplifiesToTwoHundredPercentWithAStopAtOneHundred() {
@@ -262,6 +291,8 @@ class DesktopPlayerCommandsTest {
         override fun setDeinterlace(enabled: Boolean) = record("deinterlace:$enabled")
         override fun applyVideoAdjustments(adjustments: VideoAdjustments) = record("aspect:${adjustments.aspectRatio.name}")
         override fun takeScreenshot(destinationFilePath: String) = record("shot:$destinationFilePath")
+        override fun takeSnapshot(destinationFilePath: String, options: SnapshotOptions) =
+            record("snap:$destinationFilePath:${options.format.name}:${options.includeSubtitles}")
         override fun close() = Unit
     }
 }

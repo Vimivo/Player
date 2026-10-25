@@ -14,18 +14,29 @@ import dev.vimivo.desktop.playback.AutoCrop
 import dev.vimivo.desktop.playback.DesktopPlayerCommand
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.playback.defaultSnapshotDirectory
 import dev.vimivo.desktop.player.HudMessage
 import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.CropRect
 import dev.vimivo.playback.DeinterlaceMode
 import dev.vimivo.playback.PlaybackState
+import dev.vimivo.playback.SnapshotFormat
+import dev.vimivo.playback.SnapshotOptions
 import dev.vimivo.playback.VideoAdjustments
 import dev.vimivo.playback.VideoAspectRatio
 import dev.vimivo.playback.VideoCropMath
 import kotlinx.coroutines.launch
+import java.io.File
+import javax.swing.JFileChooser
 
 @Composable
-internal fun VideoTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: DesktopPlayerCommandExecutor) {
+internal fun VideoTab(
+    playback: PlaybackState,
+    snapshot: SnapshotOptions,
+    engine: MpvPlayerEngine,
+    commands: DesktopPlayerCommandExecutor,
+    onSnapshotOptions: (SnapshotOptions) -> Unit,
+) {
     val adjustments = playback.videoAdjustments
     fun adjust(label: String, next: VideoAdjustments) {
         commands.perform(label) { engine.applyVideoAdjustments(next) }
@@ -53,9 +64,59 @@ internal fun VideoTab(playback: PlaybackState, engine: MpvPlayerEngine, commands
         Spacer(Modifier.width(6.dp))
         PanelButton("Next ▶", Modifier.weight(1f)) { commands.execute(DesktopPlayerCommand.FRAME_STEP_FORWARD) }
     }
-    PanelRow("Snapshot") {
+    SnapshotSection(snapshot, commands, onSnapshotOptions)
+}
+
+/** Snapshot format, whether subtitles are burned in, and the folder; the button saves the current frame. */
+@Composable
+private fun SnapshotSection(
+    options: SnapshotOptions,
+    commands: DesktopPlayerCommandExecutor,
+    onChange: (SnapshotOptions) -> Unit,
+) {
+    PanelSection("Snapshot")
+    PanelRow("Format") {
+        SegmentedChoice(
+            options = SnapshotFormat.entries,
+            selected = options.format,
+            label = SnapshotFormat::label,
+            onSelect = { onChange(options.copy(format = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Subtitles") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = options.includeSubtitles,
+            label = { if (it) "Include" else "Leave out" },
+            onSelect = { onChange(options.copy(includeSubtitles = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Folder") {
+        PanelText(
+            options.folder ?: defaultSnapshotDirectory().path,
+            modifier = Modifier.weight(1f),
+            color = PlayerPalette.contentMuted,
+        )
+        Spacer(Modifier.width(6.dp))
+        PanelButton("Choose…") { chooseFolder(options.folder)?.let { onChange(options.copy(folder = it)) } }
+        if (options.folder != null) {
+            Spacer(Modifier.width(6.dp))
+            PanelButton("Default") { onChange(options.copy(folder = null)) }
+        }
+    }
+    PanelRow("") {
         PanelButton("Save frame", Modifier.fillMaxWidth()) { commands.execute(DesktopPlayerCommand.SNAPSHOT) }
     }
+}
+
+private fun chooseFolder(current: String?): String? {
+    val chooser = JFileChooser(current?.let(::File) ?: defaultSnapshotDirectory()).apply {
+        fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+        dialogTitle = "Snapshot folder"
+    }
+    return if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) chooser.selectedFile.absolutePath else null
 }
 
 /** Aspect ratio, crop, rotation and deinterlacing: how the picture is framed and cleaned up. */

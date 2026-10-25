@@ -109,7 +109,7 @@ jobs:
             "$PWD/testmedia/video_landscape.mp4" "$PWD/testmedia/video_sample.mkv" \
             "$PWD/testmedia/track2_lunar.mp3" "$PWD/testmedia/track1_solaris.flac" | tee smoke.log
           # 4 files plus the fullscreen-enter, fullscreen-exit and resize picture checks.
-          test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 7
+          test "$(grep -c '^VIMIVO_SMOKE PASS' smoke.log)" -eq 8
 
       - name: Collect DMG
         run: |

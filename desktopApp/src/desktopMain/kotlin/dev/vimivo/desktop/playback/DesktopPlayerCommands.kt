@@ -5,7 +5,10 @@ package dev.vimivo.desktop.playback
 import androidx.compose.ui.input.key.Key
 import dev.vimivo.desktop.player.HudMessage
 import dev.vimivo.playback.PlaybackControlPolicy
+import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlayerEngine
+import dev.vimivo.playback.SnapshotNaming
+import dev.vimivo.playback.SnapshotOptions
 import dev.vimivo.playback.TrackCycleResult
 import dev.vimivo.playback.VideoAspectRatio
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -116,7 +119,7 @@ internal class DesktopPlayerCommandExecutor(
     private val toggleShuffle: () -> Unit,
     private val cycleRepeat: () -> Unit,
     private val fullscreen: DesktopFullscreenControl,
-    private val snapshotFile: () -> File = { File(defaultSnapshotDirectory(), "vimivo-snapshot-${System.currentTimeMillis()}.png") },
+    private val snapshots: SnapshotPlan = SnapshotPlan(),
 ) {
     private val mutableStatus = MutableStateFlow<HudMessage?>(null)
     private val mutableMediaInfoVisible = MutableStateFlow(false)
@@ -201,9 +204,10 @@ internal class DesktopPlayerCommandExecutor(
                 }
             }
             DesktopPlayerCommand.SNAPSHOT -> {
-                val target = snapshotFile()
+                val options = snapshots.options()
+                val target = snapshots.fileFor?.invoke(options) ?: defaultSnapshotFile(options, state)
                 runCatching { target.parentFile?.mkdirs() }
-                    .mapCatching { engine.takeScreenshot(target.absolutePath).getOrThrow() }
+                    .mapCatching { engine.takeSnapshot(target.absolutePath, options).getOrThrow() }
                     .map { HudMessage.SnapshotSaved(target.name) }
             }
             DesktopPlayerCommand.CYCLE_ASPECT_RATIO -> {
@@ -220,6 +224,13 @@ internal class DesktopPlayerCommandExecutor(
         result.onSuccess { message -> if (message != null) mutableStatus.value = message }
             .onFailure { error -> mutableStatus.value = HudMessage.Failed(command.label, error.message) }
         return true
+    }
+
+    /** `<folder>/<title>-<position>-<time>.<ext>`; the folder is the user's choice or the Pictures/Vimivo default. */
+    private fun defaultSnapshotFile(options: SnapshotOptions, state: PlaybackState): File {
+        val folder = options.folder?.takeIf(String::isNotBlank)?.let(::File) ?: defaultSnapshotDirectory()
+        val name = SnapshotNaming.fileName(state.media?.title, state.positionMillis, System.currentTimeMillis(), options.format)
+        return File(folder, name)
     }
 
     private fun stepVolume(current: Float, delta: Float) =
@@ -270,6 +281,15 @@ internal class DesktopPlayerCommandExecutor(
         const val PERCENT = 100
     }
 }
+
+/**
+ * How snapshots are taken: the user's [options] (format, subtitles, folder), read at the moment of the snapshot, and
+ * optionally a fixed target for [fileFor] (tests); without it the name and folder come from the options.
+ */
+internal class SnapshotPlan(
+    val options: () -> SnapshotOptions = { SnapshotOptions() },
+    val fileFor: ((SnapshotOptions) -> File)? = null,
+)
 
 /** Snapshots go to the user's Pictures folder (VLC-style) and fall back to the home directory. */
 internal fun defaultSnapshotDirectory(): File {
