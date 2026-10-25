@@ -135,6 +135,18 @@ run([
     os.path.join(MEDIA_DIR, "mpris_second.mp3")
 ])
 
+# 8c. Tiny HDR10 (PQ) and HLG clips: HEVC 10-bit BT.2020, for HDR detection tests (V1 #9)
+for name, transfer, extra in (
+    ("hdr10_tiny.mkv", "smpte2084", ":master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400"),
+    ("hlg_tiny.mkv", "arib-std-b67", ""),
+):
+    run([
+        "ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=24:duration=2",
+        "-pix_fmt", "yuv420p10le", "-c:v", "libx265", "-preset", "ultrafast", "-crf", "30",
+        "-x265-params", f"log-level=error:colorprim=bt2020:transfer={transfer}:colormatrix=bt2020nc:range=limited{extra}",
+        os.path.join(MEDIA_DIR, name)
+    ])
+
 # 9. Public HLS stream URLs
 with open(os.path.join(MEDIA_DIR, "stream_urls.txt"), "w") as f:
     f.write("https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8\n")

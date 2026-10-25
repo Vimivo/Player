@@ -26,7 +26,6 @@ import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.AudioOutputDevice
 import dev.vimivo.playback.ChapterInfo
-import dev.vimivo.playback.ColorTransfer
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
@@ -86,6 +85,7 @@ class MpvPlayerEngine : PlayerEngine {
     private var closed = false
     private var sessionGeneration = 0L
     private var userPaused = false
+
     private var userStopped = false
     var liveLatencyMode: LiveLatencyMode = LiveLatencyMode.BALANCED
         private set
@@ -385,46 +385,25 @@ class MpvPlayerEngine : PlayerEngine {
 
     override fun getDiagnosticsSnapshot(): PlaybackDiagnosticsSnapshot? {
         if (context == null || closed) return null
-        val mediaUri = mutableState.value.media?.uri ?: return null
-        val vCodec = stringProperty("video-codec") ?: stringProperty("video-format")
-        val aCodec = stringProperty("audio-codec") ?: stringProperty("audio-format")
-        val activeHwdec = stringProperty("hwdec-current")
-        val isHwdecActive = flagProperty("hwdec-active") ?: (activeHwdec != null && activeHwdec != "no")
-        val activeRenderer = (
-            stringProperty("current-vo")
-                ?: if (desktopPlatform == DesktopPlatform.MACOS) "libmpv/cocoa" else "gpu"
-            ) + if (rendererWatch.softwareRenderer) " (software rendering, performance mode)" else ""
-        val dropped = longProperty("drop-frame-count") ?: longProperty("vo-delayed-frame-count") ?: 0L
-        val totalFrames = longProperty("estimated-frame-count") ?: 0L
-        val avDriftSec = doubleProperty("avsync") ?: 0.0
-        val fps = doubleProperty("container-fps")?.toFloat() ?: 0f
-        val cacheBytes = longProperty("demuxer-cache-state/cache-used")
-            ?: longProperty("demuxer-cache-state/bytes") ?: 0L
-        val colormatrix = stringProperty("colormatrix")
-        val colorTransfer = when {
-            colormatrix?.contains("2084") == true || colormatrix?.contains("pq") == true -> ColorTransfer.HDR10_PQ
-            colormatrix?.contains("hlg") == true || colormatrix?.contains("arib") == true -> ColorTransfer.HLG
-            colormatrix?.contains("bt.709") == true || colormatrix?.contains("709") == true -> ColorTransfer.SDR_BT709
-            else -> ColorTransfer.UNKNOWN
+        val state = mutableState.value
+        val mediaUri = state.media?.uri ?: return null
+        val properties = object : MpvProperties {
+            override fun string(name: String) = stringProperty(name)
+            override fun flag(name: String) = flagProperty(name)
+            override fun long(name: String) = longProperty(name)
+            override fun double(name: String) = doubleProperty(name)
         }
-
-        return PlaybackDiagnosticsSnapshot(
-            engineId = id,
-            mediaUri = mediaUri,
-            activeVideoCodec = vCodec,
-            activeAudioCodec = aCodec,
-            activeDecoder = if (isHwdecActive) "hw:$activeHwdec" else (stringProperty("video-dec") ?: "sw:$vCodec"),
-            hwdecActive = isHwdecActive,
-            hwdecMode = activeHwdec ?: hwdecMode.name.lowercase(),
-            activeRenderer = activeRenderer,
-            droppedFrames = dropped,
-            totalFrames = totalFrames,
-            avDriftMillis = avDriftSec * 1000.0,
-            estimatedFps = fps,
-            cacheBufferBytes = cacheBytes,
-            colorTransfer = colorTransfer,
-            positionMillis = mutableState.value.positionMillis,
-            durationMillis = mutableState.value.durationMillis,
+        return MpvDiagnostics.snapshot(
+            properties,
+            DiagnosticsContext(
+                engineId = id,
+                mediaUri = mediaUri,
+                positionMillis = state.positionMillis,
+                durationMillis = state.durationMillis,
+                requestedHwdec = hwdecMode.name.lowercase(),
+                defaultRenderer = if (desktopPlatform == DesktopPlatform.MACOS) "libmpv/cocoa" else "gpu",
+                softwareRendering = rendererWatch.softwareRenderer,
+            ),
         )
     }
 
@@ -480,9 +459,10 @@ class MpvPlayerEngine : PlayerEngine {
         // decoded but not displayed. macOS and Linux render through the render API into Vimivo's own GL context
         // (the LGPL libmpv has no X11 output, ADR-004); Windows embeds libmpv's Direct3D output in the canvas.
         val vo = when {
-            desktopPlatform == DesktopPlatform.MACOS -> "libmpv"
+            // No surface (tests, headless use): libmpv's render-API output would fail to initialize without a render
+            // context and take video-only files down with it.
             videoSurface == null -> "null"
-            desktopPlatform == DesktopPlatform.LINUX -> "libmpv"
+            desktopPlatform == DesktopPlatform.MACOS || desktopPlatform == DesktopPlatform.LINUX -> "libmpv"
             else -> "gpu"
         }
         checkCode(loaded.mpv_set_option_string(created, "vo", vo))
