@@ -3,7 +3,7 @@
 ## Foundation delivered
 
 - Single foreground `MediaLibraryService` with notification, lock-screen, Bluetooth, headset, and external controller support
-- Service-owned Media3/LibVLC engine lifecycle through one MediaSession-compatible adapter
+- Service-owned Media3/libmpv engine lifecycle through one MediaSession-compatible adapter
 - Mutable queue operations, next/previous, repeat-one/all, shuffle, completion advancement, and paused process restoration
 - Audio focus, transient interruption resume, ducking, and noisy-route disconnection handling
 
@@ -18,7 +18,7 @@
 - Adaptive-ready Compose scaffold and typed navigation for Home, Music, Video, and Settings
 - Light, dark, and AMOLED color foundations
 - Media3 engine for local and HTTP(S) audio/video, state, tracks, metadata, errors, seeking, speed, volume, and video output
-- LibVLC fallback engine with hardware/software decoding, track selection, video output, and explicit audio focus
+- libmpv fallback engine (LGPL build) with software decoding (MediaCodec on request), track selection, video output, and explicit audio focus
 - Queue-aware engine manager with deterministic cleanup and bounded fallback
 - Development playback console for Storage Access Framework documents and authorized HTTP(S) URLs
 - Complete local music browsing for songs, albums, artists, album artists, genres, folders, playlists, recent media, and favorites

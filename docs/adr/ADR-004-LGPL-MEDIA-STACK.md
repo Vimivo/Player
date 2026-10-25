@@ -127,10 +127,8 @@ clause allows this for every LGPL component here.
 
 See `docs/LICENSE_AUDIT_MOBILE.md`.
 
-- **Android:** LibVLC 3.7.7 from Maven contains GPL modules (x264 encoder, dvdnav/dvdread, postproc).
-  - The app is a GPL combination today.
-  - Recommended fix: our own LibVLC build without those modules, pinned and verified like the desktop package.
-  - Until then, no public Android build ships with LibVLC.
+- **Android:** LibVLC 3.7.7 from Maven contained GPL modules (x264 encoder, dvdnav/dvdread, postproc). It was replaced
+  by the same LGPL libmpv/FFmpeg stack (release `media-2`, [ADR-005](ADR-005-MOBILE-MEDIA-ENGINE.md)).
 - **iOS:**
   - AVPlayer only: system frameworks, no third-party media code.
   - MPVKit is unusable for the fallback: static xcframeworks, and gnutls/gmp/nettle (LGPLv3) even in its LGPL product.
@@ -147,5 +145,5 @@ See `docs/LICENSE_AUDIT_MOBILE.md`.
 | macOS Intel smoke test re-enabled | Done |
 | About notices on all five apps | Done |
 | Filter check (#12–15, #19–21, #24) | Done |
-| LibVLC LGPL-only build (Android) | Open: product decision |
+| Android: libmpv replaces LibVLC (`media-2`) | Done (ADR-005) |
 | iOS dynamic LGPL frameworks | Open |

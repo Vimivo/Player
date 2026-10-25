@@ -10,7 +10,7 @@
 1. **Local-First & Offline-First**: Core media playback never depends on internet connectivity or remote authentication.
 2. **Zero Telemetry / Zero Third-Party Trackers**: No analytics SDKs (Firebase, Sentry, TelemetryDeck, etc.) are embedded. Diagnostics remain strictly on-device until the user explicitly requests an export.
 3. **Bounded Resource Footprint**: Local diagnostic logs and ring buffers have hard capacity ceilings to prevent disk space exhaustion or memory bloat.
-4. **Resilient Native Integration**: Native multimedia engines (`libmpv`, `Media3`, `AVPlayer`, `LibVLC`) are treated as external resources with strict lifecycle ownership, isolation, and fallback handling.
+4. **Resilient Native Integration**: Native multimedia engines (`libmpv`, `Media3`, `AVPlayer`) are treated as external resources with strict lifecycle ownership, isolation, and fallback handling.
 
 ---
 

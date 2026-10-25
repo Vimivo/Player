@@ -2,7 +2,7 @@
 
 ## ADR-000A: One MediaLibraryService playback authority
 
-**Decision:** Host one `MediaLibrarySession` in `VimivoPlaybackService`. Adapt the existing engine manager to Media3's `Player` contract instead of creating separate Media3 and LibVLC services.
+**Decision:** Host one `MediaLibrarySession` in `VimivoPlaybackService`. Adapt the existing engine manager to Media3's `Player` contract instead of creating separate Media3 and fallback-engine services.
 
 **Reason:** One session prevents simultaneous playback and duplicate system entries while preserving fallback compatibility. Media3 supplies notification, lock-screen, media-button, foreground-service, and browsing behavior. UI code communicates only through a `MediaController`. Persisted queue state restores paused after process death.
 
@@ -22,11 +22,11 @@
 
 **Decision:** Android 8.0 is the minimum. Compile and target API 36.
 
-**Reason:** API 26 supports the selected Media3 and LibVLC lines and offers modern notification/background primitives while retaining broad device coverage.
+**Reason:** API 26 supports Media3 and the libmpv engine (originally LibVLC, replaced per ADR-031) and offers modern notification/background primitives while retaining broad device coverage.
 
 ## ADR-003: Engine abstraction in common code
 
-**Decision:** Media3 and LibVLC will be Android adapters behind `PlayerEngine`.
+**Decision:** Media3 and a fallback engine (LibVLC at first, libmpv since ADR-031) are Android adapters behind `PlayerEngine`.
 
 **Reason:** Playback policy and UI remain testable and portable. Capability reporting prevents assuming that both engines support identical behavior.
 
@@ -48,15 +48,15 @@
 
 **Reason:** The working product name may change. After first publication the chosen ID must never change because Android/store upgrade identity depends on it.
 
-## ADR-007: Bounded Media3-to-LibVLC fallback
+## ADR-007: Bounded Media3-to-fallback-engine fallback
 
-**Decision:** Prefer Media3. Fall back once to LibVLC only for unsupported-container, decoder-initialization, or decode failures.
+**Decision:** Prefer Media3. Fall back once to the fallback engine (libmpv since ADR-031; LibVLC before) only for unsupported-container, decoder-initialization, or decode failures.
 
 **Reason:** Retrying missing, unauthorized, or unreachable sources in another engine cannot fix the source and can hide actionable errors. Tracking attempted engines eliminates loops. Switching closes the previous engine first, preventing concurrent playback.
 
 ## ADR-008: Native ABI and page-size policy
 
-**Decision:** Package `arm64-v8a`, `armeabi-v7a`, and `x86_64`; exclude obsolete x86. Keep LibVLC 3.7.7 while it is the latest stable 3.x artifact.
+**Decision:** Package `arm64-v8a`, `armeabi-v7a`, and `x86_64`; exclude obsolete x86. The fallback engine's native libraries must be built for all three (LibVLC 3.7.7 until ADR-031, now the libmpv package).
 
 **Reason:** The selected AAR officially publishes all four ABIs. ARM64 and x86_64 cover modern devices and emulator testing; ARMv7 remains supported by the application minimum. Inspection found 16 KB-aligned (`2**14`) ARM64 ELF load segments, and the generated APK passes `zipalign -P 16`. Runtime testing on a 16 KB emulator/device remains required.
 
@@ -195,3 +195,9 @@
 **Decision:** Desktop has two window types. The player window opens for files (OS "Open with", command line, second launch, drag and drop, Open File, links) and shows only the player: video on a black stage, or the audio layout, with a control bar and an optional Video/Bookmarks side panel. The library window opens on a plain launch, from the player's Library button, or from View ▸ Library (primary+L) and Navigate. The player window is always composed and only hidden when idle, so its native video surface (one `Canvas`, black, attached to libmpv once at startup) lives as long as the engine (ADR-028). Player persistence (resume, history, queue, bookmarks, settings) goes through `DesktopPlaybackStore`, which shares the database with the library but never indexes or scans; `DesktopLibraryController` is a lazy Koin single created only by the library window, and it refreshes itself from the store's change stream. Closing the player stops playback and hides it; closing the last window quits on Windows and Linux, while macOS stays in the Dock and reopens the library when the Dock icon is clicked. A second launch routes its files to the running player (Replace or Add to queue, per Launch settings). "Open in a new window" is not offered: there is one playback engine per process, and a second engine would need a second libmpv context and audio device arbitration.
 
 **Reason:** Opening a file previously composed the full library shell: Home (its default destination) rendered beneath the audio card, the bookmarks panel appeared on every page, the library controller opened and refreshed the database, and the video `SwingPanel` used its default white background, which showed as a white box before the first frame and for audio. A unit test (`DesktopPlayerModuleTest.playerGraphNeverCreatesTheLibrary`) and the startup trace (`library` milestone absent when a file is opened) guard the split.
+
+## ADR-031: libmpv replaces LibVLC as the Android fallback engine
+
+**Decision:** Android's fallback engine is Vimivo's own LGPL-only libmpv 0.41.0 + FFmpeg 9.0.2 (`scripts/build_media` release `media-2`: arm64-v8a, armeabi-v7a, x86_64), behind the same `PlayerEngine` contract, selected by the unchanged engine manager. LibVLC is removed from the build, the settings enum (`PreferredEngine.LIBVLC` becomes `LIBMPV`; stored values migrate on read), the notices and the ProGuard rules. Details and the iOS plan: [ADR-005](adr/ADR-005-MOBILE-MEDIA-ENGINE.md).
+
+**Reason:** LibVLC 3.7.7 contains GPL modules (x264, dvdnav/dvdread, postproc), so the Android app could not ship under MIT. One libmpv/FFmpeg stack with one verified licence switch and one filter set now serves desktop and Android. Automatic decoding uses software because FFmpeg's MediaCodec path stalled on the emulator's H.264 decoder; MediaCodec remains the explicit hardware choice until real-device testing says otherwise.

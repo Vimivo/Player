@@ -1,5 +1,7 @@
 # Mobile media-stack licence audit (ADR-004)
 
+> **Resolved for Android (2026-10-26):** LibVLC was removed and replaced by Vimivo's own LGPL libmpv/FFmpeg build ([ADR-005](adr/ADR-005-MOBILE-MEDIA-ENGINE.md)). The findings below are kept as the audit that led to that decision. The iOS findings still stand.
+
 Date: 2026-10-19. Scope: the native media libraries in the Android app (LibVLC) and in the iOS fallback decided
 earlier (MPVKit). Question: does either make Vimivo a GPL work, and does it meet the LGPL relinking requirement?
 

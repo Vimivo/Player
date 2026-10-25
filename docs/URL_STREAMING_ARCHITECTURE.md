@@ -23,7 +23,7 @@ graph TD
     D --> E[DesktopOpenStreamDialog / NetworkViewModel]
     E --> F[PlaybackQueueController.play / addToQueue]
     F --> G[Native PlayerEngine]
-    G --> H[Android: Media3PlayerEngine / LibVlcPlayerEngine]
+    G --> H[Android: Media3PlayerEngine / LibmpvPlayerEngine]
     G --> I[Desktop: MpvPlayerEngine via libmpv]
     G --> J[iOS / iPadOS: AVPlayerEngine via AVFoundation]
     G --> K[Buffering / Position StateFlow Stream]
@@ -37,7 +37,7 @@ graph TD
 ### Android (`androidApp`)
 - Primary Engine: `Media3PlayerEngine` (Media3 ExoPlayer).
 - Module Support: `media3-exoplayer-hls`, `media3-exoplayer-dash`, `media3-exoplayer-rtsp`.
-- Secondary Engine: `LibVlcPlayerEngine` for specialized hardware or non-standard container fallback.
+- Secondary Engine: `LibmpvPlayerEngine` for specialized hardware or non-standard container fallback.
 - Background Audio: Unified `MediaSession` integration with system notification media controls.
 
 ### Desktop (`desktopApp` — macOS, Windows, Linux)

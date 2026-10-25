@@ -17,7 +17,7 @@ Shared Domain Contracts (commonMain: PlayerEngine, MediaCompatibilityModels)
          │
          ▼
 Platform Playback Adapters (androidApp / desktopApp / iosApp)
-  ├── Android:  Media3 (ExoPlayer + MediaCodec + LibVLC fallback)
+  ├── Android:  Media3 (ExoPlayer + MediaCodec + libmpv fallback)
   ├── Apple:    AVFoundation (AVPlayer + VideoToolbox)
   └── Desktop:  libmpv (Client API + VideoToolbox / D3D11VA / VA-API + libavcodec)
 ```
@@ -95,7 +95,7 @@ Vimivo enforces **Bounded Single-Decision Fallback**:
    - Current playback position (`playbackPositionMillis`) is recorded.
    - The failing engine is completely closed, releasing native resources and GPU textures.
 3. **Single Fallback Execution**:
-   - Secondary playback attempt is made in `SOFTWARE` mode or with fallback engine (e.g. LibVLC on Android).
+   - Secondary playback attempt is made in `SOFTWARE` mode or with fallback engine (e.g. libmpv on Android).
    - If fallback succeeds: Playback resumes from the recorded position with a non-intrusive warning (`FALLBACK_VERIFIED`).
    - If fallback fails: The playback session immediately terminates with an actionable, precise diagnostic error code (`UNSUPPORTED_CODEC` or `UNSUPPORTED_PROFILE`).
 4. **No Secondary Retries**: Under no circumstances does the player retry a third time for the same media item.

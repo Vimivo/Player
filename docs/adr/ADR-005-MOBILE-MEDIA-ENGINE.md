@@ -107,3 +107,15 @@ Accepted on 2026-10-20:
 - **Android (a):** our own LGPL libmpv. It replaces LibVLC 1:1 as the fallback engine; Media3 stays preferred.
 - **ABIs:** arm64-v8a, armeabi-v7a and x86_64 (the ABIs requested; armeabi-v7a kept).
 - **iOS:** dynamic LGPL-2.1-or-later frameworks as above, after the iOS persistence migration.
+
+## Implementation status (2026-10-26)
+
+| Item | Status |
+|---|---|
+| `android` target in `scripts/build_media` (3 ABIs, NDK r27b, 16 KB alignment, static `verify.py` per ABI) | Done; CI job in `build-media.yml` |
+| Release `media-2` published; `media.lock` pins its SHA-256; Gradle fetches and verifies it | Done |
+| `LibmpvPlayerEngine` + JNI bridge, registered as the fallback engine | Done; emulator tests (audio, video with a picture check, damaged file) pass |
+| LibVLC removed (dependency, engine, settings enum, notices, ProGuard, docs) | Done |
+| MediaCodec hardware decoding as the Automatic default | Open: software on Automatic; real-device test needed |
+| HTTPS/TLS, HLS/DASH, equalizer, subtitle styling, aspect controls in the libmpv engine | Open (V1 items) |
+| iOS dynamic LGPL frameworks | Open: after the iOS persistence migration |

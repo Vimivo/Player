@@ -12,7 +12,7 @@ alternative named) · ⏳ later phase · ⛔ excluded by decision.
 OS run locally. Windows and Linux share the libmpv code path, but CI is currently red on `main` and has never run on
 this branch (E8). Treat every D ✅ as ❓ for Windows and Linux until `windows.yml` and `linux.yml` pass.
 
-**Engines today:** D libmpv 0.41.0 through JNA · A Media3 with LibVLC fallback through the shared
+**Engines today:** D libmpv 0.41.0 through JNA · A Media3 with libmpv (own LGPL build) fallback through the shared
 `PlaybackEngineManager` · I `AVPlayer` only. The decided iOS fallback (MPVKit/libmpv) does not exist yet.
 
 ## Evidence register

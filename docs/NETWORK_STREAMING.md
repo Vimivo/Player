@@ -5,7 +5,7 @@ Vimivo plays only URLs explicitly supplied or reopened by the user. URLs and fav
 ## Engine behavior
 
 - Media3 is preferred for direct HTTP/HTTPS media, HLS, and MPEG-DASH. Adaptive rendition and track selection use Media3's native implementation.
-- LibVLC remains a bounded compatibility fallback for verified container, manifest, or decoder failures. Access failures, HTTP status failures, and ordinary network failures do not switch engines.
+- libmpv remains a bounded compatibility fallback for verified container, manifest, or decoder failures. Access failures, HTTP status failures, and ordinary network failures do not switch engines.
 - Default engine buffering handles slow connections. Transport connection failures can reconnect up to three times; other failures require an explicit retry.
 - Seeking is enabled only when the session reports the source as seekable. Indefinite-duration, non-seekable ready sources are presented as live.
 - HLS and DASH are selected from `.m3u8` and `.mpd` URLs or authoritative server metadata. Mislabelled extensionless manifests may not be identifiable automatically.

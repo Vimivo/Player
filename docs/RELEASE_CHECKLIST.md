@@ -6,7 +6,7 @@ Status: release-candidate preparation, 2026-10-13. Nothing in this document auth
 
 - Finalize the public brand and application ID. `Vimivo` remains a working name and `dev.vimivo.app` is still configurable. Both become costly or impossible to change after publication; the Play application ID cannot be changed.
 - Replace the GitHub privacy-policy URL with a stable, publicly accessible HTTPS page before production rollout.
-- Complete LibVLC/LGPL legal review and publish the corresponding-source and relinking materials described in `LICENSE_AUDIT.md`.
+- Complete the LGPL legal review of the media package (libmpv/FFmpeg and dependencies, `docs/THIRD_PARTY_NOTICES.md`); the source is the pinned archives plus `scripts/build_media`, published with each `media-*` release (ADR-004/005).
 - Test the signed release build on real API 26, 33, 35, and 36 devices, including at least one 16 KB page-size device.
 - Capture store screenshots from the tested release build. Do not use fake media or copyrighted artwork.
 

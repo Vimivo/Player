@@ -6,7 +6,7 @@ This matrix records verified protocol and container support across all target op
 
 ## 1. Cross-Platform Protocol Capabilities
 
-| Protocol / Container | Android (Media3) | Android (LibVLC) | macOS (libmpv) | Windows (libmpv) | Linux (libmpv) | iOS (AVPlayer) |
+| Protocol / Container | Android (Media3) | Android (libmpv; was LibVLC) | macOS (libmpv) | Windows (libmpv) | Linux (libmpv) | iOS (AVPlayer) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **HTTP Progressive Audio** (MP3, AAC, FLAC, Opus, WAV) | Supported | Supported | Supported | Supported | Supported | Supported |
 | **HTTPS Progressive Audio** | Supported | Supported | Supported | Supported | Supported | Supported |
@@ -32,7 +32,7 @@ This matrix records verified protocol and container support across all target op
 
 ### Video Containers
 - **MP4 / MOV (`video/mp4`, `video/quicktime`)**: Hardware accelerated decoding on all platforms.
-- **Matroska / MKV (`video/x-matroska`)**: Supported on Desktop libmpv and Android (Media3 & LibVLC). iOS native AVPlayer does not decode MKV without remuxing.
+- **Matroska / MKV (`video/x-matroska`)**: Supported on Desktop libmpv and Android (Media3 & libmpv). iOS native AVPlayer does not decode MKV without remuxing.
 - **WebM (`video/webm`)**: Supported on Android (VP8/VP9) and Desktop libmpv.
 
 ---

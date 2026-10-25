@@ -24,7 +24,7 @@ No proprietary, non-free, or GPL-incompatible components are bundled into releas
 | **libass** | libass | 0.17.1 | ISC | Permissive; copyright notice included in notices | **COMPLIANT** |
 | **libplacebo** | haasn/libplacebo | 6.338.0 | LGPL v2.1+ | Dynamically linked inside libmpv | **COMPLIANT** |
 | **Media3** | AndroidX Media3 | 1.11.1 | Apache 2.0 | Permissive; notice included in APK/AAB | **COMPLIANT** |
-| **LibVLC Android** | VideoLAN | 3.7.7 | LGPL v2.1+ | Dynamically loaded JNI libraries; sources accessible | **COMPLIANT** |
+| **libmpv + FFmpeg (own build)** | Vimivo (mpv, FFmpeg) | 0.41.0 / 9.0.2 | LGPL v2.1+ | Shared libraries in the APK; pinned sources and build scripts public; verified by `verify.py` | **COMPLIANT** (replaced LibVLC, which contained GPL modules; ADR-005) |
 | **Kotlin Standard Library** | JetBrains | 2.3.20 | Apache 2.0 | Permissive bytecode distribution | **COMPLIANT** |
 | **Compose Multiplatform** | JetBrains | 1.9.3 | Apache 2.0 | Permissive UI toolkit runtime | **COMPLIANT** |
 | **SQLite JDBC** | xerial/sqlite-jdbc | 3.45.1.0 | Apache 2.0 | Permissive SQLite wrapper | **COMPLIANT** |

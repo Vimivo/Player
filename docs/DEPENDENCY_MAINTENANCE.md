@@ -20,7 +20,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **`libmpv`** (libmpv2) | macOS, Windows, Linux | Desktop hardware/software multimedia decoding & rendering | Semi-annual or per CVE | Demuxing & codec vulnerabilities |
 | **`androidx.media3`** | Android | Primary mobile playback engine (ExoPlayer) | Quarterly / stable releases | Network streaming & container parsing |
-| **`LibVLC`** | Android | Mobile fallback engine for exotic codecs | Annual / LTS releases | Exotic demuxers & subtitles |
+| **libmpv + FFmpeg (own build)** | Android | Mobile fallback engine for exotic codecs | Bump `scripts/build_media/manifest.json`, rebuild, republish, update `media.lock` | Exotic demuxers & subtitles |
 | **`AVFoundation`** | iOS / iPadOS, macOS | Platform-native Apple hardware playback | Managed by Apple OS releases | Low (OS-sandboxed) |
 | **`SQLite`** | All platforms | Local media, playlist, and queue persistence | Maintained with Kotlin/platform | Low (local database) |
 

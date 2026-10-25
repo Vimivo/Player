@@ -13,12 +13,12 @@ These rules apply to the entire repository.
 
 - Preserve the dependency direction: UI -> domain contracts <- platform/data implementations.
 - Put media, playlist, settings, and playback contracts and business logic in `shared/commonMain`.
-- Keep Android APIs (MediaStore, permissions, services, notifications, DataStore, Media3, and LibVLC) in `androidApp`.
+- Keep Android APIs (MediaStore, permissions, services, notifications, DataStore, Media3, and the libmpv JNI bridge) in `androidApp`.
 - Keep macOS/JVM desktop APIs, JNA, libmpv, file dialogs, and packaging in `desktopApp`; common code must remain platform-neutral.
 - iOS keeps a native SwiftUI UI in `iosApp`; all non-UI logic (indexing, persistence and migrations, playlists, queue, resume, preferences, search, stats) belongs in `shared` and is consumed through the `VimivoShared` framework. Keep AVFoundation, UIKit, and other Apple APIs in `iosApp` or `iosMain`.
 - Xcode links `VimivoShared` from `shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)`; never point the iOS app at a fixed simulator or debug framework path.
 - Select desktop platform adapters at runtime or through Gradle packaging configuration; never execute macOS native integrations on Windows or Windows native integrations on macOS.
-- Do not expose Android `Uri`, `Context`, Media3, or LibVLC types through shared interfaces.
+- Do not expose Android `Uri`, `Context`, Media3, or libmpv types through shared interfaces.
 - Use immutable UI state exposed as `StateFlow`; keep mutable flows private.
 - Playback engines implement `PlayerEngine`, report capabilities and failures explicitly, and release native resources in `close()`.
 - Desktop libmpv integration must use the documented client API, never shell commands or filename interpolation, and must report a missing native library as an actionable error.

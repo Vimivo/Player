@@ -31,7 +31,7 @@ The authoritative SBOM is published in `docs/sbom.json` according to CycloneDX 1
 | `kotlinx-serialization-core` | 1.9.0 | Library | Apache-2.0 | JSON metadata serialization |
 | `androidx-media3-exoplayer` | 1.11.1 | Library | Apache-2.0 | Android native playback engine |
 | `androidx-media3-session` | 1.11.1 | Library | Apache-2.0 | Foreground playback service & lockscreen |
-| `libvlc-all` | 3.7.7 | Library | LGPL-2.1-only | Android video playback fallback |
+| libmpv + FFmpeg (`media-2`, own build) | 0.41.0 / 9.0.2 | Native libraries | LGPL-2.1-or-later | Android video playback fallback (pinned by `media.lock`) |
 | `sqlite-jdbc` | 3.53.4.0 | Library | Apache-2.0 | Desktop SQLite database driver |
 | `jaudiotagger` | 3.0.1 | Library | LGPL-2.1-or-later | Audio metadata ID3/Vorbis reader/writer |
 | `jna` | 5.19.1 | Library | Apache-2.0 | Native C binding interface for libmpv |
