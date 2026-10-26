@@ -151,7 +151,21 @@ public final class AudioEffectsController {
         if tapEvents.count < 16 { tapEvents.append(event) }
     }
 
-    public init() {}
+    public init() {
+        _ = Self.kotlinWarmedUp
+    }
+
+    /// Touches everything the tap will use on the Kotlin side (the chain, its equalizer, the presets) once, from the
+    /// thread that creates the controller. Otherwise the first use of that code, with its one-time runtime
+    /// initialisation, happens on AVFoundation's audio-processing thread in the middle of playback.
+    private static let kotlinWarmedUp: Void = {
+        let chain = AudioDspChain(sampleRate: 44_100, channels: 1)
+        let scratch = KotlinFloatArray(size: 64)
+        chain.gain = 1.5
+        chain.setEqualizerGainsDb(gains: Array(repeating: KotlinFloat(float: 0), count: 10))
+        chain.process(samples: scratch, frames: 64)
+        _ = AudioEffectSettings().chain(tags: ReplayGainTagValues())
+    }()
 
     public func update(settings: AudioEffectSettings) {
         lock.lock(); defer { lock.unlock() }
@@ -234,6 +248,7 @@ private final class TapState {
     private var channels = 0
     private var interleaved = false
     private var appliedVersion = -1
+    private var loggedFirstProcess = false
     private var sampleRate = 44_100.0
 
     init(controller: AudioEffectsController) {
@@ -252,6 +267,7 @@ private final class TapState {
         channels = Int(format.mChannelsPerFrame)
         interleaved = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
         sampleRate = format.mSampleRate
+        controller.record("tap prepared: \(maxFrames) frames, \(format.mChannelsPerFrame) channels, \(Int(format.mSampleRate)) Hz")
         chain = AudioDspChain(sampleRate: Int32(format.mSampleRate), channels: Int32(channels))
         scratch = KotlinFloatArray(size: Int32(maxFrames * channels))
         appliedVersion = -1
@@ -264,6 +280,10 @@ private final class TapState {
 
     func process(_ bufferList: UnsafeMutablePointer<AudioBufferList>, frames: Int) {
         guard let chain, let scratch, frames > 0 else { return }
+        if !loggedFirstProcess {
+            loggedFirstProcess = true
+            controller.record("tap processing: first buffer \(frames) frames")
+        }
         let current = controller.snapshot()
         if current.version != appliedVersion {
             appliedVersion = current.version

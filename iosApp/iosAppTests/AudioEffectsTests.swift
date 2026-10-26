@@ -44,7 +44,12 @@ final class AudioEffectsTests: XCTestCase {
         }
         let window = Array(samples.dropFirst(22_050).prefix(44_100))
         XCTAssertGreaterThan(window.count, 40_000, "the tone was too short to measure")
-        XCTAssertGreaterThan(window.map { abs($0) }.max() ?? 0, 0, "the render was silent; tap events: \(controller.tapEvents)")
+        let loudest = window.map { abs($0) }.max() ?? 0
+        XCTAssertGreaterThan(
+            loudest, 0,
+            "the render was silent; reader status \(reader.status.rawValue), error \(String(describing: reader.error)), "
+                + "tap events: \(controller.tapEvents)"
+        )
         let rms = (window.map { Double($0 * $0) }.reduce(0, +) / Double(window.count)).squareRoot()
         return Level(rms: rms, peak: Double(window.map { abs($0) }.max() ?? 0))
     }
