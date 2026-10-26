@@ -38,6 +38,7 @@
     <string name="bass_enhancement">বেস উন্নয়ন</string>
     <string name="treble">ট্রেবল</string>
     <string name="preamp">নিরাপদ প্রিঅ্যাম্প হ্রাস (dB)</string>
+    <string name="replay_gain">রিপ্লেগেইন (ট্র্যাক বা অ্যালবামের ভলিউম সমতা)</string>
     <string name="audio_visualizer">হালকা ভিজ্যুয়ালাইজার</string>
     <string name="preferred_subtitle_language">পছন্দের সাবটাইটেল ভাষা</string>
     <string name="subtitles_enabled">ডিফল্টভাবে সাবটাইটেল চালু</string>
