@@ -89,9 +89,6 @@
 		1340 /* LyricsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2340 /* LyricsModel.swift */; };
 		1341 /* LyricsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2341 /* LyricsPanel.swift */; };
 		1342 /* LyricsModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2342 /* LyricsModelTests.swift */; };
-		1343 /* peaks_loud_then_quiet.flac in Resources */ = {isa = PBXBuildFile; fileRef = 2343 /* peaks_loud_then_quiet.flac */; };
-		1344 /* WaveformLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2344 /* WaveformLoader.swift */; };
-		1345 /* WaveformLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2345 /* WaveformLoaderTests.swift */; };
 		1346 /* SleepTimerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2346 /* SleepTimerModel.swift */; };
 		1347 /* SleepTimerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2347 /* SleepTimerSheet.swift */; };
 		1348 /* SleepTimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2348 /* SleepTimerTests.swift */; };
@@ -198,9 +195,6 @@
 		2340 /* LyricsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsModel.swift; sourceTree = "<group>"; };
 		2341 /* LyricsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsPanel.swift; sourceTree = "<group>"; };
 		2342 /* LyricsModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsModelTests.swift; sourceTree = "<group>"; };
-		2343 /* peaks_loud_then_quiet.flac */ = {isa = PBXFileReference; lastKnownFileType = audio.flac; name = peaks_loud_then_quiet.flac; path = ../../testmedia/peaks_loud_then_quiet.flac; sourceTree = "<group>"; };
-		2344 /* WaveformLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaveformLoader.swift; sourceTree = "<group>"; };
-		2345 /* WaveformLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaveformLoaderTests.swift; sourceTree = "<group>"; };
 		2346 /* SleepTimerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerModel.swift; sourceTree = "<group>"; };
 		2347 /* SleepTimerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerSheet.swift; sourceTree = "<group>"; };
 		2348 /* SleepTimerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerTests.swift; sourceTree = "<group>"; };
@@ -295,7 +289,6 @@
 			isa = PBXGroup;
 			children = (
 				2346 /* SleepTimerModel.swift */,
-				2344 /* WaveformLoader.swift */,
 				2340 /* LyricsModel.swift */,
 				2308 /* GaplessPlayback.swift */,
 				2306 /* AudioEffects.swift */,
@@ -349,8 +342,6 @@
 			children = (
 				2349 /* QueueEngineTests.swift */,
 				2348 /* SleepTimerTests.swift */,
-				2345 /* WaveformLoaderTests.swift */,
-				2343 /* peaks_loud_then_quiet.flac */,
 				2342 /* LyricsModelTests.swift */,
 				2339 /* NowPlayingSnapshotTests.swift */,
 				2336 /* FormatSupportTests.swift */,
@@ -535,7 +526,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				1310 /* multitrack_tiny.mp4 in Resources */,
-				1343 /* peaks_loud_then_quiet.flac in Resources */,
 				1335 /* video_sample.mkv in Resources */,
 				1334 /* interlaced_tiny.ts in Resources */,
 				1333 /* hdr10_tiny.mp4 in Resources */,
@@ -575,7 +565,6 @@
 			files = (
 				1347 /* SleepTimerSheet.swift in Sources */,
 				1346 /* SleepTimerModel.swift in Sources */,
-				1344 /* WaveformLoader.swift in Sources */,
 				1341 /* LyricsPanel.swift in Sources */,
 				1340 /* LyricsModel.swift in Sources */,
 				1338 /* EqualizerSheet.swift in Sources */,
@@ -625,7 +614,6 @@
 			files = (
 				1349 /* QueueEngineTests.swift in Sources */,
 				1348 /* SleepTimerTests.swift in Sources */,
-				1345 /* WaveformLoaderTests.swift in Sources */,
 				1342 /* LyricsModelTests.swift in Sources */,
 				1339 /* NowPlayingSnapshotTests.swift in Sources */,
 				1336 /* FormatSupportTests.swift in Sources */,

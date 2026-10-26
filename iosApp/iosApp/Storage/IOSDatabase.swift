@@ -229,3 +229,22 @@ private extension MediaItem {
         )
     }
 }
+
+extension KotlinByteArray {
+    convenience init(data: Data) {
+        self.init(size: Int32(data.count))
+        for (index, byte) in data.enumerated() {
+            self.set(index: Int32(index), value: Int8(bitPattern: byte))
+        }
+    }
+
+    var data: Data {
+        var result = Data(count: Int(self.size))
+        result.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+            for i in 0..<self.size {
+                buffer[Int(i)] = UInt8(bitPattern: self.get(index: i))
+            }
+        }
+        return result
+    }
+}

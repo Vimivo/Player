@@ -299,7 +299,7 @@ class DesktopPlayerCommandsTest {
 
 /** Keyboard seeks go through the shared [SeekController], exactly as in the app. */
 private fun seekVia(engine: PlayerEngine): (Long) -> Unit {
-    val controller = SeekController { position, exact -> engine.seekTo(position, exact) }
+    val controller = SeekController({ position, exact -> engine.seekTo(position, exact) })
     return { delta ->
         val state = engine.state.value
         controller.onEngineReport(state.positionMillis, state.durationMillis, isSeekable = true, isSeeking = false, nowMillis = 0)

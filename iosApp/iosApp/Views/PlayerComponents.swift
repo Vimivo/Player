@@ -6,11 +6,10 @@ func formatClock(millis: Int64) -> String {
     return hours > 0 ? String(format: "%d:%02d:%02d", hours, minutes, seconds) : String(format: "%d:%02d", minutes, seconds)
 }
 
-/// The track's seek bar. With [peaks] (the real loudness of the track, computed in the background) it draws bars; until
-/// they exist it is a plain thin line with a thumb. Tap or drag to seek; VoiceOver sees an adjustable control either way.
+/// The track's seek bar: a clean thin timeline with a thumb. Tap or drag to seek; VoiceOver sees an adjustable control either way.
 struct WaveformSeekBar: View {
     let progress: Double
-    let peaks: [Float]?
+    var peaks: [Float]? = nil
     let positionMillis: Int64
     let durationMillis: Int64
     let onCommit: (Double) -> Void
@@ -20,11 +19,7 @@ struct WaveformSeekBar: View {
         let shown = dragProgress ?? progress
         GeometryReader { proxy in
             Canvas { context, size in
-                if let peaks, !peaks.isEmpty {
-                    drawPeaks(peaks, shown: shown, in: &context, size: size)
-                } else {
-                    drawLine(shown: shown, in: &context, size: size)
-                }
+                drawLine(shown: shown, in: &context, size: size)
             }
             .contentShape(Rectangle())
             .gesture(
@@ -36,24 +31,13 @@ struct WaveformSeekBar: View {
                     }
             )
         }
-        .frame(height: 56)
+        .frame(height: 36)
         .accessibilityElement()
         .accessibilityLabel("Playback progress")
         .accessibilityValue("\(formatClock(millis: positionMillis)) of \(formatClock(millis: durationMillis))")
         .accessibilityAdjustableAction { direction in
             let step = 0.05
             onCommit(min(1, max(0, progress + (direction == .increment ? step : -step))))
-        }
-    }
-
-    private func drawPeaks(_ peaks: [Float], shown: Double, in context: inout GraphicsContext, size: CGSize) {
-        let slot = size.width / CGFloat(peaks.count)
-        let barWidth = slot * 0.56
-        for (index, peak) in peaks.enumerated() {
-            let barHeight = max(3, size.height * CGFloat(peak))
-            let rect = CGRect(x: CGFloat(index) * slot + (slot - barWidth) / 2, y: (size.height - barHeight) / 2, width: barWidth, height: barHeight)
-            let played = (Double(index) + 0.5) / Double(peaks.count) <= shown
-            context.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(played ? .accentColor : Color.primary.opacity(0.22)))
         }
     }
 
