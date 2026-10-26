@@ -55,13 +55,25 @@ private val TrackType.displayName: String get() = name.lowercase().replaceFirstC
 /** The audio, video and subtitle tracks libmpv listed at one moment. */
 internal class MpvTrackLists(val audio: List<TrackInfo>, val video: List<TrackInfo>, val subtitle: List<TrackInfo>) {
     val size: Int get() = audio.size + video.size + subtitle.size
+
+    /**
+     * Whether this read can be trusted: it holds every track libmpv counts, and a file that has audio or video has one
+     * of each selected. libmpv resolves the automatic selection a moment after the list appears, so a read in between
+     * lists the tracks as all unselected.
+     */
+    fun isComplete(listedCount: Int): Boolean {
+        val audioReady = audio.isEmpty() || audio.any { it.isSelected }
+        val videoReady = video.isEmpty() || video.any { it.isSelected }
+        return size == listedCount && audioReady && videoReady
+    }
 }
 
 /**
  * Decides when the poll loop reads libmpv's track list: when the count changes, on a periodic refresh, or when asked.
- * libmpv fills the list while a file opens, so a read can miss an entry even though the count it reported is right;
- * that incomplete read is repeated on the next pass (a few times at most) instead of being kept until the periodic
- * refresh, which could leave a playing video without its video track for seconds.
+ * libmpv fills the list and resolves the automatic track selection while a file opens, so a read can miss an entry or
+ * see nothing selected even though the count it reported is right; that incomplete read is repeated on the next pass
+ * (a few times at most) instead of being kept until the periodic refresh, which could leave a playing video without
+ * its video track, or an audio file without a selected audio track, for seconds.
  */
 internal class MpvTrackListWatcher {
     private var lastCount = -1
@@ -70,10 +82,10 @@ internal class MpvTrackListWatcher {
     fun shouldRead(currentCount: Int, iteration: Long, requested: Boolean): Boolean =
         currentCount != lastCount || iteration % PERIODIC_REFRESH_PASSES == 1L || requested
 
-    /** Records a read that returned [readTracks] of the [currentCount] tracks libmpv listed. */
-    fun recordRead(currentCount: Int, readTracks: Int) {
+    /** Records a read of the [currentCount] tracks libmpv listed; [complete] says whether the read can be trusted. */
+    fun recordRead(currentCount: Int, complete: Boolean) {
         lastCount = currentCount
-        if (readTracks == currentCount) {
+        if (complete) {
             incompleteReads = 0
         } else if (incompleteReads++ < MAX_INCOMPLETE_READS) {
             lastCount = -1
@@ -86,7 +98,7 @@ internal class MpvTrackListWatcher {
         val audio = reader.read(TrackType.AUDIO)
         val video = reader.read(TrackType.VIDEO)
         val lists = MpvTrackLists(audio, video, reader.read(TrackType.SUBTITLE))
-        recordRead(currentCount, lists.size)
+        recordRead(currentCount, lists.isComplete(currentCount))
         return lists
     }
 
