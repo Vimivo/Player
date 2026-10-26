@@ -72,6 +72,8 @@
 		1305 /* PictureCompositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2305 /* PictureCompositionTests.swift */; };
 		1306 /* AudioEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2306 /* AudioEffects.swift */; };
 		1307 /* AudioEffectsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2307 /* AudioEffectsTests.swift */; };
+		1308 /* GaplessPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2308 /* GaplessPlayback.swift */; };
+		1309 /* GaplessPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2309 /* GaplessPlaybackTests.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -157,6 +159,8 @@
 		2305 /* PictureCompositionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureCompositionTests.swift; sourceTree = "<group>"; };
 		2306 /* AudioEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEffects.swift; sourceTree = "<group>"; };
 		2307 /* AudioEffectsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEffectsTests.swift; sourceTree = "<group>"; };
+		2308 /* GaplessPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaplessPlayback.swift; sourceTree = "<group>"; };
+		2309 /* GaplessPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaplessPlaybackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -246,6 +250,7 @@
 		4006 /* Playback */ = {
 			isa = PBXGroup;
 			children = (
+				2308 /* GaplessPlayback.swift */,
 				2306 /* AudioEffects.swift */,
 				2304 /* PictureComposition.swift */,
 				2300 /* VideoTools.swift */,
@@ -295,6 +300,7 @@
 		4012 /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2309 /* GaplessPlaybackTests.swift */,
 				2307 /* AudioEffectsTests.swift */,
 				2305 /* PictureCompositionTests.swift */,
 				2303 /* PlaybackSpeedTests.swift */,
@@ -485,6 +491,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1308 /* GaplessPlayback.swift in Sources */,
 				1306 /* AudioEffects.swift in Sources */,
 				1304 /* PictureComposition.swift in Sources */,
 				1300 /* VideoTools.swift in Sources */,
@@ -527,6 +534,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1309 /* GaplessPlaybackTests.swift in Sources */,
 				1307 /* AudioEffectsTests.swift in Sources */,
 				1305 /* PictureCompositionTests.swift in Sources */,
 				1303 /* PlaybackSpeedTests.swift in Sources */,

@@ -7,20 +7,27 @@ import UIKit
 public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSessionDelegate, RemoteCommandDelegate, AVPictureInPictureControllerDelegate {
     public static let shared = AVPlayerPlaybackEngine()
 
-    @Published public private(set) var state = PlaybackState()
+    @Published public internal(set) var state = PlaybackState()
     /// The title of the last item skipped because it could not be played, for a brief notice in the UI.
     @Published public var skippedItemTitle: String?
     private var unshuffledQueue: [MediaItem]?
     private var consecutiveFailures = 0
     @Published public var queue: [MediaItem] = [] {
-        didSet { persistQueue() }
+        didSet {
+            persistQueue()
+            prepareFollowingItem()
+        }
     }
     @Published public var currentIndex: Int = 0 {
-        didSet { persistQueue() }
+        didSet {
+            persistQueue()
+            prepareFollowingItem()
+        }
     }
     private var isRestoringQueue = false
 
-    public let player = AVPlayer()
+    /// An `AVQueuePlayer`, so the next audio item can be loaded behind the current one and start without a gap.
+    public let player = AVQueuePlayer()
     /// Delivers subtitle cues for custom rendering. It is attached to every item before playback
     /// starts because AVFoundation does not reliably push cues to outputs added mid-playback.
     public let legibleOutput: AVPlayerItemLegibleOutput = {
@@ -31,14 +38,20 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     private var legibleOutputItem: AVPlayerItem?
     private var timeObserverToken: Any?
     private var itemEndObserver: Any?
-    private var activeSecurityUrl: URL?
+    var activeSecurityUrl: URL?
     private var pipController: AVPictureInPictureController?
     private var itemStatusObservation: NSKeyValueObservation?
     private var lifecycleObservers: [NSObjectProtocol] = []
-    private var lastCheckpointMillis: Int64 = 0
+    var lastCheckpointMillis: Int64 = 0
     /// The A–B region being repeated, in milliseconds (V1 #6); cleared whenever another item loads.
     public internal(set) var abRepeat: ClosedRange<Int64>?
     var abBoundaryToken: Any?
+    /// The item `player` is playing for `state.currentItem`, and the item queued behind it for a gapless start.
+    var currentPlayerItem: AVPlayerItem?
+    var preparedNext: PreparedNext?
+    var currentItemObservation: NSKeyValueObservation?
+    /// How many items were loaded from scratch; a gapless advance does not count (tests read this).
+    public internal(set) var itemLoads = 0
     /// Equalizer, volume boost and ReplayGain (V1 #19, #21, #24), run on every item's audio through a tap.
     public let audioEffects = AudioEffectsController()
     @Published public internal(set) var audioSettings = AudioEffectSettings.load()
@@ -54,6 +67,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         audioEffects.update(settings: audioSettings)
         setupTimeObserver()
         setupEndObserver()
+        observeQueueAdvance()
         setupLifecycleObservers()
         restoreQueue()
     }
@@ -159,7 +173,9 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         itemStatusObservation?.invalidate()
         itemStatusObservation = nil
         player.pause()
-        player.replaceCurrentItem(with: nil)
+        clearPrepared()
+        player.removeAllItems()
+        currentPlayerItem = nil
         detachLegibleOutput()
         state.status = .idle
         state.positionMillis = 0
@@ -195,6 +211,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     /// Shuffles the remaining items behind the current one; turning it off restores the original order.
     public func toggleShuffle() {
         state.isShuffled.toggle()
+        defer { prepareFollowingItem() }
         guard !queue.isEmpty else { return }
         let current = queue[currentIndex]
         if state.isShuffled {
@@ -232,6 +249,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         case .all: state.repeatMode = .one
         case .one: state.repeatMode = .off
         }
+        prepareFollowingItem()
     }
 
     // MARK: - Internal Loading
@@ -256,15 +274,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         state.videoHeight = item.height
         state.durationMillis = item.durationMillis ?? 0
 
-        var resolvedUrl: URL?
-        if let bookmarkData = item.bookmarkData {
-            resolvedUrl = SecurityScopedMediaManager.shared.resolveBookmark(data: bookmarkData)
-        }
-        if resolvedUrl == nil {
-            resolvedUrl = URL(string: item.uri)
-        }
-
-        guard let playUrl = resolvedUrl else {
+        guard let playUrl = resolveURL(for: item) else {
             skipFailedItem(message: "Could not resolve media URL")
             return
         }
@@ -294,7 +304,11 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             Task { playerItem.videoComposition = try? await PictureComposition.make(for: playerItem.asset, settings: settings) }
         }
         attachAudioEffects(to: playerItem)
-        player.replaceCurrentItem(with: playerItem)
+        clearPrepared()
+        player.removeAllItems()
+        player.insert(playerItem, after: nil)
+        currentPlayerItem = playerItem
+        itemLoads += 1
         AudioSessionController.shared.configureSession()
         observeReadiness(of: playerItem, startMillis: startMillis)
         if startMillis > 0 {
@@ -315,6 +329,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
                 case .readyToPlay:
                     self.itemStatusObservation = nil
                     self.consecutiveFailures = 0
+                    self.prepareFollowingItem()
                     guard startMillis > 0 else { return }
                     let target = CMTime(seconds: Double(startMillis) / 1000.0, preferredTimescale: 600)
                     self.player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
@@ -391,12 +406,16 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             forName: .AVPlayerItemDidPlayToEndTime,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
+        ) { [weak self] notification in
             guard let self = self else { return }
+            // An item that already handed over (gapless) finishing late is not this item finishing.
+            guard (notification.object as? AVPlayerItem) === self.currentPlayerItem else { return }
             if let item = self.state.currentItem {
                 IOSDatabase.shared.savePosition(mediaId: item.id, positionMillis: self.state.durationMillis, completed: true)
                 self.lastCheckpointMillis = self.state.durationMillis
             }
+            // With the next item queued the player moves on by itself and `advanceToPrepared` follows it.
+            if self.preparedNext != nil { return }
             if self.state.repeatMode == .one {
                 self.seek(toMillis: 0)
                 self.resume()
@@ -415,7 +434,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         }
     }
 
-    private func updateNowPlaying() {
+    func updateNowPlaying() {
         let posSec = Double(state.positionMillis) / 1000.0
         let durSec = Double(state.durationMillis) / 1000.0
         NowPlayingManager.shared.update(
