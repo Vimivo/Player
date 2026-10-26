@@ -7,6 +7,7 @@ import dev.vimivo.playback.CropRect
 import dev.vimivo.playback.DeinterlaceMode
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.VideoAdjustments
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -40,8 +41,15 @@ class MpvVideoFiltersLiveTest {
             assertEquals(mode, engine.state.value.deinterlaceMode)
             val expectedFilters = if (mode == DeinterlaceMode.OFF) 0 else 1
             assertEquals(expectedFilters, filtersLabelled(engine, "vimivo-deint"), mode.name)
-            val before = engine.state.value.positionMillis
-            awaitState(engine) { it.positionMillis > before + 100 }
+            // Start from the beginning each time: on a slow machine the short clip would otherwise run out before
+            // every mode has been tried, and "playback continues" could never be seen.
+            engine.seekTo(0).getOrThrow()
+            val before = engine.readProperty("time-pos")?.toDoubleOrNull() ?: 0.0
+            runBlocking {
+                withTimeout(TIMEOUT) {
+                    while ((engine.readProperty("time-pos")?.toDoubleOrNull() ?: 0.0) < before + 0.1) delay(POLL_MILLIS)
+                }
+            }
         }
     }
 
@@ -81,6 +89,7 @@ class MpvVideoFiltersLiveTest {
 
     private companion object {
         const val TIMEOUT = 15_000L
+        const val POLL_MILLIS = 50L
     }
 }
 
