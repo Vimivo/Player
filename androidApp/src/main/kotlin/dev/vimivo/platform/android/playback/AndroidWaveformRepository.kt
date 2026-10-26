@@ -92,7 +92,7 @@ class AndroidWaveformRepository(
             codec = decoder
             decoder.configure(format, null, null, 0)
             decoder.start()
-            return drain(extractor, decoder, format.getInteger(MediaFormat.KEY_CHANNEL_COUNT, 2))
+            return drain(extractor, decoder, format.intOr(MediaFormat.KEY_CHANNEL_COUNT, 2))
         } finally {
             runCatching { codec?.stop() }
             runCatching { codec?.release() }
@@ -126,8 +126,8 @@ class AndroidWaveformRepository(
         private var scratch = ShortArray(0)
 
         fun update(format: MediaFormat) {
-            channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT, channels)
-            float = format.getInteger(MediaFormat.KEY_PCM_ENCODING, ENCODING_16) == ENCODING_FLOAT
+            channels = format.intOr(MediaFormat.KEY_CHANNEL_COUNT, channels)
+            float = format.intOr(MediaFormat.KEY_PCM_ENCODING, ENCODING_16) == ENCODING_FLOAT
         }
 
         fun accumulate(decoder: MediaCodec, index: Int, info: MediaCodec.BufferInfo, into: PeakAccumulator) {
@@ -171,3 +171,6 @@ class AndroidWaveformRepository(
         const val ENCODING_FLOAT = 4 // AudioFormat.ENCODING_PCM_FLOAT
     }
 }
+
+/** `MediaFormat.getInteger(key, default)` needs API 29; this works from the minimum API. */
+private fun MediaFormat.intOr(key: String, default: Int): Int = if (containsKey(key)) getInteger(key) else default
