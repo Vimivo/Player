@@ -1091,7 +1091,6 @@ private fun GeneralSection(
         }
         else -> {
             SettingsRow(Icons.Outlined.Repeat, "Repeating ${formatVideoTime(abStart)} – ${formatVideoTime(abEnd)}", onClick = viewModel::clearAbRepeat)
-            Text("Timing follows playback position; it is not frame-accurate.", Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     MenuHeading(Icons.Outlined.Info, "Decoder and video information")

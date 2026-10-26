@@ -1,6 +1,5 @@
-package dev.vimivo.desktop.playback
+package dev.vimivo.playback
 
-import dev.vimivo.playback.ABRepeatRange
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -8,14 +7,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Wraps playback back to A when it reaches B.
+ * Wraps playback back to A when it reaches B, for engines that have no loop of their own that is accurate.
  *
- * libmpv's own `ab-loop-*` is not used: with a real audio output it leaves audio queued in the output, so the reported
- * position sits at or below zero while looping. A seek flushes that audio and keeps the position true, at the cost of
- * up to one [POLL_MILLIS] past B. It has its own light loop because the engine's main poll reads many properties and
- * can be 400 ms between rounds.
+ * libmpv's own `ab-loop-*` is not used on desktop: with a real audio output it leaves audio queued in the output, so
+ * the reported position sits at or below zero while looping. A seek flushes that audio and keeps the position true, at
+ * the cost of up to one [POLL_MILLIS] past B. ExoPlayer has no A–B loop at all. The watcher has a light loop of its
+ * own because an engine's main state poll can be hundreds of milliseconds between rounds.
  */
-internal class AbRegionWatcher(
+class AbRegionWatcher(
     private val scope: CoroutineScope,
     private val positionMillis: () -> Long,
     private val isPaused: () -> Boolean,

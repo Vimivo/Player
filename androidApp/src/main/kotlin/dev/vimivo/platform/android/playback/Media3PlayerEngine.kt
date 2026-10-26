@@ -23,6 +23,8 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.playback.ABRepeatRange
+import dev.vimivo.playback.AbRegionWatcher
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.ColorTransfer
 import dev.vimivo.playback.EngineCapabilities
@@ -77,6 +79,17 @@ class Media3PlayerEngine(
     private var preparedNext: VimivoMediaItem? = null
     private var requestedVolume = 1f
 
+    /** Wraps playback back to A at B: ExoPlayer has no A–B loop, so the shared watcher seeks (exactly) at the end. */
+    private val abWatcher = AbRegionWatcher(
+        scope,
+        positionMillis = { player.currentPosition },
+        isPaused = { !player.playWhenReady || player.playbackState != Player.STATE_READY },
+        seekTo = { millis ->
+            player.setSeekParameters(SeekParameters.EXACT)
+            player.seekTo(millis)
+        },
+    )
+
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) = publishState()
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -107,7 +120,7 @@ class Media3PlayerEngine(
 
         override fun onPlayerError(error: PlaybackException) {
             positionJob?.cancel()
-            val mapped = mapError(error)
+            val mapped = error.toPlaybackError(id)
             mutableState.value = snapshot().copy(status = PlaybackStatus.Error(mapped))
         }
     }
@@ -143,6 +156,7 @@ class Media3PlayerEngine(
         cachedVideoTracks = emptyList()
         cachedSubtitleTracks = emptyList()
         preparedNext = null
+        abWatcher.stop()
         audioEnhancements.setReplayGainTags(ReplayGainTags())
         mutableState.value = PlaybackState(
             engine = id,
@@ -183,9 +197,11 @@ class Media3PlayerEngine(
         cachedVideoTracks = emptyList()
         cachedSubtitleTracks = emptyList()
         audioEnhancements.setReplayGainTags(ReplayGainTags())
+        abWatcher.stop()
         mutableState.value = mutableState.value.copy(
             media = next,
             metadata = next.toPlaybackMetadata(),
+            abRepeat = ABRepeatRange(),
             positionMillis = 0,
             audioTracks = emptyList(),
             videoTracks = emptyList(),
@@ -206,6 +222,11 @@ class Media3PlayerEngine(
         // A tap or a step needs the frame asked for; scrubbing is happy with the nearest keyframe (much faster).
         player.setSeekParameters(if (exact) SeekParameters.EXACT else SeekParameters.CLOSEST_SYNC)
         player.seekTo(positionMillis)
+    }
+
+    override fun setABRepeat(range: ABRepeatRange): Result<Unit> = command {
+        abWatcher.watch(range)
+        mutableState.value = mutableState.value.copy(abRepeat = range)
     }
 
     /**
@@ -349,7 +370,7 @@ class Media3PlayerEngine(
     }
 
     private fun status(): PlaybackStatus = when {
-        player.playerError != null -> PlaybackStatus.Error(mapError(checkNotNull(player.playerError)))
+        player.playerError != null -> PlaybackStatus.Error(checkNotNull(player.playerError).toPlaybackError(id))
         player.playbackState == Player.STATE_IDLE && mutableState.value.media == null -> PlaybackStatus.Idle
         player.playbackState == Player.STATE_IDLE -> PlaybackStatus.Preparing
         player.playbackState == Player.STATE_BUFFERING -> PlaybackStatus.Buffering
@@ -392,38 +413,10 @@ class Media3PlayerEngine(
         mutableState.value = PlaybackState(engine = id)
     }
 
-    private fun mapError(error: PlaybackException): PlaybackError {
-        val code = when (error.errorCode) {
-            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> PlaybackErrorCode.SOURCE_NOT_FOUND
-            PlaybackException.ERROR_CODE_IO_NO_PERMISSION,
-            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> PlaybackErrorCode.ACCESS_DENIED
-            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> PlaybackErrorCode.NETWORK
-            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
-            PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED,
-            PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
-            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> PlaybackErrorCode.DECODER_INITIALIZATION
-            PlaybackException.ERROR_CODE_DECODING_FAILED -> PlaybackErrorCode.DECODING_FAILED
-            // The device has a decoder for the codec but not for this profile, level or size (for example HEVC
-            // Main 10 on a device without it): the software fallback engine can still play the file.
-            PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
-            PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-            PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> PlaybackErrorCode.UNSUPPORTED_CODEC
-            else -> PlaybackErrorCode.UNKNOWN
-        }
-        return PlaybackError(
-            code = code,
-            message = error.message ?: "Media3 playback failed",
-            engine = id,
-            recoverableByFallback = code in FALLBACK_ERRORS,
-            cause = error,
-        )
-    }
-
     companion object {
         private const val POSITION_UPDATE_MILLIS = 250L
         private const val DEFAULT_FRAME_RATE = 30f
-        private val FALLBACK_ERRORS = setOf(
+        internal val FALLBACK_ERRORS = setOf(
             PlaybackErrorCode.UNSUPPORTED_CONTAINER,
             PlaybackErrorCode.UNSUPPORTED_CODEC,
             PlaybackErrorCode.UNSUPPORTED_PROFILE,
@@ -454,6 +447,7 @@ class Media3PlayerEngine(
             subtitlePosition = true,
             frameStepping = true,
             screenshots = true,
+            abRepeat = true,
             maxVolume = AndroidAudioEnhancementController.MAX_BOOST,
             audioEnhancements = AndroidAudioEnhancementController.CAPABILITIES,
         )
@@ -534,3 +528,31 @@ private fun Tracks.replayGainTags(): ReplayGainTags = groups
     .flatMap { group -> (0 until group.length).map { group.getTrackFormat(it).metadata } }
     .map(ReplayGainTagReader::read)
     .firstOrNull { it != ReplayGainTags() } ?: ReplayGainTags()
+
+private fun PlaybackException.toPlaybackError(engine: EngineId): PlaybackError {
+    val code = when (errorCode) {
+        PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> PlaybackErrorCode.SOURCE_NOT_FOUND
+        PlaybackException.ERROR_CODE_IO_NO_PERMISSION,
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> PlaybackErrorCode.ACCESS_DENIED
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> PlaybackErrorCode.NETWORK
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
+        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> PlaybackErrorCode.DECODER_INITIALIZATION
+        PlaybackException.ERROR_CODE_DECODING_FAILED -> PlaybackErrorCode.DECODING_FAILED
+        // The device has a decoder for the codec but not for this profile, level or size (for example HEVC
+        // Main 10 on a device without it): the software fallback engine can still play the file.
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> PlaybackErrorCode.UNSUPPORTED_CODEC
+        else -> PlaybackErrorCode.UNKNOWN
+    }
+    return PlaybackError(
+        code = code,
+        message = message ?: "Media3 playback failed",
+        engine = engine,
+        recoverableByFallback = code in Media3PlayerEngine.FALLBACK_ERRORS,
+        cause = this,
+    )
+}

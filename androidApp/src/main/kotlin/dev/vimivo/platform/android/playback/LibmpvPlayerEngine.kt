@@ -6,6 +6,8 @@ import android.content.Context
 import android.view.SurfaceHolder
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.playback.ABRepeatRange
+import dev.vimivo.playback.AbRegionWatcher
 import dev.vimivo.playback.AudioEnhancementCapabilities
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.EngineCapabilities
@@ -23,6 +25,10 @@ import dev.vimivo.playback.TrackInfo
 import dev.vimivo.playback.TrackType
 import dev.vimivo.settings.DecoderPreference
 import dev.vimivo.settings.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -88,6 +94,16 @@ class LibmpvPlayerEngine(
 
     override fun supportFor(media: MediaItem): SupportLevel = support(media)
 
+    private val abScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val abWatcher = AbRegionWatcher(
+        abScope,
+        positionMillis = {
+            LibmpvNative.getProperty(handle, "time-pos")?.toDoubleOrNull()?.times(MILLIS)?.toLong() ?: 0L
+        },
+        isPaused = { released || LibmpvNative.getProperty(handle, "pause") != "no" },
+        seekTo = { millis -> if (!released) command("seek", seconds(millis), "absolute+exact") },
+    )
+
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> = runCatching {
         checkOpen()
         require(supportFor(media) != SupportLevel.UNSUPPORTED) { "libmpv does not support this URI" }
@@ -106,6 +122,13 @@ class LibmpvPlayerEngine(
         setProperty("pause", "yes")
         setProperty("start", if (startPositionMillis > 0) seconds(startPositionMillis) else "none")
         command("loadfile", target, "replace")
+    }
+
+    /** libmpv's own A–B loop is not used (see [AbRegionWatcher]); the watcher seeks exactly at B. */
+    override fun setABRepeat(range: ABRepeatRange): Result<Unit> = runCatching {
+        checkOpen()
+        abWatcher.watch(range)
+        mutableState.update { it.copy(abRepeat = range) }
     }
 
     override fun play(): Result<Unit> = runCatching {
@@ -400,6 +423,8 @@ class LibmpvPlayerEngine(
      */
     override fun close() {
         if (released) return
+        abWatcher.stop()
+        abScope.cancel()
         audioFocus.abandon()
         synchronized(lock) {
             surfaceHolder?.removeCallback(surfaceCallback)
@@ -478,6 +503,7 @@ class LibmpvPlayerEngine(
             audioDelay = true,
             frameStepping = true,
             screenshots = true,
+            abRepeat = true,
             audioEnhancements = AudioEnhancementCapabilities(
                 pitchPreservation = true,
                 limitation = "The fallback engine plays without Vimivo's system equalizer. Effects are disabled " +

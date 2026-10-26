@@ -21,17 +21,18 @@ import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.domain.repository.OrganizationRepository
-import dev.vimivo.playback.SnapshotFormat
-import dev.vimivo.playback.SnapshotNaming
+import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
+import dev.vimivo.playback.SnapshotFormat
+import dev.vimivo.playback.SnapshotNaming
 import dev.vimivo.playback.TrackInfo
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -83,7 +84,6 @@ class PlaybackViewModel(
     private var bookmarkMediaId: String? = null
     private var lyricMediaId: String? = null
     private var bookmarkJob: Job? = null
-    private var abRepeatJob: Job? = null
     val state: StateFlow<PlaybackUiState> = mutableState.asStateFlow()
     val sleepTimerState = sleepTimer.state
     val audioEnhancementState = diagnostics.audio
@@ -179,13 +179,15 @@ class PlaybackViewModel(
             mutableState.value = state.value.copy(trackErrorMessage = "Choose an end point at least one second after A")
             return
         }
-        mutableState.value = state.value.copy(abRepeatEndMillis = end, trackErrorMessage = null)
-        observeAbRepeat()
+        val applied = diagnostics.setAbRepeat(ABRepeatRange(start, end, enabled = true))
+        mutableState.value = state.value.copy(
+            abRepeatEndMillis = end.takeIf { applied.isSuccess },
+            trackErrorMessage = applied.exceptionOrNull()?.message,
+        )
     }
 
     fun clearAbRepeat() {
-        abRepeatJob?.cancel()
-        abRepeatJob = null
+        diagnostics.setAbRepeat(ABRepeatRange())
         mutableState.value = state.value.copy(abRepeatStartMillis = null, abRepeatEndMillis = null)
     }
     fun startSleepTimer(minutes: Int, fadeOutSeconds: Int = 0) = sleepTimer.schedule(minutes, fadeOutSeconds)
@@ -380,22 +382,8 @@ class PlaybackViewModel(
         EngineId.MPV -> LibmpvPlayerEngine.CAPABILITIES
     }
 
-    private fun observeAbRepeat() {
-        abRepeatJob?.cancel()
-        abRepeatJob = viewModelScope.launch {
-            while (true) {
-                delay(100)
-                val playback = state.value
-                val start = playback.abRepeatStartMillis ?: break
-                val end = playback.abRepeatEndMillis ?: break
-                if (playback.isPlaying && playback.positionMillis >= end) seekTo(start)
-            }
-        }
-    }
-
     override fun onCleared() {
         player?.removeListener(listener)
-        abRepeatJob?.cancel()
         bookmarkJob?.cancel()
     }
 

@@ -21,6 +21,7 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.streaming.LiveLatencyMode
 import dev.vimivo.desktop.platform.DesktopPlatform
 import dev.vimivo.playback.ABRepeatRange
+import dev.vimivo.playback.AbRegionWatcher
 import dev.vimivo.playback.AudioEnhancementCapabilities
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState

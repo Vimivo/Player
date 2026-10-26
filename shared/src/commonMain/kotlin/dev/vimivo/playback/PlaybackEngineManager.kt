@@ -64,6 +64,8 @@ class PlaybackEngineManager(
 
     fun seekTo(positionMillis: Long): Result<Unit> = activeOrFailure().flatMap { it.seekTo(positionMillis) }
 
+    fun setABRepeat(range: ABRepeatRange): Result<Unit> = activeOrFailure().flatMap { it.setABRepeat(range) }
+
     /** Hands the active engine the item that follows the current one, for a gapless start (see [PlayerEngine.prepareNext]). */
     fun prepareNext(media: MediaItem?): Result<Unit> = activeOrFailure().flatMap { it.prepareNext(media) }
     fun setPlaybackSpeed(speed: Float): Result<Unit> = activeOrFailure().flatMap { it.setPlaybackSpeed(speed) }
