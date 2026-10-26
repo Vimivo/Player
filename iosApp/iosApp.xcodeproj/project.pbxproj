@@ -83,6 +83,9 @@
 		1334 /* interlaced_tiny.ts in Resources */ = {isa = PBXBuildFile; fileRef = 2334 /* interlaced_tiny.ts */; };
 		1335 /* video_sample.mkv in Resources */ = {isa = PBXBuildFile; fileRef = 2335 /* video_sample.mkv */; };
 		1336 /* FormatSupportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2336 /* FormatSupportTests.swift */; };
+		1337 /* PlayerComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2337 /* PlayerComponents.swift */; };
+		1338 /* EqualizerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2338 /* EqualizerSheet.swift */; };
+		1339 /* NowPlayingSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2339 /* NowPlayingSnapshotTests.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -179,6 +182,9 @@
 		2334 /* interlaced_tiny.ts */ = {isa = PBXFileReference; lastKnownFileType = file; name = interlaced_tiny.ts; path = ../../testmedia/interlaced_tiny.ts; sourceTree = "<group>"; };
 		2335 /* video_sample.mkv */ = {isa = PBXFileReference; lastKnownFileType = file; name = video_sample.mkv; path = ../../testmedia/video_sample.mkv; sourceTree = "<group>"; };
 		2336 /* FormatSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatSupportTests.swift; sourceTree = "<group>"; };
+		2337 /* PlayerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerComponents.swift; sourceTree = "<group>"; };
+		2338 /* EqualizerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerSheet.swift; sourceTree = "<group>"; };
+		2339 /* NowPlayingSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingSnapshotTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -318,6 +324,7 @@
 		4012 /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2339 /* NowPlayingSnapshotTests.swift */,
 				2336 /* FormatSupportTests.swift */,
 				2335 /* video_sample.mkv */,
 				2334 /* interlaced_tiny.ts */,
@@ -343,6 +350,8 @@
 		4009 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				2338 /* EqualizerSheet.swift */,
+				2337 /* PlayerComponents.swift */,
 				4010 /* Components */,
 				2013 /* NowPlayingBar.swift */,
 				2014 /* NowPlayingView.swift */,
@@ -533,6 +542,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1338 /* EqualizerSheet.swift in Sources */,
+				1337 /* PlayerComponents.swift in Sources */,
 				1308 /* GaplessPlayback.swift in Sources */,
 				1306 /* AudioEffects.swift in Sources */,
 				1304 /* PictureComposition.swift in Sources */,
@@ -576,6 +587,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1339 /* NowPlayingSnapshotTests.swift in Sources */,
 				1336 /* FormatSupportTests.swift in Sources */,
 				1311 /* TrackSwitchingTests.swift in Sources */,
 				1309 /* GaplessPlaybackTests.swift in Sources */,
