@@ -60,6 +60,8 @@ class SessionPlayerAdapter(
     private var persistJob: Job? = null
     private var videoOutput: Any? = null
 
+    private val handoff = GaplessHandoff(manager::prepareNext, MediaItem::toVimivo)
+
     // Engines are recreated for every opened item, so track the attached instance rather than its id.
     private var attachedVideoEngine: PlayerEngine? = null
 
@@ -67,6 +69,14 @@ class SessionPlayerAdapter(
         scope.launch {
             manager.state.collectLatest { state ->
                 attachVideoOutputIfNeeded()
+                handoff.followedIndex(state, playlist, currentIndex)?.let { index ->
+                    currentIndex = index
+                    consecutiveFailures = 0
+                }
+                // Nothing is prepared for repeat-one or "stop after this track": the engine would run on past it.
+                val stopsHere = repeatMode == Player.REPEAT_MODE_ONE || sleepTimer.state.value.stopAfterCurrent
+                val following = QueueNavigation.next(currentIndex, playlist.size, queueRepeatMode(), currentShuffleOrder())
+                handoff.prepareFollowing(state, playlist, currentIndex, following.takeUnless { stopsHere || it == currentIndex })
                 val status = state.status
                 if (status == PlaybackStatus.Completed) {
                     consecutiveFailures = 0
@@ -291,6 +301,7 @@ class SessionPlayerAdapter(
     }
 
     private fun openCurrent(position: Long, play: Boolean = false) {
+        handoff.reset()
         val queue = playlist.map(MediaItem::toVimivo)
         if (queue.isEmpty()) return
         scope.launch {

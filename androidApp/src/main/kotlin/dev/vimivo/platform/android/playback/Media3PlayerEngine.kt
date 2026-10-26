@@ -17,6 +17,7 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
+import dev.vimivo.core.model.MediaKind
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.ColorTransfer
 import dev.vimivo.playback.EngineCapabilities
@@ -62,6 +63,9 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
     private var cachedVideoTracks: List<TrackInfo> = emptyList()
     private var cachedSubtitleTracks: List<TrackInfo> = emptyList()
 
+    /** The item queued after the current one for a gapless start; null when none is prepared. */
+    private var preparedNext: VimivoMediaItem? = null
+
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) = publishState()
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -79,6 +83,11 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             cachedVideoTracks = trackInfoList.filter { it.type == TrackType.VIDEO }
             cachedSubtitleTracks = trackInfoList.filter { it.type == TrackType.SUBTITLE }
             publishState()
+        }
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val next = preparedNext ?: return
+            if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || mediaItem?.mediaId != next.id.value) return
+            adoptPreparedNext(next)
         }
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) = publishState()
         override fun onVideoSizeChanged(videoSize: VideoSize) = publishState()
@@ -107,6 +116,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         cachedAudioTracks = emptyList()
         cachedVideoTracks = emptyList()
         cachedSubtitleTracks = emptyList()
+        preparedNext = null
         mutableState.value = PlaybackState(
             engine = id,
             media = media,
@@ -117,6 +127,45 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         player.setMediaItem(MediaItem.fromUri(Uri.parse(media.uri)), startPositionMillis)
         player.prepare()
         startPositionUpdates()
+    }
+
+    /**
+     * Queues [media] in ExoPlayer's playlist after the current item, which ExoPlayer starts without a gap. When it
+     * does, [adoptPreparedNext] publishes it as the current media. Audio only.
+     */
+    override fun prepareNext(media: VimivoMediaItem?): Result<Unit> = runCatching {
+        checkOpen()
+        if (media != null) {
+            require(mutableState.value.media?.kind == MediaKind.AUDIO && media.kind == MediaKind.AUDIO) {
+                "Gapless is for audio"
+            }
+            require(supportFor(media) != SupportLevel.UNSUPPORTED) { "Media3 does not support this URI or container" }
+        }
+        val playing = player.currentMediaItemIndex
+        if (player.mediaItemCount > playing + 1) player.removeMediaItems(playing + 1, player.mediaItemCount)
+        preparedNext = null
+        if (media != null) {
+            player.addMediaItem(MediaItem.Builder().setMediaId(media.id.value).setUri(Uri.parse(media.uri)).build())
+            preparedNext = media
+        }
+    }
+
+    private fun adoptPreparedNext(next: VimivoMediaItem) {
+        preparedNext = null
+        cachedAudioTracks = emptyList()
+        cachedVideoTracks = emptyList()
+        cachedSubtitleTracks = emptyList()
+        mutableState.value = mutableState.value.copy(
+            media = next,
+            metadata = next.toPlaybackMetadata(),
+            positionMillis = 0,
+            audioTracks = emptyList(),
+            videoTracks = emptyList(),
+            subtitleTracks = emptyList(),
+        )
+        // The finished item is no longer needed; the playing one becomes index 0 again.
+        if (player.currentMediaItemIndex > 0) player.removeMediaItems(0, player.currentMediaItemIndex)
+        publishState()
     }
 
     override fun play(): Result<Unit> = command { player.play() }

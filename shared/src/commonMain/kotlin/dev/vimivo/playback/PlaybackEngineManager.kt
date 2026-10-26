@@ -63,6 +63,9 @@ class PlaybackEngineManager(
     }
 
     fun seekTo(positionMillis: Long): Result<Unit> = activeOrFailure().flatMap { it.seekTo(positionMillis) }
+
+    /** Hands the active engine the item that follows the current one, for a gapless start (see [PlayerEngine.prepareNext]). */
+    fun prepareNext(media: MediaItem?): Result<Unit> = activeOrFailure().flatMap { it.prepareNext(media) }
     fun setPlaybackSpeed(speed: Float): Result<Unit> = activeOrFailure().flatMap { it.setPlaybackSpeed(speed) }
     fun setVolume(volume: Float): Result<Unit> = activeOrFailure().flatMap { it.setVolume(volume) }
     fun selectAudioTrack(id: String?): Result<Unit> = activeOrFailure().flatMap { it.selectAudioTrack(id) }
