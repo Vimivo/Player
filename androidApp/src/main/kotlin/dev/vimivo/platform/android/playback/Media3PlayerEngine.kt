@@ -293,8 +293,10 @@ class Media3PlayerEngine(
         player.trackSelectionParameters = builder.build()
     }
 
+    /** The group index is the position among all of the player's groups, the same as in [toTrackInfo]'s ids. */
     private fun findTrack(id: String, type: Int): Pair<Tracks.Group, Int>? {
-        player.currentTracks.groups.filter { it.type == type }.forEachIndexed { groupIndex, group ->
+        player.currentTracks.groups.forEachIndexed { groupIndex, group ->
+            if (group.type != type) return@forEachIndexed
             repeat(group.length) { trackIndex ->
                 if (trackId(type, groupIndex, trackIndex) == id) return group to trackIndex
             }
@@ -380,6 +382,10 @@ class Media3PlayerEngine(
             PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> PlaybackErrorCode.DECODER_INITIALIZATION
             PlaybackException.ERROR_CODE_DECODING_FAILED -> PlaybackErrorCode.DECODING_FAILED
+            // The device has a decoder for the codec but not for this profile, level or size (for example HEVC
+            // Main 10 on a device without it): the software fallback engine can still play the file.
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
             PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> PlaybackErrorCode.UNSUPPORTED_CODEC
             else -> PlaybackErrorCode.UNKNOWN
         }
