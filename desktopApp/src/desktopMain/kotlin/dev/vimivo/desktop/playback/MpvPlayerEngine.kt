@@ -79,7 +79,7 @@ class MpvPlayerEngine : PlayerEngine {
     private var renderer: DesktopVideoRenderer? = null
     private var videoSurface: Canvas? = null
     private var hwdecMode: HardwareAccelerationMode = HardwareAccelerationMode.AUTO
-    private var requestedVolume = 1f
+    private val audioChain = MpvAudioChain { filter -> setProperty("af", filter) }
 
     private val preparedNext = MpvPreparedNext(
         clearPlaylist = { command("playlist-clear") },
@@ -88,13 +88,15 @@ class MpvPlayerEngine : PlayerEngine {
 
     private val trackReader = MpvTrackReader(::stringProperty)
 
+    /** Set when a track was selected or added, so the next poll refreshes the track lists. */
+    @Volatile private var trackListChanged = false
+
     private val abWatcher = AbRegionWatcher(
         scope,
         positionMillis = { doubleProperty("time-pos")?.times(1_000)?.toLong() ?: 0L },
         isPaused = { flagProperty("pause") ?: true },
         seekTo = { millis -> command("seek", (millis / 1_000.0).toString(), "absolute+exact") },
     )
-    private var audioSettings = AudioEnhancementSettings()
     private var attemptedSoftwareFallback = false
     private val rendererWatch = MpvRendererWatch()
     private var closed = false
@@ -158,7 +160,7 @@ class MpvPlayerEngine : PlayerEngine {
             media = media,
             status = PlaybackStatus.Preparing,
             metadata = PlaybackMetadata(media.title, media.artist, media.album, media.artworkUri),
-            volume = requestedVolume,
+            volume = audioChain.requestedVolume,
             sessionId = currentSession,
         )
         // Published Preparing state lets the UI compose the video surface before the renderer needs it.
@@ -209,7 +211,7 @@ class MpvPlayerEngine : PlayerEngine {
             media = next,
             status = PlaybackStatus.Playing,
             metadata = PlaybackMetadata(next.title, next.artist, next.album, next.artworkUri),
-            volume = requestedVolume,
+            volume = audioChain.requestedVolume,
             speed = mutableState.value.speed,
             sessionId = session,
         )
@@ -262,21 +264,23 @@ class MpvPlayerEngine : PlayerEngine {
     }
     override fun setVolume(volume: Float) = action {
         require(volume in 0f..capabilities.maxVolume) { "Volume must be between 0 and ${capabilities.maxVolume}" }
-        requestedVolume = volume
         // Up to 100 % is mpv's own volume; above that the gain and a limiter go into the audio filter chain.
         setProperty("volume", (volume.coerceAtMost(1f) * 100).toString())
-        refreshAudioFilter()
+        audioChain.setVolume(volume)
         mutableState.update { it.copy(volume = volume) }
     }
-
-    private fun refreshAudioFilter() {
-        val boost = requestedVolume.coerceAtLeast(1f)
-        setProperty("af", DesktopAudioEffects.filter(audioSettings, boost).orEmpty())
+    override fun selectAudioTrack(trackId: String?) = trackAction { setProperty("aid", trackId ?: "no") }
+    override fun selectVideoTrack(trackId: String?) = trackAction { setProperty("vid", trackId ?: "no") }
+    override fun selectSubtitleTrack(trackId: String?) = trackAction { setProperty("sid", trackId ?: "no") }
+    override fun addExternalSubtitle(subtitle: ExternalSubtitle) = trackAction {
+        command("sub-add", mpvTarget(subtitle.uri), "select")
     }
-    override fun selectAudioTrack(trackId: String?) = action { setProperty("aid", trackId ?: "no") }
-    override fun selectVideoTrack(trackId: String?) = action { setProperty("vid", trackId ?: "no") }
-    override fun selectSubtitleTrack(trackId: String?) = action { setProperty("sid", trackId ?: "no") }
-    override fun addExternalSubtitle(subtitle: ExternalSubtitle) = action { command("sub-add", mpvTarget(subtitle.uri), "select") }
+
+    /** A track change: the poll loop rereads the track lists at once, so the UI shows it without waiting. */
+    private fun trackAction(block: () -> Unit) = action {
+        block()
+        trackListChanged = true
+    }
     override fun setSubtitleDelay(delayMillis: Long) = action {
         setProperty("sub-delay", (delayMillis / 1_000.0).toString())
         mutableState.update { it.copy(subtitleDelayMillis = delayMillis) }
@@ -485,8 +489,7 @@ class MpvPlayerEngine : PlayerEngine {
 
     override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> = action {
         val effective = DesktopAudioEffects.effectiveSettings(settings)
-        audioSettings = effective
-        refreshAudioFilter()
+        audioChain.setSettings(effective)
         val active = effective.enabled || effective.volumeNormalization
         setProperty("balance", effective.balance.toString())
         mutableAudio.value = AudioEnhancementState(
@@ -614,7 +617,8 @@ class MpvPlayerEngine : PlayerEngine {
                     val bufferedPosition = position + cacheDurationMs
 
                     val currentTrackCount = stringProperty("track-list/count")?.toIntOrNull() ?: 0
-                    if (currentTrackCount != lastTrackCount || iteration % 20L == 1L) {
+                    if (currentTrackCount != lastTrackCount || iteration % 20L == 1L || trackListChanged) {
+                        trackListChanged = false
                         lastTrackCount = currentTrackCount
                         cachedAudio = trackReader.read(TrackType.AUDIO)
                         cachedVideo = trackReader.read(TrackType.VIDEO)

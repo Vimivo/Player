@@ -162,6 +162,22 @@ run([
     "-b:v", "800k", "-pix_fmt", "yuv420p", os.path.join(MEDIA_DIR, "interlaced_tiny.ts")
 ])
 
+# 8f. Two video and two audio tracks: track switching (V1 #18, #22). Video 1 is solid red, video 2 solid blue;
+# audio 1 is a 440 Hz tone ("eng", Low tone), audio 2 a 1000 Hz tone ("spa", High tone).
+run([
+    "ffmpeg", "-y",
+    "-f", "lavfi", "-i", "color=c=red:size=320x180:rate=24:duration=4",
+    "-f", "lavfi", "-i", "color=c=blue:size=320x180:rate=24:duration=4",
+    "-f", "lavfi", "-i", "sine=frequency=440:duration=4",
+    "-f", "lavfi", "-i", "sine=frequency=1000:duration=4",
+    "-map", "0:v", "-map", "1:v", "-map", "2:a", "-map", "3:a",
+    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
+    "-metadata:s:v:0", "title=Red picture", "-metadata:s:v:1", "title=Blue picture",
+    "-metadata:s:a:0", "language=eng", "-metadata:s:a:0", "title=Low tone",
+    "-metadata:s:a:1", "language=spa", "-metadata:s:a:1", "title=High tone",
+    os.path.join(MEDIA_DIR, "multitrack_tiny.mkv")
+])
+
 # 9. Public HLS stream URLs
 with open(os.path.join(MEDIA_DIR, "stream_urls.txt"), "w") as f:
     f.write("https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8\n")
