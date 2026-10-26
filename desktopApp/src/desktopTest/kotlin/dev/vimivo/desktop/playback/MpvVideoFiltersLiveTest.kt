@@ -45,10 +45,17 @@ class MpvVideoFiltersLiveTest {
             // every mode has been tried, and "playback continues" could never be seen.
             engine.seekTo(0).getOrThrow()
             val before = engine.readProperty("time-pos")?.toDoubleOrNull() ?: 0.0
-            runBlocking {
-                withTimeout(TIMEOUT) {
-                    while ((engine.readProperty("time-pos")?.toDoubleOrNull() ?: 0.0) < before + 0.1) delay(POLL_MILLIS)
+            val advanced = runCatching {
+                runBlocking {
+                    withTimeout(TIMEOUT) {
+                        while ((engine.readProperty("time-pos")?.toDoubleOrNull() ?: 0.0) < before + 0.1) delay(POLL_MILLIS)
+                    }
                 }
+            }
+            check(advanced.isSuccess) {
+                "playback did not advance with ${mode.name}: time-pos ${engine.readProperty("time-pos")} (was $before), " +
+                    "vf ${engine.readProperty("vf")}, core-idle ${engine.readProperty("core-idle")}, " +
+                    "paused ${engine.readProperty("pause")}, hwdec ${engine.readProperty("hwdec-current")}"
             }
         }
     }
