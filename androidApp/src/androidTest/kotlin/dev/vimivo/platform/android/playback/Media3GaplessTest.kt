@@ -10,6 +10,7 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import java.io.File
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -59,14 +60,16 @@ class Media3GaplessTest {
     @Test
     fun withoutPreparationTheFirstItemCompletes() = withEngine { engine ->
         val first = item("track1_solaris.flac", "first")
-        val seen = collect(engine)
+        // The collector runs on its own thread, so wait for it to have seen the state rather than read its list the
+        // instant the engine reports it.
+        val completed = CompletableDeferred<Unit>()
+        collect(engine) { if (it == PlaybackStatus.Completed) completed.complete(Unit) }
         onMain { runBlocking { engine.open(first).getOrThrow() } }
         onMain { engine.setVolume(0f).getOrThrow() }
         onMain { engine.play().getOrThrow() }
         val duration = awaitState(engine) { (it.durationMillis ?: 0) > 0 }.durationMillis ?: 0
         onMain { engine.seekTo(duration - NEAR_END_MILLIS).getOrThrow() }
-        awaitState(engine) { it.status == PlaybackStatus.Completed }
-        assertTrue(synchronized(seen) { seen.any { it.second == PlaybackStatus.Completed } })
+        runBlocking { withTimeout(TIMEOUT) { completed.await() } }
     }
 
     @Test
@@ -77,10 +80,18 @@ class Media3GaplessTest {
         assertTrue(onMain { engine.prepareNext(null) }.isSuccess)
     }
 
-    private fun collect(engine: Media3PlayerEngine): MutableList<Pair<String?, PlaybackStatus>> {
+    private fun collect(
+        engine: Media3PlayerEngine,
+        onStatus: (PlaybackStatus) -> Unit = {},
+    ): MutableList<Pair<String?, PlaybackStatus>> {
         val seen = mutableListOf<Pair<String?, PlaybackStatus>>()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        scope.launch { engine.state.collect { synchronized(seen) { seen += it.media?.id?.value to it.status } } }
+        scope.launch {
+            engine.state.collect {
+                synchronized(seen) { seen += it.media?.id?.value to it.status }
+                onStatus(it.status)
+            }
+        }
         collectors += scope
         return seen
     }
