@@ -45,7 +45,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -164,7 +168,7 @@ private enum class VideoAspect(val label: String) {
 }
 
 /** Which part of the video options sheet is shown; quick actions open a focused panel. */
-private enum class PlayerPanel { ALL, SPEED, AUDIO, SUBTITLES }
+private enum class PlayerPanel { ALL, SPEED, AUDIO, SUBTITLES, QUEUE }
 
 private enum class DragMode { NONE, SEEK, BRIGHTNESS, VOLUME, ZOOM }
 
@@ -185,6 +189,7 @@ fun AdvancedVideoPlayer(
     player: PlaybackUiState,
     controller: Player?,
     viewModel: PlaybackViewModel,
+    thumbnails: dev.vimivo.platform.android.library.AndroidThumbnailRepository,
     settings: AppSettings,
     onGestureSensitivity: (Float) -> Unit,
     onPreferredSubtitleLanguage: (String) -> Unit,
@@ -622,6 +627,8 @@ fun AdvancedVideoPlayer(
                 )
             },
             viewModel = viewModel,
+            thumbnails = thumbnails,
+            onPanelRequest = { panel = it },
             onDismiss = { panel = null },
         )
     }
@@ -673,6 +680,7 @@ private fun VideoControls(
                         Text(it, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
                     }
                 }
+                if (hasQueue) PlayerIconButton(Icons.AutoMirrored.Rounded.QueueMusic, "Next up") { onPanel(PlayerPanel.QUEUE) }
                 if (player.audioTracks.size > 1) PlayerIconButton(Icons.Rounded.Audiotrack, "Audio track") { onPanel(PlayerPanel.AUDIO) }
                 if (hasSubtitles) PlayerIconButton(Icons.Rounded.ClosedCaption, "Subtitles") { onPanel(PlayerPanel.SUBTITLES) }
                 if (supportsPictureInPicture) PlayerIconButton(Icons.Rounded.PictureInPictureAlt, "Picture in picture", onClick = onPip)
@@ -692,6 +700,7 @@ private fun VideoControls(
                 shape = CircleShape,
                 color = Color.Black.copy(alpha = 0.42f),
                 contentColor = Color.White,
+                border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
                 modifier = Modifier.size(76.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -708,6 +717,7 @@ private fun VideoControls(
 
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(BottomScrim)) {
             Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 4.dp)) {
+                SettingsHandle { onPanel(PlayerPanel.ALL) }
                 VideoSeekBar(player, showRemaining, onSeek, onToggleRemaining)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     PlayerIconButton(Icons.Rounded.Lock, "Lock screen controls", onClick = onLock)
@@ -723,6 +733,26 @@ private fun VideoControls(
                 }
             }
         }
+    }
+}
+
+/** A chevron with "Swipe up for settings": a tap or an upward swipe opens the playback settings. */
+@Composable
+private fun SettingsHandle(onOpen: () -> Unit) {
+    var drag by remember { mutableFloatStateOf(0f) }
+    Column(
+        Modifier.fillMaxWidth()
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragStart = { drag = 0f },
+                    onDragEnd = { if (drag < -40f) onOpen() },
+                ) { _, amount -> drag += amount }
+            }
+            .clickable(onClickLabel = "Open playback settings", onClick = onOpen),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(Icons.Rounded.KeyboardArrowUp, null, tint = Color.White.copy(alpha = 0.8f))
+        Text("Swipe up for settings", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -936,20 +966,27 @@ private fun VideoSettingsSheet(
     onSubtitleAppearance: (SubtitleAppearance) -> Unit,
     onOpenSubtitle: () -> Unit,
     viewModel: PlaybackViewModel,
+    thumbnails: dev.vimivo.platform.android.library.AndroidThumbnailRepository,
+    onPanelRequest: (PlayerPanel) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val all = panel == PlayerPanel.ALL
     BottomSheet(onDismiss) {
+        if (panel == PlayerPanel.QUEUE) {
+            NextUpList(player, viewModel, thumbnails, onDismiss)
+            return@BottomSheet
+        }
         Text(
             when (panel) {
-                PlayerPanel.ALL -> "Video options"
+                PlayerPanel.ALL -> "Playback settings"
                 PlayerPanel.SPEED -> "Playback speed"
                 PlayerPanel.AUDIO -> "Audio"
-                PlayerPanel.SUBTITLES -> "Subtitles"
+                else -> "Subtitles"
             },
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         )
+        if (all) PlaybackSummary(player, viewModel, onOpen = onPanelRequest)
         if (all || panel == PlayerPanel.SPEED) SpeedControls(player.speed, viewModel::setSpeed, showHeading = all)
         if (all || panel == PlayerPanel.AUDIO) AudioSection(player, settings, onPreferredAudioLanguage, onAudioDelay, viewModel)
         if (all || panel == PlayerPanel.SUBTITLES) SubtitleSection(
@@ -957,6 +994,18 @@ private fun VideoSettingsSheet(
         )
         if (all) GeneralSection(player, media, aspect, settings, onAspect, onSensitivity, viewModel)
     }
+}
+
+/** The settings people reach for most, as rows that show their current value; each opens its own panel. */
+@Composable
+private fun PlaybackSummary(player: PlaybackUiState, viewModel: PlaybackViewModel, onOpen: (PlayerPanel) -> Unit) {
+    val audio = player.audioTracks.firstOrNull { it.isSelected }
+    val subtitle = player.subtitleTracks.firstOrNull { it.isSelected }
+    SettingsRow(Icons.Outlined.Speed, "Speed", formatSpeed(player.speed)) { onOpen(PlayerPanel.SPEED) }
+    SettingsRow(Icons.AutoMirrored.Outlined.VolumeUp, "Audio track", audio?.label?.takeUnless { it.equals("und", ignoreCase = true) } ?: "Default") { onOpen(PlayerPanel.AUDIO) }
+    SettingsRow(Icons.Outlined.Info, "Subtitles", subtitle?.label ?: "Off") { onOpen(PlayerPanel.SUBTITLES) }
+    SettingsRow(Icons.Outlined.Repeat, "Loop", checked = player.repeatMode == Player.REPEAT_MODE_ONE, onClick = viewModel::toggleLoop)
+    if (player.queue.size > 1) SettingsRow(Icons.AutoMirrored.Outlined.QueueMusic, "Next up", "${player.queue.size} videos") { onOpen(PlayerPanel.QUEUE) }
 }
 
 @Composable

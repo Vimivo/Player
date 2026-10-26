@@ -455,6 +455,7 @@ private fun AppShell(
         player = player,
         controller = playback.controller.collectAsState().value,
         viewModel = playbackViewModel,
+        thumbnails = thumbnails,
         settings = settingsViewModel.state.collectAsState().value,
         onGestureSensitivity = settingsViewModel::setVideoGestureSensitivity,
         onPreferredSubtitleLanguage = settingsViewModel::setPreferredSubtitleLanguage,

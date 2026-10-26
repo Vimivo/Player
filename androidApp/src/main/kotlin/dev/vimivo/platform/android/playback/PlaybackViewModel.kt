@@ -153,6 +153,14 @@ class PlaybackViewModel(
     fun removeQueueItem(index: Int) = player?.removeMediaItem(index)
     fun moveQueueItem(from: Int, to: Int) = player?.moveMediaItem(from, to)
     fun toggleShuffle() { player?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }
+
+    /** Loop on repeats the current item; off returns to no repeat. */
+    fun toggleLoop() {
+        player?.let {
+            it.repeatMode = if (it.repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+        }
+    }
+
     fun cycleRepeat() {
         player?.let {
             it.repeatMode = when (it.repeatMode) {
