@@ -33,6 +33,9 @@ internal class MpvCocoaRenderer : DesktopVideoRenderer {
         return PresentedFrame(count, width.toInt(), height.toInt())
     }
 
+    override fun windowTransitioning(): Boolean = attached && windowTransitioningNative()
+
+    private external fun windowTransitioningNative(): Boolean
     private external fun presentedFrameNative(): LongArray?
     private external fun attachNative(canvas: Canvas, mpvHandle: Long): Int
     private external fun detachNative()

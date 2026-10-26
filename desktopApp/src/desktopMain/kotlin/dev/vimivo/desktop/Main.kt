@@ -88,6 +88,8 @@ import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
 import dev.vimivo.desktop.diagnostics.DesktopUiCapture
 import dev.vimivo.desktop.diagnostics.DesktopVideoProbe
 import dev.vimivo.desktop.diagnostics.StartupTrace
+import dev.vimivo.desktop.diagnostics.SmokeWindowChecks
+import dev.vimivo.desktop.diagnostics.SmokeStep
 import dev.vimivo.desktop.integration.mpris.MprisService
 import dev.vimivo.desktop.library.DesktopLibraryController
 import dev.vimivo.desktop.library.DesktopLibraryUiState
@@ -138,8 +140,11 @@ import dev.vimivo.ui.theme.VimivoTheme
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import java.awt.Canvas
@@ -330,6 +335,56 @@ private fun desktopApplication(
                 "fullscreen-exit" to { viewModel.dispatch(PlayerIntent.SetFullscreen(false)) },
                 "resize" to { playerWindow()?.setSize(SMOKE_RESIZED_WIDTH, SMOKE_RESIZED_HEIGHT); Unit },
             )
+            // The same changes on one playback, with no replay between them, and a resize with the video paused. Each
+            // step says where it sends the window, so the check waits for that and not for a size that looks settled.
+            val windowIs = { width: Int, height: Int -> playerWindow()?.size == java.awt.Dimension(width, height) }
+            // Fullscreen means the window is as wide as its screen; AWT restores the size Compose remembers, which is
+            // not the size this test set by hand, so "leaving fullscreen" is "narrower than the screen".
+            val windowIsFullscreen = {
+                playerWindow()?.let { it.width >= (it.graphicsConfiguration?.bounds?.width ?: Int.MAX_VALUE) } == true
+            }
+            val windowSequence = listOf(
+                SmokeStep(
+                    "sequence-fullscreen-enter",
+                    { viewModel.dispatch(PlayerIntent.SetFullscreen(true)) },
+                    windowIsFullscreen,
+                ),
+                SmokeStep(
+                    "sequence-fullscreen-exit",
+                    { viewModel.dispatch(PlayerIntent.SetFullscreen(false)) },
+                    { !windowIsFullscreen() },
+                ),
+                SmokeStep(
+                    "sequence-resize",
+                    { playerWindow()?.setSize(SMOKE_RESIZED_WIDTH, SMOKE_RESIZED_HEIGHT) },
+                    { windowIs(SMOKE_RESIZED_WIDTH, SMOKE_RESIZED_HEIGHT) },
+                ),
+                SmokeStep(
+                    "paused-resize",
+                    {
+                        engine.pause()
+                        playerWindow()?.setSize(
+                            SMOKE_RESIZED_WIDTH + SMOKE_PAUSED_RESIZE_STEP,
+                            SMOKE_RESIZED_HEIGHT + SMOKE_PAUSED_RESIZE_STEP,
+                        )
+                    },
+                    {
+                        windowIs(
+                            SMOKE_RESIZED_WIDTH + SMOKE_PAUSED_RESIZE_STEP,
+                            SMOKE_RESIZED_HEIGHT + SMOKE_PAUSED_RESIZE_STEP,
+                        )
+                    },
+                ),
+            )
+            // The surface's size in device pixels: what the renderer's frame has to match.
+            val surfaceSize = {
+                val scale = videoCanvas.graphicsConfiguration?.defaultTransform?.scaleX ?: 1.0
+                if (videoCanvas.isShowing && videoCanvas.width > 1) {
+                    (videoCanvas.width * scale).toInt() to (videoCanvas.height * scale).toInt()
+                } else {
+                    null
+                }
+            }
             val captureDir = smokeTest.captureDir
             val passed = if (captureDir != null) {
                 val video = smokeTest.files.firstOrNull()
@@ -337,7 +392,7 @@ private fun desktopApplication(
             } else {
                 viewModel.runSmokeTest(
                     smokeTest.files,
-                    windowChanges,
+                    SmokeWindowChecks(windowChanges, windowSequence, surfaceSize),
                     probePicture = { DesktopVideoProbe.sample(videoCanvas) },
                     isAlwaysOnTop = { (playerWindow() as? java.awt.Window)?.isAlwaysOnTop },
                 )
@@ -416,9 +471,23 @@ private fun PlayerWindow(
     }
     val windowState = rememberWindowState(size = DpSize(960.dp, 600.dp))
     // The ViewModel owns the fullscreen decision; the window follows it and reports OS-initiated changes back.
-    LaunchedEffect(playerState.fullscreen) {
-        val target = if (playerState.fullscreen) WindowPlacement.Fullscreen else WindowPlacement.Floating
-        if ((windowState.placement == WindowPlacement.Fullscreen) != playerState.fullscreen) windowState.placement = target
+    // One transition at a time: macOS ignores a fullscreen toggle issued while the previous one is still animating,
+    // and cancels one when the window's content changes under it. The next request therefore waits until the system's
+    // transition is over (and the window has stopped changing size), and is compared with the window's real state, not
+    // with the remembered placement, which can be stale after a cancelled transition. If the system did not do what
+    // was asked, the state follows the window. The flow is conflated, so only the latest request is applied.
+    LaunchedEffect(viewModel, windowState) {
+        viewModel.state.map { it.fullscreen }.distinctUntilChanged().collect { fullscreen ->
+            val window = javax.swing.SwingUtilities.getWindowAncestor(videoCanvas) as? androidx.compose.ui.awt.ComposeWindow
+            if (window != null && (window.placement == WindowPlacement.Fullscreen) != fullscreen) {
+                val target = if (fullscreen) WindowPlacement.Fullscreen else WindowPlacement.Floating
+                window.placement = target
+                windowState.placement = target
+                awaitWindowSettled(engine::windowTransitioning) { window.size }
+                val actual = window.placement == WindowPlacement.Fullscreen
+                if (actual != fullscreen) viewModel.dispatch(PlayerIntent.SetFullscreen(actual))
+            }
+        }
     }
     LaunchedEffect(windowState) {
         snapshotFlow { windowState.placement == WindowPlacement.Fullscreen }
@@ -550,6 +619,31 @@ private fun java.awt.Window.installFileDrop(onFiles: (List<File>) -> Unit) {
 private const val MAC_OPEN_EVENT_GRACE_MILLIS = 400L
 private const val SMOKE_RESIZED_WIDTH = 720
 private const val SMOKE_RESIZED_HEIGHT = 480
+private const val SMOKE_PAUSED_RESIZE_STEP = 80
+private const val WINDOW_SETTLE_QUIET_MILLIS = 400L
+private const val WINDOW_SETTLE_POLL_MILLIS = 50L
+private const val WINDOW_SETTLE_MAX_MILLIS = 3_000L
+
+/**
+ * Returns once the window has started changing and the system's transition is over and its size has stopped changing
+ * for a short while, or after a bound so a window that never changes cannot wedge it. The animation starts a moment
+ * after the request, so a quiet window right after the request is not a finished transition.
+ */
+private suspend fun awaitWindowSettled(transitioning: () -> Boolean, size: () -> java.awt.Dimension?) {
+    withTimeoutOrNull(WINDOW_SETTLE_MAX_MILLIS) {
+        val initial = size()
+        var last = initial
+        var quiet = 0L
+        var started = false
+        while (!started || quiet < WINDOW_SETTLE_QUIET_MILLIS || transitioning()) {
+            delay(WINDOW_SETTLE_POLL_MILLIS)
+            val now = size()
+            started = started || now != initial || transitioning()
+            quiet = if (now == last) quiet + WINDOW_SETTLE_POLL_MILLIS else 0L
+            last = now
+        }
+    }
+}
 
 
 @Composable

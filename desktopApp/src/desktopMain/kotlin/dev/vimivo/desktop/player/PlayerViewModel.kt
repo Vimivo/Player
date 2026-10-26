@@ -12,6 +12,8 @@ import dev.vimivo.core.streaming.StreamValidator
 import dev.vimivo.desktop.diagnostics.AlwaysOnTopSmoke
 import dev.vimivo.desktop.diagnostics.DesktopSmokeResult
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
+import dev.vimivo.desktop.diagnostics.DesktopTransitionSmoke
+import dev.vimivo.desktop.diagnostics.SmokeWindowChecks
 import dev.vimivo.desktop.diagnostics.SnapshotSubtitleSmoke
 import dev.vimivo.desktop.diagnostics.StartupTrace
 import dev.vimivo.desktop.diagnostics.VideoPixelSample
@@ -289,7 +291,7 @@ internal class PlayerViewModel(
     /** Plays each file through the real queue and engine and reports whether playback advanced. */
     suspend fun runSmokeTest(
         files: List<File>,
-        windowChanges: List<Pair<String, () -> Unit>> = emptyList(),
+        windowChecks: SmokeWindowChecks = SmokeWindowChecks(),
         probePicture: () -> VideoPixelSample? = { null },
         isAlwaysOnTop: () -> Boolean? = { null },
     ): Boolean {
@@ -298,10 +300,14 @@ internal class PlayerViewModel(
         // The picture must survive fullscreen and resize too; replay the first video for each window change.
         val video = files.firstOrNull { mediaItemFor(it).kind == MediaKind.VIDEO }
         val transitions = video?.let { file ->
-            DesktopSmokeTest.checkTransitions(
+            DesktopTransitionSmoke.checkTransitions(
                 file,
-                windowChanges,
-                replay = { play(mediaItemFor(file)) },
+                windowChecks,
+                // Replaying mid-animation makes the system cancel the fullscreen change.
+                replay = {
+                    while (engine.windowTransitioning()) delay(SMOKE_TRANSITION_POLL_MILLIS)
+                    play(mediaItemFor(file))
+                },
                 probePicture = probePicture,
                 presentedFrame = engine::presentedFrame,
             )
@@ -554,6 +560,7 @@ internal class PlayerViewModel(
         const val OPEN_MODE_KEY = "launch_open_mode"
         const val FOLDER_SIBLINGS_KEY = "launch_folder_siblings"
         const val REMAINING_TIME_KEY = "player_show_remaining_time"
+        const val SMOKE_TRANSITION_POLL_MILLIS = 50L
         const val CONTROLLER_OFFSET_KEY = "player_fullscreen_controller_offset"
         const val AUTO_HIDE_CONTROLS_KEY = "player_auto_hide_controls"
         const val SNAPSHOT_FORMAT_KEY = "player_snapshot_format"

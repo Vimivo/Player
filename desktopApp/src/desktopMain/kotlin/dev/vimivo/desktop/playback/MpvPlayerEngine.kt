@@ -435,6 +435,9 @@ class MpvPlayerEngine : PlayerEngine {
     /** Frames the video renderer has presented, for tests that wait on real frames (null where not tracked). */
     internal fun presentedFrame(): PresentedFrame? = renderer?.presentedFrame()
 
+    /** True while the window system animates a fullscreen change and would ignore another one. */
+    internal fun windowTransitioning(): Boolean = renderer?.windowTransitioning() == true
+
     // macOS uses VideoToolbox's copy variant: zero-copy frames cannot be saved as snapshots or run through filters
     // (crop detection, deinterlacing), and on unified memory the copy costs little.
     private fun hwdecValue(mode: HardwareAccelerationMode): String = when (mode) {

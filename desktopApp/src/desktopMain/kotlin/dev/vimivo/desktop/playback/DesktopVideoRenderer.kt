@@ -16,6 +16,9 @@ internal interface DesktopVideoRenderer {
      * (Windows embeds libmpv's own output). Lets tests wait for a real frame instead of sleeping.
      */
     fun presentedFrame(): PresentedFrame? = null
+
+    /** True while the OS animates a fullscreen change and would ignore another request (macOS); false elsewhere. */
+    fun windowTransitioning(): Boolean = false
 }
 
 /** A count of presented frames and the pixel size of the latest one. */

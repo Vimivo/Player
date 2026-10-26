@@ -77,25 +77,6 @@ internal object DesktopSmokeTest {
     }
 
     /**
-     * Replays [file] before each step, runs the step (fullscreen, resize, …) and checks the picture is still on screen
-     * afterwards, so a renderer that loses its surface on a window change fails the gate.
-     */
-    suspend fun checkTransitions(
-        file: File,
-        steps: List<Pair<String, () -> Unit>>,
-        replay: suspend () -> Unit,
-        probePicture: () -> VideoPixelSample?,
-        presentedFrame: () -> PresentedFrame? = { null },
-    ): List<DesktopSmokeResult> = steps.map { (name, step) ->
-        replay()
-        val before = presentedFrame()
-        step()
-        awaitFrameAfterWindowChange(before, presentedFrame)
-        val passed = DesktopSmokeResult.Passed(File("${file.name}#$name"), positionMillis = 0, videoTracks = 1)
-        checkPicture(passed, probePicture)
-    }
-
-    /**
      * Waits until the renderer has presented a frame at the window's new, settled size: the size differs from
      * [before], stays the same across polls, and another frame arrives at it. A cold software renderer needs several
      * seconds for its first 1080p frame after entering fullscreen, which a fixed delay did not always cover. Renderers
@@ -137,7 +118,7 @@ internal object DesktopSmokeTest {
     }
 
     /** Video counts only when the picture is on screen: audio and a moving clock are not enough (black-video bug). */
-    private suspend fun checkPicture(
+    internal suspend fun checkPicture(
         passed: DesktopSmokeResult.Passed,
         probePicture: () -> VideoPixelSample?,
     ): DesktopSmokeResult {
@@ -154,9 +135,9 @@ internal object DesktopSmokeTest {
 
     // Up to 3 s: a cold software renderer (no GPU, CI) presents its first 1080p frames slowly, in strips.
     private const val PICTURE_ATTEMPTS = 10
-    private const val TRANSITION_SETTLE_MILLIS = 1_500L
-    private const val FRAME_WAIT_MILLIS = 15_000L
-    private const val FRAME_POLL_MILLIS = 100L
+    internal const val TRANSITION_SETTLE_MILLIS = 1_500L
+    internal const val FRAME_WAIT_MILLIS = 15_000L
+    internal const val FRAME_POLL_MILLIS = 100L
     private const val PICTURE_RETRY_MILLIS = 300L
 
     private fun PlaybackState.isTerminalFor(): Boolean =
