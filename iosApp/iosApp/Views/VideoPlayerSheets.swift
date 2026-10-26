@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import VimivoShared
 
 /// Focused bottom sheets for the video player: speed, audio, subtitles, and general options.
 struct PlayerSheetView: View {
@@ -8,6 +9,8 @@ struct PlayerSheetView: View {
     @ObservedObject var model: VideoPlayerModel
     @Environment(\.dismiss) private var dismiss
     @State private var bookmarks: [Bookmark] = []
+    @State private var pendingA: Int64?
+    @State private var snapshotMessage: String?
 
     static let speedPresets = PlaybackPreferences.speedPresets
 
@@ -38,6 +41,38 @@ struct PlayerSheetView: View {
         case .subtitles: return "Subtitles"
         case .options: return "Video options"
         }
+    }
+
+    // MARK: A–B repeat
+
+    private var abRepeatTitle: String {
+        if let region = engine.abRepeat {
+            return "Repeating \(MediaFormatting.clock(millis: region.lowerBound)) – \(MediaFormatting.clock(millis: region.upperBound))"
+        }
+        if let pendingA { return "Set B (A is \(MediaFormatting.clock(millis: pendingA)))" }
+        return "Set A at \(MediaFormatting.clock(millis: engine.state.positionMillis))"
+    }
+
+    /// A, then B, then clear: the same steps as on the other platforms (the shared `PlaybackControlPolicy`).
+    private func advanceABRepeat() {
+        let current = ABRepeatRange(
+            pointA: (engine.abRepeat?.lowerBound ?? pendingA).map { KotlinLong(longLong: $0) },
+            pointB: engine.abRepeat.map { KotlinLong(longLong: $0.upperBound) },
+            enabled: engine.abRepeat != nil
+        )
+        let next = PlaybackControlPolicy.shared.nextABRepeat(current: current, positionMillis: engine.state.positionMillis)
+        if next.enabled, let a = next.pointA?.int64Value, let b = next.pointB?.int64Value {
+            engine.setABRepeat(a...b)
+            pendingA = nil
+        } else {
+            engine.setABRepeat(nil)
+            pendingA = next.pointA?.int64Value
+        }
+    }
+
+    private func clearABRepeat() {
+        engine.setABRepeat(nil)
+        pendingA = nil
     }
 
     // MARK: Speed
@@ -150,6 +185,35 @@ struct PlayerSheetView: View {
                     model.sheet = .subtitles
                 } label: {
                     LabeledContent("Subtitles", value: model.selectedSubtitle?.displayName ?? "Off")
+                }
+            }
+            .foregroundColor(.primary)
+            Section("Frames") {
+                Button { engine.stepFrame(forward: false) } label: { Label("Previous frame", systemImage: "backward.frame") }
+                Button { engine.stepFrame(forward: true) } label: { Label("Next frame", systemImage: "forward.frame") }
+                Button {
+                    Task {
+                        do {
+                            let url = try await engine.saveSnapshot()
+                            snapshotMessage = "Saved to Files › Vimivo › Snapshots (\(url.lastPathComponent))"
+                        } catch {
+                            snapshotMessage = "The snapshot could not be saved"
+                        }
+                    }
+                } label: {
+                    Label("Save snapshot", systemImage: "camera")
+                }
+                if let snapshotMessage {
+                    Text(snapshotMessage).font(.footnote).foregroundColor(.secondary)
+                }
+            }
+            .foregroundColor(.primary)
+            Section("A–B repeat") {
+                Button { advanceABRepeat() } label: {
+                    Label(abRepeatTitle, systemImage: "repeat")
+                }
+                if engine.abRepeat != nil || pendingA != nil {
+                    Button(role: .destructive) { clearABRepeat() } label: { Label("Clear A–B repeat", systemImage: "xmark") }
                 }
             }
             .foregroundColor(.primary)

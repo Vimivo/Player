@@ -36,6 +36,9 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     private var itemStatusObservation: NSKeyValueObservation?
     private var lifecycleObservers: [NSObjectProtocol] = []
     private var lastCheckpointMillis: Int64 = 0
+    /// The A–B region being repeated, in milliseconds (V1 #6); cleared whenever another item loads.
+    public internal(set) var abRepeat: ClosedRange<Int64>?
+    var abBoundaryToken: Any?
 
     public override init() {
         super.init()
@@ -237,6 +240,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             activeSecurityUrl = nil
         }
 
+        setABRepeat(nil)
         state.currentItem = item
         state.status = .buffering
         state.errorMessage = nil
@@ -341,7 +345,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     private func setupTimeObserver() {
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self = self, self.state.status == .playing else { return }
+            // Paused counts too: a frame step moves the position while nothing plays.
+            guard let self = self, self.state.status == .playing || self.state.status == .paused else { return }
             let seconds = CMTimeGetSeconds(time)
             if !seconds.isNaN && seconds >= 0 {
                 self.state.positionMillis = Int64(seconds * 1000)
