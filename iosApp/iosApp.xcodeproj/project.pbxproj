@@ -86,6 +86,9 @@
 		1337 /* PlayerComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2337 /* PlayerComponents.swift */; };
 		1338 /* EqualizerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2338 /* EqualizerSheet.swift */; };
 		1339 /* NowPlayingSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2339 /* NowPlayingSnapshotTests.swift */; };
+		1340 /* LyricsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2340 /* LyricsModel.swift */; };
+		1341 /* LyricsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2341 /* LyricsPanel.swift */; };
+		1342 /* LyricsModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2342 /* LyricsModelTests.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -185,6 +188,9 @@
 		2337 /* PlayerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerComponents.swift; sourceTree = "<group>"; };
 		2338 /* EqualizerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerSheet.swift; sourceTree = "<group>"; };
 		2339 /* NowPlayingSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingSnapshotTests.swift; sourceTree = "<group>"; };
+		2340 /* LyricsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsModel.swift; sourceTree = "<group>"; };
+		2341 /* LyricsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsPanel.swift; sourceTree = "<group>"; };
+		2342 /* LyricsModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsModelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -274,6 +280,7 @@
 		4006 /* Playback */ = {
 			isa = PBXGroup;
 			children = (
+				2340 /* LyricsModel.swift */,
 				2308 /* GaplessPlayback.swift */,
 				2306 /* AudioEffects.swift */,
 				2304 /* PictureComposition.swift */,
@@ -324,6 +331,7 @@
 		4012 /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2342 /* LyricsModelTests.swift */,
 				2339 /* NowPlayingSnapshotTests.swift */,
 				2336 /* FormatSupportTests.swift */,
 				2335 /* video_sample.mkv */,
@@ -350,6 +358,7 @@
 		4009 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				2341 /* LyricsPanel.swift */,
 				2338 /* EqualizerSheet.swift */,
 				2337 /* PlayerComponents.swift */,
 				4010 /* Components */,
@@ -542,6 +551,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1341 /* LyricsPanel.swift in Sources */,
+				1340 /* LyricsModel.swift in Sources */,
 				1338 /* EqualizerSheet.swift in Sources */,
 				1337 /* PlayerComponents.swift in Sources */,
 				1308 /* GaplessPlayback.swift in Sources */,
@@ -587,6 +598,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1342 /* LyricsModelTests.swift in Sources */,
 				1339 /* NowPlayingSnapshotTests.swift in Sources */,
 				1336 /* FormatSupportTests.swift in Sources */,
 				1311 /* TrackSwitchingTests.swift in Sources */,

@@ -96,7 +96,7 @@ import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
-import dev.vimivo.platform.android.playback.LyricsDocument
+import dev.vimivo.core.lyrics.LyricsDocument
 import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.platform.android.playback.PlaybackUiState
 import dev.vimivo.platform.android.playback.PlaybackViewModel

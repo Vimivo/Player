@@ -13,7 +13,7 @@ how it was checked, and what is still missing.
 | Transport | shuffle, previous, play/pause in a ring, next, repeat (one/all) | same |
 | Queue | shortcut with a count | shortcut with a count |
 | Equalizer | panel over the player: on/off, 12 presets, ten vertical band sliders, preamp, bass, treble | sheet: same controls |
-| Lyrics | synced LRC view with fading lines, load a file | not built (no lyrics support on iOS yet) |
+| Lyrics | synced LRC view with fading lines, load a file, sidecar `.lrc` found automatically | same: panel, file picker, sidecar, and the chosen file is remembered per track |
 | Sleep timer | 15/30/45/60 min, stop after track | not built on iOS |
 | Landscape | artwork left, controls centre, shortcut list right | artwork left, controls right |
 
@@ -36,8 +36,14 @@ aspect pills, picture-in-picture where the OS has it.
   toggles, sliders and menus as placeholders, so those were not judged from the images.
 - Not tested: a phone, VoiceOver/TalkBack walkthroughs, and the equalizer's sound on a device.
 
+## Lyrics: one implementation
+
+`LrcLyricsParser`, `LyricsDocument.findActiveLineIndex` and `LyricsSidecar` (which `.lrc` sits beside a media file) live in
+`shared` and are used by Android, desktop and iOS. Each platform only lists the folder and reads the file. iOS keeps the
+text a person loaded in the shared library database (schema v3, table `lyrics`).
+
 ## Known gaps
 
-- iOS: lyrics, sleep timer, and favourite/queue changes are not shared logic (they live in Swift).
+- iOS: sleep timer is not built yet; favourite/queue changes are not shared logic (they live in Swift).
 - Both: the video "Next up" rows show no duration (the queue items do not carry one).
 - Android colour controls for video are not available (see `VLC_FEATURE_GAP.md`, row 14).

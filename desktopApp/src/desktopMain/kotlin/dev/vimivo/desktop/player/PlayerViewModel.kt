@@ -2,6 +2,7 @@ package dev.vimivo.desktop.player
 
 import dev.vimivo.core.lyrics.LrcLyricsParser
 import dev.vimivo.core.lyrics.LyricsDocument
+import dev.vimivo.core.lyrics.LyricsSidecar
 import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
@@ -545,13 +546,9 @@ internal class PlayerViewModel(
             if (!uri.startsWith("file:")) return null
             return runCatching {
                 val mediaFile = File(URI(uri))
-                val base = mediaFile.nameWithoutExtension
-                val candidate = mediaFile.parentFile?.listFiles()?.firstOrNull { file ->
-                    val stem = file.nameWithoutExtension
-                    file.isFile && file.extension.equals("lrc", true) &&
-                        (stem.equals(base, true) || stem.startsWith("$base.", true))
-                }
-                candidate?.takeIf(File::canRead)?.let { lrc ->
+                val folder = mediaFile.parentFile ?: return@runCatching null
+                val chosen = LyricsSidecar.best(mediaFile.name, folder.list()?.toList().orEmpty())
+                chosen?.let { File(folder, it) }?.takeIf { it.isFile && it.canRead() }?.let { lrc ->
                     LrcLyricsParser.parse(lrc.readText(Charsets.UTF_8), lrc.toURI().toString())
                 }
             }.getOrNull()

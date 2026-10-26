@@ -52,6 +52,8 @@ data class StoredHistory(
     val playCount: Int,
 )
 
+data class StoredLyrics(val mediaId: String, val source: String, val text: String)
+
 data class StoredResume(val positionMillis: Long, val completed: Boolean)
 
 data class StoredQueue(val mediaIds: List<String>, val currentIndex: Int)
@@ -134,6 +136,7 @@ class LocalLibraryStore(
     @Throws(Exception::class)
     fun deleteMedia(id: String) = lock.withLock {
         database.execute("DELETE FROM media_items WHERE id = ?", listOf(id))
+        database.execute("DELETE FROM lyrics WHERE media_id = ?", listOf(id))
         Unit
     }
 
@@ -225,6 +228,33 @@ class LocalLibraryStore(
     @Throws(Exception::class)
     fun deleteBookmark(id: String) = lock.withLock {
         database.execute("DELETE FROM bookmarks WHERE id = ?", listOf(id))
+        Unit
+    }
+
+    // endregion
+
+    // region lyrics
+
+    /** Keeps the lyrics text a person loaded for [mediaId], replacing any earlier text for that track. */
+    @Throws(Exception::class)
+    fun saveLyrics(mediaId: String, source: String, text: String) = lock.withLock {
+        database.execute(
+            "INSERT OR REPLACE INTO lyrics (media_id, source, text, saved_at_millis) VALUES (?, ?, ?, ?)",
+            listOf(mediaId, source, text, clock()),
+        )
+        Unit
+    }
+
+    @Throws(Exception::class)
+    fun lyrics(mediaId: String): StoredLyrics? = lock.withLock {
+        database.query("SELECT media_id, source, text FROM lyrics WHERE media_id = ?", listOf(mediaId)) { row ->
+            StoredLyrics(checkNotNull(row.string(0)), checkNotNull(row.string(1)), checkNotNull(row.string(2)))
+        }.firstOrNull()
+    }
+
+    @Throws(Exception::class)
+    fun deleteLyrics(mediaId: String) = lock.withLock {
+        database.execute("DELETE FROM lyrics WHERE media_id = ?", listOf(mediaId))
         Unit
     }
 

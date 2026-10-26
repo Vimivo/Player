@@ -129,6 +129,19 @@ public final class IOSDatabase {
         attempt("bookmark delete") { try store.deleteBookmark(id: id) }
     }
 
+    // MARK: - Lyrics
+
+    /// Keeps the lyrics file a person loaded for a track, so it is still there next time.
+    public func saveLyrics(mediaId: String, source: String, text: String) {
+        attempt("lyrics save") { try store.saveLyrics(mediaId: mediaId, source: source, text: text) }
+    }
+
+    public func lyrics(mediaId: String) -> (source: String, text: String)? {
+        attempt("lyrics read", fallback: nil) {
+            try store.lyrics(mediaId: mediaId).map { ($0.source, $0.text) }
+        }
+    }
+
     // MARK: - Playback Queue
 
     /// Replaces the persisted queue atomically so a crash never leaves a half-written queue.

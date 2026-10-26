@@ -6,6 +6,9 @@ public struct NowPlayingView: View {
     @State private var showQueue = false
     @State private var showEqualizer = false
     @State private var isFavorite = false
+    @State private var showLyrics = false
+    @State private var importingLyrics = false
+    @StateObject private var lyrics = LyricsModel()
 
     public init(engine: AVPlayerPlaybackEngine) {
         self.engine = engine
@@ -28,8 +31,11 @@ public struct NowPlayingView: View {
         }
         .sheet(isPresented: $showQueue) { QueueView(engine: engine) }
         .sheet(isPresented: $showEqualizer) { EqualizerSheet(engine: engine) }
-        .onAppear(perform: refreshFavorite)
-        .onChange(of: engine.state.currentItem?.id) { _ in refreshFavorite() }
+        .fileImporter(isPresented: $importingLyrics, allowedContentTypes: [.plainText, .data]) { result in
+            if case let .success(url) = result, let item = engine.state.currentItem { lyrics.load(from: url, for: item) }
+        }
+        .onAppear { refreshFavorite(); lyrics.refresh(for: engine.state.currentItem) }
+        .onChange(of: engine.state.currentItem?.id) { _ in refreshFavorite(); lyrics.refresh(for: engine.state.currentItem) }
     }
 
     // MARK: Layouts
@@ -94,7 +100,14 @@ public struct NowPlayingView: View {
     }
 
     @ViewBuilder private var artwork: some View {
-        if let current = engine.state.currentItem {
+        if showLyrics {
+            LyricsPanel(
+                lyrics: lyrics,
+                positionMillis: engine.state.positionMillis,
+                onSeek: { engine.seek(toMillis: $0) },
+                onLoad: { importingLyrics = true }
+            )
+        } else if let current = engine.state.currentItem {
             ArtworkThumbnailView(uri: current.artworkUri, kind: current.kind, size: 320)
                 .aspectRatio(1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 24))
@@ -180,6 +193,8 @@ public struct NowPlayingView: View {
                 systemImage: "list.bullet", title: "Queue",
                 badge: engine.queue.count > 1 ? "\(engine.queue.count)" : nil
             ) { showQueue = true }
+            Spacer()
+            PlayerShortcut(systemImage: "text.quote", title: "Lyrics", active: showLyrics) { showLyrics.toggle() }
             Spacer()
             PlayerShortcut(systemImage: "slider.vertical.3", title: "Equalizer", active: engine.audioSettings.equalizerOn) { showEqualizer = true }
             Spacer()

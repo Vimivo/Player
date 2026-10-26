@@ -21,6 +21,7 @@ import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.domain.repository.OrganizationRepository
+import dev.vimivo.core.lyrics.LyricsDocument
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.EngineCapabilities
@@ -345,9 +346,7 @@ class PlaybackViewModel(
             lyrics = previous.lyrics.takeIf { previous.current?.mediaId == player.currentMediaItem?.mediaId },
             currentLyricIndex = previous.lyrics.takeIf {
                 previous.current?.mediaId == player.currentMediaItem?.mediaId
-            }?.lines?.indexOfLast {
-                it.timeMillis != null && it.timeMillis <= player.currentPosition
-            } ?: -1,
+            }?.findActiveLineIndex(player.currentPosition) ?: -1,
             abRepeatStartMillis = previous.abRepeatStartMillis,
             abRepeatEndMillis = previous.abRepeatEndMillis,
         )

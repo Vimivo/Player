@@ -96,4 +96,18 @@ class LibrarySchemaMigrationTest {
         assertEquals(99L, db.query("SELECT width FROM media_items") { it.long(0) }.single())
         assertEquals(LibrarySchema.CURRENT_VERSION, db.userVersion)
     }
+
+    @Test
+    fun aVersionTwoDatabaseGainsTheLyricsTableAndKeepsItsData() {
+        val db = JdbcSqlDatabase()
+        db.userVersion = 0
+        LibrarySchema.migrate(db)
+        db.execute("INSERT INTO media_items (id, uri, title, kind) VALUES ('m', 'file:///m.mp3', 'M', 'audio')")
+        db.execute("DROP TABLE lyrics")
+        db.userVersion = 2
+        LibrarySchema.migrate(db)
+        assertEquals(3, db.userVersion)
+        assertEquals(1L, db.query("SELECT COUNT(*) FROM media_items") { it.long(0) }.single())
+        assertEquals(0L, db.query("SELECT COUNT(*) FROM lyrics") { it.long(0) }.single())
+    }
 }

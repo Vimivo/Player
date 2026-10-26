@@ -6,13 +6,14 @@ package dev.vimivo.storage
  *
  * 1. the baseline: the tables the first iOS releases created with `CREATE TABLE IF NOT EXISTS` and no version number,
  *    so a database from before versioning is recognised and kept as it is;
- * 2. the optional columns of `media_items` (video size, file size, date added) added where they are missing.
+ * 2. the optional columns of `media_items` (video size, file size, date added) added where they are missing;
+ * 3. the `lyrics` table, which keeps the lyrics file a person loaded for a track.
  *
  * `PRAGMA user_version` records how far a database has come, so a step runs once.
  */
 object LibrarySchema {
     /** The version a fully migrated database reports. */
-    const val CURRENT_VERSION = 2
+    const val CURRENT_VERSION = 3
 
     private val BASELINE = listOf(
         """CREATE TABLE IF NOT EXISTS media_items (
@@ -89,6 +90,15 @@ object LibrarySchema {
                     database.execute("ALTER TABLE media_items ADD COLUMN $name $type")
                 }
                 database.userVersion = 2
+            }
+        }
+        if (from < 3) {
+            database.transaction {
+                database.execute(
+                    "CREATE TABLE IF NOT EXISTS lyrics (media_id TEXT PRIMARY KEY, source TEXT NOT NULL, " +
+                        "text TEXT NOT NULL, saved_at_millis INTEGER NOT NULL)",
+                )
+                database.userVersion = 3
             }
         }
     }

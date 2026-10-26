@@ -154,4 +154,18 @@ class LocalLibraryStoreTest {
         assertFalse(local.playlists().any())
         assertNotNull(local)
     }
+
+    @Test
+    fun lyricsAreKeptPerTrackReplacedAndRemovedWithTheTrack() {
+        store.saveMedia(song("a"))
+        assertNull(store.lyrics("a"))
+        store.saveLyrics("a", "file:///a.lrc", "[00:01.00]One")
+        store.saveLyrics("a", "file:///b.lrc", "[00:02.00]Two")
+        assertEquals(StoredLyrics("a", "file:///b.lrc", "[00:02.00]Two"), store.lyrics("a"))
+        store.deleteMedia("a")
+        assertNull(store.lyrics("a"), "lyrics go with the track")
+        store.saveLyrics("x", "memory:", "plain")
+        store.deleteLyrics("x")
+        assertNull(store.lyrics("x"))
+    }
 }
