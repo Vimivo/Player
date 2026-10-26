@@ -27,6 +27,10 @@ kotlin {
         iosArm64(),
         iosSimulatorArm64(),
     ).forEach { iosTarget ->
+        // The system SQLite for the shared library store; the Kotlin/Native platform libraries do not include it.
+        iosTarget.compilations.getByName("main").cinterops.create("sqlite3") {
+            defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
+        }
         iosTarget.binaries.framework {
             baseName = "VimivoShared"
             isStatic = true
@@ -50,6 +54,10 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.coroutines.test)
+        }
+        // The library store is tested over JDBC SQLite on the JVM; iOS tests run it over the real iOS driver.
+        val desktopTest by getting {
+            dependencies { implementation(libs.sqlite.jdbc) }
         }
     }
 }
