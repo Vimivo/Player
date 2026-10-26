@@ -73,13 +73,23 @@ internal class DesktopLibraryRepository(private val database: DesktopDatabase) {
                 statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
             }
         } else {
-            val unranked = connection.prepareStatement(
-                "$baseSql AND (COALESCE(o.title,NULLIF(x.title,''),m.title) LIKE ? OR m.file_name LIKE ? " +
-                    "OR COALESCE(o.artist,x.artist) LIKE ? OR COALESCE(o.album,x.album) LIKE ?) LIMIT 500",
-            ).use { statement ->
-                statement.setString(1, kind.name)
-                repeat(4) { statement.setString(it + 2, "%$trimmed%") }
-                statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
+            val ftsQuery = trimmed.replace("\"", "\"\"")
+            val ftsSql = "$baseSql AND m.id IN (SELECT media_id FROM media_fts WHERE media_fts MATCH ?) LIMIT 500"
+            val unranked = runCatching {
+                connection.prepareStatement(ftsSql).use { statement ->
+                    statement.setString(1, kind.name)
+                    statement.setString(2, "\"$ftsQuery\"*")
+                    statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
+                }
+            }.getOrElse {
+                connection.prepareStatement(
+                    "$baseSql AND (COALESCE(o.title,NULLIF(x.title,''),m.title) LIKE ? OR m.file_name LIKE ? " +
+                        "OR COALESCE(o.artist,x.artist) LIKE ? OR COALESCE(o.album,x.album) LIKE ?) LIMIT 500",
+                ).use { statement ->
+                    statement.setString(1, kind.name)
+                    repeat(4) { statement.setString(it + 2, "%$trimmed%") }
+                    statement.executeQuery().use { rows -> buildList { while (rows.next()) add(rows.toMedia()) } }
+                }
             }
             unranked.sortedWith(
                 compareByDescending<MediaItem> { scoreSearchMatch(it, trimmed) }

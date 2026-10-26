@@ -53,6 +53,8 @@ internal data class PlayerState(
     val controllerOffset: ControllerOffset = ControllerOffset(0, 0),
     /** The player window floats above other apps' windows (View ▸ Always on Top). */
     val alwaysOnTop: Boolean = false,
+    /** The player window acts as desktop wallpaper behind all windows (View ▸ Set as Wallpaper). */
+    val wallpaperMode: Boolean = false,
     /** Windowed video hides the control bar after the pointer rests (View ▸ Auto-hide Controls; off by default). */
     val autoHideControls: Boolean = false,
     /** Snapshot format, subtitles and folder (Video panel ▸ Snapshot); remembered. */
@@ -112,6 +114,7 @@ internal sealed interface PlayerIntent {
     data object ToggleRemainingTime : PlayerIntent
     data class MoveController(val offset: ControllerOffset) : PlayerIntent
     data object ToggleAlwaysOnTop : PlayerIntent
+    data object ToggleWallpaperMode : PlayerIntent
     data object ToggleAutoHideControls : PlayerIntent
 }
 

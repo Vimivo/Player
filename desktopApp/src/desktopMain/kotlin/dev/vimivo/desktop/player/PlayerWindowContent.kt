@@ -232,6 +232,7 @@ private fun PlayerControlBar(
         VimivoTimeline(
             playback = playback,
             label = stringResource(Res.string.player_seek),
+            bookmarks = state.bookmarks,
             onAbChange = { onIntent(PlayerIntent.SetAbRepeat(it)) },
             modifier = Modifier.weight(1f),
             preview = preview,

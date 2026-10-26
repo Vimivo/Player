@@ -397,6 +397,10 @@ class PlaybackQueueController(
         mutableState.value = mutableState.value.copy(repeatMode = next)
     }
 
+    fun setRepeatMode(mode: QueueRepeatMode) {
+        mutableState.value = mutableState.value.copy(repeatMode = mode)
+    }
+
     private suspend fun advance(automatic: Boolean): Result<Unit> = mutex.withLock { advanceLocked(automatic) }
 
     private suspend fun advanceLocked(automatic: Boolean): Result<Unit> {

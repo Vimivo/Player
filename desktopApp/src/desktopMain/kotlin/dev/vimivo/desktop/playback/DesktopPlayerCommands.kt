@@ -53,14 +53,40 @@ internal enum class DesktopPlayerCommand(val label: String) {
     MEDIA_INFO("Media information"),
 }
 
+enum class HotkeyPreset(val displayName: String) {
+    VIMIVO("Vimivo default"),
+    VLC("VLC"),
+    MPV("mpv"),
+}
+
 /** Maps unmodified (or Shift-modified) keys to commands; Ctrl/Cmd/Alt combinations belong to the menu bar. */
 internal object DesktopPlayerShortcuts {
+    var preset: HotkeyPreset = HotkeyPreset.VIMIVO
+
     fun resolve(key: Key, shift: Boolean, ctrl: Boolean, alt: Boolean, meta: Boolean): DesktopPlayerCommand? {
         if (ctrl || alt || meta) return null
-        return if (shift) shifted(key) else plain(key)
+        return when (preset) {
+            HotkeyPreset.VIMIVO -> if (shift) shiftedVimivo(key) else plainVimivo(key)
+            HotkeyPreset.VLC -> if (shift) shiftedVlc(key) else plainVlc(key)
+            HotkeyPreset.MPV -> if (shift) shiftedMpv(key) else plainMpv(key)
+        }
     }
 
-    private fun plain(key: Key): DesktopPlayerCommand? = when (key) {
+    fun detectConflicts(bindings: Map<Pair<Key, Boolean>, DesktopPlayerCommand>): List<String> {
+        val seen = mutableMapOf<Pair<Key, Boolean>, DesktopPlayerCommand>()
+        val conflicts = mutableListOf<String>()
+        bindings.forEach { (keyMod, command) ->
+            val existing = seen[keyMod]
+            if (existing != null && existing != command) {
+                conflicts += "Conflict: ${keyMod.first} (shift=${keyMod.second}) bound to both ${existing.label} and ${command.label}"
+            } else {
+                seen[keyMod] = command
+            }
+        }
+        return conflicts
+    }
+
+    private fun plainVimivo(key: Key): DesktopPlayerCommand? = when (key) {
         Key.Spacebar, Key.K -> DesktopPlayerCommand.TOGGLE_PLAYBACK
         Key.DirectionLeft -> DesktopPlayerCommand.SEEK_BACK_SHORT
         Key.DirectionRight -> DesktopPlayerCommand.SEEK_FORWARD_SHORT
@@ -87,7 +113,7 @@ internal object DesktopPlayerShortcuts {
         else -> null
     }
 
-    private fun shifted(key: Key): DesktopPlayerCommand? = when (key) {
+    private fun shiftedVimivo(key: Key): DesktopPlayerCommand? = when (key) {
         Key.DirectionUp -> DesktopPlayerCommand.VOLUME_UP_FINE
         Key.DirectionDown -> DesktopPlayerCommand.VOLUME_DOWN_FINE
         Key.DirectionLeft -> DesktopPlayerCommand.SEEK_BACK_LONG
@@ -97,6 +123,70 @@ internal object DesktopPlayerShortcuts {
         Key.L -> DesktopPlayerCommand.AB_LOOP
         Key.G -> DesktopPlayerCommand.AUDIO_DELAY_DOWN
         Key.H -> DesktopPlayerCommand.AUDIO_DELAY_UP
+        else -> null
+    }
+
+    private fun plainVlc(key: Key): DesktopPlayerCommand? = when (key) {
+        Key.Spacebar -> DesktopPlayerCommand.TOGGLE_PLAYBACK
+        Key.DirectionLeft -> DesktopPlayerCommand.SEEK_BACK_SHORT
+        Key.DirectionRight -> DesktopPlayerCommand.SEEK_FORWARD_SHORT
+        Key.DirectionUp -> DesktopPlayerCommand.VOLUME_UP
+        Key.DirectionDown -> DesktopPlayerCommand.VOLUME_DOWN
+        Key.M -> DesktopPlayerCommand.TOGGLE_MUTE
+        Key.F -> DesktopPlayerCommand.TOGGLE_FULLSCREEN
+        Key.Escape -> DesktopPlayerCommand.EXIT_FULLSCREEN
+        Key.E -> DesktopPlayerCommand.FRAME_STEP_FORWARD
+        Key.B -> DesktopPlayerCommand.CYCLE_AUDIO_TRACK
+        Key.V -> DesktopPlayerCommand.CYCLE_SUBTITLE_TRACK
+        Key.G -> DesktopPlayerCommand.SUBTITLE_DELAY_DOWN
+        Key.H -> DesktopPlayerCommand.SUBTITLE_DELAY_UP
+        Key.J -> DesktopPlayerCommand.AUDIO_DELAY_DOWN
+        Key.K -> DesktopPlayerCommand.AUDIO_DELAY_UP
+        Key.RightBracket -> DesktopPlayerCommand.SPEED_UP
+        Key.LeftBracket -> DesktopPlayerCommand.SPEED_DOWN
+        Key.Equals -> DesktopPlayerCommand.SPEED_RESET
+        Key.A -> DesktopPlayerCommand.CYCLE_ASPECT_RATIO
+        Key.D -> DesktopPlayerCommand.TOGGLE_DEINTERLACE
+        Key.I -> DesktopPlayerCommand.MEDIA_INFO
+        else -> null
+    }
+
+    private fun shiftedVlc(key: Key): DesktopPlayerCommand? = when (key) {
+        Key.DirectionLeft -> DesktopPlayerCommand.SEEK_BACK_MEDIUM
+        Key.DirectionRight -> DesktopPlayerCommand.SEEK_FORWARD_MEDIUM
+        Key.S -> DesktopPlayerCommand.SNAPSHOT
+        else -> null
+    }
+
+    private fun plainMpv(key: Key): DesktopPlayerCommand? = when (key) {
+        Key.Spacebar -> DesktopPlayerCommand.TOGGLE_PLAYBACK
+        Key.DirectionLeft -> DesktopPlayerCommand.SEEK_BACK_SHORT
+        Key.DirectionRight -> DesktopPlayerCommand.SEEK_FORWARD_SHORT
+        Key.DirectionUp -> DesktopPlayerCommand.SEEK_FORWARD_LONG
+        Key.DirectionDown -> DesktopPlayerCommand.SEEK_BACK_LONG
+        Key.Nine -> DesktopPlayerCommand.VOLUME_DOWN
+        Key.Zero -> DesktopPlayerCommand.VOLUME_UP
+        Key.M -> DesktopPlayerCommand.TOGGLE_MUTE
+        Key.RightBracket -> DesktopPlayerCommand.SPEED_UP
+        Key.LeftBracket -> DesktopPlayerCommand.SPEED_DOWN
+        Key.Backspace -> DesktopPlayerCommand.SPEED_RESET
+        Key.F -> DesktopPlayerCommand.TOGGLE_FULLSCREEN
+        Key.Escape -> DesktopPlayerCommand.EXIT_FULLSCREEN
+        Key.Period -> DesktopPlayerCommand.FRAME_STEP_FORWARD
+        Key.Comma -> DesktopPlayerCommand.FRAME_STEP_BACKWARD
+        Key.S -> DesktopPlayerCommand.SNAPSHOT
+        Key.L -> DesktopPlayerCommand.AB_LOOP
+        Key.I -> DesktopPlayerCommand.MEDIA_INFO
+        Key.V -> DesktopPlayerCommand.CYCLE_SUBTITLE_TRACK
+        Key.B, Key.Pound -> DesktopPlayerCommand.CYCLE_AUDIO_TRACK
+        else -> null
+    }
+
+    private fun shiftedMpv(key: Key): DesktopPlayerCommand? = when (key) {
+        Key.DirectionLeft -> DesktopPlayerCommand.SEEK_BACK_SHORT
+        Key.DirectionRight -> DesktopPlayerCommand.SEEK_FORWARD_SHORT
+        Key.S -> DesktopPlayerCommand.SNAPSHOT
+        Key.T -> DesktopPlayerCommand.TOGGLE_DEINTERLACE
         else -> null
     }
 }

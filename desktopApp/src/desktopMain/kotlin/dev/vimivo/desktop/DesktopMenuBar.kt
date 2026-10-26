@@ -120,6 +120,11 @@ private fun MenuBarScope.ViewMenu(context: MenuContext) = with(context) {
             checked = state.alwaysOnTop,
             onCheckedChange = { send(PlayerIntent.ToggleAlwaysOnTop) }
         )
+        CheckboxItem(
+            "Set as Wallpaper",
+            checked = state.wallpaperMode,
+            onCheckedChange = { send(PlayerIntent.ToggleWallpaperMode) }
+        )
         CheckboxItem("Auto-hide Controls in Window", checked = state.autoHideControls, onCheckedChange = {
             send(PlayerIntent.ToggleAutoHideControls)
         })
@@ -137,6 +142,15 @@ private fun MenuBarScope.ViewMenu(context: MenuContext) = with(context) {
             }
             Separator()
             Item("Close Panel", enabled = state.panel != null, onClick = { send(PlayerIntent.ShowPanel(null)) })
+        }
+        Menu("Hotkey Preset") {
+            dev.vimivo.desktop.playback.HotkeyPreset.entries.forEach { p ->
+                RadioButtonItem(
+                    p.displayName,
+                    selected = dev.vimivo.desktop.playback.DesktopPlayerShortcuts.preset == p,
+                    onClick = { dev.vimivo.desktop.playback.DesktopPlayerShortcuts.preset = p },
+                )
+            }
         }
     }
 }

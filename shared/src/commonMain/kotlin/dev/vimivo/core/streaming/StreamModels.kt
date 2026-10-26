@@ -13,6 +13,9 @@ enum class StreamProtocol(val displayName: String, val isAdaptive: Boolean) {
     HLS("HTTP Live Streaming (HLS)", true),
     DASH("Dynamic Adaptive Streaming over HTTP (DASH)", true),
     RTSP("Real-Time Streaming Protocol (RTSP)", false),
+    RTP("Real-time Transport Protocol (RTP)", false),
+    UDP("User Datagram Protocol (UDP)", false),
+    MMS("Microsoft Media Server (MMS)", false),
     INTERNET_RADIO("Internet Radio Stream", false),
     UNKNOWN("Unknown Network Protocol", false),
 }

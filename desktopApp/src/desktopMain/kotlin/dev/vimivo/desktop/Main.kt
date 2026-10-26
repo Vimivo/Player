@@ -160,6 +160,10 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 fun main(args: Array<String>) {
     StartupTrace.mark("main")
     val launch = LaunchArguments.parse(args)
+    if (launch.showHelp) {
+        println(LaunchArguments.helpMessage())
+        exitProcess(0)
+    }
     if (DesktopPlatform.detect() == DesktopPlatform.WINDOWS) {
         if ("--unregister-file-types" in args) {
             // Cleanup entry point for uninstall: removes everything the per-user registration wrote.
@@ -517,6 +521,12 @@ private fun PlayerWindow(
         // Another app handed over a file: bring the player forward.
         LaunchedEffect(playerState.focusRequest) {
             if (playerState.focusRequest > 0) window.bringToFront()
+        }
+        LaunchedEffect(playerState.wallpaperMode) {
+            if (playerState.wallpaperMode) {
+                window.isAlwaysOnTop = false
+                window.toBack()
+            }
         }
         LaunchedEffect(window) { window.installFileDrop(onOpenFiles) }
         val thumbnailer = remember { MpvThumbnailer() }

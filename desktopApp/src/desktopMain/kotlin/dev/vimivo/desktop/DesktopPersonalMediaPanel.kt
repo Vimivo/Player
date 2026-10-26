@@ -224,7 +224,12 @@ internal fun DesktopBookmarksPanel(
     }
     matching.forEach { bookmark ->
         var editedLabel by remember(bookmark.id, bookmark.name) { mutableStateOf(bookmark.name) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            DesktopArtwork(media.artworkUri, bookmark.name, size = 36.dp)
             OutlinedTextField(editedLabel, { editedLabel = it }, modifier = Modifier.weight(1f), singleLine = true)
             OutlinedButton(onClick = { onRename(bookmark.id, editedLabel) }) { Text("Rename") }
             OutlinedButton(onClick = { onSeek(bookmark.positionMillis) }) {

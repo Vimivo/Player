@@ -80,6 +80,16 @@ data class VideoAdjustments(
     val panX: Float = 0f,
     val panY: Float = 0f,
     val aspectRatio: VideoAspectRatio = VideoAspectRatio.ORIGINAL,
+    val sharpen: Boolean = false,
+    val blur: Boolean = false,
+    val hflip: Boolean = false,
+    val vflip: Boolean = false,
+    val grain: Boolean = false,
+    val denoise: Boolean = false,
+    val colorThreshold: Boolean = false,
+    val negate: Boolean = false,
+    val vignette: Boolean = false,
+    val deband: Boolean = false,
 )
 
 data class SubtitleStyle(
@@ -87,6 +97,14 @@ data class SubtitleStyle(
     val textColorHex: String = "#FFFFFF",
     val backgroundColorHex: String? = null,
     val bottomMarginPercent: Int = 5,
+    val fontName: String? = null,
+    val outlineColorHex: String = "#000000",
+    val outlineSize: Float = 2f,
+    val shadowColorHex: String = "#000000",
+    val shadowOffset: Float = 1f,
+    val assOverride: String = "no",
+    val encoding: String = "auto",
+    val secondaryTrackId: String? = null,
 )
 
 data class AudioOutputDevice(
@@ -236,6 +254,14 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Subtitle delay is not supported"))
     fun setAudioDelay(delayMillis: Long): Result<Unit> =
         Result.failure(UnsupportedOperationException("Audio delay is not supported"))
+    fun setSecondarySubtitleDelay(delayMillis: Long): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Secondary subtitle delay is not supported"))
+    fun setSubtitleSpeed(speed: Float): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Subtitle speed is not supported"))
+    fun setSubtitleFps(fps: Float): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Subtitle FPS is not supported"))
+    fun syncSubtitleToNow(): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Subtitle sync to now is not supported"))
     fun setAudioBalance(balance: Float): Result<Unit> =
         Result.failure(UnsupportedOperationException("Stereo balance adjustment is not supported"))
     fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> =

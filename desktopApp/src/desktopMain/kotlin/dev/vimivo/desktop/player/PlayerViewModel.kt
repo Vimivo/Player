@@ -113,6 +113,7 @@ internal class PlayerViewModel(
             showRemainingTime = localState.showRemainingTime,
             controllerOffset = localState.controllerOffset,
             alwaysOnTop = localState.alwaysOnTop,
+            wallpaperMode = localState.wallpaperMode,
             autoHideControls = localState.autoHideControls,
             snapshot = localState.snapshot,
         )
@@ -138,6 +139,11 @@ internal class PlayerViewModel(
             launch { queue.state.drop(1).collect { store.saveQueue(queue.snapshot()) } }
             if (launch.files.isNotEmpty()) {
                 openFiles(PlayerIntent.OpenFiles(launch.files, launch.startPositionMillis, launch.fullscreen))
+                launch.volume?.let { commands.setVolumeLevel(it) }
+                launch.speed?.let { engine.setPlaybackSpeed(it) }
+                launch.subtitleFile?.let(dev.vimivo.desktop.playback.MpvSubtitleFiles::forFile)?.let(engine::addExternalSubtitle)
+                launch.audioTrack?.let { engine.selectAudioTrack(it) }
+                if (launch.loop) queue.setRepeatMode(dev.vimivo.playback.QueueRepeatMode.ONE)
             }
             externalFiles.collect { files -> openFiles(PlayerIntent.OpenFiles(files, fromRunningInstance = true)) }
         }
@@ -218,7 +224,8 @@ internal class PlayerViewModel(
     private fun dispatchPlayerUi(intent: PlayerIntent) {
         when (intent) {
             is PlayerIntent.ShowPanel -> local.update { it.copy(panel = intent.panel) }
-            PlayerIntent.ToggleAlwaysOnTop -> local.update { it.copy(alwaysOnTop = !it.alwaysOnTop) }
+            PlayerIntent.ToggleAlwaysOnTop -> local.update { it.copy(alwaysOnTop = !it.alwaysOnTop, wallpaperMode = if (!it.alwaysOnTop) false else it.wallpaperMode) }
+            PlayerIntent.ToggleWallpaperMode -> local.update { it.copy(wallpaperMode = !it.wallpaperMode, alwaysOnTop = if (!it.wallpaperMode) false else it.alwaysOnTop) }
             is PlayerIntent.SetSnapshotOptions -> {
                 local.update { it.copy(snapshot = intent.options) }
                 scope.launch {
@@ -560,6 +567,7 @@ internal class PlayerViewModel(
         val showRemainingTime: Boolean = false,
         val controllerOffset: ControllerOffset = ControllerOffset(0, 0),
         val alwaysOnTop: Boolean = false,
+        val wallpaperMode: Boolean = false,
         val autoHideControls: Boolean = false,
         val snapshot: SnapshotOptions = SnapshotOptions(),
     )

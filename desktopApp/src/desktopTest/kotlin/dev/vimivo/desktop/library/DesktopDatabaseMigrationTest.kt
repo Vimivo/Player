@@ -441,7 +441,7 @@ class DesktopDatabaseMigrationTest {
                 conn.createStatement().use { stmt ->
                     stmt.executeQuery("SELECT version FROM schema_version").use { rs ->
                         assertTrue(rs.next())
-                        assertEquals(7, rs.getInt(1))
+                        assertEquals(8, rs.getInt(1))
                     }
                     stmt.executeQuery("SELECT name FROM playlists WHERE id = 'p-1'").use { rs ->
                         assertTrue(rs.next())

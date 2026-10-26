@@ -74,10 +74,10 @@ object StreamValidator {
             )
         }
 
-        if (scheme !in setOf("http", "https", "rtsp", "rtsps")) {
+        if (scheme !in setOf("http", "https", "rtsp", "rtsps", "rtp", "udp", "mms", "mmsh", "mmst")) {
             return StreamValidationResult.Invalid(
                 reason = StreamFailureReason.UNSUPPORTED_PROTOCOL,
-                message = "Protocol '$scheme' is not supported. Supported protocols: http, https, rtsp, rtsps.",
+                message = "Protocol '$scheme' is not supported. Supported protocols: http, https, rtsp, rtsps, rtp, udp, mms.",
             )
         }
 
@@ -144,6 +144,9 @@ object StreamValidator {
 
     private fun detectProtocol(scheme: String, path: String, hostPart: String): StreamProtocol {
         if (scheme == "rtsp" || scheme == "rtsps") return StreamProtocol.RTSP
+        if (scheme == "rtp") return StreamProtocol.RTP
+        if (scheme == "udp") return StreamProtocol.UDP
+        if (scheme == "mms" || scheme == "mmsh" || scheme == "mmst") return StreamProtocol.MMS
 
         val lowerPath = path.lowercase()
         return when {
@@ -167,7 +170,10 @@ object StreamValidator {
     }
 
     private fun detectIsLive(protocol: StreamProtocol, path: String): Boolean {
-        if (protocol == StreamProtocol.RTSP || protocol == StreamProtocol.INTERNET_RADIO) return true
+        if (protocol == StreamProtocol.RTSP || protocol == StreamProtocol.RTP ||
+            protocol == StreamProtocol.UDP || protocol == StreamProtocol.MMS ||
+            protocol == StreamProtocol.INTERNET_RADIO
+        ) return true
         val lower = path.lowercase()
         return lower.contains("/live") || lower.contains("live.m3u8") || lower.contains("live.mpd")
     }
@@ -215,6 +221,9 @@ object StreamValidator {
             StreamProtocol.HLS -> "HLS Live Stream ($hostClean)"
             StreamProtocol.DASH -> "DASH Stream ($hostClean)"
             StreamProtocol.RTSP -> "RTSP Stream ($hostClean)"
+            StreamProtocol.RTP -> "RTP Stream ($hostClean)"
+            StreamProtocol.UDP -> "UDP Stream ($hostClean)"
+            StreamProtocol.MMS -> "MMS Stream ($hostClean)"
             StreamProtocol.INTERNET_RADIO -> "Internet Radio ($hostClean)"
             else -> "Network Stream ($hostClean)"
         }
@@ -234,7 +243,8 @@ object StreamValidator {
     fun toStreamSource(valid: StreamValidationResult.Valid): StreamSource = when (valid.protocol) {
         StreamProtocol.HLS -> StreamSource.HlsStream(valid.normalizedUrl, valid.isLive)
         StreamProtocol.DASH -> StreamSource.DashStream(valid.normalizedUrl, valid.isLive)
-        StreamProtocol.RTSP -> StreamSource.RtspStream(valid.normalizedUrl)
+        StreamProtocol.RTSP, StreamProtocol.RTP, StreamProtocol.UDP, StreamProtocol.MMS ->
+            StreamSource.RtspStream(valid.normalizedUrl)
         StreamProtocol.INTERNET_RADIO -> StreamSource.InternetRadio(valid.normalizedUrl, valid.displayTitle)
         StreamProtocol.HTTP_PROGRESSIVE, StreamProtocol.HTTPS_PROGRESSIVE ->
             StreamSource.DirectHttpMedia(valid.normalizedUrl, valid.protocol)

@@ -156,6 +156,11 @@ private fun SubtitlesTab(playback: PlaybackState, engine: MpvPlayerEngine, comma
             commands.perform("Subtitle track") { engine.selectSubtitleTrack(track?.id) }
         }
     }
+    PanelRow("Secondary") {
+        TrackDropdown(playback.subtitleTracks, "Off", allowOff = true) { track ->
+            restyle(style.copy(secondaryTrackId = track?.id))
+        }
+    }
     PanelRow("File") {
         PanelButton("Load subtitle file…", Modifier.fillMaxWidth()) {
             chooseSubtitleFile()?.let(MpvSubtitleFiles::forFile)?.let { subtitle ->
@@ -163,7 +168,27 @@ private fun SubtitlesTab(playback: PlaybackState, engine: MpvPlayerEngine, comma
             }
         }
     }
+    PanelRow("Encoding") {
+        PanelDropdown(
+            options = listOf("auto", "utf-8", "windows-1252", "iso-8859-1", "gbk", "big5", "shift_jis", "euc-kr"),
+            selected = style.encoding,
+            label = { it.uppercase() },
+            placeholder = "AUTO",
+            onSelect = { restyle(style.copy(encoding = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
     PanelSection("Appearance")
+    PanelRow("Font") {
+        PanelDropdown(
+            options = listOf("sans-serif", "serif", "monospace", "Arial", "Trebuchet MS", "Helvetica"),
+            selected = style.fontName ?: "sans-serif",
+            label = { it },
+            placeholder = "sans-serif",
+            onSelect = { restyle(style.copy(fontName = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
     SliderRow(
         "Size",
         style.fontSizeSp.toFloat(),
@@ -179,6 +204,42 @@ private fun SubtitlesTab(playback: PlaybackState, engine: MpvPlayerEngine, comma
             selected = style.textColorHex,
             label = { SUBTITLE_COLOURS.getValue(it) },
             onSelect = { restyle(style.copy(textColorHex = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    SliderRow(
+        "Outline",
+        style.outlineSize,
+        0f..6f,
+        "%.1f pt".format(style.outlineSize),
+        reset = 2f,
+    ) {
+        restyle(style.copy(outlineSize = it))
+    }
+    SliderRow(
+        "Shadow",
+        style.shadowOffset,
+        0f..6f,
+        "%.1f pt".format(style.shadowOffset),
+        reset = 1f,
+    ) {
+        restyle(style.copy(shadowOffset = it))
+    }
+    PanelRow("Background") {
+        SegmentedChoice(
+            options = listOf(null, "#80000000", "#FF000000"),
+            selected = style.backgroundColorHex,
+            label = { when (it) { null -> "None"; "#80000000" -> "Translucent"; else -> "Solid" } },
+            onSelect = { restyle(style.copy(backgroundColorHex = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("ASS override") {
+        SegmentedChoice(
+            options = listOf("no", "yes", "force", "strip"),
+            selected = style.assOverride,
+            label = { it.replaceFirstChar(Char::titlecase) },
+            onSelect = { restyle(style.copy(assOverride = it)) },
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -221,6 +282,59 @@ private fun SyncTab(playback: PlaybackState, engine: MpvPlayerEngine, commands: 
             },
             onReset = { commands.perform("Reset subtitle delay") { engine.setSubtitleDelay(0) } },
         )
+    }
+    var secondaryDelay by remember { mutableStateOf(0L) }
+    PanelRow("Secondary delay") {
+        DelayStepper(
+            "Secondary delay",
+            secondaryDelay,
+            subtitleStep,
+            onStep = { delta ->
+                val next = PlaybackControlPolicy.stepDelay(secondaryDelay, delta)
+                if (commands.perform("Secondary sub delay") { engine.setSecondarySubtitleDelay(next) }) {
+                    secondaryDelay = next
+                }
+            },
+            onReset = {
+                if (commands.perform("Reset secondary delay") { engine.setSecondarySubtitleDelay(0) }) {
+                    secondaryDelay = 0L
+                }
+            },
+        )
+    }
+    PanelSection("Timing factor")
+    var subSpeed by remember { mutableStateOf(1.0f) }
+    SliderRow(
+        "Sub speed",
+        subSpeed,
+        0.5f..2.0f,
+        "%.2f×".format(subSpeed),
+        reset = 1.0f,
+    ) {
+        val s = ((it * 100f).roundToInt() / 100f).coerceIn(0.5f, 2.0f)
+        if (commands.perform("Subtitle speed") { engine.setSubtitleSpeed(s) }) {
+            subSpeed = s
+        }
+    }
+    var subFps by remember { mutableStateOf(0f) }
+    PanelRow("Sub FPS") {
+        PanelDropdown(
+            options = listOf(0f, 23.976f, 24f, 25f, 29.97f, 30f),
+            selected = subFps,
+            label = { if (it == 0f) "Original" else "%.3f fps".format(it) },
+            placeholder = "Original",
+            onSelect = { fps ->
+                if (commands.perform("Subtitle FPS") { engine.setSubtitleFps(fps) }) {
+                    subFps = fps
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Sync") {
+        PanelButton("Sync to now", Modifier.fillMaxWidth()) {
+            commands.perform("Sync to now") { engine.syncSubtitleToNow() }
+        }
     }
     PanelSection("A–B repeat")
     val ab = playback.abRepeat

@@ -393,14 +393,64 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("video-aspect-override", mpvAspectOverride(adjustments.aspectRatio))
         // Fill crops the picture to cover the window; every other preset shows the whole picture.
         setProperty("panscan", if (adjustments.aspectRatio == VideoAspectRatio.FILL) "1.0" else "0.0")
+
+        // LGPL Video filters (#15)
+        fun applyFilter(label: String, filter: String, enabled: Boolean) {
+            runCatching { command("vf", "remove", "@$label") }
+            if (enabled) {
+                command("vf", "add", "@$label:$filter")
+            }
+        }
+        applyFilter("vimivo-sharpen", "lavfi=[unsharp=5:5:1.0:5:5:0.0]", adjustments.sharpen)
+        applyFilter("vimivo-blur", "lavfi=[gblur=sigma=2]", adjustments.blur)
+        applyFilter("vimivo-hflip", "hflip", adjustments.hflip)
+        applyFilter("vimivo-vflip", "vflip", adjustments.vflip)
+        applyFilter("vimivo-grain", "lavfi=[noise=alls=20:allf=t+u]", adjustments.grain)
+        applyFilter("vimivo-denoise", "lavfi=[atadenoise]", adjustments.denoise)
+        applyFilter("vimivo-threshold", "lavfi=[edgedetect]", adjustments.colorThreshold)
+        applyFilter("vimivo-negate", "lavfi=[negate]", adjustments.negate)
+        applyFilter("vimivo-vignette", "lavfi=[vignette]", adjustments.vignette)
+        applyFilter("vimivo-deband", "lavfi=[deband]", adjustments.deband)
+
         mutableState.value = mutableState.value.copy(videoAdjustments = adjustments)
     }
 
     override fun applySubtitleStyle(style: SubtitleStyle): Result<Unit> = action {
         setProperty("sub-font-size", style.fontSizeSp.toString())
         setProperty("sub-color", style.textColorHex)
+        style.fontName?.takeIf { it.isNotBlank() }?.let { setProperty("sub-font", it) }
+        setProperty("sub-border-color", style.outlineColorHex)
+        setProperty("sub-border-size", style.outlineSize.toString())
+        setProperty("sub-shadow-color", style.shadowColorHex)
+        setProperty("sub-shadow-offset", style.shadowOffset.toString())
         style.backgroundColorHex?.let { setProperty("sub-back-color", it) }
         setProperty("sub-pos", (100 - style.bottomMarginPercent).coerceIn(0, 100).toString())
+        setProperty("sub-ass-override", style.assOverride)
+        if (style.encoding != "auto") {
+            setProperty("sub-codepage", style.encoding)
+        }
+        style.secondaryTrackId?.let { setProperty("secondary-sid", it) }
+    }
+
+    override fun setSecondarySubtitleDelay(delayMillis: Long): Result<Unit> = action {
+        setProperty("secondary-sub-delay", (delayMillis / 1000.0).toString())
+    }
+
+    override fun setSubtitleSpeed(speed: Float): Result<Unit> = action {
+        setProperty("sub-speed", speed.toString())
+    }
+
+    override fun setSubtitleFps(fps: Float): Result<Unit> = action {
+        setProperty("sub-fps", fps.toString())
+    }
+
+    override fun syncSubtitleToNow(): Result<Unit> = action {
+        val subStart = doubleProperty("sub-start")
+        val pos = doubleProperty("time-pos")
+        if (subStart != null && pos != null) {
+            val offset = pos - subStart
+            setProperty("sub-delay", offset.toString())
+        }
     }
 
     override fun takeScreenshot(destinationFilePath: String): Result<Unit> =
@@ -577,9 +627,10 @@ class MpvPlayerEngine : PlayerEngine {
         // so the fullscreen controller sees mouse movement over the video.
         checkCode(loaded.mpv_set_option_string(created, "input-cursor", "no"))
         checkCode(loaded.mpv_set_option_string(created, "cursor-autohide", "no"))
-        // Sidecar subtitles load with the file: "movie.srt", "movie.en.srt", and the same names in Subs/ or
-        // Subtitles/. Letting libmpv match at load time avoids racing sub-add against an unfinished load.
         checkCode(loaded.mpv_set_option_string(created, "sub-auto", "fuzzy"))
+        loaded.mpv_set_option_string(created, "sub-create-cc-track", "yes")
+        loaded.mpv_set_option_string(created, "sub-font-provider", "auto")
+        loaded.mpv_set_option_string(created, "sub-ass-vsfilter-color-compat", "basic")
         // Software amplification up to 200%; the UI marks the range above 100% as boosted.
         checkCode(loaded.mpv_set_option_string(created, "volume-max", (capabilities.maxVolume * 100).toInt().toString()))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
@@ -809,7 +860,9 @@ class MpvPlayerEngine : PlayerEngine {
         private const val MPV_FORMAT_FLAG = 3
         private const val MPV_FORMAT_INT64 = 4
         private const val MPV_FORMAT_DOUBLE = 5
-        private val SUPPORTED_SCHEMES = setOf("file", "http", "https", "rtsp", "rtsps")
+        private val SUPPORTED_SCHEMES = setOf(
+            "file", "http", "https", "rtsp", "rtsps", "rtp", "udp", "mms", "mmsh", "mmst", "bd",
+        )
 
         /** libmpv `video-aspect-override` values; Fill keeps the source aspect and crops through `panscan`. */
         internal fun mpvAspectOverride(ratio: VideoAspectRatio): String = when (ratio) {

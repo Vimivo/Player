@@ -121,15 +121,34 @@ internal class DesktopSingleInstance(private val directory: Path) {
         fun encode(launch: LaunchArguments): String = buildJsonObject {
             put("files", JsonArray(launch.files.map { JsonPrimitive(it.absolutePath) }))
             launch.startPositionMillis?.let { put("start", it) }
+            launch.endPositionMillis?.let { put("end", it) }
             put("fullscreen", launch.fullscreen)
+            launch.volume?.let { put("volume", it) }
+            launch.speed?.let { put("speed", it) }
+            launch.subtitleFile?.let { put("sub", it.absolutePath) }
+            launch.audioTrack?.let { put("audioTrack", it) }
+            put("loop", launch.loop)
+            put("enqueue", launch.enqueue)
+            put("audioOnly", launch.audioOnly)
         }.toString()
 
         fun decode(line: String?): LaunchArguments? = runCatching {
             val json = Json.parseToJsonElement(checkNotNull(line)).jsonObject
+            val filesList = json["files"]?.jsonArray?.map { File(it.jsonPrimitive.content) }
+                ?: json["path"]?.jsonPrimitive?.content?.let { listOf(File(it)) }
+                ?: emptyList()
             LaunchArguments(
-                files = json["files"]?.jsonArray.orEmpty().map { File(it.jsonPrimitive.content) },
+                files = filesList,
                 startPositionMillis = json["start"]?.jsonPrimitive?.longOrNull,
+                endPositionMillis = json["end"]?.jsonPrimitive?.longOrNull,
                 fullscreen = json["fullscreen"]?.jsonPrimitive?.booleanOrNull ?: false,
+                volume = json["volume"]?.jsonPrimitive?.content?.toFloatOrNull(),
+                speed = json["speed"]?.jsonPrimitive?.content?.toFloatOrNull(),
+                subtitleFile = json["sub"]?.jsonPrimitive?.content?.let(::File),
+                audioTrack = json["audioTrack"]?.jsonPrimitive?.content,
+                loop = json["loop"]?.jsonPrimitive?.booleanOrNull ?: false,
+                enqueue = json["enqueue"]?.jsonPrimitive?.booleanOrNull ?: false,
+                audioOnly = json["audioOnly"]?.jsonPrimitive?.booleanOrNull ?: false,
             )
         }.getOrNull()
     }

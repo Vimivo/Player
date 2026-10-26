@@ -58,6 +58,7 @@ internal fun VideoTab(
     ColourSlider("Saturation", adjustments.saturation) { adjust("Saturation", adjustments.copy(saturation = it)) }
     ColourSlider("Hue", adjustments.hue) { adjust("Hue", adjustments.copy(hue = it)) }
     ColourSlider("Gamma", adjustments.gamma) { adjust("Gamma", adjustments.copy(gamma = it)) }
+    EffectsSection(adjustments, ::adjust)
     PanelSection("Frames")
     PanelRow("Step") {
         PanelButton("◀ Previous", Modifier.weight(1f)) { commands.execute(DesktopPlayerCommand.FRAME_STEP_BACKWARD) }
@@ -65,6 +66,107 @@ internal fun VideoTab(
         PanelButton("Next ▶", Modifier.weight(1f)) { commands.execute(DesktopPlayerCommand.FRAME_STEP_FORWARD) }
     }
     SnapshotSection(snapshot, commands, onSnapshotOptions)
+}
+
+@Composable
+private fun EffectsSection(
+    adjustments: VideoAdjustments,
+    adjust: (String, VideoAdjustments) -> Unit,
+) {
+    PanelSection("Effects")
+    PanelRow("Sharpen") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = adjustments.sharpen,
+            label = { if (it) "On" else "Off" },
+            onSelect = { adjust("Sharpen", adjustments.copy(sharpen = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Blur") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = adjustments.blur,
+            label = { if (it) "On" else "Off" },
+            onSelect = { adjust("Blur", adjustments.copy(blur = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Mirror / Flip") {
+        PanelButton(if (adjustments.hflip) "H-Flip (On)" else "H-Flip", Modifier.weight(1f)) {
+            adjust("Horizontal Flip", adjustments.copy(hflip = !adjustments.hflip))
+        }
+        Spacer(Modifier.width(6.dp))
+        PanelButton(if (adjustments.vflip) "V-Flip (On)" else "V-Flip", Modifier.weight(1f)) {
+            adjust("Vertical Flip", adjustments.copy(vflip = !adjustments.vflip))
+        }
+    }
+    PanelRow("Denoise") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = adjustments.denoise,
+            label = { if (it) "On" else "Off" },
+            onSelect = { adjust("Denoise", adjustments.copy(denoise = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Film grain") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = adjustments.grain,
+            label = { if (it) "On" else "Off" },
+            onSelect = { adjust("Grain", adjustments.copy(grain = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Negate") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = adjustments.negate,
+            label = { if (it) "On" else "Off" },
+            onSelect = { adjust("Negate", adjustments.copy(negate = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Vignette") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = adjustments.vignette,
+            label = { if (it) "On" else "Off" },
+            onSelect = { adjust("Vignette", adjustments.copy(vignette = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Deband") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = adjustments.deband,
+            label = { if (it) "On" else "Off" },
+            onSelect = { adjust("Deband", adjustments.copy(deband = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("Threshold") {
+        SegmentedChoice(
+            options = listOf(false, true),
+            selected = adjustments.colorThreshold,
+            label = { if (it) "On" else "Off" },
+            onSelect = { adjust("Threshold", adjustments.copy(colorThreshold = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    PanelRow("") {
+        PanelButton("Reset effects", Modifier.fillMaxWidth()) {
+            adjust(
+                "Reset effects",
+                adjustments.copy(
+                    sharpen = false, blur = false, hflip = false, vflip = false,
+                    grain = false, denoise = false, colorThreshold = false,
+                    negate = false, vignette = false, deband = false,
+                ),
+            )
+        }
+    }
 }
 
 /** Snapshot format, whether subtitles are burned in, and the folder; the button saves the current frame. */

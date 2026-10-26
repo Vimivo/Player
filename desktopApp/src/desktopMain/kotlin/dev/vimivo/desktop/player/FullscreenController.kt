@@ -189,6 +189,7 @@ private fun ControllerContent(
         VimivoTimeline(
             playback = playback,
             label = stringResource(Res.string.player_seek),
+            bookmarks = state.bookmarks,
             onAbChange = { onIntent(PlayerIntent.SetAbRepeat(it)) },
             alwaysShowThumb = true,
             modifier = Modifier.fillMaxWidth(),

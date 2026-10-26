@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.vimivo.core.model.Bookmark
 import dev.vimivo.desktop.player.monotonicMillis
 import dev.vimivo.playback.ABRepeatEnd
 import dev.vimivo.playback.ABRepeatRange
@@ -105,6 +106,7 @@ internal fun VimivoTimeline(
     label: String,
     modifier: Modifier = Modifier,
     alwaysShowThumb: Boolean = false,
+    bookmarks: List<Bookmark> = emptyList(),
     preview: (suspend (positionMillis: Long) -> ImageBitmap?)? = null,
     onAbChange: (ABRepeatRange) -> Unit = {},
     seek: SeekController = LocalSeekController.current,
@@ -216,6 +218,7 @@ internal fun VimivoTimeline(
                     playback = playback,
                     duration = duration,
                     region = region,
+                    bookmarks = bookmarks,
                     trackHeight = track.toPx(),
                     trackStart = inset,
                     trackWidth = trackWidth,
@@ -259,6 +262,7 @@ private class TimelineFrame(
     val playback: PlaybackState,
     val duration: Long?,
     val region: ABRepeatRange,
+    val bookmarks: List<Bookmark>,
     val trackHeight: Float,
     val trackStart: Float,
     val trackWidth: Float,
@@ -291,6 +295,14 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTimeline(frame:
             Color.Black.copy(alpha = 0.55f),
             Offset(x(chapter.startPositionMillis), top),
             Size(1f, trackHeight)
+        )
+    }
+    frame.bookmarks.forEach { bookmark ->
+        val bx = x(bookmark.positionMillis)
+        drawCircle(
+            Color(0xFFFFC107),
+            radius = 3.5f,
+            center = Offset(bx, top + trackHeight / 2)
         )
     }
     if (frame.showThumb) {
