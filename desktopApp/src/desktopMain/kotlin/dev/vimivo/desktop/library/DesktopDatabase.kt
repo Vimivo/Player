@@ -224,29 +224,29 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             ")",
         )
         statement.execute(
-            "INSERT OR IGNORE INTO media_fts(media_id, title, file_name, artist, album) " +
-                "SELECT m.id, m.title, m.file_name, COALESCE(x.artist, ''), COALESCE(x.album, '') " +
+            "INSERT OR IGNORE INTO media_fts(rowid, media_id, title, file_name, artist, album) " +
+                "SELECT m.rowid, m.id, m.title, m.file_name, COALESCE(x.artist, ''), COALESCE(x.album, '') " +
                 "FROM media_items m LEFT JOIN media_metadata x ON m.id = x.media_id",
         )
         statement.execute(
             "CREATE TRIGGER IF NOT EXISTS media_items_fts_ai AFTER INSERT ON media_items BEGIN " +
-                "INSERT INTO media_fts(media_id, title, file_name, artist, album) VALUES (new.id, new.title, new.file_name, '', ''); END",
+                "INSERT INTO media_fts(rowid, media_id, title, file_name, artist, album) VALUES (new.rowid, new.id, new.title, new.file_name, '', ''); END",
         )
         statement.execute(
             "CREATE TRIGGER IF NOT EXISTS media_items_fts_ad AFTER DELETE ON media_items BEGIN " +
-                "DELETE FROM media_fts WHERE media_id = old.id; END",
+                "DELETE FROM media_fts WHERE rowid = old.rowid; END",
         )
         statement.execute(
             "CREATE TRIGGER IF NOT EXISTS media_items_fts_au AFTER UPDATE OF title, file_name ON media_items BEGIN " +
-                "UPDATE media_fts SET title = new.title, file_name = new.file_name WHERE media_id = new.id; END",
+                "UPDATE media_fts SET title = new.title, file_name = new.file_name WHERE rowid = new.rowid; END",
         )
         statement.execute(
             "CREATE TRIGGER IF NOT EXISTS media_metadata_fts_ai AFTER INSERT ON media_metadata BEGIN " +
-                "UPDATE media_fts SET artist = COALESCE(new.artist, ''), album = COALESCE(new.album, '') WHERE media_id = new.media_id; END",
+                "UPDATE media_fts SET artist = COALESCE(new.artist, ''), album = COALESCE(new.album, '') WHERE rowid = (SELECT rowid FROM media_items WHERE id = new.media_id); END",
         )
         statement.execute(
             "CREATE TRIGGER IF NOT EXISTS media_metadata_fts_au AFTER UPDATE ON media_metadata BEGIN " +
-                "UPDATE media_fts SET artist = COALESCE(new.artist, ''), album = COALESCE(new.album, '') WHERE media_id = new.media_id; END",
+                "UPDATE media_fts SET artist = COALESCE(new.artist, ''), album = COALESCE(new.album, '') WHERE rowid = (SELECT rowid FROM media_items WHERE id = new.media_id); END",
         )
         statement.execute("UPDATE schema_version SET version=8")
     }

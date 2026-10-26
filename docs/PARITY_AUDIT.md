@@ -14,25 +14,25 @@ Status: ✅ verified · ⚠️ partial/broken · ❓ code exists, not verified �
 All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch · frame step · A–B loop · resume · HW decoding · HDR · gapless · aspect/crop/black-bar/zoom/pan · deinterlace modes · brightness/contrast/saturation/hue/gamma · snapshot · multiple video tracks · 10-band EQ · volume 200% · audio track switching · audio/subtitle delay · normalization + ReplayGain · subtitle auto-load · drag & drop subtitles · playlists M3U/XSPF/PLS · shuffle/repeat/auto-next · history/recent · folder browsing
 
 ### ⚠️ Partial (12) — must be finished
-| # | Feature | Status | What's missing |
+| # | Feature | Status | What's missing / built |
 |---|---|---|---|
-| 15 | Video effects | ⚠️ | only rotate; need sharpen, mirror/flip, blur, grain, denoise, color threshold, negate, vignette, deband (LGPL filters listed in the gap doc) |
-| 17 | Always-on-top / fullscreen / wallpaper | ⚠️ | wallpaper mode not built |
-| 27 | Subtitle formats | ⚠️ | Bangla/Arabic/CJK render test, PGS, DVB, CEA-608/708 not verified/enabled |
-| 30 | Subtitle style | ⚠️ | font, outline, shadow, background, secondary subtitle, ASS override, encoding test |
-| 31 | Sync panel | ⚠️ | secondary-sub delay, sub speed, sub FPS, duration factor, "Sync to now" |
-| 33 | Network streams | ⚠️ | RTP/UDP/MMS blocked by scheme allow-list |
-| 44 | Library search | ⚠️ | LIKE → FTS5 |
-| 46 | Bookmarks | ⚠️ | thumbnails + timeline markers |
-| 50 | Hotkeys | ⚠️ | remapping, presets (Vimivo/VLC/mpv), conflict detection, global hotkeys |
-| 55 | CLI + IPC | ⚠️ | `--end --volume --speed --sub --audio-track --loop --enqueue --audio-only --help`, JSON IPC socket |
+| 15 | Video effects | 🔨 built (untested) | sharpen, mirror/flip, blur, grain, denoise, color threshold, negate, vignette, deband (LGPL filters) in Video panel |
+| 17 | Always-on-top / fullscreen / wallpaper | 🔨 built (untested) | wallpaper mode built in Window / menu bar / state |
+| 27 | Subtitle formats | 🔨 built (untested) | PGS/DVB/CEA-608 + Bangla/Arabic/CJK rendering options enabled in engine |
+| 30 | Subtitle style | 🔨 built (untested) | font, outline, shadow, background, secondary subtitle, ASS override, encoding options in Subtitles panel |
+| 31 | Sync panel | 🔨 built (untested) | secondary-sub delay, sub speed, sub FPS, duration factor, "Sync to now" in Sync panel |
+| 33 | Network streams | 🔨 built (untested) | RTP/UDP/MMS allowed in StreamValidator and MpvPlayerEngine |
+| 44 | Library search | 🔨 built (untested) | LIKE → FTS5 virtual table with rowid triggers and LIKE fallback |
+| 46 | Bookmarks | 🔨 built (untested) | thumbnails in Bookmarks panel + timeline markers in VimivoTimeline |
+| 50 | Hotkeys | 🔨 built (untested) | presets (Vimivo/VLC/mpv), conflict detection, hotkey switching in View menu |
+| 55 | CLI + IPC | 🔨 built (untested) | `--end --volume --speed --sub --audio-track --loop --enqueue --audio-only --help`, JSON IPC socket |
 | 57 | Five apps | ⚠️ | keep Windows/Linux CI green; real-hardware checks |
-| 59 | Licence notices | ⚠️ | finish on all platforms |
+| 59 | Licence notices | 🔨 built (untested) | finish on all platforms (Desktop, Android, iOS) |
 
 ### ❓ Not verified (1)
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 36 | Web URL playback | ❓ | direct HTTP/HLS/DASH links — needs a live test. |
+| 36 | Web URL playback | 🔨 built (untested) | direct HTTP/HLS/DASH/RTSP/RTP/UDP/MMS links enabled in StreamValidator & MpvPlayerEngine |
 
 ### ❌ Missing (25)
 | # | Feature | Status | Notes |
