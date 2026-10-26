@@ -21,6 +21,7 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.SnapshotFormat
+import dev.vimivo.playback.VideoAdjustments
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -89,6 +90,33 @@ class AndroidVideoFramesTest {
 
         assertEquals("a 16:9 preset removes the same bars", 30, checkNotNull(VideoCropping.crop(CropPreset.RATIO_16_9, frame).rect).y)
         assertEquals(null, VideoCropping.crop(CropPreset.NONE, frame).rect)
+    }
+
+    /**
+     * Colour controls use Media3's GL effects (debug builds). Where the GL stack renders them the picture must change;
+     * where it renders nothing (the emulator's does not) the feature must notice and report itself as unsupported
+     * instead of pretending. ExoPlayer cannot return to the plain path once effects were set, so the picture is not
+     * judged in that case.
+     */
+    @Test
+    fun colourControlsEitherChangeThePictureOrReportThatTheyCannotRender() = withVideo("multitrack_tiny.mkv") { engine ->
+        assumeTrue("colour controls exist only in debug builds", engine.capabilities.videoAdjustments)
+        runBlocking { withTimeout(TIMEOUT) { engine.state.first { it.positionMillis > 500 } } }
+        onMain { engine.applyVideoAdjustments(VideoAdjustments(brightness = -60)).getOrThrow() }
+        // The watchdog gives the pipeline a few seconds to show a first frame; wait past that.
+        val deadline = System.currentTimeMillis() + SETTLE_COLOUR_MILLIS
+        while (onMain { engine.capabilities.videoAdjustments } && System.currentTimeMillis() < deadline) Thread.sleep(POLL_MILLIS)
+        if (onMain { engine.capabilities.videoAdjustments }) {
+            onMain { engine.seekTo(1_000).getOrThrow(); engine.play().getOrThrow() }
+            Thread.sleep(PLAY_MILLIS)
+            onMain { engine.pause().getOrThrow() }
+            Thread.sleep(SETTLE_MILLIS)
+            val bitmap = runBlocking { engine.video.captureFrame() }.getOrThrow()
+            val red = bitmap.getPixel(bitmap.width / 2, bitmap.height / 2) shr 16 and 0xFF
+            assertTrue("the effect is on, so red must be darker than 200, was $red", red < 200)
+        } else {
+            assertTrue("the failure is reported, and further changes are refused", onMain { engine.applyVideoAdjustments(VideoAdjustments(contrast = 10)) }.isFailure)
+        }
     }
 
     @Test
@@ -180,5 +208,7 @@ class AndroidVideoFramesTest {
         const val POLL_MILLIS = 30L
         const val SETTLE_MILLIS = 600L
         const val STEPS = 5
+        const val PLAY_MILLIS = 700L
+        const val SETTLE_COLOUR_MILLIS = 7_000L
     }
 }

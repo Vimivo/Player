@@ -45,4 +45,4 @@ text a person loaded in the shared library database (schema v3, table `lyrics`).
 ## Known gaps
 
 - iOS: sleep timer is not built yet; favourite/queue changes are not shared logic (they live in Swift).
-- Android colour controls for video are not available (see `VLC_FEATURE_GAP.md`, row 14).
+- Android colour controls for video exist in debug builds only and are unproven on a phone (see `ANDROID_COLOUR_CONTROLS.md`).

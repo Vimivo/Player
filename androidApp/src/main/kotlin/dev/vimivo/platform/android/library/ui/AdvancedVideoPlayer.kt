@@ -161,6 +161,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.PlaybackSpeeds
+import dev.vimivo.playback.VideoAdjustments
 import dev.vimivo.playback.VideoCropMath
 
 private enum class VideoAspect(val label: String) {
@@ -245,6 +246,7 @@ fun AdvancedVideoPlayer(
     LaunchedEffect(media?.id?.value) {
         if (media != null) viewModel.setSpeed(settings.defaultVideoSpeed)
         viewModel.selectCrop(CropPreset.NONE)
+        if (player.capabilities?.videoAdjustments == true) viewModel.setVideoColour(VideoAdjustments())
     }
 
     LaunchedEffect(media?.id?.value, player.audioTracks, settings.preferredAudioLanguage) {
@@ -1148,6 +1150,22 @@ private fun GeneralSection(
             }
         }
     }
+    if (player.capabilities?.videoAdjustments == true) {
+        val colour = player.videoColour
+        MenuHeading(Icons.Outlined.FitScreen, "Colour (debug build)")
+        ColourSlider("Brightness", colour.brightness) { viewModel.setVideoColour(colour.copy(brightness = it)) }
+        ColourSlider("Contrast", colour.contrast) { viewModel.setVideoColour(colour.copy(contrast = it)) }
+        ColourSlider("Saturation", colour.saturation) { viewModel.setVideoColour(colour.copy(saturation = it)) }
+        ColourSlider("Hue", colour.hue) { viewModel.setVideoColour(colour.copy(hue = it)) }
+        SettingsRow(Icons.Outlined.Close, "Reset colour", onClick = { viewModel.setVideoColour(VideoAdjustments()) })
+    }
+    if (player.capabilities?.videoAdjustments == false && player.videoColour != VideoAdjustments()) {
+        MenuHeading(Icons.Outlined.FitScreen, "Colour (debug build)")
+        Text(
+            "Colour effects rendered no video on this device. Restart the app to restore the picture.",
+            Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.error,
+        )
+    }
     if (player.capabilities?.frameStepping == true || player.capabilities?.screenshots == true) {
         MenuHeading(Icons.Outlined.Info, "Frames")
         if (player.capabilities?.frameStepping == true) {
@@ -1186,6 +1204,14 @@ private fun GeneralSection(
     InfoLine("Audio codec", player.audioTracks.firstOrNull { it.isSelected }?.codec)
     InfoLine("Subtitle tracks", player.subtitleTracks.takeIf { it.isNotEmpty() }?.size?.toString())
     InfoLine("File size", media?.sizeBytes?.let(::formatVideoBytes))
+}
+
+@Composable
+private fun ColourSlider(label: String, value: Int, onChange: (Int) -> Unit) {
+    Column(Modifier.padding(horizontal = 20.dp)) {
+        Text("$label  $value", style = MaterialTheme.typography.labelLarge)
+        Slider(value.toFloat(), { onChange(it.roundToInt()) }, valueRange = -100f..100f)
+    }
 }
 
 @Composable

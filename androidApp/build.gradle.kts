@@ -116,6 +116,8 @@ dependencies {
     implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.exoplayer.rtsp)
     implementation(libs.media3.session)
+    // GL video effects (colour controls) are debug-only until they are proven on phones; see VideoColorEffects.
+    debugImplementation(libs.media3.effect)
     implementation(libs.media3.ui.compose)
     implementation(libs.media3.ui)
     implementation(libs.androidx.room.runtime)

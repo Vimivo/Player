@@ -12,23 +12,35 @@ import kotlinx.coroutines.withContext
 /** Where a Media3 player draws its video, kept so a snapshot can be copied from the same surface. */
 class Media3VideoOutput internal constructor(private val player: ExoPlayer) {
     private var surface: Surface? = null
+    private var holder: SurfaceHolder? = null
 
     /** Attaches the video output (a [Surface] or [SurfaceHolder]) the session hands over. */
     fun attach(output: Any) {
         when (output) {
             is Surface -> {
+                holder = null
                 surface = output
                 player.setVideoSurface(output)
             }
             is SurfaceHolder -> {
+                holder = output
                 surface = output.surface
                 player.setVideoSurfaceHolder(output)
             }
         }
     }
 
+    /**
+     * Hands the current output to the player again so a new effect chain takes over the drawing. A holder is passed as
+     * one, because the effect pipeline needs the size that only a holder reports.
+     */
+    fun reattach() {
+        holder?.let(player::setVideoSurfaceHolder) ?: surface?.let(player::setVideoSurface)
+    }
+
     fun clear() {
         surface = null
+        holder = null
         player.clearVideoSurface()
     }
 

@@ -30,6 +30,7 @@ import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.SnapshotFormat
 import dev.vimivo.playback.SnapshotNaming
 import dev.vimivo.playback.TrackInfo
+import dev.vimivo.playback.VideoAdjustments
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,6 +71,7 @@ data class PlaybackUiState(
     val abRepeatStartMillis: Long? = null,
     val abRepeatEndMillis: Long? = null,
     val videoCrop: VideoCrop? = null,
+    val videoColour: VideoAdjustments = VideoAdjustments(),
 )
 
 class PlaybackViewModel(
@@ -256,6 +258,15 @@ class PlaybackViewModel(
                 snapshotMessage = saved.getOrNull()?.let { "Snapshot saved to Pictures/Vimivo" },
             )
         }
+    }
+
+    /** Applies brightness, contrast, saturation and hue (-100..100 each); a default [VideoAdjustments] resets them. */
+    fun setVideoColour(adjustments: VideoAdjustments) {
+        val applied = diagnostics.applyVideoAdjustments(adjustments)
+        mutableState.value = state.value.copy(
+            videoColour = if (applied.isSuccess) adjustments else state.value.videoColour,
+            trackErrorMessage = applied.exceptionOrNull()?.message,
+        )
     }
 
     /** Crops the picture to a ratio or to its content; needs a frame on screen to measure. [CropPreset.NONE] resets. */

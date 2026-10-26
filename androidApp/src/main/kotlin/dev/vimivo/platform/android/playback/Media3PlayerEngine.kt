@@ -41,6 +41,7 @@ import dev.vimivo.playback.PlayerEngineFactory
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.TrackInfo
 import dev.vimivo.playback.TrackOrigin
+import dev.vimivo.playback.VideoAdjustments
 import dev.vimivo.playback.TrackType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,7 +63,7 @@ class Media3PlayerEngine(
     private val audioTap: TeeAudioProcessor.AudioBufferSink? = null,
 ) : PlayerEngine {
     override val id = EngineId.MEDIA3
-    override val capabilities = CAPABILITIES
+    override val capabilities: EngineCapabilities get() = CAPABILITIES.copy(videoAdjustments = colorEffects.supported)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutableState = MutableStateFlow(PlaybackState(engine = id))
     private var positionJob: Job? = null
@@ -245,6 +246,17 @@ class Media3PlayerEngine(
 
     /** The video output the session attaches; also the source of snapshots. */
     val video = Media3VideoOutput(player)
+
+    private val colorEffects = createVideoColorEffects(player, video) { publishState() }
+
+    init {
+        player.addListener(colorEffects.listener)
+    }
+
+    /** Brightness, contrast, saturation and hue; see [VideoColorEffects] for what backs it and where it is enabled. */
+    override fun applyVideoAdjustments(adjustments: VideoAdjustments): Result<Unit> = command {
+        colorEffects.apply(adjustments)
+    }
 
     override fun getDiagnosticsSnapshot(): PlaybackDiagnosticsSnapshot? {
         if (released) return null
