@@ -188,10 +188,15 @@ struct PlayerSheetView: View {
                         ArtworkThumbnailView(uri: item.artworkUri, kind: item.kind, size: 54)
                             .frame(width: 96, height: 54)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
-                        Text(item.title)
-                            .lineLimit(1)
-                            .fontWeight(index == engine.currentIndex ? .bold : .regular)
-                            .foregroundColor(index == engine.currentIndex ? .accentColor : .primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title)
+                                .lineLimit(1)
+                                .fontWeight(index == engine.currentIndex ? .bold : .regular)
+                                .foregroundColor(index == engine.currentIndex ? .accentColor : .primary)
+                            if let duration = item.durationMillis, duration > 0 {
+                                Text(MediaFormatting.clock(millis: duration)).font(.caption).foregroundColor(.secondary)
+                            }
+                        }
                         Spacer()
                         if index == engine.currentIndex { Text("Playing").font(.caption).foregroundColor(.accentColor) }
                     }

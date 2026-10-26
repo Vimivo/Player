@@ -194,6 +194,7 @@ class VimivoPlaybackService : MediaLibraryService() {
                             .setArtist(item.artist)
                             .setAlbumTitle(item.album)
                             .setArtworkUri(item.artworkUri?.let(android.net.Uri::parse))
+                            .setDurationMs(item.durationMillis)
                             .setIsPlayable(true)
                             .build(),
                     )

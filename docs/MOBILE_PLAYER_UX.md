@@ -24,7 +24,7 @@ With "audio visualizer" off in Android settings the bars are flat.
 
 Both platforms: a ring around the play button, a "Swipe up for settings" handle (tap or swipe up) that opens
 *Playback settings* (speed, audio track, subtitles, loop, next up and the existing detailed sections), and a *Next up*
-panel with a thumbnail per queued video. Existing controls are unchanged: gestures, lock, rotation lock, speed and
+panel with a thumbnail and the length of each queued video. Existing controls are unchanged: gestures, lock, rotation lock, speed and
 aspect pills, picture-in-picture where the OS has it.
 
 ## Evidence
@@ -45,5 +45,4 @@ text a person loaded in the shared library database (schema v3, table `lyrics`).
 ## Known gaps
 
 - iOS: sleep timer is not built yet; favourite/queue changes are not shared logic (they live in Swift).
-- Both: the video "Next up" rows show no duration (the queue items do not carry one).
 - Android colour controls for video are not available (see `VLC_FEATURE_GAP.md`, row 14).

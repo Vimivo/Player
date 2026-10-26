@@ -1794,6 +1794,7 @@ internal fun androidx.media3.common.MediaItem.toDomain() = MediaItem(
     artist = mediaMetadata.artist?.toString(),
     album = mediaMetadata.albumTitle?.toString(),
     artworkUri = mediaMetadata.artworkUri?.toString(),
+    durationMillis = mediaMetadata.durationMs,
 )
 
 private fun HomeSection.label() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::uppercase)

@@ -132,6 +132,7 @@ fun VimivoMediaItem.toMedia3(): MediaItem = MediaItem.Builder()
             .setArtist(artist)
             .setAlbumTitle(album)
             .setArtworkUri(artworkUri?.let(android.net.Uri::parse))
+            .setDurationMs(durationMillis)
             .setIsPlayable(true)
             .build(),
     )
