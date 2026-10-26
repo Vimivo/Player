@@ -335,7 +335,12 @@ private fun desktopApplication(
                 val video = smokeTest.files.firstOrNull()
                 video != null && DesktopUiCapture.run(captureDir, video, viewModel.state, viewModel::dispatch, playerWindow)
             } else {
-                viewModel.runSmokeTest(smokeTest.files, windowChanges) { DesktopVideoProbe.sample(videoCanvas) }
+                viewModel.runSmokeTest(
+                    smokeTest.files,
+                    windowChanges,
+                    probePicture = { DesktopVideoProbe.sample(videoCanvas) },
+                    isAlwaysOnTop = { (playerWindow() as? java.awt.Window)?.isAlwaysOnTop },
+                )
             }
             exit.code = if (passed) 0 else 1
             exitApp()

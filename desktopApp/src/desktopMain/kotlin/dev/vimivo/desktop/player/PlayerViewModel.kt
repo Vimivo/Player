@@ -8,6 +8,7 @@ import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.streaming.StreamValidationResult
 import dev.vimivo.core.streaming.StreamValidator
+import dev.vimivo.desktop.diagnostics.AlwaysOnTopSmoke
 import dev.vimivo.desktop.diagnostics.DesktopSmokeResult
 import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
 import dev.vimivo.desktop.diagnostics.SnapshotSubtitleSmoke
@@ -283,6 +284,7 @@ internal class PlayerViewModel(
         files: List<File>,
         windowChanges: List<Pair<String, () -> Unit>> = emptyList(),
         probePicture: () -> VideoPixelSample? = { null },
+        isAlwaysOnTop: () -> Boolean? = { null },
     ): Boolean {
         val play: suspend (MediaItem) -> Result<Unit> = { media -> queue.play(listOf(media)) }
         val results = DesktopSmokeTest.run(files, engine.state, ::mediaItemFor, play, probePicture = probePicture)
@@ -311,7 +313,16 @@ internal class PlayerViewModel(
                 ),
             )
         }.orEmpty()
-        val all = results + transitions + snapshots
+        val onTop = video?.let { file ->
+            listOf(
+                AlwaysOnTopSmoke.check(
+                    file,
+                    toggle = { dispatch(PlayerIntent.ToggleAlwaysOnTop) },
+                    isOnTop = isAlwaysOnTop,
+                ),
+            )
+        }.orEmpty()
+        val all = results + transitions + snapshots + onTop
         DesktopSmokeTest.publish(all, System.getenv("VIMIVO_SMOKE_REPORT"))
         // What the Info panel reports as the renderer (software rendering switches to performance mode).
         engine.containerInfo()?.rendering?.let { println("VIMIVO_SMOKE INFO rendering=$it") }
