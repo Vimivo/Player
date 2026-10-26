@@ -28,6 +28,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
 
     /// An `AVQueuePlayer`, so the next audio item can be loaded behind the current one and start without a gap.
     public let player = AVQueuePlayer()
+    /// Pauses after a chosen time or after the current track, with a fade-out.
+    public let sleepTimer = SleepTimerModel()
     /// Delivers subtitle cues for custom rendering. It is attached to every item before playback
     /// starts because AVFoundation does not reliably push cues to outputs added mid-playback.
     public let legibleOutput: AVPlayerItemLegibleOutput = {
@@ -60,6 +62,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
 
     public override init() {
         super.init()
+        sleepTimer.attach(self)
         AudioSessionController.shared.delegate = self
         AudioSessionController.shared.configureSession()
         RemoteCommandController.shared.delegate = self
@@ -413,6 +416,13 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             if let item = self.state.currentItem {
                 IOSDatabase.shared.savePosition(mediaId: item.id, positionMillis: self.state.durationMillis, completed: true)
                 self.lastCheckpointMillis = self.state.durationMillis
+            }
+            // "Stop after this track": stay on the finished track, paused, instead of moving on.
+            if self.sleepTimer.consumeStopAfterCurrent() {
+                self.player.pause()
+                self.state.status = .paused
+                self.updateNowPlaying()
+                return
             }
             // With the next item queued the player moves on by itself and `advanceToPrepared` follows it.
             if self.preparedNext != nil { return }

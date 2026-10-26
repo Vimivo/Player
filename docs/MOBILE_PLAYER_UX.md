@@ -14,7 +14,7 @@ how it was checked, and what is still missing.
 | Queue | shortcut with a count | shortcut with a count |
 | Equalizer | panel over the player: on/off, 12 presets, ten vertical band sliders, preamp, bass, treble | sheet: same controls |
 | Lyrics | synced LRC view with fading lines, load a file, sidecar `.lrc` found automatically | same: panel, file picker, sidecar, and the chosen file is remembered per track |
-| Sleep timer | 15/30/45/60 min, stop after track | not built on iOS |
+| Sleep timer | 15/30/45/60 min, stop after track | same, with a 10 s fade-out; the shared `SleepTimer` counts on the wall clock and `UIBackgroundModes: audio` keeps it running with the screen off |
 | Landscape | artwork left, controls centre, shortcut list right | artwork left, controls right |
 
 ## Waveform: real peaks only
@@ -57,6 +57,7 @@ text a person loaded in the shared library database (schema v3, table `lyrics`).
 
 ## Known gaps
 
-- iOS: sleep timer is not built yet; favourite/queue changes are not shared logic (they live in Swift).
+- iOS: favourite/queue changes are not shared logic (they live in Swift).
+- Sleep timer: Android has its own `SleepTimerController` and desktop a minute-by-minute loop in `Main.kt`; only iOS uses the shared `SleepTimer` (fixed in this change: its default clock never advanced and the fade length was lost). Moving Android and desktop onto it is open.
 - Peaks of very long files (hours) take as long as decoding them; the plain line shows meanwhile.
 - Android colour controls for video exist in debug builds only and are unproven on a phone (see `ANDROID_COLOUR_CONTROLS.md`).

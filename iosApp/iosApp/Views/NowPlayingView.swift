@@ -5,6 +5,7 @@ public struct NowPlayingView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showQueue = false
     @State private var showEqualizer = false
+    @State private var showSleep = false
     @State private var isFavorite = false
     @State private var showLyrics = false
     @State private var peaks: [Float]?
@@ -32,6 +33,7 @@ public struct NowPlayingView: View {
         }
         .sheet(isPresented: $showQueue) { QueueView(engine: engine) }
         .sheet(isPresented: $showEqualizer) { EqualizerSheet(engine: engine) }
+        .sheet(isPresented: $showSleep) { SleepTimerSheet(timer: engine.sleepTimer) }
         .fileImporter(isPresented: $importingLyrics, allowedContentTypes: [.plainText, .data]) { result in
             if case let .success(url) = result, let item = engine.state.currentItem { lyrics.load(from: url, for: item) }
         }
@@ -200,6 +202,8 @@ public struct NowPlayingView: View {
             Spacer()
             PlayerShortcut(systemImage: "slider.vertical.3", title: "Equalizer", active: engine.audioSettings.equalizerOn) { showEqualizer = true }
             Spacer()
+            SleepShortcut(timer: engine.sleepTimer) { showSleep = true }
+            Spacer()
             speedMenu(icon: nil)
             Spacer()
         }
@@ -254,5 +258,21 @@ public struct NowPlayingView: View {
         guard let id = engine.state.currentItem?.id else { return }
         isFavorite.toggle()
         IOSDatabase.shared.setFavorite(mediaId: id, isFavorite: isFavorite)
+    }
+}
+
+
+/// The Sleep shortcut, which shows the time left while a timer runs.
+private struct SleepShortcut: View {
+    @ObservedObject var timer: SleepTimerModel
+    let action: () -> Void
+
+    var body: some View {
+        PlayerShortcut(
+            systemImage: "moon.zzz",
+            title: timer.remainingMillis.map { formatClock(millis: $0) } ?? (timer.stopsAfterTrack ? "After track" : "Sleep"),
+            active: timer.isActive,
+            action: action
+        )
     }
 }

@@ -31,6 +31,11 @@ extension AVPlayerPlaybackEngine {
     /// repeat-one or a one-item queue has nothing following, and a song that should resume part-way is loaded the
     /// normal way when its turn comes. Anything else clears an earlier preparation.
     func prepareFollowingItem() {
+        // Nothing is queued behind the track while "stop after this track" is armed.
+        guard !sleepTimer.stopsAfterTrack else {
+            clearPrepared()
+            return
+        }
         guard state.status == .playing || state.status == .paused,
               let current = currentPlayerItem, player.currentItem === current,
               let media = state.currentItem, media.kind == .audio,

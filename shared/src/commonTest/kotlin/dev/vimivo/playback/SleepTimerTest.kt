@@ -80,4 +80,35 @@ class SleepTimerTest {
         assertTrue(triggered, "Timer should have triggered callback on expiration")
         assertNull(timer.state.value.deadlineEpochMillis)
     }
+
+    @Test
+    fun theChosenFadeIsPassedToTheTriggerEvenThoughTheStateIsResetFirst() = runTest {
+        var fade = -1
+        var simulatedNow = 0L
+        val customScope = TestScope(StandardTestDispatcher(testScheduler))
+        val timer = SleepTimer(customScope, { simulatedNow }) { fade = it }
+        timer.schedule(durationMinutes = 1, fadeOutSeconds = 7)
+        simulatedNow += 61_000L
+        customScope.advanceTimeBy(1_000L)
+        customScope.runCurrent()
+        assertEquals(7, fade)
+    }
+
+    @Test
+    fun theDefaultClockAdvancesSoARealTimerCanExpire() {
+        // A clock that restarted its origin on every read would stay near zero and no real timer would ever expire.
+        val clock = MonotonicMillis()
+        val first = clock()
+        val waitUntil = kotlin.time.TimeSource.Monotonic.markNow() + kotlin.time.Duration.parse("30ms")
+        while (waitUntil.hasNotPassedNow()) Unit
+        assertTrue(clock() - first >= 20, "the clock moved by ${clock() - first} ms")
+    }
+
+    @Test
+    fun theFadeFallsLinearlyToSilence() {
+        assertEquals(1f, SleepFade.volumeFraction(0, 10_000))
+        assertEquals(0.5f, SleepFade.volumeFraction(5_000, 10_000))
+        assertEquals(0f, SleepFade.volumeFraction(12_000, 10_000))
+        assertEquals(0f, SleepFade.volumeFraction(0, 0), "no fade means silence at once")
+    }
 }
