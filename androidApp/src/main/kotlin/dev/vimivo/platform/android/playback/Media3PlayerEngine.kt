@@ -30,7 +30,6 @@ import dev.vimivo.playback.ColorTransfer
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
-import dev.vimivo.playback.HardwareAccelerationMode
 import dev.vimivo.playback.PlaybackDiagnosticsSnapshot
 import dev.vimivo.playback.PlaybackError
 import dev.vimivo.playback.PlaybackErrorCode
@@ -246,10 +245,6 @@ class Media3PlayerEngine(
 
     /** The video output the session attaches; also the source of snapshots. */
     val video = Media3VideoOutput(player)
-
-    override fun setHardwareAccelerationMode(mode: HardwareAccelerationMode): Result<Unit> = runCatching {
-        // Media3 delegates to platform MediaCodec which selects hardware or software decoders
-    }
 
     override fun getDiagnosticsSnapshot(): PlaybackDiagnosticsSnapshot? {
         if (released) return null
