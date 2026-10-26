@@ -28,6 +28,9 @@ jobs:
       MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
       MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
       MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+      # These runners are virtual machines without a video decoder: asking VideoToolbox (the macOS default) to decode
+      # there stalls a live test, so they decode in software. Real Macs are covered by the local verify_all run.
+      VIMIVO_HWDEC: "no"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

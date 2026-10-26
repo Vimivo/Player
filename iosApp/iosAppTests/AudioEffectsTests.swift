@@ -13,8 +13,18 @@ final class AudioEffectsTests: XCTestCase {
         let peak: Double
     }
 
-    /// One second of the tone, half a second in (so the filters have settled), decoded through the effects.
+    /// Decodes through the effects; a render that comes back completely silent (seen once on a CI runner while the
+    /// tap started) is repeated once, because every test here expects a tone.
     private func render(
+        _ url: URL, settings: AudioEffectSettings = AudioEffectSettings(), tags: ReplayGainTagValues = ReplayGainTagValues()
+    ) async throws -> Level {
+        let first = try await renderOnce(url, settings: settings, tags: tags)
+        if first.peak > 0 { return first }
+        return try await renderOnce(url, settings: settings, tags: tags)
+    }
+
+    /// One second of the tone, half a second in (so the filters have settled), decoded through the effects.
+    private func renderOnce(
         _ url: URL, settings: AudioEffectSettings = AudioEffectSettings(), tags: ReplayGainTagValues = ReplayGainTagValues()
     ) async throws -> Level {
         let asset = AVURLAsset(url: url)
