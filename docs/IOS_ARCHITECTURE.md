@@ -118,8 +118,9 @@ The full-screen player (`VideoPlayerView`) mirrors the Android `AdvancedVideoPla
     app resigns active or enters the background, and when switching items.
   - `queue_items` + `queue_state`: the persisted queue and current index, restored paused at launch.
   - `bookmarks`: saved positions within media items, managed from the video player's options sheet.
-- This Swift store is transitional: ADR-021 moves it into a shared Room database with a one-time, non-destructive
-  import of existing rows.
+- This describes the original Swift store. The app now opens the shared `LocalLibraryStore` (SQLite, schema v3,
+  migrated non-destructively on open, in Application Support): see `DATABASE_ARCHITECTURE.md` §1a and the status
+  section at the end of this file.
 
 ## Secure Credential Storage
 

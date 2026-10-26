@@ -65,11 +65,20 @@ class PlayQueueTest {
         assertEquals("c", q.currentId)
         assertEquals(0, q.currentIndex)
         assertEquals(setOf("a", "b", "c", "d", "e"), q.ids.toSet())
-        assertNotEquals(listOf("c", "a", "b", "d", "e"), q.ids, "this seed does shuffle the rest")
         q.next()
         q.toggleShuffle()
         assertEquals(listOf("a", "b", "c", "d", "e"), q.ids)
         assertEquals(q.ids.indexOf(q.currentId), q.currentIndex)
+    }
+
+    @Test
+    fun shuffleReallyReordersTheItemsBehindTheCurrentOne() {
+        val ids = (1..20).map { "item$it" }
+        val q = PlayQueue(Random(3)).apply { replace(ids, 0) }
+        q.toggleShuffle()
+        assertEquals("item1", q.currentId)
+        assertNotEquals(ids, q.ids, "twenty items are not left in order by chance")
+        assertEquals(ids.toSet(), q.ids.toSet())
     }
 
     @Test
