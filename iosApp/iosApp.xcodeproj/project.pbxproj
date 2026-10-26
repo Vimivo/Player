@@ -76,6 +76,13 @@
 		1309 /* GaplessPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2309 /* GaplessPlaybackTests.swift */; };
 		1310 /* multitrack_tiny.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2310 /* multitrack_tiny.mp4 */; };
 		1311 /* TrackSwitchingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2311 /* TrackSwitchingTests.swift */; };
+		1330 /* track1_solaris.flac in Resources */ = {isa = PBXBuildFile; fileRef = 2330 /* track1_solaris.flac */; };
+		1331 /* track2_lunar.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 2331 /* track2_lunar.mp3 */; };
+		1332 /* video_landscape.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2332 /* video_landscape.mp4 */; };
+		1333 /* hdr10_tiny.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2333 /* hdr10_tiny.mp4 */; };
+		1334 /* interlaced_tiny.ts in Resources */ = {isa = PBXBuildFile; fileRef = 2334 /* interlaced_tiny.ts */; };
+		1335 /* video_sample.mkv in Resources */ = {isa = PBXBuildFile; fileRef = 2335 /* video_sample.mkv */; };
+		1336 /* FormatSupportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2336 /* FormatSupportTests.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -165,6 +172,13 @@
 		2309 /* GaplessPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaplessPlaybackTests.swift; sourceTree = "<group>"; };
 		2310 /* multitrack_tiny.mp4 */ = {isa = PBXFileReference; lastKnownFileType = video.mp4; name = multitrack_tiny.mp4; path = ../../testmedia/multitrack_tiny.mp4; sourceTree = "<group>"; };
 		2311 /* TrackSwitchingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackSwitchingTests.swift; sourceTree = "<group>"; };
+		2330 /* track1_solaris.flac */ = {isa = PBXFileReference; lastKnownFileType = audio.flac; name = track1_solaris.flac; path = ../../testmedia/track1_solaris.flac; sourceTree = "<group>"; };
+		2331 /* track2_lunar.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = track2_lunar.mp3; path = ../../testmedia/track2_lunar.mp3; sourceTree = "<group>"; };
+		2332 /* video_landscape.mp4 */ = {isa = PBXFileReference; lastKnownFileType = video.mp4; name = video_landscape.mp4; path = ../../testmedia/video_landscape.mp4; sourceTree = "<group>"; };
+		2333 /* hdr10_tiny.mp4 */ = {isa = PBXFileReference; lastKnownFileType = video.mp4; name = hdr10_tiny.mp4; path = ../../testmedia/hdr10_tiny.mp4; sourceTree = "<group>"; };
+		2334 /* interlaced_tiny.ts */ = {isa = PBXFileReference; lastKnownFileType = file; name = interlaced_tiny.ts; path = ../../testmedia/interlaced_tiny.ts; sourceTree = "<group>"; };
+		2335 /* video_sample.mkv */ = {isa = PBXFileReference; lastKnownFileType = file; name = video_sample.mkv; path = ../../testmedia/video_sample.mkv; sourceTree = "<group>"; };
+		2336 /* FormatSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatSupportTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -304,6 +318,13 @@
 		4012 /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2336 /* FormatSupportTests.swift */,
+				2335 /* video_sample.mkv */,
+				2334 /* interlaced_tiny.ts */,
+				2333 /* hdr10_tiny.mp4 */,
+				2332 /* video_landscape.mp4 */,
+				2331 /* track2_lunar.mp3 */,
+				2330 /* track1_solaris.flac */,
 				2311 /* TrackSwitchingTests.swift */,
 				2310 /* multitrack_tiny.mp4 */,
 				2309 /* GaplessPlaybackTests.swift */,
@@ -475,6 +496,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				1310 /* multitrack_tiny.mp4 in Resources */,
+				1335 /* video_sample.mkv in Resources */,
+				1334 /* interlaced_tiny.ts in Resources */,
+				1333 /* hdr10_tiny.mp4 in Resources */,
+				1332 /* video_landscape.mp4 in Resources */,
+				1331 /* track2_lunar.mp3 in Resources */,
+				1330 /* track1_solaris.flac in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -549,6 +576,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1336 /* FormatSupportTests.swift in Sources */,
 				1311 /* TrackSwitchingTests.swift in Sources */,
 				1309 /* GaplessPlaybackTests.swift in Sources */,
 				1307 /* AudioEffectsTests.swift in Sources */,

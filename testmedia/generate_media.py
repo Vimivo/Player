@@ -147,6 +147,12 @@ for name, transfer, extra in (
         os.path.join(MEDIA_DIR, name)
     ])
 
+# 8c2. The HDR10 clip again as MP4 (AVFoundation opens MP4 but not MKV), for the iOS tests
+run([
+    "ffmpeg", "-y", "-i", os.path.join(MEDIA_DIR, "hdr10_tiny.mkv"), "-c", "copy", "-tag:v", "hvc1",
+    os.path.join(MEDIA_DIR, "hdr10_tiny.mp4")
+])
+
 # 8d. Letterboxed clip (320x180 picture padded to 320x240 with 30 black rows above and below): black-bar detection
 run([
     "ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=24:duration=3",
