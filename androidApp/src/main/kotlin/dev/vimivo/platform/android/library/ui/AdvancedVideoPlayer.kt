@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -154,7 +155,9 @@ import dev.vimivo.settings.SubtitleEdgeStyle
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.PlaybackSpeeds
+import dev.vimivo.playback.VideoCropMath
 
 private enum class VideoAspect(val label: String) {
     FIT("Fit to screen"), FILL("Stretch"), ORIGINAL("Original size"), RATIO_16_9("16:9"), RATIO_4_3("4:3"), CROP("Crop")
@@ -236,6 +239,7 @@ fun AdvancedVideoPlayer(
 
     LaunchedEffect(media?.id?.value) {
         if (media != null) viewModel.setSpeed(settings.defaultVideoSpeed)
+        viewModel.selectCrop(CropPreset.NONE)
     }
 
     LaunchedEffect(media?.id?.value, player.audioTracks, settings.preferredAudioLanguage) {
@@ -342,6 +346,7 @@ fun AdvancedVideoPlayer(
     Surface(Modifier.fillMaxSize(), color = Color.Black) {
         Box(
             Modifier.fillMaxSize()
+                .clipToBounds()
                 .pointerInput(locked) {
                     if (locked) {
                         detectTapGestures(onTap = { lockHintVisible = !lockHintVisible })
@@ -497,7 +502,19 @@ fun AdvancedVideoPlayer(
                     it.resizeMode = aspect.resizeMode
                     it.subtitleView?.applySubtitleAppearance(settings.subtitleAppearance)
                 },
-                modifier = videoModifier.graphicsLayer(scaleX = zoom, scaleY = zoom),
+                modifier = videoModifier.graphicsLayer {
+                    scaleX = zoom
+                    scaleY = zoom
+                    val crop = player.videoCrop
+                    val rect = crop?.rect
+                    if (rect != null && aspect == VideoAspect.FIT) {
+                        val fit = VideoCropMath.transform(size.width, size.height, crop.sourceWidth, crop.sourceHeight, rect)
+                        scaleX = zoom * fit.scale
+                        scaleY = zoom * fit.scale
+                        translationX = fit.translateX * zoom
+                        translationY = fit.translateY * zoom
+                    }
+                },
             )
             player.errorMessage?.let { message ->
                 Surface(
@@ -1064,6 +1081,22 @@ private fun GeneralSection(
         items(VideoAspect.entries.size) { index ->
             val value = VideoAspect.entries[index]
             FilterChip(selected = value == aspect, onClick = { onAspect(value) }, label = { Text(value.label) })
+        }
+    }
+    if (player.capabilities?.screenshots == true && aspect == VideoAspect.FIT) {
+        MenuHeading(Icons.Outlined.FitScreen, "Crop")
+        androidx.compose.foundation.lazy.LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(CropPreset.entries.size) { index ->
+                val preset = CropPreset.entries[index]
+                FilterChip(
+                    selected = (player.videoCrop?.preset ?: CropPreset.NONE) == preset,
+                    onClick = { viewModel.selectCrop(preset) },
+                    label = { Text(preset.label) },
+                )
+            }
         }
     }
     if (player.capabilities?.frameStepping == true || player.capabilities?.screenshots == true) {

@@ -22,6 +22,7 @@ import dev.vimivo.core.model.MediaId
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.domain.repository.OrganizationRepository
 import dev.vimivo.playback.ABRepeatRange
+import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
@@ -34,6 +35,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -65,6 +68,7 @@ data class PlaybackUiState(
     val currentLyricIndex: Int = -1,
     val abRepeatStartMillis: Long? = null,
     val abRepeatEndMillis: Long? = null,
+    val videoCrop: VideoCrop? = null,
 )
 
 class PlaybackViewModel(
@@ -244,6 +248,30 @@ class PlaybackViewModel(
             )
         }
     }
+
+    /** Crops the picture to a ratio or to its content; needs a frame on screen to measure. [CropPreset.NONE] resets. */
+    fun selectCrop(preset: CropPreset) {
+        if (preset == CropPreset.NONE) {
+            mutableState.value = state.value.copy(videoCrop = null)
+            return
+        }
+        viewModelScope.launch {
+            val result = diagnostics.captureFrame().map { frame ->
+                try {
+                    withContext(Dispatchers.Default) { VideoCropping.crop(preset, frame) }
+                } finally {
+                    frame.recycle()
+                }
+            }
+            val crop = result.getOrNull()
+            mutableState.value = state.value.copy(
+                videoCrop = crop?.takeIf { it.rect != null },
+                trackErrorMessage = result.exceptionOrNull()?.message
+                    ?: if (crop?.rect == null) "No black bars or crop to apply" else null,
+            )
+        }
+    }
+
     fun toggleFavorite() {
         val id = state.value.current?.mediaId ?: return
         val favorite = !state.value.isFavorite

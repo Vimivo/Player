@@ -61,4 +61,21 @@ class VideoCropMathTest {
         assertFailsWith<IllegalArgumentException> { CropRect(0, 0, 0, 10) }
         assertFailsWith<IllegalArgumentException> { CropRect(-1, 0, 10, 10) }
     }
+
+    @Test
+    fun transformFillsTheBoxWithTheCroppedPicture() {
+        // A 320x240 picture with 30 black rows above and below, shown fitted (scale 1.5) in a 640x360 box.
+        val transform = VideoCropMath.transform(640f, 360f, 320, 240, CropRect(0, 30, 320, 180))
+        assertEquals(2f / 1.5f, transform.scale, 0.0001f)
+        assertEquals(0f, transform.translateX, 0.0001f)
+        assertEquals(0f, transform.translateY, 0.0001f)
+    }
+
+    @Test
+    fun transformMovesAnOffCentreCropToTheCentre() {
+        val transform = VideoCropMath.transform(200f, 100f, 200, 100, CropRect(100, 0, 100, 100))
+        assertEquals(1f, transform.scale, 0.0001f)
+        assertEquals(-50f, transform.translateX, 0.0001f)
+        assertEquals(0f, transform.translateY, 0.0001f)
+    }
 }

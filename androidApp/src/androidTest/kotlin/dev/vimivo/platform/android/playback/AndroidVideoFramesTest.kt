@@ -18,6 +18,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
+import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.SnapshotFormat
 import kotlinx.coroutines.flow.first
@@ -69,6 +70,25 @@ class AndroidVideoFramesTest {
         } finally {
             if (uri.scheme == "content") context.contentResolver.delete(uri, null, null) else File(checkNotNull(uri.path)).delete()
         }
+    }
+
+    @Test
+    fun autoCropFindsThePictureInsideTheBlackBarsOfTheFrameOnScreen() = withVideo("letterbox_tiny.mp4") { engine ->
+        runBlocking { withTimeout(TIMEOUT) { engine.state.first { it.positionMillis > 500 } } }
+        onMain { engine.pause().getOrThrow() }
+        Thread.sleep(SETTLE_MILLIS)
+        val frame = runBlocking { engine.video.captureFrame() }.getOrThrow()
+        assertEquals("the clip is 320x240 with 30 black rows above and below", 240, frame.height)
+
+        val auto = VideoCropping.crop(CropPreset.AUTO, frame)
+        val rect = checkNotNull(auto.rect) { "black bars were not found" }
+        assertEquals(0, rect.x)
+        assertEquals(320, rect.width)
+        assertEquals("the top bar is 30 rows", 30.0, rect.y.toDouble(), 2.0)
+        assertEquals("the picture is 180 rows", 180.0, rect.height.toDouble(), 4.0)
+
+        assertEquals("a 16:9 preset removes the same bars", 30, checkNotNull(VideoCropping.crop(CropPreset.RATIO_16_9, frame).rect).y)
+        assertEquals(null, VideoCropping.crop(CropPreset.NONE, frame).rect)
     }
 
     @Test

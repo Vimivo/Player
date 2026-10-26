@@ -21,6 +21,9 @@ enum class CropPreset(val label: String, val ratio: Double?) {
     RATIO_1_1("1:1", 1.0),
 }
 
+/** How a view that shows the whole picture fitted in its box must be scaled and moved so [CropRect] fills the box. */
+data class CropTransform(val scale: Float, val translateX: Float, val translateY: Float)
+
 object VideoCropMath {
     /** Bars thinner than this many pixels are noise (rounding, a soft edge), not bars. */
     const val MIN_BAR_PIXELS: Int = 4
@@ -58,4 +61,23 @@ object VideoCropMath {
     }
 
     private fun even(value: Int) = value - (value and 1)
+
+    /**
+     * The scale and translation (in view pixels, applied about the view's centre) that make [crop] fill a
+     * [containerWidth]×[containerHeight] box in which the [sourceWidth]×[sourceHeight] picture is shown fitted.
+     */
+    fun transform(
+        containerWidth: Float,
+        containerHeight: Float,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        crop: CropRect,
+    ): CropTransform {
+        require(containerWidth > 0 && containerHeight > 0 && sourceWidth > 0 && sourceHeight > 0) { "Invalid sizes" }
+        val fitted = minOf(containerWidth / sourceWidth, containerHeight / sourceHeight)
+        val wanted = minOf(containerWidth / crop.width, containerHeight / crop.height)
+        val offsetX = crop.x + crop.width / 2f - sourceWidth / 2f
+        val offsetY = crop.y + crop.height / 2f - sourceHeight / 2f
+        return CropTransform(wanted / fitted, -offsetX * wanted, -offsetY * wanted)
+    }
 }
