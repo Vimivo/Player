@@ -27,6 +27,7 @@ import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
+import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.playback.SnapshotFormat
 import dev.vimivo.playback.SnapshotNaming
 import dev.vimivo.playback.TrackInfo
@@ -82,7 +83,7 @@ class PlaybackViewModel(
     private val diagnostics: PlaybackDiagnostics,
     private val subtitles: AndroidSubtitleRepository,
     private val organization: OrganizationRepository,
-    private val sleepTimer: SleepTimerController,
+    private val sleepTimer: PlaybackSleepTimer,
     private val lyricsRepository: LyricsRepository,
     private val snapshots: AndroidSnapshotStore,
     private val waveforms: AndroidWaveformRepository,
@@ -210,8 +211,8 @@ class PlaybackViewModel(
         diagnostics.setAbRepeat(ABRepeatRange())
         mutableState.value = state.value.copy(abRepeatStartMillis = null, abRepeatEndMillis = null)
     }
-    fun startSleepTimer(minutes: Int, fadeOutSeconds: Int = 0) = sleepTimer.schedule(minutes, fadeOutSeconds)
-    fun stopAfterCurrent(fadeOutSeconds: Int = 0) = sleepTimer.afterCurrent(fadeOutSeconds)
+    fun startSleepTimer(minutes: Int) = sleepTimer.start(minutes)
+    fun stopAfterCurrent() = sleepTimer.afterCurrent()
     fun cancelSleepTimer() = sleepTimer.cancel()
     fun loadLyrics(uri: android.net.Uri) {
         viewModelScope.launch {

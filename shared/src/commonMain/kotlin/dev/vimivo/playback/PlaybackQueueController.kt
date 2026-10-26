@@ -74,6 +74,7 @@ class PlaybackQueueController(
     scope: CoroutineScope,
     private val isAvailable: suspend (MediaItem) -> Boolean = { true },
     private val random: Random = Random.Default,
+    private val stopRequest: QueueStopRequest = QueueStopRequest.NONE,
 ) : AutoCloseable {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(PlaybackQueueState())
@@ -101,7 +102,8 @@ class PlaybackQueueController(
                 status == PlaybackStatus.Completed && shouldHandleCompletion(playback, current) -> {
                     lastHandledCompletionQueueId = current?.queueId
                     consecutiveSkips = 0
-                    advance(automatic = true)
+                    // "Stop after this track" (a sleep timer): stay on the finished item instead of moving on.
+                    if (!stopRequest.consume()) advance(automatic = true)
                 }
                 // Only an error reported for the current item skips it: a control failure with no media loaded
                 // (for example setting the volume before the first file opens) is not a failed item.
@@ -162,6 +164,7 @@ class PlaybackQueueController(
     }
 
     private fun followingEntry(state: PlaybackQueueState, current: QueueItem): QueueItem? = when {
+        stopRequest.armed -> null
         state.repeatMode == QueueRepeatMode.ONE -> null
         state.currentIndex < state.items.lastIndex -> state.items[state.currentIndex + 1]
         state.repeatMode == QueueRepeatMode.ALL -> state.items.firstOrNull()

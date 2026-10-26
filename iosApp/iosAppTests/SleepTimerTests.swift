@@ -51,13 +51,13 @@ final class SleepTimerTests: XCTestCase {
         let engine = await playing([try song("one", hz: 440, seconds: 30)])
         let timer = SleepTimerModel(clock: { 0 })
         timer.attach(engine)
-        async let expiring: Void = timer.expire(fadeSeconds: 4)
+        timer.expireNow(fadeSeconds: 4)
         let started = await waitUntil(3) { engine.player.volume < 0.9 }
         XCTAssertTrue(started)
         engine.pause()
-        await expiring
+        let restored = await waitUntil(3) { engine.player.volume > 0.999 }
+        XCTAssertTrue(restored, "the volume is put back once the fade ends, was \(engine.player.volume)")
         XCTAssertEqual(engine.state.status, .paused)
-        XCTAssertEqual(engine.player.volume, 1, accuracy: 0.001)
     }
 
     func testCancellingTheTimerLeavesPlaybackAlone() async throws {

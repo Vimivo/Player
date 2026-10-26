@@ -8,58 +8,27 @@ package dev.vimivo.desktop
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.awt.SwingPanel
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.window.FrameWindowScope
-import dev.vimivo.desktop.diagnostics.DesktopDiagnosticExporter
-import dev.vimivo.desktop.diagnostics.StartupTrace
-import dev.vimivo.desktop.integration.mpris.MprisService
-import dev.vimivo.desktop.platform.DesktopSingleInstance
-import dev.vimivo.desktop.platform.DesktopWindowChrome
-import dev.vimivo.desktop.platform.NativePreload
-import dev.vimivo.desktop.platform.WindowsFileAssociations
-import dev.vimivo.desktop.player.FullscreenController
-import dev.vimivo.desktop.player.ui.LocalHostWindow
-import dev.vimivo.desktop.player.FullscreenPanelWindow
-import dev.vimivo.desktop.player.LaunchArguments
-import dev.vimivo.desktop.player.LaunchSettingsSection
-import dev.vimivo.desktop.player.PlayerIntent
-import dev.vimivo.desktop.player.PlayerPresentation
-import dev.vimivo.desktop.player.PlayerViewModel
-import dev.vimivo.desktop.player.PlayerWindowContent
-import dev.vimivo.desktop.player.ResumeToast
-import dev.vimivo.desktop.player.desktopPlayerModule
-import dev.vimivo.desktop.player.text
-import dev.vimivo.settings.ThemeMode
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.receiveAsFlow
-import org.koin.core.context.startKoin
-import org.koin.core.context.stopKoin
-import kotlin.concurrent.thread
-import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Button
@@ -73,8 +42,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -85,14 +52,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.awt.SwingPanel
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.key.isAltPressed
@@ -101,55 +65,91 @@ import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
-import dev.vimivo.desktop.diagnostics.DesktopUiCapture
-import dev.vimivo.desktop.diagnostics.DesktopVideoProbe
-import javax.imageio.ImageIO
-import dev.vimivo.ui.theme.VimivoTheme
-import dev.vimivo.ui.components.VimivoGlassSurface
-import dev.vimivo.ui.theme.VimivoGlassVariant
-import dev.vimivo.desktop.ui.DesktopDestination
-import dev.vimivo.desktop.ui.DesktopSidebarView
-import dev.vimivo.desktop.ui.DesktopTopHeaderView
-import dev.vimivo.desktop.ui.DesktopPlaybackErrorCard
-import dev.vimivo.desktop.ui.DesktopHomeScreenView
-import dev.vimivo.desktop.ui.DesktopPlaybackBarView
-import dev.vimivo.ui.theme.LocalReducedMotion
-import dev.vimivo.ui.theme.VimivoMotion
-import dev.vimivo.ui.theme.VimivoShell
 import dev.vimivo.core.model.AlbumItem
 import dev.vimivo.core.model.ArtistItem
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
-import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
-import dev.vimivo.desktop.playback.DesktopPlayerShortcuts
-import dev.vimivo.desktop.playback.DesktopVideoCanvas
-import dev.vimivo.desktop.playback.MpvThumbnailer
-import dev.vimivo.desktop.playback.MpvPlayerEngine
-import dev.vimivo.desktop.platform.DesktopPlatform
-import dev.vimivo.desktop.platform.MacOpenFileHandler
+import dev.vimivo.desktop.diagnostics.DesktopDiagnosticExporter
+import dev.vimivo.desktop.diagnostics.DesktopSmokeTest
+import dev.vimivo.desktop.diagnostics.DesktopUiCapture
+import dev.vimivo.desktop.diagnostics.DesktopVideoProbe
+import dev.vimivo.desktop.diagnostics.StartupTrace
+import dev.vimivo.desktop.integration.mpris.MprisService
 import dev.vimivo.desktop.library.DesktopLibraryController
 import dev.vimivo.desktop.library.DesktopLibraryUiState
 import dev.vimivo.desktop.library.LibraryScanState
+import dev.vimivo.desktop.platform.DesktopPlatform
+import dev.vimivo.desktop.platform.DesktopSingleInstance
+import dev.vimivo.desktop.platform.DesktopWindowChrome
+import dev.vimivo.desktop.platform.MacOpenFileHandler
+import dev.vimivo.desktop.platform.NativePreload
+import dev.vimivo.desktop.platform.WindowsFileAssociations
+import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
+import dev.vimivo.desktop.playback.DesktopPlayerShortcuts
+import dev.vimivo.desktop.playback.DesktopVideoCanvas
+import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.playback.MpvThumbnailer
+import dev.vimivo.desktop.player.FullscreenController
+import dev.vimivo.desktop.player.FullscreenPanelWindow
+import dev.vimivo.desktop.player.LaunchArguments
+import dev.vimivo.desktop.player.LaunchSettingsSection
+import dev.vimivo.desktop.player.PlayerIntent
+import dev.vimivo.desktop.player.PlayerPresentation
+import dev.vimivo.desktop.player.PlayerViewModel
+import dev.vimivo.desktop.player.PlayerWindowContent
+import dev.vimivo.desktop.player.ResumeToast
+import dev.vimivo.desktop.player.desktopPlayerModule
+import dev.vimivo.desktop.player.text
+import dev.vimivo.desktop.player.ui.LocalHostWindow
+import dev.vimivo.desktop.ui.DesktopDestination
+import dev.vimivo.desktop.ui.DesktopHomeScreenView
+import dev.vimivo.desktop.ui.DesktopPlaybackBarView
+import dev.vimivo.desktop.ui.DesktopPlaybackErrorCard
+import dev.vimivo.desktop.ui.DesktopSidebarView
+import dev.vimivo.desktop.ui.DesktopTopHeaderView
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.EqualizerPreset
 import dev.vimivo.playback.PlaybackProfile
-import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlaybackQueueController
+import dev.vimivo.playback.PlaybackSleepTimer
+import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.ReplayGainMode
-import kotlinx.coroutines.Job
+import dev.vimivo.settings.ThemeMode
+import dev.vimivo.ui.components.VimivoGlassSurface
+import dev.vimivo.ui.theme.LocalReducedMotion
+import dev.vimivo.ui.theme.VimivoGlassVariant
+import dev.vimivo.ui.theme.VimivoMotion
+import dev.vimivo.ui.theme.VimivoShell
+import dev.vimivo.ui.theme.VimivoTheme
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
 import java.awt.Canvas
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
+import javax.imageio.ImageIO
+import kotlin.concurrent.thread
 import kotlin.system.exitProcess
+import androidx.compose.foundation.lazy.grid.items as gridItems
 
 fun main(args: Array<String>) {
     StartupTrace.mark("main")
@@ -368,6 +368,7 @@ private fun desktopApplication(
             DesktopPlayer(
                 engine,
                 queue,
+                remember { koin.get<PlaybackSleepTimer>() },
                 library,
                 viewModel,
                 openFileHandler,
@@ -555,6 +556,7 @@ private const val SMOKE_RESIZED_HEIGHT = 480
 private fun DesktopPlayer(
     engine: MpvPlayerEngine,
     queue: PlaybackQueueController,
+    sleepTimer: PlaybackSleepTimer,
     library: DesktopLibraryController,
     viewModel: PlayerViewModel,
     openFileHandler: MacOpenFileHandler,
@@ -579,8 +581,6 @@ private fun DesktopPlayer(
     var showDiagnostics by remember { mutableStateOf(false) }
     var showEqualizerPanel by remember { mutableStateOf(false) }
     var audioSettings by remember { mutableStateOf(AudioEnhancementSettings()) }
-    var sleepTimerJob by remember { mutableStateOf<Job?>(null) }
-    var sleepTimerMinutesRemaining by remember { mutableStateOf<Int?>(null) }
     var diagnosticsStatus by remember { mutableStateOf<String?>(null) }
     var updateStatus by remember { mutableStateOf<String?>(null) }
     var showLyrics by remember { mutableStateOf(false) }
@@ -954,25 +954,7 @@ private fun DesktopPlayer(
                             ),
                         )
                     },
-                    onSleepTimerSet = { mins ->
-                        sleepTimerJob?.cancel()
-                        if (mins == null) {
-                            sleepTimerMinutesRemaining = null
-                            sleepTimerJob = null
-                        } else {
-                            sleepTimerMinutesRemaining = mins
-                            sleepTimerJob = scope.launch {
-                                var rem = mins
-                                while (rem > 0) {
-                                    delay(60_000L)
-                                    rem--
-                                    sleepTimerMinutesRemaining = rem
-                                }
-                                engine.pause()
-                                sleepTimerMinutesRemaining = null
-                            }
-                        }
-                    },
+                    sleepTimer = sleepTimer,
                     onExportDiagnostics = {
                         val exporter = dev.vimivo.desktop.diagnostics.DesktopDiagnosticExporter()
                         val userHome = System.getProperty("user.home")
@@ -1006,7 +988,6 @@ private fun DesktopPlayer(
                     activeProfile = activeProfile,
                     activePreset = activePreset,
                     activeReplayGain = activeReplayGain,
-                    sleepTimerMinutesRemaining = sleepTimerMinutesRemaining,
                     diagnosticsStatus = diagnosticsStatus,
                     updateStatus = updateStatus,
                     onOpenFeedback = { showFeedbackDialog = true },

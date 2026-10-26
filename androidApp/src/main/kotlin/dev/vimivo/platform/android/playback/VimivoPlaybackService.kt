@@ -26,6 +26,7 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,7 +50,7 @@ class VimivoPlaybackService : MediaLibraryService() {
     private val stateStore: PlaybackStateStore by inject()
     private val diagnostics: PlaybackDiagnostics by inject()
     private val settingsRepository: SettingsRepository by inject()
-    private val sleepTimer: SleepTimerController by inject()
+    private val sleepTimer: PlaybackSleepTimer by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var sessionPlayer: SessionPlayerAdapter
     private lateinit var mediaSession: MediaLibrarySession

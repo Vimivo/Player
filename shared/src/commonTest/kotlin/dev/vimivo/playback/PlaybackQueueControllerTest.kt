@@ -16,6 +16,7 @@ import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -43,6 +44,39 @@ class PlaybackQueueControllerTest {
         engine.complete()
         runCurrent()
         assertEquals("one", controller.state.value.currentMedia?.id?.value)
+    }
+
+    /** "Stop after this track" from a sleep timer: the finished item stays, nothing is prepared behind it. */
+    @Test
+    fun aSleepTimerStopRequestKeepsTheQueueOnTheFinishedItem() = runTest {
+        val engine = FakeQueueEngine().also { it.gapless = true }
+        val timer = PlaybackSleepTimer(backgroundScope, { 0L }, object : SleepTimerPlayer {
+            override fun volume() = 1f
+            override fun setVolume(volume: Float) = Unit
+            override fun isPlaying() = true
+            override fun pause() = Unit
+        })
+        val controller = PlaybackQueueController(engine, backgroundScope, stopRequest = timer)
+        controller.play(listOf(media("one"), media("two"), media("three"))).getOrThrow()
+        engine.startPlaying()
+        runCurrent()
+        engine.setPosition(5_000)
+        runCurrent()
+        assertEquals(listOf<String?>("two"), engine.prepared, "the next song is queued behind the first")
+
+        timer.afterCurrent()
+        engine.setPosition(6_000) // the engine's next tick makes the queue look again
+        runCurrent()
+        assertEquals(null, engine.prepared.last(), "arming the request takes the queued song out")
+
+        engine.complete()
+        runCurrent()
+        assertEquals("one", controller.state.value.currentMedia?.id?.value, "the queue did not move on")
+        assertFalse(timer.armed, "the request is used up")
+
+        engine.complete()
+        runCurrent()
+        assertEquals("one", controller.state.value.currentMedia?.id?.value, "a completion already handled is not handled twice")
     }
 
     @Test

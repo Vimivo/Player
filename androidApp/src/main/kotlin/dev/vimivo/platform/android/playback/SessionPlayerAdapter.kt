@@ -26,6 +26,7 @@ import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.playback.PlaybackErrorCode
+import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
@@ -46,7 +47,7 @@ class SessionPlayerAdapter(
     private val manager: PlaybackEngineManager,
     private val scope: CoroutineScope,
     private val store: PlaybackStateStore,
-    private val sleepTimer: SleepTimerController,
+    private val sleepTimer: PlaybackSleepTimer,
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var playlist = emptyList<MediaItem>()
     private var currentIndex = 0
@@ -73,13 +74,13 @@ class SessionPlayerAdapter(
                     consecutiveFailures = 0
                 }
                 // Nothing is prepared for repeat-one or "stop after this track": the engine would run on past it.
-                val stopsHere = repeatMode == Player.REPEAT_MODE_ONE || sleepTimer.state.value.stopAfterCurrent
+                val stopsHere = repeatMode == Player.REPEAT_MODE_ONE || sleepTimer.armed
                 val following = QueueNavigation.next(currentIndex, playlist.size, queueRepeatMode(), currentShuffleOrder())
                 handoff.prepareFollowing(state, playlist, currentIndex, following.takeUnless { stopsHere || it == currentIndex })
                 val status = state.status
                 if (status == PlaybackStatus.Completed) {
                     consecutiveFailures = 0
-                    if (sleepTimer.consumeStopAfterCurrent()) manager.stop() else advanceAfterCompletion()
+                    if (sleepTimer.consume()) manager.stop() else advanceAfterCompletion()
                 } else if (status is PlaybackStatus.Error && !status.error.recoverableByFallback) {
                     skipFailedItem()
                 } else if (status == PlaybackStatus.Playing) {

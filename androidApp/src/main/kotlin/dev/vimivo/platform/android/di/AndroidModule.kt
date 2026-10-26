@@ -23,7 +23,8 @@ import dev.vimivo.platform.android.playback.Media3PlayerEngineFactory
 import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.platform.android.playback.AndroidSnapshotStore
 import dev.vimivo.platform.android.playback.PlaybackDiagnostics
-import dev.vimivo.platform.android.playback.SleepTimerController
+import dev.vimivo.platform.android.playback.DiagnosticsSleepTimerPlayer
+import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.platform.android.playback.LyricsRepository
 import dev.vimivo.platform.android.playback.PlaybackStateStore
 import dev.vimivo.platform.android.playback.PlaybackViewModel
@@ -71,7 +72,13 @@ val androidModule = module {
     single { PlaybackController(get(), get()) }
     single { PlaybackDiagnostics() }
     single { AndroidSnapshotStore(get()) }
-    single { SleepTimerController(get()) }
+    single {
+        PlaybackSleepTimer(
+            CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            System::currentTimeMillis,
+            DiagnosticsSleepTimerPlayer(get()),
+        )
+    }
     single { LyricsRepository(get()) }
     single { dev.vimivo.platform.android.playback.AndroidWaveformRepository(get()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }

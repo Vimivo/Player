@@ -6,8 +6,10 @@ import dev.vimivo.desktop.library.DesktopDatabase
 import dev.vimivo.desktop.library.DesktopLibraryController
 import dev.vimivo.desktop.library.DesktopPlaybackStore
 import dev.vimivo.desktop.library.DesktopRecentMediaRepository
+import dev.vimivo.desktop.playback.EngineSleepTimerPlayer
 import dev.vimivo.desktop.playback.MpvPlayerEngine
 import dev.vimivo.playback.PlaybackQueueController
+import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.playback.PlayerEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,8 +45,17 @@ internal fun desktopPlayerModule(isolated: Boolean): Module = module {
     // Created only when the library window opens (Koin singles are lazy): opening a file never loads the library.
     single { DesktopLibraryController(get(), get(), closeDatabase = false) } onClose { it?.close() }
     single { DesktopRecentMediaRepository(persistent = !isolated) }
+    // The sleep timer is shared by the settings panel and the queue ("stop after this track").
     single {
-        PlaybackQueueController(get(), get(PlayerScope), isAvailable = ::isPlayable)
+        PlaybackSleepTimer(get(PlayerScope), System::currentTimeMillis, EngineSleepTimerPlayer(get()))
+    }
+    single {
+        PlaybackQueueController(
+            get(),
+            get(PlayerScope),
+            isAvailable = ::isPlayable,
+            stopRequest = get<PlaybackSleepTimer>(),
+        )
     }
     single { PlayerViewModel(get(), get(), get(), get(), get(PlayerScope)) } onClose { it?.close() }
     single<MprisService> {

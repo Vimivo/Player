@@ -15,7 +15,7 @@ struct SleepTimerSheet: View {
                     }
                 }
                 Section("Stop after") {
-                    ForEach([15, 30, 45, 60], id: \.self) { minutes in
+                    ForEach(SleepTimerModel.minuteChoices, id: \.self) { minutes in
                         Button("\(minutes) minutes") { timer.start(minutes: minutes); dismiss() }
                     }
                     Button("The current track") { timer.stopAfterCurrentTrack(); dismiss() }

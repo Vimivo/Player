@@ -18,6 +18,7 @@ import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.PlayerEngineFactory
 import dev.vimivo.playback.SupportLevel
+import dev.vimivo.playback.PlaybackSleepTimer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -43,7 +44,7 @@ class SessionPlayerAdapterGaplessTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val engine = HandoffEngine()
     private val scope = CoroutineScope(Job() + Dispatchers.Main.immediate)
-    private lateinit var sleepTimer: SleepTimerController
+    private lateinit var sleepTimer: PlaybackSleepTimer
     private lateinit var adapter: SessionPlayerAdapter
 
     @Before
@@ -53,7 +54,11 @@ class SessionPlayerAdapterGaplessTest {
             override fun supportFor(media: VimivoMediaItem) = SupportLevel.PREFERRED
             override fun create(): PlayerEngine = engine
         }
-        sleepTimer = SleepTimerController(PlaybackDiagnostics())
+        sleepTimer = PlaybackSleepTimer(
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()),
+            System::currentTimeMillis,
+            DiagnosticsSleepTimerPlayer(PlaybackDiagnostics()),
+        )
         adapter = SessionPlayerAdapter(
             PlaybackEngineManager(mapOf(EngineId.MEDIA3 to factory), scope),
             scope,

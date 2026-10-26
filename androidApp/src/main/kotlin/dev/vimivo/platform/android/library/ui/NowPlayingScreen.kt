@@ -104,6 +104,7 @@ import dev.vimivo.platform.android.settings.SettingsViewModel
 import dev.vimivo.platform.android.ui.components.MediaArtwork
 import dev.vimivo.platform.android.ui.components.SettingsRow
 import dev.vimivo.platform.android.ui.theme.LocalReducedMotion
+import dev.vimivo.playback.SleepTimerOptions
 
 private enum class NowPlayingSheet { NONE, OPTIONS, EQUALIZER, SLEEP }
 
@@ -434,11 +435,11 @@ private fun SleepSheet(viewModel: PlaybackViewModel, onDismiss: () -> Unit) {
     Column {
         Text("Sleep timer", Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall)
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(15, 30, 45, 60).forEach { minutes ->
-                AssistChip({ viewModel.startSleepTimer(minutes, 10); onDismiss() }, { Text("$minutes min") })
+            SleepTimerOptions.MINUTES.forEach { minutes ->
+                AssistChip({ viewModel.startSleepTimer(minutes); onDismiss() }, { Text("$minutes min") })
             }
         }
-        SettingsRow(Icons.Outlined.MusicNote, "Stop after current track", onClick = { viewModel.stopAfterCurrent(10); onDismiss() })
+        SettingsRow(Icons.Outlined.MusicNote, "Stop after current track", onClick = { viewModel.stopAfterCurrent(); onDismiss() })
         if (sleepTimer.deadlineEpochMillis != null || sleepTimer.stopAfterCurrent) {
             SettingsRow(
                 Icons.Outlined.Close, "Cancel sleep timer",

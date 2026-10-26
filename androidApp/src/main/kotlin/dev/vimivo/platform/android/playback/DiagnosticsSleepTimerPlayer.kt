@@ -1,88 +1,19 @@
-@file:Suppress("MaximumLineLength", "MaxLineLength")
-
 package dev.vimivo.platform.android.playback
 
 import dev.vimivo.playback.PlaybackStatus
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+import dev.vimivo.playback.SleepTimerPlayer
 
-data class SleepTimerState(
-    val deadlineEpochMillis: Long? = null,
-    val stopAfterCurrent: Boolean = false,
-    val fadeOutSeconds: Int = 0,
-    val remainingMillis: Long? = null,
-)
+/** Android playback as the shared sleep timer sees it: the active engine's volume, state and pause. */
+class DiagnosticsSleepTimerPlayer(private val diagnostics: PlaybackDiagnostics) : SleepTimerPlayer {
+    override fun volume(): Float = diagnostics.state.value.volume
 
-class SleepTimerController(private val diagnostics: PlaybackDiagnostics) : AutoCloseable {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val mutableState = MutableStateFlow(SleepTimerState())
-    private var timerJob: Job? = null
-    val state: StateFlow<SleepTimerState> = mutableState.asStateFlow()
-
-    fun schedule(durationMinutes: Int, fadeOutSeconds: Int = 0) {
-        require(durationMinutes in 1..24 * 60)
-        start(System.currentTimeMillis() + durationMinutes * 60_000L, false, fadeOutSeconds)
+    override fun setVolume(volume: Float) {
+        diagnostics.setVolume(volume)
     }
 
-    fun afterCurrent(fadeOutSeconds: Int = 0) {
-        cancel()
-        mutableState.value = SleepTimerState(stopAfterCurrent = true, fadeOutSeconds = fadeOutSeconds.coerceIn(0, 30))
-    }
+    override fun isPlaying(): Boolean = diagnostics.state.value.status == PlaybackStatus.Playing
 
-    fun cancel() {
-        timerJob?.cancel()
-        timerJob = null
-        mutableState.value = SleepTimerState()
-    }
-
-    /** Called by the authoritative queue adapter before it advances a completed item. */
-    fun consumeStopAfterCurrent(): Boolean {
-        if (!mutableState.value.stopAfterCurrent) return false
-        cancel()
-        return true
-    }
-
-    private fun start(deadline: Long, afterCurrent: Boolean, fadeSeconds: Int) {
-        cancel()
-        mutableState.value = SleepTimerState(deadline, afterCurrent, fadeSeconds.coerceIn(0, 30), deadline - System.currentTimeMillis())
-        timerJob = scope.launch {
-            while (true) {
-                val remaining = deadline - System.currentTimeMillis()
-                mutableState.value = mutableState.value.copy(remainingMillis = remaining.coerceAtLeast(0))
-                if (remaining <= 0) break
-                delay(1_000L.coerceAtMost(remaining))
-            }
-            expire()
-        }
-    }
-
-    private suspend fun expire() {
-        timerJob?.cancel()
-        val playback = diagnostics.state.value
-        val fadeSeconds = mutableState.value.fadeOutSeconds
-        val originalVolume = playback.volume
-        if (fadeSeconds > 0 && playback.status == PlaybackStatus.Playing) {
-            repeat(fadeSeconds * 5) { step ->
-                val fraction = 1f - (step + 1f) / (fadeSeconds * 5f)
-                diagnostics.setVolume(originalVolume * fraction)
-                delay(200)
-            }
-        }
+    override fun pause() {
         diagnostics.pause()
-        diagnostics.setVolume(originalVolume)
-        mutableState.value = SleepTimerState()
-    }
-
-    override fun close() {
-        timerJob?.cancel()
-        scope.cancel()
     }
 }
