@@ -59,8 +59,10 @@ class PlaybackDiagnostics {
     fun pause(): Result<Unit> = manager?.pause()
         ?: Result.failure(IllegalStateException("Playback service is unavailable"))
 
-    fun setVolume(volume: Float): Result<Unit> = manager?.setVolume(volume.coerceIn(0f, 1f))
-        ?: Result.failure(IllegalStateException("Playback service is unavailable"))
+    /** Volume 0 to 2: above 1 is the software boost (limited), see [AndroidAudioEnhancementController.MAX_BOOST]. */
+    fun setVolume(volume: Float): Result<Unit> =
+        manager?.setVolume(volume.coerceIn(0f, AndroidAudioEnhancementController.MAX_BOOST))
+            ?: Result.failure(IllegalStateException("Playback service is unavailable"))
 
     fun detach() {
         manager = null

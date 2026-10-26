@@ -1,7 +1,4 @@
-@file:Suppress(
-    "ArgumentListWrapping", "MaximumLineLength", "MaxLineLength", "MultiLineIfElse", "StringTemplate",
-    "TooGenericExceptionCaught", "Wrapping",
-)
+@file:Suppress("ArgumentListWrapping", "MaximumLineLength", "MaxLineLength", "MultiLineIfElse", "Wrapping")
 
 package dev.vimivo.platform.android.playback
 
@@ -9,20 +6,36 @@ import android.content.Context
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import android.media.audiofx.BassBoost
-import android.media.audiofx.Equalizer
 import android.os.Handler
 import android.os.Looper
+import dev.vimivo.audio.AudioDspChain
+import dev.vimivo.audio.EqualizerPresets
+import dev.vimivo.audio.GraphicEqualizer
+import dev.vimivo.audio.GraphicEqualizerBands
+import dev.vimivo.audio.ReplayGain
 import dev.vimivo.playback.AudioEnhancementCapabilities
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.AudioRouteType
+import dev.vimivo.playback.ReplayGainMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlin.math.roundToInt
 
-/** Owns Android session effects. Effects are always released before a session/engine change. */
+/** ReplayGain values read from the playing file's tags (dB and linear peaks; null where the file has none). */
+internal data class ReplayGainTags(
+    val trackGainDb: Float? = null,
+    val albumGainDb: Float? = null,
+    val trackPeak: Float? = null,
+    val albumPeak: Float? = null,
+)
+
+/**
+ * Owns the audio effects of the Media3 engine: Vimivo's shared 10-band equalizer, the gain for a volume boost above
+ * 100 % and for ReplayGain, and the limiter, all running in [processor] inside ExoPlayer's audio pipeline. That makes
+ * the equalizer the same on every device (the platform `Equalizer` effect has a device-defined band layout) and lets
+ * a boost be limited instead of clipping.
+ */
 internal class AndroidAudioEnhancementController(context: Context) : AutoCloseable {
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val routeCallback = object : AudioDeviceCallback() {
@@ -30,13 +43,13 @@ internal class AndroidAudioEnhancementController(context: Context) : AutoCloseab
 
         override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) = refreshRoute()
     }
-    private val mutableState = MutableStateFlow(
-        AudioEnhancementState(CAPABILITIES, route = currentRoute()),
-    )
-    private var equalizer: Equalizer? = null
-    private var bassBoost: BassBoost? = null
-    private var sessionId = 0
+    private val mutableState = MutableStateFlow(AudioEnhancementState(CAPABILITIES, route = currentRoute()))
     private var requested = AudioEnhancementSettings()
+    private var boost = 1f
+    private var tags = ReplayGainTags()
+
+    /** The pipeline stage the player's audio sink runs. */
+    val processor = DspAudioProcessor()
 
     init {
         audioManager.registerAudioDeviceCallback(routeCallback, Handler(Looper.getMainLooper()))
@@ -44,77 +57,53 @@ internal class AndroidAudioEnhancementController(context: Context) : AutoCloseab
 
     val state: StateFlow<AudioEnhancementState> = mutableState.asStateFlow()
 
-    fun attach(audioSessionId: Int) {
-        if (audioSessionId == sessionId) return
-        releaseEffects()
-        sessionId = audioSessionId
-        if (audioSessionId > 0) apply(requested)
-    }
-
     fun refreshRoute() {
         val route = currentRoute()
-        if (route != mutableState.value.route) {
-            releaseEffects()
-            mutableState.value = mutableState.value.copy(route = route, active = false)
-            if (sessionId > 0) apply(requested)
-        }
+        if (route != mutableState.value.route) mutableState.value = mutableState.value.copy(route = route)
     }
 
     fun apply(settings: AudioEnhancementSettings): Result<Unit> = runCatching {
         requested = settings.sanitized()
-        if (!requested.enabled) {
-            releaseEffects()
-            mutableState.value = mutableState.value.copy(
-                settings = requested,
-                route = currentRoute(),
-                active = false,
-                message = null,
-            )
-            return@runCatching
-        }
-        if (sessionId <= 0) {
-            mutableState.value = mutableState.value.copy(
-                settings = requested,
-                active = false,
-                message = "Effects will activate when Media3 opens an audio session",
-            )
-            return@runCatching
-        }
-        if (equalizer == null) equalizer = Equalizer(0, sessionId)
-        val eq = checkNotNull(equalizer)
-        val frequencies = (0 until eq.numberOfBands).map { eq.getCenterFreq(it.toShort()) / 1_000 }
-        val range = eq.bandLevelRange
-        val gains = requested.resolvedGains(frequencies)
-        val peak = gains.maxOrNull()?.coerceAtLeast(0f) ?: 0f
-        val safetyHeadroom = -peak
-        gains.forEachIndexed { index, gain ->
-            val safeGain = (gain + requested.preampDb + safetyHeadroom).coerceIn(range[0] / 100f, range[1] / 100f)
-            eq.setBandLevel(index.toShort(), (safeGain * 100).roundToInt().toShort())
-        }
-        eq.enabled = requested.enabled
+        update()
+    }
 
-        if (bassBoost == null) bassBoost = runCatching { BassBoost(0, sessionId) }.getOrNull()
-        val bassSupported = bassBoost?.strengthSupported == true
-        if (bassSupported) {
-            bassBoost?.setStrength((requested.bassStrength * 1_000).roundToInt().coerceIn(0, 1_000).toShort())
-            bassBoost?.enabled = requested.enabled && requested.bassStrength > 0f
-        }
+    /** The gain for a volume above 100 % (1 leaves the level alone). */
+    fun setBoost(multiplier: Float) {
+        boost = multiplier.coerceIn(1f, MAX_BOOST)
+        update()
+    }
+
+    /** The ReplayGain tags of the item that now plays. */
+    fun setReplayGainTags(newTags: ReplayGainTags) {
+        tags = newTags
+        update()
+    }
+
+    private fun update() {
+        val bands = if (requested.enabled) EqualizerPresets.resolved(requested) else List(BANDS) { 0f }
+        val preamp = if (requested.enabled) AudioDspChain.linear(requested.preampDb) else 1f
+        val replayGain = ReplayGain.linearGain(
+            requested.replayGainMode,
+            tags.trackGainDb,
+            tags.albumGainDb,
+            tags.trackPeak,
+            tags.albumPeak,
+        )
+        processor.configure(boost * preamp * replayGain, bands)
+        val active = requested.enabled || boost > 1f || requested.replayGainMode != ReplayGainMode.OFF
         mutableState.value = AudioEnhancementState(
-            capabilities = CAPABILITIES.copy(bassEnhancement = bassSupported),
+            capabilities = CAPABILITIES,
             settings = requested,
             route = currentRoute(),
-            availableBandsHz = frequencies,
-            minimumBandGainDb = range[0] / 100f,
-            maximumBandGainDb = range[1] / 100f,
-            active = requested.enabled,
-            message = if (peak > 0f) "Automatic ${peak} dB headroom is applied to reduce clipping" else null,
-        )
-    }.onFailure { error ->
-        releaseEffects()
-        mutableState.value = mutableState.value.copy(
-            settings = requested,
-            active = false,
-            message = error.message ?: "This device rejected the audio effect session",
+            availableBandsHz = GraphicEqualizerBands.CENTRES_HZ,
+            minimumBandGainDb = -GraphicEqualizer.MAX_GAIN_DB,
+            maximumBandGainDb = GraphicEqualizer.MAX_GAIN_DB,
+            active = active,
+            message = when {
+                boost > 1f -> "Volume boost ${(boost * PERCENT).toInt()} % with limiter"
+                requested.replayGainMode != ReplayGainMode.OFF && tags == ReplayGainTags() -> "This file has no ReplayGain tags"
+                else -> null
+            },
         )
     }
 
@@ -130,21 +119,16 @@ internal class AndroidAudioEnhancementController(context: Context) : AutoCloseab
         }
     }
 
-    private fun releaseEffects() {
-        runCatching { equalizer?.release() }
-        runCatching { bassBoost?.release() }
-        equalizer = null
-        bassBoost = null
-    }
-
     override fun close() {
         audioManager.unregisterAudioDeviceCallback(routeCallback)
-        releaseEffects()
-        sessionId = 0
         mutableState.value = mutableState.value.copy(active = false)
     }
 
     companion object {
+        /** Volume boost goes up to 200 %. */
+        const val MAX_BOOST = 2f
+        private const val BANDS = 10
+        private const val PERCENT = 100
         private val BLUETOOTH_TYPES = setOf(
             AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
             AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
@@ -156,41 +140,17 @@ internal class AndroidAudioEnhancementController(context: Context) : AutoCloseab
             bassEnhancement = true,
             trebleAdjustment = true,
             attenuatingPreamp = true,
+            replayGain = true,
             pitchPreservation = true,
-            limitation = "Media3 Android audio-session effects only. Availability and band layout depend on the device and route.",
+            gapless = true,
+            limitation = "Vimivo's own 10-band equalizer inside the Media3 audio pipeline; crossfade and bit-perfect output are not available.",
         )
     }
 }
 
 private fun AudioEnhancementSettings.sanitized() = copy(
     bassStrength = bassStrength.coerceIn(0f, 1f),
-    trebleGainDb = trebleGainDb.coerceIn(-6f, 6f),
+    trebleGainDb = trebleGainDb.coerceIn(-GraphicEqualizer.MAX_GAIN_DB, GraphicEqualizer.MAX_GAIN_DB),
     preampDb = preampDb.coerceIn(-12f, 0f),
-    bands = bands.map { it.copy(gainDb = it.gainDb.coerceIn(-12f, 12f)) },
+    bands = bands.map { it.copy(gainDb = it.gainDb.coerceIn(-GraphicEqualizer.MAX_GAIN_DB, GraphicEqualizer.MAX_GAIN_DB)) },
 )
-
-private val PRESET_GAINS = mapOf(
-    dev.vimivo.playback.EqualizerPreset.FLAT to listOf(0f, 0f, 0f, 0f, 0f),
-    dev.vimivo.playback.EqualizerPreset.ROCK to listOf(4f, 2f, -1f, 2f, 4f),
-    dev.vimivo.playback.EqualizerPreset.POP to listOf(-1f, 2f, 4f, 2f, -1f),
-    dev.vimivo.playback.EqualizerPreset.CLASSICAL to listOf(3f, 2f, 0f, 2f, 3f),
-    dev.vimivo.playback.EqualizerPreset.JAZZ to listOf(3f, 1f, 1f, 3f, 4f),
-    dev.vimivo.playback.EqualizerPreset.VOCAL to listOf(-2f, 0f, 4f, 3f, 0f),
-    dev.vimivo.playback.EqualizerPreset.BASS_BOOST to listOf(6f, 4f, 0f, -1f, -2f),
-    dev.vimivo.playback.EqualizerPreset.TREBLE_BOOST to listOf(-2f, 0f, 2f, 4f, 6f),
-    dev.vimivo.playback.EqualizerPreset.ACOUSTIC to listOf(3f, 1f, 2f, 3f, 2f),
-    dev.vimivo.playback.EqualizerPreset.ELECTRONIC to listOf(5f, 2f, -1f, 2f, 5f),
-    dev.vimivo.playback.EqualizerPreset.PODCAST to listOf(-2f, 1f, 4f, 2f, -2f),
-    dev.vimivo.playback.EqualizerPreset.CUSTOM to emptyList(),
-)
-
-private fun AudioEnhancementSettings.resolvedGains(frequencies: List<Int>): List<Float> {
-    val presetBands = PRESET_GAINS[preset].orEmpty()
-    return frequencies.mapIndexed { index, frequency ->
-        val custom = bands.minByOrNull { kotlin.math.abs(it.centerFrequencyHz - frequency) }?.gainDb
-        val base = if (presetBands.isEmpty()) custom ?: 0f else {
-            presetBands[((index.toFloat() / (frequencies.size - 1).coerceAtLeast(1)) * presetBands.lastIndex).roundToInt()]
-        }
-        base + if (frequency >= 4_000) trebleGainDb else 0f
-    }
-}

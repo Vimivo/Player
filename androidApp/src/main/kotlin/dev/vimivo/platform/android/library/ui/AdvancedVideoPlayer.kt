@@ -141,6 +141,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import dev.vimivo.core.model.MediaItem
+import dev.vimivo.platform.android.playback.AndroidAudioEnhancementController
 import dev.vimivo.platform.android.playback.PlaybackUiState
 import dev.vimivo.platform.android.playback.PlaybackViewModel
 import dev.vimivo.platform.android.ui.components.BottomSheet
@@ -427,7 +428,8 @@ fun AdvancedVideoPlayer(
                                                 seekTarget = seekStart
                                             }
                                             DragMode.BRIGHTNESS -> level = activity?.currentWindowBrightness() ?: 0.5f
-                                            DragMode.VOLUME -> level = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / volumeMax
+                                            // 0..1 is the device volume; 1..2 is the software boost above it.
+                                            DragMode.VOLUME -> level = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / volumeMax + (viewModel.boost - 1f)
                                             else -> Unit
                                         }
                                         gestureActive = mode != DragMode.NONE
@@ -452,15 +454,17 @@ fun AdvancedVideoPlayer(
                                         )
                                     }
                                     DragMode.VOLUME -> {
-                                        level = (level - delta.y / size.height * 1.4f * settings.videoGestureSensitivity).coerceIn(0f, 1f)
-                                        val steps = (level * volumeMax).roundToInt()
+                                        level = (level - delta.y / size.height * 1.4f * settings.videoGestureSensitivity)
+                                            .coerceIn(0f, AndroidAudioEnhancementController.MAX_BOOST)
+                                        val steps = (level.coerceAtMost(1f) * volumeMax).roundToInt()
                                         if (steps != audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)) {
                                             audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, steps, 0)
                                         }
+                                        viewModel.setBoost(level.coerceAtLeast(1f))
                                         feedback = GestureFeedback.Level(
                                             if (steps == 0) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
-                                            "Volume $steps",
-                                            level,
+                                            "Volume ${(level * 100).roundToInt()}%",
+                                            level / AndroidAudioEnhancementController.MAX_BOOST,
                                         )
                                     }
                                     else -> Unit

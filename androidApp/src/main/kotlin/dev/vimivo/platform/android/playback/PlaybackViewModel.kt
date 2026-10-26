@@ -156,6 +156,13 @@ class PlaybackViewModel(
     }
     fun setSpeed(speed: Float) { player?.setPlaybackSpeed(speed) }
     fun setVolume(volume: Float) { player?.volume = volume.coerceIn(0f, 1f) }
+
+    /** The software boost above the device volume (1 = none, up to 2 = 200 %), limited so it does not clip. */
+    val boost: Float get() = diagnostics.state.value.volume.coerceAtLeast(1f)
+
+    fun setBoost(multiplier: Float) {
+        diagnostics.setVolume(multiplier.coerceIn(1f, AndroidAudioEnhancementController.MAX_BOOST))
+    }
     fun setAbRepeatStart() {
         val position = state.value.positionMillis
         mutableState.value = state.value.copy(abRepeatStartMillis = position, abRepeatEndMillis = null)

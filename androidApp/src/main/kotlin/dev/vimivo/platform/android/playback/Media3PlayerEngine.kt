@@ -16,7 +16,11 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.ColorTransfer
@@ -49,7 +53,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import dev.vimivo.core.model.MediaItem as VimivoMediaItem
 
-class Media3PlayerEngine(context: Context) : PlayerEngine {
+class Media3PlayerEngine(
+    context: Context,
+    /** Receives the PCM after the effects, for tests that measure what is really played; null in the app. */
+    private val audioTap: TeeAudioProcessor.AudioBufferSink? = null,
+) : PlayerEngine {
     override val id = EngineId.MEDIA3
     override val capabilities = CAPABILITIES
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -65,6 +73,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
 
     /** The item queued after the current one for a gapless start; null when none is prepared. */
     private var preparedNext: VimivoMediaItem? = null
+    private var requestedVolume = 1f
 
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) = publishState()
@@ -82,6 +91,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             cachedAudioTracks = trackInfoList.filter { it.type == TrackType.AUDIO }
             cachedVideoTracks = trackInfoList.filter { it.type == TrackType.VIDEO }
             cachedSubtitleTracks = trackInfoList.filter { it.type == TrackType.SUBTITLE }
+            audioEnhancements.setReplayGainTags(tracks.replayGainTags())
             publishState()
         }
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -91,7 +101,6 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         }
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) = publishState()
         override fun onVideoSizeChanged(videoSize: VideoSize) = publishState()
-        override fun onAudioSessionIdChanged(audioSessionId: Int) = audioEnhancements.attach(audioSessionId)
         override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) = audioEnhancements.refreshRoute()
 
         override fun onPlayerError(error: PlaybackException) {
@@ -101,7 +110,22 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         }
     }
 
-    val player: ExoPlayer = ExoPlayer.Builder(context.applicationContext).build().apply {
+    /** Plays through the audio pipeline stage that runs Vimivo's equalizer, boost, ReplayGain and limiter. */
+    private val renderers = object : DefaultRenderersFactory(context.applicationContext) {
+        override fun buildAudioSink(
+            context: Context,
+            enableFloatOutput: Boolean,
+            enableAudioTrackPlaybackParams: Boolean,
+        ): AudioSink = DefaultAudioSink.Builder(context)
+            .setEnableFloatOutput(enableFloatOutput)
+            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+            .setAudioProcessors(
+                listOfNotNull(audioEnhancements.processor, audioTap?.let(::TeeAudioProcessor)).toTypedArray(),
+            )
+            .build()
+    }
+
+    val player: ExoPlayer = ExoPlayer.Builder(context.applicationContext, renderers).build().apply {
         setAudioAttributes(AudioAttributes.DEFAULT, true)
         setHandleAudioBecomingNoisy(true)
         addListener(listener)
@@ -117,6 +141,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         cachedVideoTracks = emptyList()
         cachedSubtitleTracks = emptyList()
         preparedNext = null
+        audioEnhancements.setReplayGainTags(ReplayGainTags())
         mutableState.value = PlaybackState(
             engine = id,
             media = media,
@@ -155,6 +180,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         cachedAudioTracks = emptyList()
         cachedVideoTracks = emptyList()
         cachedSubtitleTracks = emptyList()
+        audioEnhancements.setReplayGainTags(ReplayGainTags())
         mutableState.value = mutableState.value.copy(
             media = next,
             metadata = next.toPlaybackMetadata(),
@@ -218,9 +244,12 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
         player.setPlaybackSpeed(speed)
     }
 
+    /** Up to 100 % is ExoPlayer's own volume; above that the gain (with a limiter) is applied in the audio pipeline. */
     override fun setVolume(volume: Float): Result<Unit> = command {
-        require(volume in 0f..1f) { "Volume must be between 0 and 1" }
-        player.volume = volume
+        require(volume in 0f..capabilities.maxVolume) { "Volume must be between 0 and ${capabilities.maxVolume}" }
+        requestedVolume = volume
+        player.volume = volume.coerceAtMost(1f)
+        audioEnhancements.setBoost(volume.coerceAtLeast(1f))
     }
 
     override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> =
@@ -286,7 +315,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             bufferedPositionMillis = player.bufferedPosition.coerceAtLeast(0),
             durationMillis = player.duration.takeUnless { it == C.TIME_UNSET || it < 0 },
             speed = player.playbackParameters.speed,
-            volume = player.volume,
+            volume = requestedVolume,
             isSeekable = player.isCurrentMediaItemSeekable,
             metadata = player.mediaMetadata.toPlaybackMetadata(previous.metadata),
             audioTracks = cachedAudioTracks,
@@ -394,6 +423,7 @@ class Media3PlayerEngine(context: Context) : PlayerEngine {
             hdr = true,
             subtitleAppearance = true,
             subtitlePosition = true,
+            maxVolume = AndroidAudioEnhancementController.MAX_BOOST,
             audioEnhancements = AndroidAudioEnhancementController.CAPABILITIES,
         )
 
@@ -466,3 +496,10 @@ private fun MediaMetadata.toPlaybackMetadata(fallback: PlaybackMetadata) = Playb
 )
 
 private fun VimivoMediaItem.toPlaybackMetadata() = PlaybackMetadata(title, artist, album, artworkUri)
+
+/** ReplayGain tags from the selected audio tracks' container metadata (ID3, Vorbis comments, iTunes atoms). */
+private fun Tracks.replayGainTags(): ReplayGainTags = groups
+    .filter { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }
+    .flatMap { group -> (0 until group.length).map { group.getTrackFormat(it).metadata } }
+    .map(ReplayGainTagReader::read)
+    .firstOrNull { it != ReplayGainTags() } ?: ReplayGainTags()

@@ -1441,6 +1441,18 @@ private fun SettingsScreen(
                     viewModel.setAudioEnhancements(settings.audioEnhancements.copy(preampDb = it))
                 }
             }
+            if (audio.capabilities.replayGain) item {
+                SettingsRow(
+                    Icons.Outlined.MusicNote,
+                    stringResource(R.string.replay_gain),
+                    settings.audioEnhancements.replayGainMode.name.lowercase(),
+                    onClick = {
+                        viewModel.setAudioEnhancements(
+                            settings.audioEnhancements.copy(replayGainMode = settings.audioEnhancements.replayGainMode.next()),
+                        )
+                    },
+                )
+            }
             if (settings.audioEnhancements.preset == dev.vimivo.playback.EqualizerPreset.CUSTOM) {
                 audio.availableBandsHz.forEach { frequency ->
                     item {
@@ -2007,3 +2019,5 @@ internal fun androidx.media3.common.MediaItem.toDomain() = MediaItem(
 )
 
 private fun HomeSection.label() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::uppercase)
+
+private fun dev.vimivo.playback.ReplayGainMode.next() = dev.vimivo.playback.ReplayGainMode.entries[(ordinal + 1) % dev.vimivo.playback.ReplayGainMode.entries.size]

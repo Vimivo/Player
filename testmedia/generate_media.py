@@ -178,6 +178,13 @@ run([
     os.path.join(MEDIA_DIR, "multitrack_tiny.mkv")
 ])
 
+# 8g. Track 1 with ReplayGain tags (-6 dB), for the Android ReplayGain test (androidApp/src/androidTest/assets/media)
+run([
+    "ffmpeg", "-y", "-i", os.path.join(MEDIA_DIR, "track1_solaris.flac"),
+    "-metadata", "REPLAYGAIN_TRACK_GAIN=-6.00 dB", "-metadata", "REPLAYGAIN_TRACK_PEAK=0.250000", "-c", "copy",
+    os.path.join(MEDIA_DIR, "track1_replaygain.flac")
+])
+
 # 9. Public HLS stream URLs
 with open(os.path.join(MEDIA_DIR, "stream_urls.txt"), "w") as f:
     f.write("https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8\n")

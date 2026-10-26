@@ -38,6 +38,7 @@
     <string name="bass_enhancement">Bass enhancement</string>
     <string name="treble">Treble</string>
     <string name="preamp">Safe preamp attenuation (dB)</string>
+    <string name="replay_gain">ReplayGain (track or album loudness)</string>
     <string name="audio_visualizer">Lightweight visualizer</string>
     <string name="preferred_subtitle_language">Preferred subtitle language</string>
     <string name="subtitles_enabled">Enable subtitles by default</string>
