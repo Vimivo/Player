@@ -67,8 +67,17 @@ internal object DesktopSmokeTest {
         play(media).exceptionOrNull()?.let { error ->
             return@map DesktopSmokeResult.Failed(file, "open failed: ${error.message ?: error::class.simpleName}")
         }
-        val reached = withTimeoutOrNull(timeoutMillis) {
+        val playing = withTimeoutOrNull(timeoutMillis) {
             state.first { playback -> playback.media?.uri == media.uri && playback.isTerminalFor() }
+        }
+        // libmpv lists a file's tracks a moment after it starts; give a video a short time to show its video track
+        // before judging, so a read that raced the demuxer is not reported as "no video track was decoded".
+        val reached = if (playing != null && media.kind == MediaKind.VIDEO && playing.videoTracks.isEmpty()) {
+            withTimeoutOrNull(TRACK_SETTLE_MILLIS) {
+                state.first { it.media?.uri == media.uri && it.videoTracks.isNotEmpty() }
+            } ?: playing
+        } else {
+            playing
         }
         val latest = reached ?: state.value.takeIf { it.media?.uri == media.uri }
         val result = evaluate(file, media, latest, timedOut = reached == null)
@@ -158,6 +167,7 @@ internal object DesktopSmokeTest {
     private const val FRAME_WAIT_MILLIS = 15_000L
     private const val FRAME_POLL_MILLIS = 100L
     private const val PICTURE_RETRY_MILLIS = 300L
+    private const val TRACK_SETTLE_MILLIS = 3_000L
 
     private fun PlaybackState.isTerminalFor(): Boolean =
         status is PlaybackStatus.Error || (status == PlaybackStatus.Playing && positionMillis >= MIN_POSITION_MILLIS)
