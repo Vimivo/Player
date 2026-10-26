@@ -177,7 +177,13 @@ internal object DesktopSmokeTest {
                 DesktopSmokeResult.Failed(file, "timed out (status=${status ?: "none"} position=${position}ms)")
             }
             media.kind == MediaKind.VIDEO && playback.videoTracks.isEmpty() ->
-                DesktopSmokeResult.Failed(file, "playback advanced but no video track was decoded")
+                DesktopSmokeResult.Failed(
+                    file,
+                    "playback advanced but no video track was decoded " +
+                        "(status=${playback.status} position=${playback.positionMillis}ms " +
+                        "duration=${playback.durationMillis} session=${playback.sessionId} " +
+                        "audioTracks=${playback.audioTracks.size} subtitleTracks=${playback.subtitleTracks.size})",
+                )
             else -> DesktopSmokeResult.Passed(file, playback.positionMillis, playback.videoTracks.size)
         }
     }
