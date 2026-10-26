@@ -5,6 +5,7 @@ import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.desktop.playback.DesktopPlayerCommand
+import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.PlaybackQueueState
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.SnapshotOptions
@@ -68,6 +69,7 @@ internal sealed interface PlayerIntent {
 
     /** [exact] false is a fast keyframe seek, used while scrubbing. */
     data class Seek(val positionMillis: Long, val exact: Boolean = true) : PlayerIntent
+    data class SetAbRepeat(val range: ABRepeatRange) : PlayerIntent
     data class SetVolume(val volume: Float) : PlayerIntent
     data class SetSpeed(val speed: Float) : PlayerIntent
 

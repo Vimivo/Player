@@ -83,6 +83,19 @@ object PlaybackControlPolicy {
         }
     }
 
+    /** Moves one end of a complete A–B region, keeping A before B by [AB_MIN_GAP_MILLIS] and inside the media. */
+    fun moveABPoint(range: ABRepeatRange, end: ABRepeatEnd, positionMillis: Long, durationMillis: Long): ABRepeatRange {
+        val a = range.pointA ?: return range
+        val b = range.pointB ?: return range
+        val last = durationMillis.coerceAtLeast(AB_MIN_GAP_MILLIS)
+        return when (end) {
+            ABRepeatEnd.A -> range.copy(pointA = positionMillis.coerceIn(0, (b - AB_MIN_GAP_MILLIS).coerceAtLeast(0)))
+            ABRepeatEnd.B -> range.copy(pointB = positionMillis.coerceIn(a + AB_MIN_GAP_MILLIS, last))
+        }
+    }
+
+    const val AB_MIN_GAP_MILLIS = 500L
+
     private val DEFAULT_SPEED_RANGE = 0.25f..4f
 }
 

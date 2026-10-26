@@ -190,6 +190,7 @@ private fun ControllerContent(
             playback = playback,
             label = stringResource(Res.string.player_seek),
             onSeek = { position, exact -> onIntent(PlayerIntent.Seek(position, exact)) },
+            onAbChange = { onIntent(PlayerIntent.SetAbRepeat(it)) },
             alwaysShowThumb = true,
             modifier = Modifier.fillMaxWidth(),
             preview = preview,

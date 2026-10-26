@@ -83,4 +83,24 @@ class PlaybackControlPolicyTest {
 
     private fun track(id: String, selected: Boolean) =
         TrackInfo(id = id, type = TrackType.SUBTITLE, label = "Track $id", isSelected = selected)
+
+    @Test
+    fun draggingAnEndKeepsTheRegionOrderedAndInsideTheMedia() {
+        val range = ABRepeatRange(pointA = 10_000, pointB = 20_000, enabled = true)
+        val duration = 60_000L
+        assertEquals(
+            19_500L,
+            PlaybackControlPolicy.moveABPoint(range, ABRepeatEnd.A, 40_000, duration).pointA,
+        )
+        assertEquals(0L, PlaybackControlPolicy.moveABPoint(range, ABRepeatEnd.A, -5, duration).pointA)
+        assertEquals(10_500L, PlaybackControlPolicy.moveABPoint(range, ABRepeatEnd.B, 1_000, duration).pointB)
+        assertEquals(60_000L, PlaybackControlPolicy.moveABPoint(range, ABRepeatEnd.B, 90_000, duration).pointB)
+        assertEquals(15_000L, PlaybackControlPolicy.moveABPoint(range, ABRepeatEnd.B, 15_000, duration).pointB)
+    }
+
+    @Test
+    fun anIncompleteRegionCannotBeDragged() {
+        val onlyA = ABRepeatRange(pointA = 5_000)
+        assertEquals(onlyA, PlaybackControlPolicy.moveABPoint(onlyA, ABRepeatEnd.B, 9_000, 60_000))
+    }
 }

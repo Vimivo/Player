@@ -59,14 +59,17 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.vimivo.playback.ABRepeatEnd
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.ChapterInfo
 import dev.vimivo.playback.PlaybackClock
+import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.awt.MouseInfo
+import kotlin.math.abs
 
 /**
  * The player timeline (spec §3.1): one continuous thin bar (played / buffered / remaining), 3 dp growing to 5 dp on
@@ -89,6 +92,7 @@ internal fun VimivoTimeline(
     modifier: Modifier = Modifier,
     alwaysShowThumb: Boolean = false,
     preview: (suspend (positionMillis: Long) -> ImageBitmap?)? = null,
+    onAbChange: (ABRepeatRange) -> Unit = {},
 ) {
     val duration = playback.durationMillis?.takeIf { it > 0 }
     val clock = remember { PlaybackClock() }
@@ -107,6 +111,9 @@ internal fun VimivoTimeline(
     var hoverAnchor by remember { mutableStateOf<TooltipAnchor?>(null) }
     var scrubMillis by remember { mutableStateOf<Long?>(null) }
     var widthPx by remember { mutableStateOf(1f) }
+    var abDrag by remember { mutableStateOf<AbDrag?>(null) }
+    val abChange by rememberUpdatedState(onAbChange)
+    val region = abDrag?.range ?: playback.abRepeat
     val track by animateDpAsState(
         if (hovered || scrubMillis != null) 5.dp else 3.dp,
         spring(stiffness = Spring.StiffnessMedium),
@@ -140,17 +147,39 @@ internal fun VimivoTimeline(
                 .pointerInput(duration) {
                     detectTapGestures { offset -> millisAt(offset.x)?.let { seek(it, true) } }
                 }
-                .pointerInput(duration) {
+                .pointerInput(duration, playback.abRepeat) {
                     var lastSeekNanos = 0L
                     detectDragGestures(
-                        onDragStart = { offset -> scrubMillis = millisAt(offset.x) },
+                        onDragStart = { offset ->
+                            val end = duration?.let {
+                                AbRegionGeometry.endAt(offset.x, playback.abRepeat, widthPx, it, AB_HIT_RADIUS.toPx())
+                            }
+                            if (end != null) {
+                                abDrag = AbDrag(end, playback.abRepeat)
+                            } else {
+                                scrubMillis = millisAt(offset.x)
+                            }
+                        },
                         onDragEnd = {
+                            abDrag?.let { abChange(it.range) }
+                            abDrag = null
                             scrubMillis?.let { seek(it, true) }
                             scrubMillis = null
                         },
-                        onDragCancel = { scrubMillis = null },
+                        onDragCancel = {
+                            abDrag = null
+                            scrubMillis = null
+                        },
                     ) { change, _ ->
                         hoverX = change.position.x
+                        val dragging = abDrag
+                        if (dragging != null && duration != null) {
+                            val at = millisAt(change.position.x) ?: return@detectDragGestures
+                            abDrag = dragging.copy(
+                                range = PlaybackControlPolicy.moveABPoint(dragging.range, dragging.end, at, duration),
+                            )
+                            return@detectDragGestures
+                        }
                         scrubMillis = millisAt(change.position.x)
                         val now = System.nanoTime()
                         if (now - lastSeekNanos > SCRUB_THROTTLE_NANOS) {
@@ -159,49 +188,19 @@ internal fun VimivoTimeline(
                         }
                     }
                 }
-                .semantics {
-                    contentDescription = label
-                    val total = duration?.let(::playerClock) ?: "unknown"
-                    stateDescription = "${playerClock(playback.positionMillis)} of $total"
-                    if (duration != null) {
-                        val range = 0f..duration.toFloat()
-                        progressBarRangeInfo = ProgressBarRangeInfo(playback.positionMillis.toFloat(), range)
-                        setProgress { target ->
-                            seek(target.toLong().coerceIn(0, duration), true)
-                            true
-                        }
-                    }
-                },
+                .timelineSemantics(label, playback, duration, region, seek),
         ) {
             frameNanos // Read here so each frame only redraws.
-            val trackHeight = track.toPx()
-            val top = (size.height - trackHeight) / 2
-            val radius = CornerRadius(trackHeight / 2)
-            drawRoundRect(PlayerPalette.trackRemaining, Offset(0f, top), Size(size.width, trackHeight), radius)
-            val total = duration?.toFloat() ?: return@Canvas
-            fun x(millis: Long) = (millis / total).coerceIn(0f, 1f) * size.width
-            val buffered = x(playback.bufferedPositionMillis)
-            drawRoundRect(PlayerPalette.trackBuffered, Offset(0f, top), Size(buffered, trackHeight), radius)
-            val ab = playback.abRepeat
-            if (ab.pointA != null) drawAbRange(ab, ::x, top, trackHeight)
-            val position = scrubMillis?.toFloat() ?: clock.positionAt(System.nanoTime()).toFloat()
-            val played = (position / total).coerceIn(0f, 1f) * size.width
-            drawRoundRect(PlayerPalette.trackPlayed, Offset(0f, top), Size(played, trackHeight), radius)
-            playback.chapters.drop(1).forEach { chapter ->
-                drawRect(
-                    Color.Black.copy(alpha = 0.55f),
-                    Offset(x(chapter.startPositionMillis), top),
-                    Size(1f, trackHeight)
-                )
-            }
-            if (alwaysShowThumb || hovered || scrubMillis != null) {
-                drawCircle(
-                    Color.Black.copy(alpha = 0.35f),
-                    THUMB_RADIUS.toPx() + 1f,
-                    Offset(played, size.height / 2 + 1f)
-                )
-                drawCircle(PlayerPalette.trackPlayed, THUMB_RADIUS.toPx(), Offset(played, size.height / 2))
-            }
+            drawTimeline(
+                TimelineFrame(
+                    playback = playback,
+                    duration = duration,
+                    region = region,
+                    trackHeight = track.toPx(),
+                    positionMillis = scrubMillis?.toFloat() ?: clock.positionAt(System.nanoTime()).toFloat(),
+                    showThumb = alwaysShowThumb || hovered || scrubMillis != null,
+                ),
+            )
         }
         val tipX = hoverX
         val tipMillis = tipX?.let(::millisAt)
@@ -212,15 +211,127 @@ internal fun VimivoTimeline(
     }
 }
 
+/** What one frame of the timeline draws; read in the draw phase so playback never recomposes the player. */
+private fun Modifier.timelineSemantics(
+    label: String,
+    playback: PlaybackState,
+    duration: Long?,
+    region: ABRepeatRange,
+    seek: (Long, Boolean) -> Unit,
+): Modifier = semantics {
+    contentDescription = label
+    val total = duration?.let(::playerClock) ?: "unknown"
+    stateDescription = "${playerClock(playback.positionMillis)} of $total" + AbRegionGeometry.describe(region)
+    if (duration != null) {
+        val range = 0f..duration.toFloat()
+        progressBarRangeInfo = ProgressBarRangeInfo(playback.positionMillis.toFloat(), range)
+        setProgress { target ->
+            seek(target.toLong().coerceIn(0, duration), true)
+            true
+        }
+    }
+}
+
+private class TimelineFrame(
+    val playback: PlaybackState,
+    val duration: Long?,
+    val region: ABRepeatRange,
+    val trackHeight: Float,
+    val positionMillis: Float,
+    val showThumb: Boolean,
+)
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTimeline(frame: TimelineFrame) {
+    val trackHeight = frame.trackHeight
+    val top = (size.height - trackHeight) / 2
+    val radius = CornerRadius(trackHeight / 2)
+    drawRoundRect(PlayerPalette.trackRemaining, Offset(0f, top), Size(size.width, trackHeight), radius)
+    val total = frame.duration?.toFloat() ?: return
+    fun x(millis: Long) = (millis / total).coerceIn(0f, 1f) * size.width
+    val buffered = x(frame.playback.bufferedPositionMillis)
+    drawRoundRect(PlayerPalette.trackBuffered, Offset(0f, top), Size(buffered, trackHeight), radius)
+    if (frame.region.pointA != null) drawAbRange(frame.region, ::x, top, trackHeight)
+    val position = frame.positionMillis
+    val played = (position / total).coerceIn(0f, 1f) * size.width
+    drawRoundRect(PlayerPalette.trackPlayed, Offset(0f, top), Size(played, trackHeight), radius)
+    frame.playback.chapters.drop(1).forEach { chapter ->
+        drawRect(
+            Color.Black.copy(alpha = 0.55f),
+            Offset(x(chapter.startPositionMillis), top),
+            Size(1f, trackHeight)
+        )
+    }
+    if (frame.showThumb) {
+        drawCircle(
+            Color.Black.copy(alpha = 0.35f),
+            THUMB_RADIUS.toPx() + 1f,
+            Offset(played, size.height / 2 + 1f)
+        )
+        drawCircle(PlayerPalette.trackPlayed, THUMB_RADIUS.toPx(), Offset(played, size.height / 2))
+    }
+}
+
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAbRange(
     range: ABRepeatRange,
     x: (Long) -> Float,
     top: Float,
     height: Float,
 ) {
-    val start = x(range.pointA ?: return)
-    val end = range.pointB?.let(x) ?: (start + 2f)
-    drawRect(PlayerPalette.abRange, Offset(start, top - 2f), Size((end - start).coerceAtLeast(2f), height + 4f))
+    val bounds = AbRegionGeometry.bounds(range, x, MIN_REGION_PX) ?: return
+    drawRect(
+        PlayerPalette.abRange,
+        Offset(bounds.start, top - 2f),
+        Size(bounds.end - bounds.start, height + 4f),
+    )
+    // End caps mark A and B; they are the handles for dragging.
+    val cap = Size(AB_CAP_WIDTH_PX, height + AB_CAP_OVERHANG_PX)
+    drawRect(PlayerPalette.trackPlayed, Offset(bounds.start, top - AB_CAP_OVERHANG_PX / 2), cap)
+    if (range.pointB != null) {
+        drawRect(PlayerPalette.trackPlayed, Offset(bounds.end - AB_CAP_WIDTH_PX, top - AB_CAP_OVERHANG_PX / 2), cap)
+    }
+}
+
+private data class AbDrag(val end: ABRepeatEnd, val range: ABRepeatRange)
+
+/** Where the A–B region sits on the timeline, and which end a pointer is on; separate from drawing so it is tested. */
+internal object AbRegionGeometry {
+    data class Bounds(val start: Float, val end: Float)
+
+    /** The drawn span: A alone is a thin marker, and a region is never narrower than [minWidth]. */
+    fun bounds(range: ABRepeatRange, x: (Long) -> Float, minWidth: Float): Bounds? {
+        val start = x(range.pointA ?: return null)
+        val end = range.pointB?.let(x) ?: (start + minWidth)
+        return Bounds(start, maxOf(end, start + minWidth))
+    }
+
+    /** The end of a complete region within [hitRadius] px of [pointerX], the nearer one when both are. */
+    fun endAt(
+        pointerX: Float,
+        range: ABRepeatRange,
+        widthPx: Float,
+        durationMillis: Long,
+        hitRadius: Float,
+    ): ABRepeatEnd? {
+        val a = range.pointA
+        val b = range.pointB
+        if (a == null || b == null || !range.enabled) return null
+        if (durationMillis <= 0) return null
+        fun px(millis: Long) = millis.toFloat() / durationMillis * widthPx
+        val distanceA = abs(pointerX - px(a))
+        val distanceB = abs(pointerX - px(b))
+        return when {
+            minOf(distanceA, distanceB) > hitRadius -> null
+            distanceA <= distanceB -> ABRepeatEnd.A
+            else -> ABRepeatEnd.B
+        }
+    }
+
+    /** Screen-reader text for the region, appended to the timeline's state. */
+    fun describe(range: ABRepeatRange): String {
+        val a = range.pointA ?: return ""
+        val b = range.pointB ?: return ", repeat start ${playerClock(a)}"
+        return ", repeating ${playerClock(a)} to ${playerClock(b)}"
+    }
 }
 
 private fun chapterAt(chapters: List<ChapterInfo>, millis: Long): ChapterInfo? =
@@ -319,6 +430,10 @@ internal fun playerClock(millis: Long): String {
 }
 
 private val HIT_HEIGHT = 20.dp
+private val AB_HIT_RADIUS = 8.dp
+private const val MIN_REGION_PX = 2f
+private const val AB_CAP_WIDTH_PX = 2f
+private const val AB_CAP_OVERHANG_PX = 8f
 private val TIP_GAP = 6.dp
 private val TEXT_TIP_SIZE = DpSize(176.dp, 52.dp)
 private val PREVIEW_TIP_SIZE = DpSize(176.dp, 148.dp)

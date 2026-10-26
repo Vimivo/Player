@@ -153,6 +153,7 @@ internal class PlayerViewModel(
             PlayerIntent.Previous -> scope.launch { queue.previous() }
             PlayerIntent.Stop -> engine.stop()
             is PlayerIntent.Seek -> engine.seekTo(intent.positionMillis, intent.exact)
+            is PlayerIntent.SetAbRepeat -> commands.perform("Repeat region") { engine.setABRepeat(intent.range) }
             is PlayerIntent.SetVolume -> commands.setVolumeLevel(intent.volume)
             is PlayerIntent.SetSpeed -> engine.setPlaybackSpeed(intent.speed)
             else -> dispatchNavigation(intent)

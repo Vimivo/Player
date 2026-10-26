@@ -83,6 +83,13 @@ class MpvPlayerEngine : PlayerEngine {
     private var videoSurface: Canvas? = null
     private var hwdecMode: HardwareAccelerationMode = HardwareAccelerationMode.AUTO
     private var requestedVolume = 1f
+
+    private val abWatcher = AbRegionWatcher(
+        scope,
+        positionMillis = { doubleProperty("time-pos")?.times(1_000)?.toLong() ?: 0L },
+        isPaused = { flagProperty("pause") ?: true },
+        seekTo = { millis -> command("seek", (millis / 1_000.0).toString(), "absolute+exact") },
+    )
     private var audioSettings = AudioEnhancementSettings()
     private var attemptedSoftwareFallback = false
     private val rendererWatch = MpvRendererWatch()
@@ -139,12 +146,14 @@ class MpvPlayerEngine : PlayerEngine {
         }
         userStopped = false
         userPaused = false
+        abWatcher.stop()
         val previousDeinterlace = mutableState.value.deinterlaceMode
         mutableState.value = PlaybackState(
             engine = id,
             media = media,
             status = PlaybackStatus.Preparing,
             metadata = PlaybackMetadata(media.title, media.artist, media.album, media.artworkUri),
+            volume = requestedVolume,
             sessionId = currentSession,
         )
         // Published Preparing state lets the UI compose the video surface before the renderer needs it.
@@ -302,15 +311,7 @@ class MpvPlayerEngine : PlayerEngine {
     }
 
     override fun setABRepeat(range: ABRepeatRange): Result<Unit> = action {
-        val a = range.pointA
-        val b = range.pointB
-        if (range.enabled && a != null && b != null) {
-            setProperty("ab-loop-a", (a / 1_000.0).toString())
-            setProperty("ab-loop-b", (b / 1_000.0).toString())
-        } else {
-            setProperty("ab-loop-a", "no")
-            setProperty("ab-loop-b", "no")
-        }
+        abWatcher.watch(range)
         mutableState.value = mutableState.value.copy(abRepeat = range)
     }
 

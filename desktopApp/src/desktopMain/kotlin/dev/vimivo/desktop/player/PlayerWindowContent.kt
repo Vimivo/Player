@@ -233,6 +233,7 @@ private fun PlayerControlBar(
             playback = playback,
             label = stringResource(Res.string.player_seek),
             onSeek = { position, exact -> onIntent(PlayerIntent.Seek(position, exact)) },
+            onAbChange = { onIntent(PlayerIntent.SetAbRepeat(it)) },
             modifier = Modifier.weight(1f),
             preview = preview,
         )

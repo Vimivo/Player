@@ -47,6 +47,9 @@ data class ABRepeatRange(
     val enabled: Boolean = false,
 )
 
+/** One end of an A–B region, for dragging it on the timeline. */
+enum class ABRepeatEnd { A, B }
+
 data class ChapterInfo(
     val index: Int,
     val title: String,
