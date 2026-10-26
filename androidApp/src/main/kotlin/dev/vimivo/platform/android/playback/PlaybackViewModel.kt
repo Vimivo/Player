@@ -72,6 +72,8 @@ data class PlaybackUiState(
     val abRepeatEndMillis: Long? = null,
     val videoCrop: VideoCrop? = null,
     val videoColour: VideoAdjustments = VideoAdjustments(),
+    /** Real peaks of the current track for the seek bar; null until they are computed (or for video). */
+    val waveformPeaks: FloatArray? = null,
 )
 
 class PlaybackViewModel(
@@ -83,6 +85,7 @@ class PlaybackViewModel(
     private val sleepTimer: SleepTimerController,
     private val lyricsRepository: LyricsRepository,
     private val snapshots: AndroidSnapshotStore,
+    private val waveforms: AndroidWaveformRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(PlaybackUiState())
     private var player: Player? = null
@@ -90,6 +93,8 @@ class PlaybackViewModel(
     private var detectedSubtitleMediaId: String? = null
     private var bookmarkMediaId: String? = null
     private var lyricMediaId: String? = null
+    private var waveformMediaId: String? = null
+    private var waveformJob: Job? = null
     private var bookmarkJob: Job? = null
     val state: StateFlow<PlaybackUiState> = mutableState.asStateFlow()
     val sleepTimerState = sleepTimer.state
@@ -360,6 +365,9 @@ class PlaybackViewModel(
             }?.findActiveLineIndex(player.currentPosition) ?: -1,
             abRepeatStartMillis = previous.abRepeatStartMillis,
             abRepeatEndMillis = previous.abRepeatEndMillis,
+            videoCrop = previous.videoCrop,
+            videoColour = previous.videoColour,
+            waveformPeaks = previous.waveformPeaks.takeIf { previous.current?.mediaId == player.currentMediaItem?.mediaId },
         )
         val id = player.currentMediaItem?.mediaId
         if (id != bookmarkMediaId) {
@@ -385,6 +393,18 @@ class PlaybackViewModel(
                     if (state.value.current?.mediaId == id) {
                         mutableState.value = state.value.copy(isFavorite = media.isFavorite)
                     }
+                }
+            }
+        }
+        if (id != waveformMediaId) {
+            waveformMediaId = id
+            waveformJob?.cancel()
+            val uri = player.currentMediaItem?.localConfiguration?.uri
+            val isAudio = player.currentMediaItem?.localConfiguration?.mimeType?.startsWith("video/") != true
+            if (id != null && uri != null && isAudio) {
+                waveformJob = viewModelScope.launch {
+                    val peaks = waveforms.peaks(uri)
+                    if (state.value.current?.mediaId == id) mutableState.value = state.value.copy(waveformPeaks = peaks)
                 }
             }
         }

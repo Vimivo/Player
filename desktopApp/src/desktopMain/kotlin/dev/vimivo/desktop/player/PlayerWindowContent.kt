@@ -236,6 +236,7 @@ private fun PlayerControlBar(
             onAbChange = { onIntent(PlayerIntent.SetAbRepeat(it)) },
             modifier = Modifier.weight(1f),
             preview = preview,
+            peaks = state.waveformPeaks,
         )
         Spacer(Modifier.width(8.dp))
         TimeReadout(state, onIntent)

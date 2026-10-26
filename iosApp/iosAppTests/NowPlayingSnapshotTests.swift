@@ -39,10 +39,4 @@ final class NowPlayingSnapshotTests: XCTestCase {
         let engine = try engineWithTrack()
         _ = try render(EqualizerContent(engine: engine), size: CGSize(width: 390, height: 844), name: "equalizer")
     }
-
-    func testWaveformShapeIsStablePerTrackAndDiffersBetweenTracks() {
-        XCTAssertEqual(waveformShape(seed: "a"), waveformShape(seed: "a"))
-        XCTAssertNotEqual(waveformShape(seed: "a"), waveformShape(seed: "b"))
-        XCTAssertTrue(waveformShape(seed: "a").allSatisfy { $0 >= 0.18 && $0 <= 1 })
-    }
 }

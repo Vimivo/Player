@@ -1,45 +1,29 @@
 import SwiftUI
 
-/// Bar heights for the waveform-style seek bar: a smooth shape that is the same every time for the same track. It is a
-/// styled scrubber, not the audio's real amplitude.
-func waveformShape(seed: String, count: Int = 72) -> [CGFloat] {
-    var state = seed.unicodeScalars.reduce(UInt64(1469598103934665603)) { ($0 ^ UInt64($1.value)) &* 1099511628211 }
-    var level: CGFloat = 0.5
-    return (0..<count).map { _ in
-        state = state &* 6364136223846793005 &+ 1442695040888963407
-        let random = CGFloat((state >> 33) % 1000) / 1000
-        level = min(1, max(0.18, level * 0.55 + random * 0.45 + 0.1))
-        return level
-    }
-}
-
 func formatClock(millis: Int64) -> String {
     let total = Int(max(0, millis) / 1000)
     let hours = total / 3600, minutes = total % 3600 / 60, seconds = total % 60
     return hours > 0 ? String(format: "%d:%02d:%02d", hours, minutes, seconds) : String(format: "%d:%02d", minutes, seconds)
 }
 
-/// A seek bar drawn as bars; tap or drag to seek. Behaves as an adjustable control for VoiceOver.
+/// The track's seek bar. With [peaks] (the real loudness of the track, computed in the background) it draws bars; until
+/// they exist it is a plain thin line with a thumb. Tap or drag to seek; VoiceOver sees an adjustable control either way.
 struct WaveformSeekBar: View {
     let progress: Double
-    let seed: String
+    let peaks: [Float]?
     let positionMillis: Int64
     let durationMillis: Int64
     let onCommit: (Double) -> Void
     @State private var dragProgress: Double?
 
     var body: some View {
-        let shape = waveformShape(seed: seed)
         let shown = dragProgress ?? progress
         GeometryReader { proxy in
             Canvas { context, size in
-                let slot = size.width / CGFloat(shape.count)
-                let barWidth = slot * 0.56
-                for (index, height) in shape.enumerated() {
-                    let barHeight = size.height * height
-                    let rect = CGRect(x: CGFloat(index) * slot + (slot - barWidth) / 2, y: (size.height - barHeight) / 2, width: barWidth, height: barHeight)
-                    let played = (Double(index) + 0.5) / Double(shape.count) <= shown
-                    context.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(played ? .accentColor : Color.primary.opacity(0.22)))
+                if let peaks, !peaks.isEmpty {
+                    drawPeaks(peaks, shown: shown, in: &context, size: size)
+                } else {
+                    drawLine(shown: shown, in: &context, size: size)
                 }
             }
             .contentShape(Rectangle())
@@ -60,6 +44,28 @@ struct WaveformSeekBar: View {
             let step = 0.05
             onCommit(min(1, max(0, progress + (direction == .increment ? step : -step))))
         }
+    }
+
+    private func drawPeaks(_ peaks: [Float], shown: Double, in context: inout GraphicsContext, size: CGSize) {
+        let slot = size.width / CGFloat(peaks.count)
+        let barWidth = slot * 0.56
+        for (index, peak) in peaks.enumerated() {
+            let barHeight = max(3, size.height * CGFloat(peak))
+            let rect = CGRect(x: CGFloat(index) * slot + (slot - barWidth) / 2, y: (size.height - barHeight) / 2, width: barWidth, height: barHeight)
+            let played = (Double(index) + 0.5) / Double(peaks.count) <= shown
+            context.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(played ? .accentColor : Color.primary.opacity(0.22)))
+        }
+    }
+
+    private func drawLine(shown: Double, in context: inout GraphicsContext, size: CGSize) {
+        let thickness: CGFloat = 4
+        let y = size.height / 2
+        let track = CGRect(x: 0, y: y - thickness / 2, width: size.width, height: thickness)
+        context.fill(Path(roundedRect: track, cornerRadius: thickness / 2), with: .color(Color.primary.opacity(0.22)))
+        let done = CGRect(x: 0, y: y - thickness / 2, width: size.width * CGFloat(shown), height: thickness)
+        context.fill(Path(roundedRect: done, cornerRadius: thickness / 2), with: .color(.accentColor))
+        let thumb = CGRect(x: size.width * CGFloat(shown) - 7, y: y - 7, width: 14, height: 14)
+        context.fill(Path(ellipseIn: thumb), with: .color(.accentColor))
     }
 }
 

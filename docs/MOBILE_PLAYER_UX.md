@@ -9,7 +9,7 @@ how it was checked, and what is still missing.
 |---|---|---|
 | Artwork, title, artist, favourite | yes | yes |
 | Format badge | codec, bitrate and sample rate from the engine | file extension |
-| Seek bar | bars you tap or drag (`WaveformSeekBar`); VoiceOver/TalkBack see a slider | same (`WaveformSeekBar`), adjustable action |
+| Seek bar | real peaks as bars (plain thin line until they exist); tap or drag; TalkBack sees a slider | same, with an adjustable VoiceOver action |
 | Transport | shuffle, previous, play/pause in a ring, next, repeat (one/all) | same |
 | Queue | shortcut with a count | shortcut with a count |
 | Equalizer | panel over the player: on/off, 12 presets, ten vertical band sliders, preamp, bass, treble | sheet: same controls |
@@ -17,8 +17,21 @@ how it was checked, and what is still missing.
 | Sleep timer | 15/30/45/60 min, stop after track | not built on iOS |
 | Landscape | artwork left, controls centre, shortcut list right | artwork left, controls right |
 
-The bars of the seek bar are a **styled scrubber**: a smooth shape seeded by the track, not the audio's real amplitude.
-With "audio visualizer" off in Android settings the bars are flat.
+## Waveform: real peaks only
+
+The seek bar never draws invented bars. The peaks are the loudest sample in each of 160 slices of the track, computed in
+the background and cached by path, size and modified time; until they exist (or when the file cannot be decoded, or is
+silent) the seek bar is a plain thin line. `PeakAccumulator`, `PeakCodec` and `WaveformKey` live in `shared`
+(`dev.vimivo.audio.waveform`); each platform only decodes:
+
+| Platform | Decoder | Cache |
+|---|---|---|
+| Android | `MediaExtractor` + `MediaCodec` | `cacheDir/waveforms` |
+| iOS | `AVAssetReader` (mono, 8 kHz) | `Caches/waveforms` |
+| Desktop | a second headless libmpv handle (`ao=pcm`, faster than real time) | user cache folder, `waveforms` |
+
+With "audio visualizer" off in Android settings the plain line is used. Desktop draws the peaks faintly behind the
+timeline track for audio files.
 
 ## Video player
 
@@ -45,4 +58,5 @@ text a person loaded in the shared library database (schema v3, table `lyrics`).
 ## Known gaps
 
 - iOS: sleep timer is not built yet; favourite/queue changes are not shared logic (they live in Swift).
+- Peaks of very long files (hours) take as long as decoding them; the plain line shows meanwhile.
 - Android colour controls for video exist in debug builds only and are unproven on a phone (see `ANDROID_COLOUR_CONTROLS.md`).

@@ -323,7 +323,12 @@ private fun FormatBadges(ui: NowPlayingUi) {
 @Composable
 private fun Scrubber(ui: NowPlayingUi) {
     Column(Modifier.fillMaxWidth()) {
-        WaveformSeekBar(ui.player.positionMillis, ui.player.durationMillis, ui.media.id.value, ui.viewModel::seekTo, styled = ui.styledSeekBar)
+        WaveformSeekBar(
+            ui.player.positionMillis,
+            ui.player.durationMillis,
+            ui.player.waveformPeaks.takeIf { ui.styledSeekBar },
+            ui.viewModel::seekTo,
+        )
         TimeLabels(ui.player.positionMillis, ui.player.durationMillis)
     }
 }

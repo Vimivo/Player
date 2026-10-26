@@ -26,6 +26,7 @@ internal data class DesktopApplicationDirectories(
     val database: Path get() = data.resolve("vimivo.sqlite")
     val artwork: Path get() = cache.resolve("artwork")
     val thumbnails: Path get() = cache.resolve("thumbnails")
+    val waveforms: Path get() = cache.resolve("waveforms")
 }
 
 internal object DesktopDirectories {

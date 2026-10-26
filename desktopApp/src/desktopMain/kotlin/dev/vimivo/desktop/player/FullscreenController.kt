@@ -194,6 +194,7 @@ private fun ControllerContent(
             alwaysShowThumb = true,
             modifier = Modifier.fillMaxWidth(),
             preview = preview,
+            peaks = state.waveformPeaks,
         )
         Box(Modifier.fillMaxWidth()) {
             Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {

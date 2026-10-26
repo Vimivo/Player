@@ -55,6 +55,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -65,10 +66,6 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import kotlin.math.abs
-import kotlin.random.Random
-
-private const val BAR_COUNT = 72
-private const val FLAT_BAR = 0.3f
 
 /** Formats a position as m:ss or h:mm:ss. */
 internal fun formatClock(millis: Long): String {
@@ -80,32 +77,18 @@ internal fun formatClock(millis: Long): String {
 }
 
 /**
- * Bar heights for [WaveformSeekBar]: a smooth, repeatable shape seeded by the track, so a track always looks the same.
- * It is a styled scrubber, not the audio's real amplitude.
- */
-internal fun waveformShape(seed: String, count: Int = BAR_COUNT): List<Float> {
-    val random = Random(seed.hashCode())
-    var level = 0.5f
-    return List(count) {
-        level = (level * 0.55f + random.nextFloat() * 0.45f + 0.1f).coerceIn(0.18f, 1f)
-        level
-    }
-}
-
-/**
- * A seek bar drawn as bars; tap or drag to seek. Reads as a slider to accessibility services. With [styled] off the
- * bars are all the same height, for people who turned the visualizer off.
+ * The track's seek bar. With [peaks] (the real loudness of the track, computed in the background) it draws bars; until
+ * they exist, or when the visualizer is off, it is a plain thin line with a thumb. Tap or drag to seek; accessibility
+ * services see a slider either way.
  */
 @Composable
 internal fun WaveformSeekBar(
     positionMillis: Long,
     durationMillis: Long,
-    seed: String,
+    peaks: FloatArray?,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    styled: Boolean = true,
 ) {
-    val shape = remember(seed, styled) { if (styled) waveformShape(seed) else List(BAR_COUNT) { FLAT_BAR } }
     val played = MaterialTheme.colorScheme.primary
     val remaining = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
     var dragFraction by remember { mutableFloatStateOf(-1f) }
@@ -148,19 +131,32 @@ internal fun WaveformSeekBar(
                 }
             },
     ) {
-        val slot = size.width / shape.size
-        val barWidth = slot * 0.56f
-        shape.forEachIndexed { index, height ->
-            val barHeight = size.height * height
-            val x = index * slot + (slot - barWidth) / 2
-            val isPlayed = (index + 0.5f) / shape.size <= fraction
-            drawRoundRect(
-                color = if (isPlayed) played else remaining,
-                topLeft = Offset(x, (size.height - barHeight) / 2),
-                size = Size(barWidth, barHeight),
-                cornerRadius = CornerRadius(barWidth / 2),
-            )
-        }
+        if (peaks == null || peaks.isEmpty()) drawPlainLine(fraction, played, remaining) else drawPeaks(peaks, fraction, played, remaining)
+    }
+}
+
+private fun DrawScope.drawPlainLine(fraction: Float, played: Color, remaining: Color) {
+    val thickness = 4.dp.toPx()
+    val y = size.height / 2
+    val corner = CornerRadius(thickness / 2)
+    drawRoundRect(remaining, Offset(0f, y - thickness / 2), Size(size.width, thickness), corner)
+    drawRoundRect(played, Offset(0f, y - thickness / 2), Size(size.width * fraction, thickness), corner)
+    drawCircle(played, 7.dp.toPx(), Offset(size.width * fraction, y))
+}
+
+private fun DrawScope.drawPeaks(peaks: FloatArray, fraction: Float, played: Color, remaining: Color) {
+    val slot = size.width / peaks.size
+    val barWidth = slot * 0.56f
+    val minimum = 3.dp.toPx()
+    peaks.forEachIndexed { index, peak ->
+        val barHeight = maxOf(minimum, size.height * peak)
+        val x = index * slot + (slot - barWidth) / 2
+        drawRoundRect(
+            color = if ((index + 0.5f) / peaks.size <= fraction) played else remaining,
+            topLeft = Offset(x, (size.height - barHeight) / 2),
+            size = Size(barWidth, barHeight),
+            cornerRadius = CornerRadius(barWidth / 2),
+        )
     }
 }
 

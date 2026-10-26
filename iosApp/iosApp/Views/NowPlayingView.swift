@@ -7,6 +7,7 @@ public struct NowPlayingView: View {
     @State private var showEqualizer = false
     @State private var isFavorite = false
     @State private var showLyrics = false
+    @State private var peaks: [Float]?
     @State private var importingLyrics = false
     @StateObject private var lyrics = LyricsModel()
 
@@ -36,6 +37,7 @@ public struct NowPlayingView: View {
         }
         .onAppear { refreshFavorite(); lyrics.refresh(for: engine.state.currentItem) }
         .onChange(of: engine.state.currentItem?.id) { _ in refreshFavorite(); lyrics.refresh(for: engine.state.currentItem) }
+        .task(id: engine.state.currentItem?.id) { await loadPeaks() }
     }
 
     // MARK: Layouts
@@ -142,7 +144,7 @@ public struct NowPlayingView: View {
         VStack(spacing: 4) {
             WaveformSeekBar(
                 progress: engine.state.progress,
-                seed: engine.state.currentItem?.id ?? "",
+                peaks: peaks,
                 positionMillis: engine.state.positionMillis,
                 durationMillis: engine.state.durationMillis
             ) { fraction in
@@ -233,6 +235,14 @@ public struct NowPlayingView: View {
     private func formatText(for item: MediaItem) -> String? {
         let ext = URL(string: item.uri)?.pathExtension.uppercased() ?? ""
         return ext.isEmpty ? nil : ext
+    }
+
+    /// Reads the real peaks of the current track in the background; the seek bar is a plain line until they arrive.
+    private func loadPeaks() async {
+        peaks = nil
+        guard let item = engine.state.currentItem, item.kind == .audio, let url = URL(string: item.uri) else { return }
+        let loaded = await WaveformLoader.shared.peaks(for: url)
+        if engine.state.currentItem?.id == item.id { peaks = loaded }
     }
 
     private func refreshFavorite() {

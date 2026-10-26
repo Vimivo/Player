@@ -229,16 +229,3 @@ private extension MediaItem {
         )
     }
 }
-
-private extension KotlinByteArray {
-    convenience init(data: Data) {
-        self.init(size: Int32(data.count))
-        for (index, byte) in data.enumerated() { set(index: Int32(index), value: Int8(bitPattern: byte)) }
-    }
-
-    var data: Data {
-        var bytes = Data(count: Int(size))
-        for index in 0..<Int(size) { bytes[index] = UInt8(bitPattern: get(index: Int32(index))) }
-        return bytes
-    }
-}

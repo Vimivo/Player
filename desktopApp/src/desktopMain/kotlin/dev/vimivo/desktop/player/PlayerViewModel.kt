@@ -18,10 +18,12 @@ import dev.vimivo.desktop.diagnostics.VideoPixelSample
 import dev.vimivo.desktop.integration.mpris.MprisService
 import dev.vimivo.desktop.library.DesktopPlaybackStore
 import dev.vimivo.desktop.library.DesktopRecentMediaRepository
+import dev.vimivo.desktop.platform.DesktopDirectories
 import dev.vimivo.desktop.playback.DesktopFullscreenControl
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.MpvPlayerEngine
 import dev.vimivo.desktop.playback.MpvSubtitleFiles
+import dev.vimivo.desktop.playback.MpvWaveform
 import dev.vimivo.desktop.playback.SnapshotPlan
 import dev.vimivo.playback.PlaybackQueueController
 import dev.vimivo.playback.PlaybackStatus
@@ -35,6 +37,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
@@ -58,6 +61,7 @@ internal class PlayerViewModel(
     private val store: DesktopPlaybackStore,
     private val recentMedia: DesktopRecentMediaRepository,
     private val scope: CoroutineScope,
+    private val waveform: MpvWaveform = MpvWaveform(DesktopDirectories.resolve().waveforms),
 ) : AutoCloseable {
     private val local = MutableStateFlow(LocalState())
     private var mediaControls: MprisService? = null
@@ -90,6 +94,7 @@ internal class PlayerViewModel(
             fullscreen = localState.fullscreen,
             mediaInfoVisible = mediaInfo,
             lyrics = localState.lyrics,
+            waveformPeaks = localState.waveformPeaks,
             maxVolume = engine.capabilities.maxVolume,
             presentation = localState.presentation,
             libraryRequest = localState.libraryRequest,
@@ -138,6 +143,7 @@ internal class PlayerViewModel(
         scope.launch { store.observePlayback(engine.state) }
         scope.launch { recordRecentMedia() }
         scope.launch { loadLyricsForCurrentMedia() }
+        scope.launch { loadWaveformForCurrentMedia() }
         scope.launch { clearHudAfterDelay() }
     }
 
@@ -477,6 +483,20 @@ internal class PlayerViewModel(
         }
     }
 
+    /** Computes the real peaks of the current audio file in the background; the timeline is a plain line until then. */
+    private suspend fun loadWaveformForCurrentMedia() {
+        engine.state.distinctUntilChangedBy { it.media?.uri }.collectLatest { playback ->
+            local.update { it.copy(waveformPeaks = null) }
+            val media = playback.media
+            val path = media?.takeIf { it.kind == MediaKind.AUDIO && it.uri.startsWith("file:") }
+                ?.let { runCatching { File(URI(it.uri)).path }.getOrNull() }
+            if (path != null) {
+                val peaks = waveform.peaks(path)
+                local.update { if (engine.state.value.media?.uri == media.uri) it.copy(waveformPeaks = peaks) else it }
+            }
+        }
+    }
+
     private suspend fun loadLyricsForCurrentMedia() {
         engine.state.distinctUntilChangedBy { it.media?.uri }.collect { playback ->
             val lyrics = playback.media?.uri?.let { uri -> withContext(Dispatchers.IO) { sidecarLyrics(uri) } }
@@ -507,6 +527,7 @@ internal class PlayerViewModel(
     private data class LocalState(
         val fullscreen: Boolean = false,
         val lyrics: LyricsDocument? = null,
+        val waveformPeaks: FloatArray? = null,
         val presentation: PlayerPresentation = PlayerPresentation.LIBRARY,
         val loadingTitle: String? = null,
         val loadingUri: String? = null,

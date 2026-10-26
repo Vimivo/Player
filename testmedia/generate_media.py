@@ -153,6 +153,12 @@ run([
     os.path.join(MEDIA_DIR, "hdr10_tiny.mp4")
 ])
 
+# 8c3. Four seconds of a 440 Hz tone, loud for the first two seconds and ten times quieter after: waveform peaks
+run([
+    "ffmpeg", "-y", "-f", "lavfi", "-i", "aevalsrc='sin(2*PI*440*t)*if(lt(t,2),0.8,0.08)':s=44100:d=4:c=mono",
+    "-c:a", "flac", os.path.join(MEDIA_DIR, "peaks_loud_then_quiet.flac")
+])
+
 # 8d. Letterboxed clip (320x180 picture padded to 320x240 with 30 black rows above and below): black-bar detection
 run([
     "ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=24:duration=3",

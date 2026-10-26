@@ -73,10 +73,11 @@ val androidModule = module {
     single { AndroidSnapshotStore(get()) }
     single { SleepTimerController(get()) }
     single { LyricsRepository(get()) }
+    single { dev.vimivo.platform.android.playback.AndroidWaveformRepository(get()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     viewModel { HomeViewModel(get()) }
     viewModel { LibraryViewModel(get(), get()) }
-    viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { NetworkViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { PlaylistViewModel(get(), get(), get()) }

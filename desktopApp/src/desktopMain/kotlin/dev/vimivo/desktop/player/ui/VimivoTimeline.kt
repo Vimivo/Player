@@ -93,6 +93,7 @@ internal fun VimivoTimeline(
     alwaysShowThumb: Boolean = false,
     preview: (suspend (positionMillis: Long) -> ImageBitmap?)? = null,
     onAbChange: (ABRepeatRange) -> Unit = {},
+    peaks: FloatArray? = null,
 ) {
     val duration = playback.durationMillis?.takeIf { it > 0 }
     val clock = remember { PlaybackClock() }
@@ -199,6 +200,7 @@ internal fun VimivoTimeline(
                     trackHeight = track.toPx(),
                     positionMillis = scrubMillis?.toFloat() ?: clock.positionAt(System.nanoTime()).toFloat(),
                     showThumb = alwaysShowThumb || hovered || scrubMillis != null,
+                    peaks = peaks,
                 ),
             )
         }
@@ -239,12 +241,34 @@ private class TimelineFrame(
     val trackHeight: Float,
     val positionMillis: Float,
     val showThumb: Boolean,
+    val peaks: FloatArray? = null,
 )
+
+/** The real loudness of an audio file as faint bars behind the track; the part already played is tinted. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPeaks(peaks: FloatArray, frame: TimelineFrame) {
+    val total = frame.duration?.toFloat() ?: return
+    val playedFraction = (frame.positionMillis / total).coerceIn(0f, 1f)
+    val slot = size.width / peaks.size
+    val barWidth = (slot * 0.6f).coerceAtLeast(1f)
+    val maxHeight = size.height * PEAK_HEIGHT_FRACTION
+    peaks.forEachIndexed { index, peak ->
+        val height = maxOf(2f, maxHeight * peak)
+        val played = (index + 0.5f) / peaks.size <= playedFraction
+        val colour = (if (played) PlayerPalette.trackPlayed else PlayerPalette.trackRemaining)
+            .copy(alpha = PEAK_ALPHA)
+        drawRect(
+            colour,
+            Offset(index * slot + (slot - barWidth) / 2, (size.height - height) / 2),
+            Size(barWidth, height),
+        )
+    }
+}
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTimeline(frame: TimelineFrame) {
     val trackHeight = frame.trackHeight
     val top = (size.height - trackHeight) / 2
     val radius = CornerRadius(trackHeight / 2)
+    frame.peaks?.let { drawPeaks(it, frame) }
     drawRoundRect(PlayerPalette.trackRemaining, Offset(0f, top), Size(size.width, trackHeight), radius)
     val total = frame.duration?.toFloat() ?: return
     fun x(millis: Long) = (millis / total).coerceIn(0f, 1f) * size.width
@@ -430,6 +454,8 @@ internal fun playerClock(millis: Long): String {
 }
 
 private val HIT_HEIGHT = 20.dp
+private const val PEAK_HEIGHT_FRACTION = 0.9f
+private const val PEAK_ALPHA = 0.5f
 private val AB_HIT_RADIUS = 8.dp
 private const val MIN_REGION_PX = 2f
 private const val AB_CAP_WIDTH_PX = 2f
