@@ -21,6 +21,8 @@ import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.domain.repository.OrganizationRepository
+import dev.vimivo.playback.SnapshotFormat
+import dev.vimivo.playback.SnapshotNaming
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
@@ -56,6 +58,7 @@ data class PlaybackUiState(
     val subtitleTracks: List<TrackInfo> = emptyList(),
     val externalSubtitleCandidates: List<ExternalSubtitle> = emptyList(),
     val trackErrorMessage: String? = null,
+    val snapshotMessage: String? = null,
     val bookmarks: List<Bookmark> = emptyList(),
     val lyrics: LyricsDocument? = null,
     val currentLyricIndex: Int = -1,
@@ -71,6 +74,7 @@ class PlaybackViewModel(
     private val organization: OrganizationRepository,
     private val sleepTimer: SleepTimerController,
     private val lyricsRepository: LyricsRepository,
+    private val snapshots: AndroidSnapshotStore,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(PlaybackUiState())
     private var player: Player? = null
@@ -219,6 +223,25 @@ class PlaybackViewModel(
     }
     fun loadExternalSubtitle(subtitle: ExternalSubtitle) = reportTrackResult(diagnostics.addExternalSubtitle(subtitle))
     fun clearTrackError() { mutableState.value = state.value.copy(trackErrorMessage = null) }
+
+    /** Steps one frame while paused; the engine decides how (exact seek on Media3, `frame-step` on libmpv). */
+    fun stepFrame(forward: Boolean) = reportTrackResult(diagnostics.frameStep(forward))
+
+    /** Saves the frame on screen as a PNG in Pictures/Vimivo and says where it went (or why it could not). */
+    fun saveSnapshot() {
+        val title = state.value.current?.mediaMetadata?.title?.toString()
+        val position = state.value.positionMillis
+        viewModelScope.launch {
+            val name = SnapshotNaming.fileName(title, position, System.currentTimeMillis(), SnapshotFormat.PNG)
+            val saved = diagnostics.captureFrame().mapCatching { bitmap ->
+                snapshots.save(bitmap, name, SnapshotFormat.PNG).getOrThrow()
+            }
+            mutableState.value = state.value.copy(
+                trackErrorMessage = saved.exceptionOrNull()?.message,
+                snapshotMessage = saved.getOrNull()?.let { "Snapshot saved to Pictures/Vimivo" },
+            )
+        }
+    }
     fun toggleFavorite() {
         val id = state.value.current?.mediaId ?: return
         val favorite = !state.value.isFavorite
@@ -279,6 +302,7 @@ class PlaybackViewModel(
             subtitleTracks = previous.subtitleTracks,
             externalSubtitleCandidates = previous.externalSubtitleCandidates,
             trackErrorMessage = previous.trackErrorMessage,
+            snapshotMessage = previous.snapshotMessage,
             bookmarks = previous.bookmarks,
             lyrics = previous.lyrics.takeIf { previous.current?.mediaId == player.currentMediaItem?.mediaId },
             currentLyricIndex = previous.lyrics.takeIf {

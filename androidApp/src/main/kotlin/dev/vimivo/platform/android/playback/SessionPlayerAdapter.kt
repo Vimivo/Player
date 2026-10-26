@@ -11,7 +11,6 @@
 package dev.vimivo.platform.android.playback
 
 import android.os.Looper
-import android.view.Surface
 import android.view.SurfaceHolder
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -271,7 +270,7 @@ class SessionPlayerAdapter(
     }
 
     override fun handleClearVideoOutput(videoOutput: Any?): ListenableFuture<*> = done().also {
-        (manager.activeEngine.value as? Media3PlayerEngine)?.player?.clearVideoSurface()
+        (manager.activeEngine.value as? Media3PlayerEngine)?.video?.clear()
         (manager.activeEngine.value as? LibmpvPlayerEngine)?.clearVideoSurface()
         this.videoOutput = null
         attachedVideoEngine = null
@@ -282,10 +281,7 @@ class SessionPlayerAdapter(
         val engine = manager.activeEngine.value
         if (output == null || engine == null || attachedVideoEngine === engine) return
         when (engine) {
-            is Media3PlayerEngine -> when (output) {
-                is Surface -> engine.player.setVideoSurface(output)
-                is SurfaceHolder -> engine.player.setVideoSurfaceHolder(output)
-            }
+            is Media3PlayerEngine -> engine.video.attach(output)
             is LibmpvPlayerEngine -> if (output is SurfaceHolder) engine.setVideoSurfaceHolder(output)
             else -> return
         }

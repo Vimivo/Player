@@ -18,6 +18,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
@@ -51,6 +52,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.roundToLong
 import dev.vimivo.core.model.MediaItem as VimivoMediaItem
 
 class Media3PlayerEngine(
@@ -201,8 +203,28 @@ class Media3PlayerEngine(
 
     override fun seekTo(positionMillis: Long, exact: Boolean): Result<Unit> = command {
         require(positionMillis >= 0) { "Position cannot be negative" }
+        // A tap or a step needs the frame asked for; scrubbing is happy with the nearest keyframe (much faster).
+        player.setSeekParameters(if (exact) SeekParameters.EXACT else SeekParameters.CLOSEST_SYNC)
         player.seekTo(positionMillis)
     }
+
+    /**
+     * ExoPlayer has no frame-step call, so a step is an exact seek by one frame's duration while paused: the frame on
+     * screen at the new position is the next (or previous) one. The duration comes from the track's frame rate.
+     */
+    override fun frameStep(forward: Boolean): Result<Unit> = command {
+        val reported = checkNotNull(player.videoFormat) { "There is no video to step through" }.frameRate
+        val frameRate = reported.takeIf { it > 0f && it != Format.NO_VALUE.toFloat() } ?: DEFAULT_FRAME_RATE
+        val frameMillis = 1_000f / frameRate
+        player.pause()
+        player.setSeekParameters(SeekParameters.EXACT)
+        val duration = player.duration.takeIf { it != C.TIME_UNSET } ?: Long.MAX_VALUE
+        val step = if (forward) frameMillis else -frameMillis
+        player.seekTo((player.currentPosition + step).roundToLong().coerceIn(0, duration))
+    }
+
+    /** The video output the session attaches; also the source of snapshots. */
+    val video = Media3VideoOutput(player)
 
     override fun setHardwareAccelerationMode(mode: HardwareAccelerationMode): Result<Unit> = runCatching {
         // Media3 delegates to platform MediaCodec which selects hardware or software decoders
@@ -400,6 +422,7 @@ class Media3PlayerEngine(
 
     companion object {
         private const val POSITION_UPDATE_MILLIS = 250L
+        private const val DEFAULT_FRAME_RATE = 30f
         private val FALLBACK_ERRORS = setOf(
             PlaybackErrorCode.UNSUPPORTED_CONTAINER,
             PlaybackErrorCode.UNSUPPORTED_CODEC,
@@ -429,6 +452,8 @@ class Media3PlayerEngine(
             hdr = true,
             subtitleAppearance = true,
             subtitlePosition = true,
+            frameStepping = true,
+            screenshots = true,
             maxVolume = AndroidAudioEnhancementController.MAX_BOOST,
             audioEnhancements = AndroidAudioEnhancementController.CAPABILITIES,
         )

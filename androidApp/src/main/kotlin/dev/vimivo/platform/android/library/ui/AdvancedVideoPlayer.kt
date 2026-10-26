@@ -1066,6 +1066,17 @@ private fun GeneralSection(
             FilterChip(selected = value == aspect, onClick = { onAspect(value) }, label = { Text(value.label) })
         }
     }
+    if (player.capabilities?.frameStepping == true || player.capabilities?.screenshots == true) {
+        MenuHeading(Icons.Outlined.Info, "Frames")
+        if (player.capabilities?.frameStepping == true) {
+            SettingsRow(Icons.Outlined.Repeat, "Previous frame", onClick = { viewModel.stepFrame(false) })
+            SettingsRow(Icons.Outlined.Repeat, "Next frame", onClick = { viewModel.stepFrame(true) })
+        }
+        if (player.capabilities?.screenshots == true) {
+            SettingsRow(Icons.Outlined.Info, "Save snapshot", "PNG in Pictures/Vimivo", onClick = viewModel::saveSnapshot)
+        }
+        player.snapshotMessage?.let { Text(it, Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.primary) }
+    }
     MenuHeading(Icons.Outlined.FitScreen, "Gesture sensitivity")
     Slider(settings.videoGestureSensitivity, onSensitivity, valueRange = 0.5f..2f, modifier = Modifier.padding(horizontal = 20.dp))
     MenuHeading(Icons.Outlined.Repeat, "A–B repeat")

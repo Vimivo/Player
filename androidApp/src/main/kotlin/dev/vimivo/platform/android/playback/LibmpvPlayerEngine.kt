@@ -129,6 +129,20 @@ class LibmpvPlayerEngine(
         command("seek", seconds(positionMillis), if (exact) "absolute+exact" else "absolute+keyframes")
     }
 
+    /** libmpv's own frame stepping; it leaves playback paused. */
+    override fun frameStep(forward: Boolean): Result<Unit> = runCatching {
+        checkOpen()
+        command(if (forward) "frame-step" else "frame-back-step")
+    }
+
+    /** The frame on screen as a bitmap at the video's own size; fails when nothing is being shown. */
+    suspend fun captureFrame(): Result<android.graphics.Bitmap> {
+        val surface = synchronized(lock) { surfaceHolder?.surface }
+            ?: return Result.failure(IllegalStateException("There is no video on screen"))
+        val picture = mutableState.value.videoTracks.firstOrNull { it.isSelected }
+        return SurfaceSnapshot.capture(surface, picture?.width ?: 0, picture?.height ?: 0)
+    }
+
     override fun setPlaybackSpeed(speed: Float): Result<Unit> = runCatching {
         require(speed in capabilities.supportedSpeedRange) { "Playback speed is outside the supported range" }
         setProperty("speed", speed.toString())
@@ -462,6 +476,8 @@ class LibmpvPlayerEngine(
             hdr = true,
             subtitleDelay = true,
             audioDelay = true,
+            frameStepping = true,
+            screenshots = true,
             audioEnhancements = AudioEnhancementCapabilities(
                 pitchPreservation = true,
                 limitation = "The fallback engine plays without Vimivo's system equalizer. Effects are disabled " +

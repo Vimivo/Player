@@ -2,6 +2,7 @@
 
 package dev.vimivo.platform.android.playback
 
+import android.graphics.Bitmap
 import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.playback.PlaybackState
@@ -63,6 +64,16 @@ class PlaybackDiagnostics {
     fun setVolume(volume: Float): Result<Unit> =
         manager?.setVolume(volume.coerceIn(0f, AndroidAudioEnhancementController.MAX_BOOST))
             ?: Result.failure(IllegalStateException("Playback service is unavailable"))
+
+    fun frameStep(forward: Boolean): Result<Unit> = manager?.activeEngine?.value?.frameStep(forward)
+        ?: Result.failure(IllegalStateException("Playback service is unavailable"))
+
+    /** The frame on screen, from whichever engine is showing it. */
+    suspend fun captureFrame(): Result<Bitmap> = when (val engine = manager?.activeEngine?.value) {
+        is Media3PlayerEngine -> engine.video.captureFrame()
+        is LibmpvPlayerEngine -> engine.captureFrame()
+        else -> Result.failure(IllegalStateException("There is no video on screen"))
+    }
 
     fun detach() {
         manager = null
