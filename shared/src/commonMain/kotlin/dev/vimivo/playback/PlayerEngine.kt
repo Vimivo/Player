@@ -203,6 +203,16 @@ interface PlayerEngine : AutoCloseable {
     val audioEnhancementState: StateFlow<AudioEnhancementState>
 
     fun supportFor(media: MediaItem): SupportLevel
+
+    /**
+     * Tells the engine which item follows the current one so it can start it without a gap (null clears it). When the
+     * engine moves on by itself, [state] simply shows the prepared item as the current media, with no `Completed`
+     * state in between. Engines that cannot do this keep the default, a failure the caller treats as "not
+     * prepared": the queue then opens the next item itself once the current one completes.
+     */
+    fun prepareNext(media: MediaItem?): Result<Unit> =
+        Result.failure(UnsupportedOperationException("This engine cannot prepare the next item"))
+
     suspend fun open(media: MediaItem, startPositionMillis: Long = 0): Result<Unit>
     fun play(): Result<Unit>
     fun pause(): Result<Unit>

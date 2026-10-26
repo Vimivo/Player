@@ -49,7 +49,7 @@ class MpvLiveEngineTest {
             val external = engine.state.value.subtitleTracks.filter { it.origin == TrackOrigin.EXTERNAL }
             assertEquals(listOf("en", "fr"), external.mapNotNull { it.language }.sorted(), "got $external")
 
-            val dropped = assertNotNull(MpvPlayerEngine.externalSubtitleFor(File(folder, "unrelated.srt")))
+            val dropped = assertNotNull(MpvSubtitleFiles.forFile(File(folder, "unrelated.srt")))
             engine.addExternalSubtitle(dropped).getOrThrow()
             awaitState(engine) { it.externalSubtitleCount() == EXPECTED_AFTER_DROP }
         }
@@ -66,8 +66,8 @@ class MpvLiveEngineTest {
 
     @Test
     fun recognisesOnlySubtitleFilesAsDroppable() {
-        assertEquals("en", MpvPlayerEngine.externalSubtitleFor(File("Movie.en.srt"))?.language)
-        assertNull(MpvPlayerEngine.externalSubtitleFor(File("Movie.mkv")))
+        assertEquals("en", MpvSubtitleFiles.forFile(File("Movie.en.srt"))?.language)
+        assertNull(MpvSubtitleFiles.forFile(File("Movie.mkv")))
     }
 
     private fun PlaybackState.externalSubtitleCount() = subtitleTracks.count { it.origin == TrackOrigin.EXTERNAL }

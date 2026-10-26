@@ -11,13 +11,13 @@ class DesktopVideoRendererTest {
 
     @Test
     fun capabilityReportingReflectsWindowsAndLinuxNativeVideoSupport() {
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.WINDOWS).localVideo)
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.WINDOWS).hdr)
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.WINDOWS).localAudio)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.WINDOWS).localVideo)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.WINDOWS).hdr)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.WINDOWS).localAudio)
 
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX).localVideo)
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX).hdr)
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX).localAudio)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.LINUX).localVideo)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.LINUX).hdr)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.LINUX).localAudio)
     }
 
     @Test

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import dev.vimivo.desktop.DesktopBookmarksPanel
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.playback.MpvSubtitleFiles
 import dev.vimivo.desktop.player.PlayerIntent
 import dev.vimivo.desktop.player.PlayerPanel
 import dev.vimivo.desktop.player.PlayerState
@@ -157,7 +158,7 @@ private fun SubtitlesTab(playback: PlaybackState, engine: MpvPlayerEngine, comma
     }
     PanelRow("File") {
         PanelButton("Load subtitle file…", Modifier.fillMaxWidth()) {
-            chooseSubtitleFile()?.let(MpvPlayerEngine::externalSubtitleFor)?.let { subtitle ->
+            chooseSubtitleFile()?.let(MpvSubtitleFiles::forFile)?.let { subtitle ->
                 commands.perform("Load subtitle") { engine.addExternalSubtitle(subtitle) }
             }
         }
@@ -293,7 +294,7 @@ internal fun ColourSlider(label: String, value: Int, onChange: (Int) -> Unit) {
 
 private fun chooseSubtitleFile(): File? {
     val dialog = FileDialog(null as Frame?, "Open Subtitle File", FileDialog.LOAD)
-    dialog.setFilenameFilter { _, name -> File(name).extension.lowercase() in MpvPlayerEngine.SUBTITLE_EXTENSIONS }
+    dialog.setFilenameFilter { _, name -> File(name).extension.lowercase() in MpvSubtitleFiles.EXTENSIONS }
     dialog.isVisible = true
     return dialog.files?.firstOrNull() ?: dialog.file?.let { File(dialog.directory, it) }
 }

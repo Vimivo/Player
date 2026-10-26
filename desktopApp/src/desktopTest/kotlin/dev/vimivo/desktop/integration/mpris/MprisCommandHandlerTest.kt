@@ -4,7 +4,7 @@ import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.desktop.platform.DesktopPlatform
-import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.playback.MpvCapabilities
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.PlaybackQueueState
@@ -128,7 +128,7 @@ class MprisCommandHandlerTest {
     private class RecordingEngine(initial: PlaybackState) : PlayerEngine {
         val calls = mutableListOf<String>()
         override val id = EngineId.MPV
-        override val capabilities = MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX)
+        override val capabilities = MpvCapabilities.forPlatform(DesktopPlatform.LINUX)
         override val state = MutableStateFlow(initial).asStateFlow()
         override val audioEnhancementState =
             MutableStateFlow(AudioEnhancementState(capabilities.audioEnhancements)).asStateFlow()

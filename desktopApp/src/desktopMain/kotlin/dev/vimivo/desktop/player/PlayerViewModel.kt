@@ -19,6 +19,7 @@ import dev.vimivo.desktop.library.DesktopRecentMediaRepository
 import dev.vimivo.desktop.playback.DesktopFullscreenControl
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.playback.MpvSubtitleFiles
 import dev.vimivo.desktop.playback.SnapshotPlan
 import dev.vimivo.playback.PlaybackQueueController
 import dev.vimivo.playback.PlaybackStatus
@@ -350,7 +351,7 @@ internal class PlayerViewModel(
     /** Subtitle files dropped or opened while something plays attach to it instead of replacing it. */
     private fun attachSubtitles(files: List<File>) {
         if (engine.state.value.media == null) return
-        files.mapNotNull(MpvPlayerEngine::externalSubtitleFor).forEach { subtitle ->
+        files.mapNotNull(MpvSubtitleFiles::forFile).forEach { subtitle ->
             engine.addExternalSubtitle(subtitle)
                 .onSuccess { commands.report(HudMessage.SubtitleLoaded(subtitle.label)) }
                 .onFailure { commands.report(HudMessage.SubtitleFailed(subtitle.label)) }

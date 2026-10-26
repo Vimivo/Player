@@ -245,7 +245,7 @@ class DesktopPlayerCommandsTest {
 
     @Test
     fun mpvAdvertisesTwoHundredPercentVolume() {
-        assertEquals(2f, MpvPlayerEngine.capabilitiesFor(dev.vimivo.desktop.platform.DesktopPlatform.LINUX).maxVolume)
+        assertEquals(2f, MpvCapabilities.forPlatform(dev.vimivo.desktop.platform.DesktopPlatform.LINUX).maxVolume)
     }
 
     private fun loaded(position: Long = 0, duration: Long = 120_000, volume: Float = 1f, speed: Float = 1f) = PlaybackState(
@@ -268,7 +268,7 @@ class DesktopPlayerCommandsTest {
         private val mutableState = MutableStateFlow(initial)
         override val id = EngineId.MPV
         override val state = mutableState.asStateFlow()
-        override val capabilities = MpvPlayerEngine.capabilitiesFor(dev.vimivo.desktop.platform.DesktopPlatform.MACOS)
+        override val capabilities = MpvCapabilities.forPlatform(dev.vimivo.desktop.platform.DesktopPlatform.MACOS)
         override val audioEnhancementState = MutableStateFlow(AudioEnhancementState(capabilities.audioEnhancements)).asStateFlow()
 
         private fun record(call: String): Result<Unit> = Result.success(Unit).also { calls += call }
