@@ -18,13 +18,15 @@ import kotlin.test.assertTrue
 /**
  * V1 #8 with the real libmpv: the three hardware-decoding choices (Automatic, Software only, Hardware preferred) reach
  * the decoder, and diagnostics report which one is running. Software-only is checked everywhere; a hardware decoder is
- * required on macOS (VideoToolbox is always there) and wherever `VIMIVO_EXPECT_HWDEC=1` says the host has one. Hosts
- * without a GPU (CI runners) cannot prove hardware, so there the hardware cases only check that playback still works.
+ * required on a real Mac (VideoToolbox) and wherever `VIMIVO_EXPECT_HWDEC=1` says the host has one. Virtual machines
+ * (CI runners) cannot prove hardware, so there the hardware cases only check that playback still works.
  */
 class MpvHardwareDecodingLiveTest {
     private val clip = File("../testmedia/video_landscape.mp4").absoluteFile
-    private val expectHardware =
-        System.getProperty("os.name").startsWith("Mac") || System.getenv("VIMIVO_EXPECT_HWDEC") == "1"
+
+    // A Mac has VideoToolbox, except the virtual machines CI runs on; elsewhere the host has to say it has a GPU.
+    private val expectHardware = System.getenv("VIMIVO_EXPECT_HWDEC") == "1" ||
+        (System.getProperty("os.name").startsWith("Mac") && System.getenv("CI") == null)
 
     @Test
     fun softwareOnlyDecodesOnTheCpu() = withDecoding(HardwareAccelerationMode.SOFTWARE) { engine ->
