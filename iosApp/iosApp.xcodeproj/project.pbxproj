@@ -95,6 +95,7 @@
 		1346 /* SleepTimerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2346 /* SleepTimerModel.swift */; };
 		1347 /* SleepTimerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2347 /* SleepTimerSheet.swift */; };
 		1348 /* SleepTimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2348 /* SleepTimerTests.swift */; };
+		1349 /* QueueEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2349 /* QueueEngineTests.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -203,6 +204,7 @@
 		2346 /* SleepTimerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerModel.swift; sourceTree = "<group>"; };
 		2347 /* SleepTimerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerSheet.swift; sourceTree = "<group>"; };
 		2348 /* SleepTimerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerTests.swift; sourceTree = "<group>"; };
+		2349 /* QueueEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueEngineTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -345,6 +347,7 @@
 		4012 /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2349 /* QueueEngineTests.swift */,
 				2348 /* SleepTimerTests.swift */,
 				2345 /* WaveformLoaderTests.swift */,
 				2343 /* peaks_loud_then_quiet.flac */,
@@ -620,6 +623,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1349 /* QueueEngineTests.swift in Sources */,
 				1348 /* SleepTimerTests.swift in Sources */,
 				1345 /* WaveformLoaderTests.swift in Sources */,
 				1342 /* LyricsModelTests.swift in Sources */,

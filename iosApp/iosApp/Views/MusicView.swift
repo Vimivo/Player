@@ -169,7 +169,7 @@ public struct MusicView: View {
                         isFavorite: favorites.contains(item.id),
                         // Starts the visible list at this song; the rest continues in on-screen order.
                         onPlay: { engine.playQueue(items: filteredItems, startIndex: filteredItems.firstIndex(of: item) ?? 0) },
-                        onPlayNext: { engine.queue.insert(item, at: min(engine.currentIndex + 1, engine.queue.count)) },
+                        onPlayNext: { engine.playNextInQueue(item) },
                         onAddToQueue: { engine.appendToQueue(item: item) },
                         onToggleFavorite: { toggleFavorite(item) },
                         onDelete: { deleteItem(item) }

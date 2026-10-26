@@ -20,8 +20,7 @@ final class ContinuousPlaybackTests: XCTestCase {
     func testUnshuffleRestoresOriginalOrderAndKeepsCurrentItem() {
         let engine = AVPlayerPlaybackEngine()
         let items = (1...6).map { item("missing-\($0).mp4", folder: "/nonexistent") }
-        engine.queue = items
-        engine.currentIndex = 2
+        engine.replaceQueue(items, currentIndex: 2)
 
         engine.toggleShuffle()
         XCTAssertEqual(engine.queue.first?.id, items[2].id)

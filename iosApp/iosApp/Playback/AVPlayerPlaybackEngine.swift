@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import VimivoShared
 import AVKit
 import Combine
 import UIKit
@@ -10,21 +11,12 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     @Published public internal(set) var state = PlaybackState()
     /// The title of the last item skipped because it could not be played, for a brief notice in the UI.
     @Published public var skippedItemTitle: String?
-    private var unshuffledQueue: [MediaItem]?
     private var consecutiveFailures = 0
-    @Published public var queue: [MediaItem] = [] {
-        didSet {
-            persistQueue()
-            prepareFollowingItem()
-        }
-    }
-    @Published public var currentIndex: Int = 0 {
-        didSet {
-            persistQueue()
-            prepareFollowingItem()
-        }
-    }
-    private var isRestoringQueue = false
+    /// The order, position, shuffle and repeat of the queue are the shared module's; the engine maps its ids to items.
+    let queueModel = PlayQueue()
+    private var itemsById: [String: MediaItem] = [:]
+    @Published public private(set) var queue: [MediaItem] = []
+    @Published public private(set) var currentIndex: Int = 0
 
     /// An `AVQueuePlayer`, so the next audio item can be loaded behind the current one and start without a gap.
     public let player = AVQueuePlayer()
@@ -92,56 +84,88 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     // MARK: - Queue & Playback Management
 
     public func play(item: MediaItem) {
-        if let idx = queue.firstIndex(where: { $0.id == item.id }) {
-            currentIndex = idx
-        } else {
-            queue = [item]
-            currentIndex = 0
+        if !queueModel.jumpToId(id: item.id) {
+            replaceQueue([item], currentIndex: 0)
         }
+        syncQueue()
         loadItem(item)
     }
 
     public func playQueue(items: [MediaItem], startIndex: Int = 0) {
         guard !items.isEmpty else { return }
-        queue = items
-        currentIndex = min(max(startIndex, 0), items.count - 1)
+        replaceQueue(items, currentIndex: startIndex)
         loadItem(queue[currentIndex])
     }
 
+    /// Replaces the queue without starting anything; a shuffled queue is shuffled again behind the chosen item.
+    func replaceQueue(_ items: [MediaItem], currentIndex start: Int) {
+        items.forEach { itemsById[$0.id] = $0 }
+        queueModel.replace(ids: items.map(\.id), startIndex: Int32(start))
+        syncQueue()
+    }
+
     public func appendToQueue(item: MediaItem) {
-        queue.append(item)
+        itemsById[item.id] = item
+        queueModel.append(id: item.id)
+        syncQueue()
         if state.currentItem == nil {
-            currentIndex = 0
-            loadItem(item)
+            _ = queueModel.jumpTo(index: 0)
+            syncQueue()
+            loadItem(queue[currentIndex])
         }
+    }
+
+    /// Queues [item] right behind the one that is playing.
+    public func playNextInQueue(_ item: MediaItem) {
+        itemsById[item.id] = item
+        queueModel.insertNext(id: item.id)
+        syncQueue()
+    }
+
+    /// Removes queued items; the one that is playing stays.
+    public func removeFromQueue(atOffsets offsets: IndexSet) {
+        for index in offsets.sorted(by: >) where index != currentIndex {
+            _ = queueModel.remove(index: Int32(index))
+        }
+        syncQueue()
+    }
+
+    /// Moves a queued item to a new position; the one that is playing keeps playing.
+    public func moveInQueue(fromOffsets offsets: IndexSet, toOffset destination: Int) {
+        guard let from = offsets.first else { return }
+        queueModel.move(from: Int32(from), to: Int32(destination > from ? destination - 1 : destination))
+        syncQueue()
     }
 
     public func playNext() {
-        guard !queue.isEmpty else { return }
-        if currentIndex + 1 < queue.count {
-            currentIndex += 1
-            loadItem(queue[currentIndex])
-        } else if state.repeatMode == .all {
-            currentIndex = 0
-            loadItem(queue[currentIndex])
-        } else {
-            stop()
+        guard let index = queueModel.next(automatic: false)?.intValue else {
+            if queueModel.size > 0 { stop() }
+            return
         }
+        syncQueue()
+        loadItem(queue[index])
     }
 
     public func playPrevious() {
-        guard !queue.isEmpty else { return }
-        if state.positionMillis > 3000 {
+        guard queueModel.size > 0 else { return }
+        let moved = Int(queueModel.previous(positionMillis: state.positionMillis, restartAfterMillis: PlayQueue.companion.DEFAULT_RESTART_AFTER_MILLIS))
+        if moved == Int(PlayQueue.companion.RESTART) {
             seek(toMillis: 0)
-        } else if currentIndex > 0 {
-            currentIndex -= 1
-            loadItem(queue[currentIndex])
-        } else if state.repeatMode == .all {
-            currentIndex = queue.count - 1
-            loadItem(queue[currentIndex])
         } else {
-            seek(toMillis: 0)
+            syncQueue()
+            loadItem(queue[moved])
         }
+    }
+
+    /// Copies the shared queue's order and position into the published values the UI reads, then saves it and queues
+    /// the song that follows for a gapless start.
+    func syncQueue(persist: Bool = true) {
+        queue = queueModel.ids.compactMap { itemsById[$0] }
+        currentIndex = Int(queueModel.currentIndex)
+        state.isShuffled = queueModel.shuffled
+        state.repeatMode = RepeatMode(queueModel.repeat)
+        if persist { persistQueue() }
+        prepareFollowingItem()
     }
 
     public func resume() {
@@ -213,23 +237,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
 
     /// Shuffles the remaining items behind the current one; turning it off restores the original order.
     public func toggleShuffle() {
-        state.isShuffled.toggle()
-        defer { prepareFollowingItem() }
-        guard !queue.isEmpty else { return }
-        let current = queue[currentIndex]
-        if state.isShuffled {
-            unshuffledQueue = queue
-            var remaining = queue
-            remaining.remove(at: currentIndex)
-            remaining.shuffle()
-            queue = [current] + remaining
-            currentIndex = 0
-        } else if let original = unshuffledQueue {
-            // Items added while shuffled are kept, after the original order.
-            queue = original + queue.filter { item in !original.contains { $0.id == item.id } }
-            currentIndex = queue.firstIndex { $0.id == current.id } ?? 0
-            unshuffledQueue = nil
-        }
+        queueModel.toggleShuffle()
+        syncQueue()
     }
 
     /// An unplayable item never stops the queue: it is reported and the next item starts. Once every item
@@ -240,19 +249,15 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         updateNowPlaying()
         consecutiveFailures += 1
         let skippedTitle = state.currentItem?.title ?? ""
-        guard consecutiveFailures < queue.count, currentIndex + 1 < queue.count || state.repeatMode == .all else { return }
+        guard let index = queueModel.skipFailed(consecutiveFailures: Int32(consecutiveFailures))?.intValue else { return }
         skippedItemTitle = skippedTitle
-        currentIndex = currentIndex + 1 < queue.count ? currentIndex + 1 : 0
-        loadItem(queue[currentIndex])
+        syncQueue()
+        loadItem(queue[index])
     }
 
     public func cycleRepeatMode() {
-        switch state.repeatMode {
-        case .off: state.repeatMode = .all
-        case .all: state.repeatMode = .one
-        case .one: state.repeatMode = .off
-        }
-        prepareFollowingItem()
+        queueModel.cycleRepeat()
+        syncQueue()
     }
 
     // MARK: - Internal Loading
@@ -426,7 +431,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             }
             // With the next item queued the player moves on by itself and `advanceToPrepared` follows it.
             if self.preparedNext != nil { return }
-            if self.state.repeatMode == .one {
+            if self.queueModel.repeat == .one {
                 self.seek(toMillis: 0)
                 self.resume()
             } else {
@@ -467,8 +472,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     // MARK: - Queue persistence
 
     private func persistQueue() {
-        guard !isRestoringQueue else { return }
-        IOSDatabase.shared.saveQueue(mediaIds: queue.map(\.id), currentIndex: currentIndex)
+        let snapshot = queueModel.snapshot()
+        IOSDatabase.shared.saveQueue(mediaIds: snapshot.ids, currentIndex: Int(snapshot.currentIndex))
     }
 
     /// Restores the last queue paused, so nothing plays until the user asks.
@@ -478,12 +483,11 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         let library = Dictionary(IOSDatabase.shared.getAllMediaItems().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let items = saved.mediaIds.compactMap { library[$0] }
         guard !items.isEmpty else { return }
-        let currentId = saved.mediaIds[saved.currentIndex]
-        isRestoringQueue = true
-        queue = items
-        currentIndex = items.firstIndex { $0.id == currentId } ?? 0
-        isRestoringQueue = false
-        let current = items[currentIndex]
+        items.forEach { itemsById[$0.id] = $0 }
+        queueModel.restore(savedIds: saved.mediaIds, savedIndex: Int32(saved.currentIndex), available: Set(library.keys))
+        syncQueue(persist: false)
+        guard queue.indices.contains(currentIndex) else { return }
+        let current = queue[currentIndex]
         state.currentItem = current
         state.status = .paused
         state.durationMillis = current.durationMillis ?? 0
@@ -494,11 +498,18 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     @discardableResult
     public func addBookmarkAtCurrentPosition() -> Bookmark? {
         guard let item = state.currentItem else { return nil }
-        let bookmark = Bookmark(
+        // Naming and the "already bookmarked here" rule are the shared module's.
+        let existing = IOSDatabase.shared.bookmarks(mediaId: item.id).map {
+            StoredBookmark(id: $0.id, mediaId: $0.mediaId, name: $0.name, positionMillis: $0.positionMillis, createdAtMillis: $0.createdAtMillis)
+        }
+        guard let created = Bookmarks.shared.create(
             mediaId: item.id,
-            name: MediaFormatting.clock(millis: state.positionMillis),
-            positionMillis: state.positionMillis
-        )
+            positionMillis: state.positionMillis,
+            existing: existing,
+            id: UUID().uuidString,
+            createdAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
+        ) else { return nil }
+        let bookmark = Bookmark(id: created.id, mediaId: created.mediaId, name: created.name, positionMillis: created.positionMillis, createdAtMillis: created.createdAtMillis)
         IOSDatabase.shared.addBookmark(bookmark)
         return bookmark
     }

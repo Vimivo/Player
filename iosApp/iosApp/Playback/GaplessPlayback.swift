@@ -21,11 +21,7 @@ extension AVPlayerPlaybackEngine {
         return URL(string: item.uri)
     }
 
-    private func followingIndex() -> Int? {
-        guard !queue.isEmpty, state.repeatMode != .one else { return nil }
-        if currentIndex + 1 < queue.count { return currentIndex + 1 }
-        return state.repeatMode == .all ? 0 : nil
-    }
+    private func followingIndex() -> Int? { queueModel.followingIndex()?.intValue }
 
     /// Queues the following song behind the current one. Only song-to-song: video is not handed over this way, a
     /// repeat-one or a one-item queue has nothing following, and a song that should resume part-way is loaded the
@@ -101,7 +97,8 @@ extension AVPlayerPlaybackEngine {
         state.status = .playing
         lastCheckpointMillis = 0
         IOSDatabase.shared.recordPlayStart(mediaId: prepared.media.id)
-        currentIndex = prepared.index // saves the queue and prepares the one after
+        _ = queueModel.jumpTo(index: Int32(prepared.index))
+        syncQueue() // saves the queue and prepares the one after
         updateNowPlaying()
     }
 }

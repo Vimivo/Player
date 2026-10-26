@@ -1,4 +1,5 @@
 import Foundation
+import VimivoShared
 
 public enum PlaybackStatus: String, Codable {
     case idle
@@ -13,6 +14,15 @@ public enum RepeatMode: String, Codable, CaseIterable {
     case off
     case one
     case all
+
+    /// The shared queue's repeat mode as the app's.
+    init(_ mode: QueueRepeatMode) {
+        switch mode {
+        case .one: self = .one
+        case .all: self = .all
+        default: self = .off
+        }
+    }
 
     public var iconName: String {
         switch self {

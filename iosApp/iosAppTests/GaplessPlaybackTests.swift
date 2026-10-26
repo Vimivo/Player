@@ -86,7 +86,7 @@ final class GaplessPlaybackTests: XCTestCase {
         let engine = await playing([one, two, three])
         _ = await waitUntil { engine.hasPreparedNext }
         XCTAssertEqual(engine.preparedNext?.media.id, two.id)
-        engine.queue = [one, three]
+        engine.replaceQueue([one, three], currentIndex: 0)
         XCTAssertEqual(engine.preparedNext?.media.id, three.id, "the song that follows changed")
         XCTAssertEqual(engine.player.items().count, 2, "the old one was taken out")
     }

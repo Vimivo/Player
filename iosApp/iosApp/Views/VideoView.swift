@@ -142,7 +142,7 @@ public struct VideoView: View {
                     isPlaying: engine.state.currentItem?.id == video.id,
                     isFavorite: favorites.contains(video.id),
                     onPlay: { play(videos, index) },
-                    onPlayNext: { engine.queue.insert(video, at: min(engine.currentIndex + 1, engine.queue.count)) },
+                    onPlayNext: { engine.playNextInQueue(video) },
                     onAddToQueue: { engine.appendToQueue(item: video) },
                     onToggleFavorite: { toggleFavorite(video) },
                     onDelete: { deleteVideo(video) },

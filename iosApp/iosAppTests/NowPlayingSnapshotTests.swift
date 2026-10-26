@@ -21,7 +21,7 @@ final class NowPlayingSnapshotTests: XCTestCase {
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "track1_solaris", withExtension: "flac"))
         let engine = AVPlayerPlaybackEngine()
         let item = MediaItem(id: "snapshot-track", uri: url.absoluteString, title: "Solaris", kind: .audio, durationMillis: 10_000, artist: "Calyx", album: "Atmospheric Explorations")
-        engine.queue = [item]
+        engine.replaceQueue([item], currentIndex: 0)
         engine.play(item: item)
         addTeardownBlock { @MainActor in engine.stop() }
         return engine
