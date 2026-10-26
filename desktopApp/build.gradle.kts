@@ -404,4 +404,9 @@ tasks.withType<Test>().configureEach {
         }
         systemProperty("vimivo.mpv.library", file(dir).resolve(library).absolutePath)
     }
+    // A failing live test should say why in the CI log, not only that it failed.
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
