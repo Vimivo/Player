@@ -67,6 +67,7 @@
 		1300 /* VideoTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2300 /* VideoTools.swift */; };
 		1301 /* TestMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2301 /* TestMedia.swift */; };
 		1302 /* VideoToolsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2302 /* VideoToolsTests.swift */; };
+		1303 /* PlaybackSpeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2303 /* PlaybackSpeedTests.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -147,6 +148,7 @@
 		2300 /* VideoTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTools.swift; sourceTree = "<group>"; };
 		2301 /* TestMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMedia.swift; sourceTree = "<group>"; };
 		2302 /* VideoToolsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoToolsTests.swift; sourceTree = "<group>"; };
+		2303 /* PlaybackSpeedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSpeedTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -283,6 +285,7 @@
 		4012 /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2303 /* PlaybackSpeedTests.swift */,
 				2302 /* VideoToolsTests.swift */,
 				2301 /* TestMedia.swift */,
 				2101 /* MediaModelsTests.swift */,
@@ -510,6 +513,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1303 /* PlaybackSpeedTests.swift in Sources */,
 				1302 /* VideoToolsTests.swift in Sources */,
 				1301 /* TestMedia.swift in Sources */,
 				1101 /* MediaModelsTests.swift in Sources */,
