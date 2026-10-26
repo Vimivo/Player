@@ -39,6 +39,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     /// The A–B region being repeated, in milliseconds (V1 #6); cleared whenever another item loads.
     public internal(set) var abRepeat: ClosedRange<Int64>?
     var abBoundaryToken: Any?
+    /// The colour and crop applied to the picture (V1 #12, #14); applied to each item as it loads.
+    @Published public internal(set) var pictureSettings = PictureSettings()
 
     public override init() {
         super.init()
@@ -283,6 +285,10 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         // Pitch-corrected and valid for the whole 0.25×–4× range; low-latency algorithms stop at 2×.
         playerItem.audioTimePitchAlgorithm = .timeDomain
         attachLegibleOutput(to: playerItem)
+        if !pictureSettings.isNeutral {
+            let settings = pictureSettings
+            Task { playerItem.videoComposition = try? await PictureComposition.make(for: playerItem.asset, settings: settings) }
+        }
         player.replaceCurrentItem(with: playerItem)
         AudioSessionController.shared.configureSession()
         observeReadiness(of: playerItem, startMillis: startMillis)

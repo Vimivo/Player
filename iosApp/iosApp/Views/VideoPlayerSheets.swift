@@ -43,6 +43,20 @@ struct PlayerSheetView: View {
         }
     }
 
+    // MARK: Picture
+
+    /// A slider value on the -100…100 scale that applies the change to the picture as it moves.
+    private func pictureBinding(_ keyPath: WritableKeyPath<PictureSettings, Int>) -> Binding<Double> {
+        Binding(
+            get: { Double(engine.pictureSettings[keyPath: keyPath]) },
+            set: { value in
+                var settings = engine.pictureSettings
+                settings[keyPath: keyPath] = Int(value.rounded())
+                Task { await engine.applyPicture(settings) }
+            }
+        )
+    }
+
     // MARK: A–B repeat
 
     private var abRepeatTitle: String {
@@ -188,6 +202,21 @@ struct PlayerSheetView: View {
                 }
             }
             .foregroundColor(.primary)
+            Section("Picture") {
+                Picker("Crop", selection: Binding(
+                    get: { engine.pictureSettings.cropPreset },
+                    set: { preset in Task { await engine.chooseCrop(preset) } }
+                )) {
+                    ForEach(CropPreset.entries, id: \.name) { preset in Text(preset.label).tag(preset) }
+                }
+                PictureSlider(title: "Brightness", value: pictureBinding(\.brightness))
+                PictureSlider(title: "Contrast", value: pictureBinding(\.contrast))
+                PictureSlider(title: "Saturation", value: pictureBinding(\.saturation))
+                PictureSlider(title: "Hue", value: pictureBinding(\.hue))
+                PictureSlider(title: "Gamma", value: pictureBinding(\.gamma))
+                Button("Reset picture") { Task { await engine.applyPicture(PictureSettings()) } }
+                    .disabled(engine.pictureSettings.isNeutral)
+            }
             Section("Frames") {
                 Button { engine.stepFrame(forward: false) } label: { Label("Previous frame", systemImage: "backward.frame") }
                 Button { engine.stepFrame(forward: true) } label: { Label("Next frame", systemImage: "forward.frame") }
@@ -337,5 +366,24 @@ private struct GestureHint: View {
 
     var body: some View {
         Label(text, systemImage: icon).font(.subheadline)
+    }
+}
+
+/// One colour control: a title, the value, and a slider from -100 to 100 that returns to 0 on double tap.
+private struct PictureSlider: View {
+    let title: String
+    @Binding var value: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(Int(value))").monospacedDigit().foregroundColor(.secondary)
+            }
+            Slider(value: $value, in: -100...100, step: 1)
+                .accessibilityLabel(title)
+                .onTapGesture(count: 2) { value = 0 }
+        }
     }
 }

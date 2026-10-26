@@ -68,6 +68,8 @@
 		1301 /* TestMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2301 /* TestMedia.swift */; };
 		1302 /* VideoToolsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2302 /* VideoToolsTests.swift */; };
 		1303 /* PlaybackSpeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2303 /* PlaybackSpeedTests.swift */; };
+		1304 /* PictureComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2304 /* PictureComposition.swift */; };
+		1305 /* PictureCompositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2305 /* PictureCompositionTests.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -149,6 +151,8 @@
 		2301 /* TestMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMedia.swift; sourceTree = "<group>"; };
 		2302 /* VideoToolsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoToolsTests.swift; sourceTree = "<group>"; };
 		2303 /* PlaybackSpeedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSpeedTests.swift; sourceTree = "<group>"; };
+		2304 /* PictureComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureComposition.swift; sourceTree = "<group>"; };
+		2305 /* PictureCompositionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureCompositionTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -238,6 +242,7 @@
 		4006 /* Playback */ = {
 			isa = PBXGroup;
 			children = (
+				2304 /* PictureComposition.swift */,
 				2300 /* VideoTools.swift */,
 				2007 /* AudioSessionController.swift */,
 				2008 /* NowPlayingManager.swift */,
@@ -285,6 +290,7 @@
 		4012 /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2305 /* PictureCompositionTests.swift */,
 				2303 /* PlaybackSpeedTests.swift */,
 				2302 /* VideoToolsTests.swift */,
 				2301 /* TestMedia.swift */,
@@ -473,6 +479,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1304 /* PictureComposition.swift in Sources */,
 				1300 /* VideoTools.swift in Sources */,
 				1001 /* VimivoApp.swift in Sources */,
 				1191 /* AppRouter.swift in Sources */,
@@ -513,6 +520,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1305 /* PictureCompositionTests.swift in Sources */,
 				1303 /* PlaybackSpeedTests.swift in Sources */,
 				1302 /* VideoToolsTests.swift in Sources */,
 				1301 /* TestMedia.swift in Sources */,

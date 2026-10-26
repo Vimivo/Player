@@ -28,7 +28,9 @@ enum TestMedia {
         frames: Int,
         fps: Int32 = 10,
         size: CGSize = CGSize(width: 320, height: 180),
-        background: UIColor = .red
+        background: UIColor = .red,
+        rightHalf: UIColor? = nil,
+        barRows: Int = 0
     ) async throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("counting-\(UUID().uuidString).mp4")
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
@@ -47,7 +49,9 @@ enum TestMedia {
         writer.startSession(atSourceTime: .zero)
         for index in 0..<frames {
             while !input.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 5_000_000) }
-            let buffer = try pixelBuffer(for: index, size: size, background: background, pool: adaptor.pixelBufferPool)
+            let buffer = try pixelBuffer(
+                for: index, size: size, background: background, rightHalf: rightHalf, barRows: barRows, pool: adaptor.pixelBufferPool
+            )
             adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(index), timescale: fps))
         }
         input.markAsFinished()
@@ -56,7 +60,9 @@ enum TestMedia {
         return url
     }
 
-    private static func pixelBuffer(for index: Int, size: CGSize, background: UIColor, pool: CVPixelBufferPool?) throws -> CVPixelBuffer {
+    private static func pixelBuffer(
+        for index: Int, size: CGSize, background: UIColor, rightHalf: UIColor?, barRows: Int, pool: CVPixelBufferPool?
+    ) throws -> CVPixelBuffer {
         var buffer: CVPixelBuffer?
         guard let pool, CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer) == kCVReturnSuccess, let buffer else {
             throw CocoaError(.fileWriteUnknown)
@@ -71,8 +77,18 @@ enum TestMedia {
         ) else { throw CocoaError(.fileWriteUnknown) }
         context.setFillColor(background.cgColor)
         context.fill(CGRect(origin: .zero, size: size))
+        if let rightHalf {
+            context.setFillColor(rightHalf.cgColor)
+            context.fill(CGRect(x: size.width / 2, y: 0, width: size.width / 2, height: size.height))
+        }
         context.setFillColor(UIColor.white.cgColor)
-        context.fill(CGRect(x: index * blockWidth, y: 0, width: blockWidth, height: Int(size.height)))
+        context.fill(CGRect(x: index * blockWidth, y: barRows, width: blockWidth, height: Int(size.height) - 2 * barRows))
+        if barRows > 0 {
+            // Black bars above and below the picture (the context's origin is the bottom-left corner).
+            context.setFillColor(UIColor.black.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: size.width, height: CGFloat(barRows)))
+            context.fill(CGRect(x: 0, y: size.height - CGFloat(barRows), width: size.width, height: CGFloat(barRows)))
+        }
         return buffer
     }
 
