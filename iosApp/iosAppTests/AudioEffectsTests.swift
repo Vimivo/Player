@@ -13,18 +13,9 @@ final class AudioEffectsTests: XCTestCase {
         let peak: Double
     }
 
-    /// Decodes through the effects; a render that comes back completely silent (seen once on a CI runner while the
-    /// tap started) is repeated once, because every test here expects a tone.
+    /// One second of the tone, half a second in (so the filters have settled), decoded through the effects. A silent
+    /// result fails with what the tap reported, never with a second attempt.
     private func render(
-        _ url: URL, settings: AudioEffectSettings = AudioEffectSettings(), tags: ReplayGainTagValues = ReplayGainTagValues()
-    ) async throws -> Level {
-        let first = try await renderOnce(url, settings: settings, tags: tags)
-        if first.peak > 0 { return first }
-        return try await renderOnce(url, settings: settings, tags: tags)
-    }
-
-    /// One second of the tone, half a second in (so the filters have settled), decoded through the effects.
-    private func renderOnce(
         _ url: URL, settings: AudioEffectSettings = AudioEffectSettings(), tags: ReplayGainTagValues = ReplayGainTagValues()
     ) async throws -> Level {
         let asset = AVURLAsset(url: url)
@@ -53,6 +44,7 @@ final class AudioEffectsTests: XCTestCase {
         }
         let window = Array(samples.dropFirst(22_050).prefix(44_100))
         XCTAssertGreaterThan(window.count, 40_000, "the tone was too short to measure")
+        XCTAssertGreaterThan(window.map { abs($0) }.max() ?? 0, 0, "the render was silent; tap events: \(controller.tapEvents)")
         let rms = (window.map { Double($0 * $0) }.reduce(0, +) / Double(window.count)).squareRoot()
         return Level(rms: rms, peak: Double(window.map { abs($0) }.max() ?? 0))
     }

@@ -13,10 +13,20 @@ import java.net.URI
 internal class GrowingFileTracker private constructor(private val file: File, private var loaded: FileSnapshot) {
     private var lastReloadMillis: Long? = null
 
-    /** True when playback should reload the file now rather than finish. */
-    fun reloadDue(nowMillis: Long = System.currentTimeMillis()): Boolean {
-        val now = snapshot() ?: return false
-        return GrowingFilePolicy.shouldReload(loaded, now, nowMillis, lastReloadMillis)
+    /** What playback should do at the end of the file: finish, reload now, or wait a moment (see the policy). */
+    fun decide(nowMillis: Long = System.currentTimeMillis()): GrowingFilePolicy.Decision {
+        val now = snapshot() ?: return GrowingFilePolicy.Decision.COMPLETE
+        return GrowingFilePolicy.decide(loaded, now, nowMillis, lastReloadMillis)
+    }
+
+    /**
+     * True when the file is still growing and playback must not finish: it is reloaded through [reload] when the policy
+     * allows, and otherwise playback waits a moment (a reload just happened). False when the file is finished.
+     */
+    fun keepFollowing(reload: () -> Boolean): Boolean = when (decide()) {
+        GrowingFilePolicy.Decision.COMPLETE -> false
+        GrowingFilePolicy.Decision.WAIT -> true
+        GrowingFilePolicy.Decision.RELOAD -> reload().also { reloaded -> if (reloaded) markReloaded() }
     }
 
     /** Records that the file was reloaded, so the next end-of-file compares against its new size. */

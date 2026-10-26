@@ -1,6 +1,7 @@
 package dev.vimivo.playback
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -40,5 +41,27 @@ class GrowingFilePolicyTest {
     @Test
     fun noReloadWhenTheFileIsNotGrowingEvenIfTheIntervalPassed() {
         assertFalse(GrowingFilePolicy.shouldReload(opened, opened, nowMillis = 1_000_000, lastReloadMillis = null))
+    }
+
+    @Test
+    fun aGrowingFileReloadedAMomentAgoWaitsInsteadOfCompleting() {
+        val bigger = opened.copy(sizeBytes = 5_000)
+        assertEquals(
+            GrowingFilePolicy.Decision.WAIT,
+            GrowingFilePolicy.decide(opened, bigger, nowMillis = 10_300, lastReloadMillis = 10_000),
+            "reaching the new end within a second of a reload must not end playback",
+        )
+        assertEquals(
+            GrowingFilePolicy.Decision.RELOAD,
+            GrowingFilePolicy.decide(opened, bigger, nowMillis = 11_000, lastReloadMillis = 10_000),
+        )
+    }
+
+    @Test
+    fun aFinishedFileCompletes() {
+        assertEquals(
+            GrowingFilePolicy.Decision.COMPLETE,
+            GrowingFilePolicy.decide(opened, opened, nowMillis = 1_000_000, lastReloadMillis = 999_500),
+        )
     }
 }

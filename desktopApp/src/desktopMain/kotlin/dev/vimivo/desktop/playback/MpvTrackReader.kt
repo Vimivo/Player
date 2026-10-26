@@ -51,3 +51,47 @@ private val TrackType.selectionProperty: String get() = when (this) {
 }
 
 private val TrackType.displayName: String get() = name.lowercase().replaceFirstChar(Char::uppercase)
+
+/** The audio, video and subtitle tracks libmpv listed at one moment. */
+internal class MpvTrackLists(val audio: List<TrackInfo>, val video: List<TrackInfo>, val subtitle: List<TrackInfo>) {
+    val size: Int get() = audio.size + video.size + subtitle.size
+}
+
+/**
+ * Decides when the poll loop reads libmpv's track list: when the count changes, on a periodic refresh, or when asked.
+ * libmpv fills the list while a file opens, so a read can miss an entry even though the count it reported is right;
+ * that incomplete read is repeated on the next pass (a few times at most) instead of being kept until the periodic
+ * refresh, which could leave a playing video without its video track for seconds.
+ */
+internal class MpvTrackListWatcher {
+    private var lastCount = -1
+    private var incompleteReads = 0
+
+    fun shouldRead(currentCount: Int, iteration: Long, requested: Boolean): Boolean =
+        currentCount != lastCount || iteration % PERIODIC_REFRESH_PASSES == 1L || requested
+
+    /** Records a read that returned [readTracks] of the [currentCount] tracks libmpv listed. */
+    fun recordRead(currentCount: Int, readTracks: Int) {
+        lastCount = currentCount
+        if (readTracks == currentCount) {
+            incompleteReads = 0
+        } else if (incompleteReads++ < MAX_INCOMPLETE_READS) {
+            lastCount = -1
+        }
+    }
+
+    /** Reads the lists through [reader] when due, and null when the cached ones are still right. */
+    fun refresh(reader: MpvTrackReader, currentCount: Int, iteration: Long, requested: Boolean): MpvTrackLists? {
+        if (!shouldRead(currentCount, iteration, requested)) return null
+        val audio = reader.read(TrackType.AUDIO)
+        val video = reader.read(TrackType.VIDEO)
+        val lists = MpvTrackLists(audio, video, reader.read(TrackType.SUBTITLE))
+        recordRead(currentCount, lists.size)
+        return lists
+    }
+
+    private companion object {
+        const val PERIODIC_REFRESH_PASSES = 20L
+        const val MAX_INCOMPLETE_READS = 5
+    }
+}

@@ -6,8 +6,8 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.playback.CropRect
 import dev.vimivo.playback.DeinterlaceMode
 import dev.vimivo.playback.PlaybackState
+import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.VideoAdjustments
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -34,29 +34,21 @@ class MpvVideoFiltersLiveTest {
         assertTrue(cleared.isEmpty() || cleared.startsWith("0x0") || cleared == "no", "video-crop is '$cleared'")
     }
 
+    /**
+     * Each mode gets its own fresh start of the two-second clip: choose the mode, open the file, and wait for the
+     * engine to report playing past 100 ms. Nothing depends on how much of the clip is left, so a slow machine (which
+     * used to run the clip out before every mode had been tried, leaving libmpv paused at the end) cannot starve it.
+     */
     @Test
-    fun everyDeinterlacingModeIsAcceptedAndPlaybackContinues() = withClip("interlaced_tiny.ts") { engine ->
+    fun everyDeinterlacingModeIsAcceptedAndPlaybackContinues() = withClip("interlaced_tiny.ts") { engine, media ->
         DeinterlaceMode.entries.forEach { mode ->
             engine.setDeinterlaceMode(mode).getOrThrow()
             assertEquals(mode, engine.state.value.deinterlaceMode)
+            runBlocking { engine.open(media).getOrThrow() }
+            engine.play().getOrThrow()
+            awaitState(engine, mode.name) { it.status == PlaybackStatus.Playing && it.positionMillis > 100 }
             val expectedFilters = if (mode == DeinterlaceMode.OFF) 0 else 1
             assertEquals(expectedFilters, filtersLabelled(engine, "vimivo-deint"), mode.name)
-            // Start from the beginning each time: on a slow machine the short clip would otherwise run out before
-            // every mode has been tried, and "playback continues" could never be seen.
-            engine.seekTo(0).getOrThrow()
-            val before = engine.readProperty("time-pos")?.toDoubleOrNull() ?: 0.0
-            val advanced = runCatching {
-                runBlocking {
-                    withTimeout(TIMEOUT) {
-                        while (timePosition(engine) < before + 0.1) delay(POLL_MILLIS)
-                    }
-                }
-            }
-            check(advanced.isSuccess) {
-                val report = listOf("time-pos", "vf", "core-idle", "pause", "hwdec-current")
-                    .joinToString { "$it=${engine.readProperty(it)}" }
-                "playback did not advance with ${mode.name} (time-pos was $before): $report"
-            }
         }
     }
 
@@ -69,16 +61,21 @@ class MpvVideoFiltersLiveTest {
         assertEquals(DeinterlaceMode.OFF, engine.state.value.deinterlaceMode)
     }
 
-    private fun timePosition(engine: MpvPlayerEngine) = engine.readProperty("time-pos")?.toDoubleOrNull() ?: 0.0
-
     /** How many filters in libmpv's `vf` chain carry [label]; the chain reads as `@label:name=params,@label2:...`. */
     private fun filtersLabelled(engine: MpvPlayerEngine, label: String): Int =
         engine.readProperty("vf").orEmpty().split(',').count { it.startsWith("@$label:") }
 
-    private fun awaitState(engine: MpvPlayerEngine, predicate: (PlaybackState) -> Boolean) =
-        runBlocking { withTimeout(TIMEOUT) { engine.state.first(predicate) } }
+    private fun awaitState(engine: MpvPlayerEngine, step: String = "", predicate: (PlaybackState) -> Boolean) =
+        try {
+            runBlocking { withTimeout(TIMEOUT) { engine.state.first(predicate) } }
+        } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
+            val now = engine.state.value
+            throw AssertionError("timed out at '$step': status=${now.status} position=${now.positionMillis}", timeout)
+        }
 
-    private fun withClip(name: String, block: (MpvPlayerEngine) -> Unit) {
+    private fun withClip(name: String, block: (MpvPlayerEngine) -> Unit) = withClip(name) { engine, _ -> block(engine) }
+
+    private fun withClip(name: String, block: (MpvPlayerEngine, MediaItem) -> Unit) {
         val file = File("../testmedia/$name").absoluteFile
         if (!file.isFile || runCatching { MpvNative.load() }.isFailure) {
             println("Skipping: libmpv or test media unavailable")
@@ -86,19 +83,19 @@ class MpvVideoFiltersLiveTest {
         }
         MpvPlayerEngine().use { engine ->
             val uri = file.toPath().toUri().toString()
+            val media = MediaItem(MediaId(uri), uri, name, MediaKind.VIDEO, fileName = name)
             runBlocking {
                 engine.setVolume(0f)
-                engine.open(MediaItem(MediaId(uri), uri, name, MediaKind.VIDEO, fileName = name)).getOrThrow()
+                engine.open(media).getOrThrow()
                 engine.play().getOrThrow()
                 awaitState(engine) { it.positionMillis > 100 }
             }
-            block(engine)
+            block(engine, media)
         }
     }
 
     private companion object {
         const val TIMEOUT = 15_000L
-        const val POLL_MILLIS = 50L
     }
 }
 

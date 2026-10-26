@@ -142,6 +142,15 @@ public final class AudioEffectsController {
     /// Nil in the app.
     public var tapObserver: (([Float], Double) -> Void)?
 
+    /// The first few unusual things a tap met (source audio that could not be fetched, a format it passes through),
+    /// so a silent or untouched render can be explained instead of guessed at.
+    public private(set) var tapEvents: [String] = []
+
+    fileprivate func record(_ event: String) {
+        lock.lock(); defer { lock.unlock() }
+        if tapEvents.count < 16 { tapEvents.append(event) }
+    }
+
     public init() {}
 
     public func update(settings: AudioEffectSettings) {
@@ -200,9 +209,14 @@ public final class AudioEffectsController {
                 state.unprepare()
             },
             process: { tap, frames, flags, buffers, framesOut, flagsOut in
-                let status = MTAudioProcessingTapGetSourceAudio(tap, frames, buffers, flagsOut, nil, framesOut)
-                guard status == noErr else { return }
                 let state = Unmanaged<TapState>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
+                let status = MTAudioProcessingTapGetSourceAudio(tap, frames, buffers, flagsOut, nil, framesOut)
+                guard status == noErr else {
+                    // Nothing was delivered: say so (zero frames) rather than leave the count unset.
+                    framesOut.pointee = 0
+                    state.record("source audio status \(status) for \(frames) frames")
+                    return
+                }
                 state.process(buffers, frames: Int(framesOut.pointee))
             }
         )
@@ -226,10 +240,15 @@ private final class TapState {
         self.controller = controller
     }
 
+    func record(_ event: String) { controller.record(event) }
+
     func prepare(maxFrames: Int, format: AudioStreamBasicDescription) {
         let isFloat = format.mFormatID == kAudioFormatLinearPCM
             && format.mFormatFlags & kAudioFormatFlagIsFloat != 0 && format.mBitsPerChannel == 32
-        guard isFloat else { return } // anything else passes through untouched
+        guard isFloat else { // anything else passes through untouched
+            controller.record("passing through: format flags \(format.mFormatFlags), \(format.mBitsPerChannel) bits")
+            return
+        }
         channels = Int(format.mChannelsPerFrame)
         interleaved = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
         sampleRate = format.mSampleRate

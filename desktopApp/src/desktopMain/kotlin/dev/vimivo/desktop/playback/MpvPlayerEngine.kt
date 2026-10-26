@@ -41,7 +41,6 @@ import dev.vimivo.playback.SnapshotOptions
 import dev.vimivo.playback.SubtitleStyle
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.TrackInfo
-import dev.vimivo.playback.TrackType
 import dev.vimivo.playback.VideoAdjustments
 import dev.vimivo.playback.VideoAspectRatio
 import kotlinx.coroutines.CoroutineScope
@@ -591,7 +590,7 @@ class MpvPlayerEngine : PlayerEngine {
             if (sessionGeneration != expectedSession) return
             polling?.cancel()
             polling = scope.launch {
-                var lastTrackCount = -1
+                val trackWatcher = MpvTrackListWatcher()
                 var cachedAudio: List<TrackInfo> = emptyList()
                 var cachedVideo: List<TrackInfo> = emptyList()
                 var cachedSubtitle: List<TrackInfo> = emptyList()
@@ -618,12 +617,11 @@ class MpvPlayerEngine : PlayerEngine {
                     val bufferedPosition = position + cacheDurationMs
 
                     val currentTrackCount = stringProperty("track-list/count")?.toIntOrNull() ?: 0
-                    if (currentTrackCount != lastTrackCount || iteration % 20L == 1L || trackListChanged) {
+                    trackWatcher.refresh(trackReader, currentTrackCount, iteration, trackListChanged)?.let { lists ->
                         trackListChanged = false
-                        lastTrackCount = currentTrackCount
-                        cachedAudio = trackReader.read(TrackType.AUDIO)
-                        cachedVideo = trackReader.read(TrackType.VIDEO)
-                        cachedSubtitle = trackReader.read(TrackType.SUBTITLE)
+                        cachedAudio = lists.audio
+                        cachedVideo = lists.video
+                        cachedSubtitle = lists.subtitle
                         cachedTags = fileTags()
                     }
                     // Tags appear a moment after the track list; retry until they do so integrations update promptly.
@@ -684,15 +682,15 @@ class MpvPlayerEngine : PlayerEngine {
         }
     }
 
-    /** Reloads a still-growing local file from [positionMillis]; true when it did (the file is not finished yet). */
+    /** At the end of a local file: true when it is still growing and playback must not finish (see the tracker). */
     private fun reloadGrowingFile(positionMillis: Long): Boolean {
-        val tracker = growing?.takeIf { it.reloadDue() } ?: return false
         val media = mutableState.value.media ?: return false
-        return runCatching {
-            command("loadfile", mpvTarget(media.uri), "replace", "-1", "start=${positionMillis / 1_000.0}")
-            if (!userPaused) setProperty("pause", "no")
-            tracker.markReloaded()
-        }.isSuccess
+        return growing?.keepFollowing {
+            runCatching {
+                command("loadfile", mpvTarget(media.uri), "replace", "-1", "start=${positionMillis / 1_000.0}")
+                if (!userPaused) setProperty("pause", "no")
+            }.isSuccess
+        } ?: false
     }
 
     /** Reads libmpv's queued events; switches to the `fast` profile when it reports a software renderer. */
