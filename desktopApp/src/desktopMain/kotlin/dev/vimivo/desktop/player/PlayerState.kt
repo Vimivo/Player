@@ -33,8 +33,6 @@ internal data class PlayerState(
     val fullscreen: Boolean = false,
     val mediaInfoVisible: Boolean = false,
     val lyrics: LyricsDocument? = null,
-    /** Real peaks of the audio file being played, for the timeline; null until computed (and for video). */
-    val waveformPeaks: FloatArray? = null,
     val maxVolume: Float = 1f,
     val presentation: PlayerPresentation = PlayerPresentation.LIBRARY,
     /** Title of the file being opened until its first frame (or first audio) plays; null otherwise. */

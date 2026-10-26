@@ -26,11 +26,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.collectAsState
+import dev.vimivo.playback.SeekController
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -81,82 +85,146 @@ internal fun formatClock(millis: Long): String {
  * they exist, or when the visualizer is off, it is a plain thin line with a thumb. Tap or drag to seek; accessibility
  * services see a slider either way.
  */
+private val TIMELINE_HIT_HEIGHT = 48.dp
+private val TIMELINE_THUMB_RADIUS = 6.dp
+
+/**
+ * Clean thin continuous seek bar (spec §3.1) for both audio and video: 3dp track growing to 5dp on drag,
+ * played = white/accent, buffered = white 35%, remaining = white 18%, round thumb, chapter ticks.
+ * Coordinates input and snap-back prevention through [SeekController].
+ */
 @Composable
-internal fun WaveformSeekBar(
+internal fun VimivoTimeline(
     positionMillis: Long,
     durationMillis: Long,
-    peaks: FloatArray?,
-    onSeek: (Long) -> Unit,
+    bufferedPositionMillis: Long = 0L,
+    chapters: List<dev.vimivo.playback.ChapterInfo> = emptyList(),
+    seekController: SeekController,
     modifier: Modifier = Modifier,
+    alwaysShowThumb: Boolean = false,
+    playedColor: Color = MaterialTheme.colorScheme.primary,
 ) {
-    val played = MaterialTheme.colorScheme.primary
-    val remaining = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
-    var dragFraction by remember { mutableFloatStateOf(-1f) }
-    val fraction = if (dragFraction >= 0f) dragFraction else {
-        if (durationMillis > 0) (positionMillis.toFloat() / durationMillis).coerceIn(0f, 1f) else 0f
-    }
-    val enabled = durationMillis > 0
-    Canvas(
-        modifier
+    val duration = durationMillis.takeIf { it > 0 }
+    val seekState by seekController.state.collectAsState()
+    val isScrubbing = seekState.scrubMillis != null
+    val isHolding = seekState.overrideMillis != null
+    val displayedMillis = seekState.overrideMillis ?: positionMillis
+
+    val trackHeight by androidx.compose.animation.core.animateDpAsState(
+        if (isScrubbing) 5.dp else 3.dp,
+        androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMedium),
+    )
+
+    val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val thumbRadiusPx = with(density) { TIMELINE_THUMB_RADIUS.toPx() }
+    var widthPx by remember { mutableFloatStateOf(1f) }
+    val trackWidthPx = (widthPx - 2 * thumbRadiusPx).coerceAtLeast(1f)
+    fun millisAt(x: Float): Long? = duration?.let { dev.vimivo.playback.TimelineGeometry.millisAt(x, thumbRadiusPx, trackWidthPx, it, rtl) }
+    val enabled = duration != null && seekController.canSeek
+
+    val remainingColor = Color.White.copy(alpha = 0.18f)
+    val bufferedColor = Color.White.copy(alpha = 0.35f)
+
+    Box(
+        modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
-            .pointerInput(enabled, durationMillis) {
-                if (!enabled) return@pointerInput
-                detectTapGestures { offset -> onSeek((offset.x / size.width * durationMillis).toLong().coerceIn(0, durationMillis)) }
-            }
-            .pointerInput(enabled, durationMillis) {
-                if (!enabled) return@pointerInput
-                detectDragGestures(
-                    onDragStart = { offset -> dragFraction = (offset.x / size.width).coerceIn(0f, 1f) },
-                    onDragEnd = {
-                        onSeek((dragFraction * durationMillis).toLong())
-                        dragFraction = -1f
-                    },
-                    onDragCancel = { dragFraction = -1f },
-                ) { change, _ ->
-                    change.consume()
-                    dragFraction = (change.position.x / size.width).coerceIn(0f, 1f)
-                }
-            }
-            .semantics {
-                contentDescription = "Playback seekbar"
-                stateDescription = "${formatClock(positionMillis)} of ${formatClock(durationMillis)}"
-                progressBarRangeInfo = ProgressBarRangeInfo(
-                    positionMillis.coerceIn(0, durationMillis.coerceAtLeast(1)).toFloat(),
-                    0f..durationMillis.coerceAtLeast(1).toFloat(),
-                )
-                setProgress { target ->
-                    onSeek(target.toLong().coerceIn(0, durationMillis))
-                    true
-                }
-            },
+            .height(TIMELINE_HIT_HEIGHT),
+        contentAlignment = Alignment.Center,
     ) {
-        if (peaks == null || peaks.isEmpty()) drawPlainLine(fraction, played, remaining) else drawPeaks(peaks, fraction, played, remaining)
-    }
-}
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .onSizeChanged { widthPx = it.width.toFloat().coerceAtLeast(1f) }
+                .pointerInput(enabled, duration, thumbRadiusPx, trackWidthPx, rtl) {
+                    if (!enabled) return@pointerInput
+                    detectTapGestures { offset ->
+                        millisAt(offset.x)?.let {
+                            seekController.seekTo(it, android.os.SystemClock.elapsedRealtime())
+                        }
+                    }
+                }
+                .pointerInput(enabled, duration, thumbRadiusPx, trackWidthPx, rtl) {
+                    if (!enabled) return@pointerInput
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            millisAt(offset.x)?.let {
+                                seekController.dragStart(it, android.os.SystemClock.elapsedRealtime())
+                            }
+                        },
+                        onDragEnd = {
+                            seekController.dragEnd(android.os.SystemClock.elapsedRealtime())
+                        },
+                        onDragCancel = {
+                            seekController.dragCancel(android.os.SystemClock.elapsedRealtime())
+                        },
+                    ) { change, _ ->
+                        change.consume()
+                        millisAt(change.position.x)?.let {
+                            seekController.dragTo(it, android.os.SystemClock.elapsedRealtime())
+                        }
+                    }
+                }
+                .semantics {
+                    contentDescription = "Playback seekbar"
+                    stateDescription = "${formatClock(displayedMillis)} of ${formatClock(durationMillis)}"
+                    if (duration != null) {
+                        progressBarRangeInfo = ProgressBarRangeInfo(
+                            displayedMillis.coerceIn(0, duration).toFloat(),
+                            0f..duration.toFloat(),
+                        )
+                        setProgress { target ->
+                            seekController.seekTo(target.toLong(), android.os.SystemClock.elapsedRealtime())
+                            true
+                        }
+                    }
+                },
+        ) {
+            val trackH = trackHeight.toPx()
+            val top = (size.height - trackH) / 2
+            val radius = androidx.compose.ui.geometry.CornerRadius(trackH / 2)
+            val start = thumbRadiusPx
+            val width = trackWidthPx
 
-private fun DrawScope.drawPlainLine(fraction: Float, played: Color, remaining: Color) {
-    val thickness = 4.dp.toPx()
-    val y = size.height / 2
-    val corner = CornerRadius(thickness / 2)
-    drawRoundRect(remaining, Offset(0f, y - thickness / 2), Size(size.width, thickness), corner)
-    drawRoundRect(played, Offset(0f, y - thickness / 2), Size(size.width * fraction, thickness), corner)
-    drawCircle(played, 7.dp.toPx(), Offset(size.width * fraction, y))
-}
+            drawRoundRect(remainingColor, androidx.compose.ui.geometry.Offset(start, top), androidx.compose.ui.geometry.Size(width, trackH), radius)
 
-private fun DrawScope.drawPeaks(peaks: FloatArray, fraction: Float, played: Color, remaining: Color) {
-    val slot = size.width / peaks.size
-    val barWidth = slot * 0.56f
-    val minimum = 3.dp.toPx()
-    peaks.forEachIndexed { index, peak ->
-        val barHeight = maxOf(minimum, size.height * peak)
-        val x = index * slot + (slot - barWidth) / 2
-        drawRoundRect(
-            color = if ((index + 0.5f) / peaks.size <= fraction) played else remaining,
-            topLeft = Offset(x, (size.height - barHeight) / 2),
-            size = Size(barWidth, barHeight),
-            cornerRadius = CornerRadius(barWidth / 2),
-        )
+            val total = duration ?: return@Canvas
+            fun x(millis: Long) = dev.vimivo.playback.TimelineGeometry.xAt(millis.toDouble(), start, width, total, rtl)
+
+            fun span(color: Color, endPx: Float) {
+                val left = if (rtl) endPx else start
+                val right = if (rtl) start + width else endPx
+                if (right > left) drawRoundRect(color, androidx.compose.ui.geometry.Offset(left, top), androidx.compose.ui.geometry.Size(right - left, trackH), radius)
+            }
+
+            span(bufferedColor, x(bufferedPositionMillis))
+
+            val playedPx = dev.vimivo.playback.TimelineGeometry.xAt(displayedMillis.toDouble(), start, width, total, rtl)
+            span(playedColor, playedPx)
+
+            chapters.drop(1).forEach { chapter ->
+                val chapterX = x(chapter.startPositionMillis)
+                drawRect(
+                    Color.Black.copy(alpha = 0.55f),
+                    androidx.compose.ui.geometry.Offset(chapterX, top),
+                    androidx.compose.ui.geometry.Size(1.dp.toPx(), trackH),
+                )
+            }
+
+            if (alwaysShowThumb || isScrubbing || isHolding) {
+                drawCircle(
+                    Color.Black.copy(alpha = 0.35f),
+                    thumbRadiusPx + 1f,
+                    androidx.compose.ui.geometry.Offset(playedPx, size.height / 2 + 1f),
+                )
+                drawCircle(
+                    playedColor,
+                    thumbRadiusPx,
+                    androidx.compose.ui.geometry.Offset(playedPx, size.height / 2),
+                )
+            }
+        }
     }
 }
 

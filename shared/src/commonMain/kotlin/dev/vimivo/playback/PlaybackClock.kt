@@ -31,8 +31,16 @@ class PlaybackClock(
      *
      * @param positionMillis the engine's position.
      * @param running true only while the position actually advances (playing; not paused, buffering or seeking).
+     * @param snap start exactly at [positionMillis] with no blending, e.g. right after a confirmed seek.
      */
-    fun report(positionMillis: Long, nowNanos: Long, running: Boolean, speed: Float, durationMillis: Long?) {
+    fun report(
+        positionMillis: Long,
+        nowNanos: Long,
+        running: Boolean,
+        speed: Float,
+        durationMillis: Long?,
+        snap: Boolean = false,
+    ) {
         val shown = positionAt(nowNanos)
         anchorPosition = positionMillis.toDouble()
         anchorNanos = nowNanos
@@ -40,7 +48,7 @@ class PlaybackClock(
         this.speed = speed.toDouble()
         duration = durationMillis?.takeIf { it > 0 }
         val disagreement = shown - anchorPosition
-        if (running && abs(disagreement) < snapThresholdMillis) {
+        if (!snap && running && abs(disagreement) < snapThresholdMillis) {
             // Keep showing what was on screen and let the difference fade, instead of jumping by a few pixels.
             correction = disagreement
             correctionStartNanos = nowNanos

@@ -41,6 +41,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import android.os.SystemClock
+import androidx.media3.common.C
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
+import dev.vimivo.playback.SeekController
 import java.util.UUID
 
 data class PlaybackUiState(
@@ -73,8 +78,6 @@ data class PlaybackUiState(
     val abRepeatEndMillis: Long? = null,
     val videoCrop: VideoCrop? = null,
     val videoColour: VideoAdjustments = VideoAdjustments(),
-    /** Real peaks of the current track for the seek bar; null until they are computed (or for video). */
-    val waveformPeaks: FloatArray? = null,
 )
 
 class PlaybackViewModel(
@@ -86,7 +89,6 @@ class PlaybackViewModel(
     private val sleepTimer: PlaybackSleepTimer,
     private val lyricsRepository: LyricsRepository,
     private val snapshots: AndroidSnapshotStore,
-    private val waveforms: AndroidWaveformRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(PlaybackUiState())
     private var player: Player? = null
@@ -94,9 +96,18 @@ class PlaybackViewModel(
     private var detectedSubtitleMediaId: String? = null
     private var bookmarkMediaId: String? = null
     private var lyricMediaId: String? = null
-    private var waveformMediaId: String? = null
-    private var waveformJob: Job? = null
+    private var currentMediaId: String? = null
     private var bookmarkJob: Job? = null
+
+    val seek = SeekController(
+        sink = { positionMillis, exact ->
+            val p = player ?: return@SeekController
+            (p as? ExoPlayer)?.setSeekParameters(
+                if (exact) SeekParameters.EXACT else SeekParameters.CLOSEST_SYNC,
+            )
+            p.seekTo(positionMillis)
+        },
+    )
     val state: StateFlow<PlaybackUiState> = mutableState.asStateFlow()
     val sleepTimerState = sleepTimer.state
     val audioEnhancementState = diagnostics.audio
@@ -157,7 +168,13 @@ class PlaybackViewModel(
     fun stop() = player?.stop()
     fun next() = player?.seekToNext()
     fun previous() = player?.seekToPrevious()
-    fun seekTo(positionMillis: Long) = player?.seekTo(positionMillis)
+    fun seekTo(positionMillis: Long, exact: Boolean = true) {
+        seek.seekTo(positionMillis, SystemClock.elapsedRealtime())
+    }
+    fun seekBy(deltaMillis: Long) {
+        val current = seek.current.overrideMillis ?: player?.currentPosition ?: 0L
+        seek.seekBy(deltaMillis, current, SystemClock.elapsedRealtime())
+    }
     fun playQueueIndex(index: Int) = player?.seekToDefaultPosition(index)
     fun removeQueueItem(index: Int) = player?.removeMediaItem(index)
     fun moveQueueItem(from: Int, to: Int) = player?.moveMediaItem(from, to)
@@ -368,7 +385,6 @@ class PlaybackViewModel(
             abRepeatEndMillis = previous.abRepeatEndMillis,
             videoCrop = previous.videoCrop,
             videoColour = previous.videoColour,
-            waveformPeaks = previous.waveformPeaks.takeIf { previous.current?.mediaId == player.currentMediaItem?.mediaId },
         )
         val id = player.currentMediaItem?.mediaId
         if (id != bookmarkMediaId) {
@@ -397,18 +413,19 @@ class PlaybackViewModel(
                 }
             }
         }
-        if (id != waveformMediaId) {
-            waveformMediaId = id
-            waveformJob?.cancel()
-            val uri = player.currentMediaItem?.localConfiguration?.uri
-            val isAudio = player.currentMediaItem?.localConfiguration?.mimeType?.startsWith("video/") != true
-            if (id != null && uri != null && isAudio) {
-                waveformJob = viewModelScope.launch {
-                    val peaks = waveforms.peaks(uri)
-                    if (state.value.current?.mediaId == id) mutableState.value = state.value.copy(waveformPeaks = peaks)
-                }
-            }
+        val currentId = player.currentMediaItem?.mediaId
+        if (currentId != currentMediaId) {
+            currentMediaId = currentId
+            seek.reset()
         }
+        val isSeeking = player.playbackState == Player.STATE_BUFFERING
+        seek.onEngineReport(
+            positionMillis = player.currentPosition.coerceAtLeast(0),
+            durationMillis = player.duration.takeIf { it != C.TIME_UNSET && it > 0 },
+            isSeekable = player.isCurrentMediaItemSeekable,
+            isSeeking = isSeeking,
+            nowMillis = SystemClock.elapsedRealtime(),
+        )
         if (id != lyricMediaId) {
             lyricMediaId = id
             val uri = player.currentMediaItem?.localConfiguration?.uri

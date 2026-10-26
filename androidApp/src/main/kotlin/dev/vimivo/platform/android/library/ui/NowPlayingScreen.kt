@@ -324,11 +324,13 @@ private fun FormatBadges(ui: NowPlayingUi) {
 @Composable
 private fun Scrubber(ui: NowPlayingUi) {
     Column(Modifier.fillMaxWidth()) {
-        WaveformSeekBar(
-            ui.player.positionMillis,
-            ui.player.durationMillis,
-            ui.player.waveformPeaks.takeIf { ui.styledSeekBar },
-            ui.viewModel::seekTo,
+        VimivoTimeline(
+            positionMillis = ui.player.positionMillis,
+            durationMillis = ui.player.durationMillis,
+            bufferedPositionMillis = ui.player.bufferedPositionMillis,
+            seekController = ui.viewModel.seek,
+            alwaysShowThumb = true,
+            playedColor = MaterialTheme.colorScheme.primary,
         )
         TimeLabels(ui.player.positionMillis, ui.player.durationMillis)
     }

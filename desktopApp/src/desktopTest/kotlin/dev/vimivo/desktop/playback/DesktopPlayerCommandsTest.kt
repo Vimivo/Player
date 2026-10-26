@@ -15,6 +15,7 @@ import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
+import dev.vimivo.playback.SeekController
 import dev.vimivo.playback.SnapshotFormat
 import dev.vimivo.playback.SnapshotOptions
 import dev.vimivo.playback.SupportLevel
@@ -128,7 +129,7 @@ class DesktopPlayerCommandsTest {
         val options = SnapshotOptions(SnapshotFormat.JPEG, includeSubtitles = true, folder = directory.absolutePath)
         val engine = FakeEngine(loaded())
         val plan = SnapshotPlan(options = { options })
-        DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, plan).execute(DesktopPlayerCommand.SNAPSHOT)
+        DesktopPlayerCommandExecutor(engine, {}, seekVia(engine), {}, {}, NoFullscreen, plan).execute(DesktopPlayerCommand.SNAPSHOT)
         val call = engine.calls.single()
         assertTrue(call.startsWith("snap:${directory.absolutePath}${java.io.File.separator}"), call)
         assertTrue(call.endsWith(".jpg:JPEG:true"), call)
@@ -140,7 +141,7 @@ class DesktopPlayerCommandsTest {
         val directory = Files.createTempDirectory("vimivo-snapshot-name").toFile()
         val engine = FakeEngine(loaded())
         val plan = SnapshotPlan(options = { SnapshotOptions(folder = directory.absolutePath) })
-        DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, plan).execute(DesktopPlayerCommand.SNAPSHOT)
+        DesktopPlayerCommandExecutor(engine, {}, seekVia(engine), {}, {}, NoFullscreen, plan).execute(DesktopPlayerCommand.SNAPSHOT)
         val name = java.io.File(engine.calls.single().removePrefix("snap:").substringBefore(":PNG")).name
         assertTrue(name.matches(Regex(".+-\\dh\\d\\dm\\d\\ds-\\d+\\.png")), name)
         directory.deleteRecursively()
@@ -159,7 +160,7 @@ class DesktopPlayerCommandsTest {
         var fullscreen = true
         val engine = FakeEngine(loaded())
         val executor = DesktopPlayerCommandExecutor(
-            engine, {}, {}, {},
+            engine, {}, seekVia(engine), {}, {},
             object : DesktopFullscreenControl {
                 override fun toggle() { fullscreen = !fullscreen }
                 override fun exit() = fullscreen.also { fullscreen = false }
@@ -197,7 +198,7 @@ class DesktopPlayerCommandsTest {
         engine: FakeEngine,
         snapshotFile: (SnapshotOptions) -> java.io.File = { java.io.File("unused.png") },
         snapshotOptions: () -> SnapshotOptions = { SnapshotOptions() },
-    ) = DesktopPlayerCommandExecutor(engine, {}, {}, {}, NoFullscreen, SnapshotPlan(snapshotOptions, snapshotFile))
+    ) = DesktopPlayerCommandExecutor(engine, {}, seekVia(engine), {}, {}, NoFullscreen, SnapshotPlan(snapshotOptions, snapshotFile))
 
     @Test
     fun volumeAmplifiesToTwoHundredPercentWithAStopAtOneHundred() {
@@ -295,4 +296,14 @@ class DesktopPlayerCommandsTest {
             record("snap:$destinationFilePath:${options.format.name}:${options.includeSubtitles}")
         override fun close() = Unit
     }
+
+/** Keyboard seeks go through the shared [SeekController], exactly as in the app. */
+private fun seekVia(engine: PlayerEngine): (Long) -> Unit {
+    val controller = SeekController { position, exact -> engine.seekTo(position, exact) }
+    return { delta ->
+        val state = engine.state.value
+        controller.onEngineReport(state.positionMillis, state.durationMillis, isSeekable = true, isSeeking = false, nowMillis = 0)
+        controller.seekBy(delta, state.positionMillis, nowMillis = 0)
+    }
+}
 }

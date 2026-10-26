@@ -106,6 +106,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -375,8 +376,7 @@ fun AdvancedVideoPlayer(
                                 doubleTapSide = side
                                 doubleTapAt = System.currentTimeMillis()
                                 controlsVisible = false
-                                val target = (current.positionMillis + side * interval * 1_000L).coerceIn(0, current.durationMillis.coerceAtLeast(0))
-                                viewModel.seekTo(target)
+                                viewModel.seekBy(side * interval * 1_000L)
                             }
                         },
                         onLongPress = {
@@ -573,9 +573,8 @@ fun AdvancedVideoPlayer(
                         onPrevious = viewModel::previous,
                         onNext = viewModel::next,
                         onSeek = viewModel::seekTo,
-                        onSkip = { seconds ->
-                            viewModel.seekTo((player.positionMillis + seconds * 1_000L).coerceIn(0, player.durationMillis.coerceAtLeast(0)))
-                        },
+                        seekController = viewModel.seek,
+                        onSkip = { seconds -> viewModel.seekBy(seconds * 1_000L) },
                         onToggleRemaining = { showRemaining = !showRemaining },
                         onLock = {
                             locked = true
@@ -654,6 +653,7 @@ private fun VideoControls(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
+    seekController: dev.vimivo.playback.SeekController,
     onSkip: (Int) -> Unit,
     onToggleRemaining: () -> Unit,
     onLock: () -> Unit,
@@ -720,7 +720,7 @@ private fun VideoControls(
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(BottomScrim)) {
             Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 4.dp)) {
                 SettingsHandle { onPanel(PlayerPanel.ALL) }
-                VideoSeekBar(player, showRemaining, onSeek, onToggleRemaining)
+                VideoSeekBar(player, showRemaining, seekController, onToggleRemaining)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     PlayerIconButton(Icons.Rounded.Lock, "Lock screen controls", onClick = onLock)
                     PlayerIconButton(
@@ -762,48 +762,28 @@ private fun SettingsHandle(onOpen: () -> Unit) {
 private fun VideoSeekBar(
     player: PlaybackUiState,
     showRemaining: Boolean,
-    onSeek: (Long) -> Unit,
+    seekController: dev.vimivo.playback.SeekController,
     onToggleRemaining: () -> Unit,
 ) {
-    var scrubbing by remember { mutableStateOf<Float?>(null) }
-    val duration = player.durationMillis.coerceAtLeast(1)
-    val position = scrubbing?.toLong() ?: if (player.durationMillis > 0) player.positionMillis.coerceAtMost(duration) else 0L
+    val seekState by seekController.state.collectAsState()
+    val displayedMillis = seekState.overrideMillis ?: player.positionMillis
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            formatVideoTime(position),
+            formatVideoTime(displayedMillis),
             color = Color.White,
             style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
         )
-        Box(Modifier.weight(1f).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-            LinearProgressIndicator(
-                progress = { if (player.durationMillis > 0) player.bufferedPositionMillis.toFloat() / player.durationMillis else 0f },
-                modifier = Modifier.fillMaxWidth().height(3.dp),
-                color = Color.White.copy(alpha = 0.35f),
-                trackColor = Color.White.copy(alpha = 0.18f),
-                drawStopIndicator = {},
-            )
-            Slider(
-                value = position.toFloat(),
-                onValueChange = { scrubbing = it },
-                onValueChangeFinished = {
-                    scrubbing?.let { onSeek(it.toLong()) }
-                    scrubbing = null
-                },
-                valueRange = 0f..duration.toFloat(),
-                colors = SliderDefaults.colors(
-                    thumbColor = Color.White,
-                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = Color.Transparent,
-                ),
-                modifier = Modifier.fillMaxWidth().semantics {
-                    contentDescription = "Video playback seekbar"
-                    stateDescription = "${formatVideoTime(position)} of ${formatVideoTime(player.durationMillis)}"
-                    progressBarRangeInfo = ProgressBarRangeInfo(current = position.toFloat(), range = 0f..duration.toFloat())
-                },
-            )
-        }
+        VimivoTimeline(
+            positionMillis = player.positionMillis,
+            durationMillis = player.durationMillis,
+            bufferedPositionMillis = player.bufferedPositionMillis,
+            seekController = seekController,
+            alwaysShowThumb = true,
+            playedColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+        )
         Text(
-            if (showRemaining) "−" + formatVideoTime(player.durationMillis - position) else formatVideoTime(player.durationMillis),
+            if (showRemaining) "−" + formatVideoTime((player.durationMillis - displayedMillis).coerceAtLeast(0)) else formatVideoTime(player.durationMillis),
             color = Color.White,
             style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
             modifier = Modifier.clickable(onClickLabel = "Toggle remaining time", onClick = onToggleRemaining),

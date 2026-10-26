@@ -25,11 +25,11 @@ import dev.vimivo.desktop.playback.DesktopFullscreenControl
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.MpvPlayerEngine
 import dev.vimivo.desktop.playback.MpvSubtitleFiles
-import dev.vimivo.desktop.playback.MpvWaveform
 import dev.vimivo.desktop.playback.SnapshotPlan
 import dev.vimivo.playback.PlaybackQueueController
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.RecentMediaEntry
+import dev.vimivo.playback.SeekController
 import dev.vimivo.playback.SnapshotFormat
 import dev.vimivo.playback.SnapshotOptions
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +39,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
@@ -63,14 +62,19 @@ internal class PlayerViewModel(
     private val store: DesktopPlaybackStore,
     private val recentMedia: DesktopRecentMediaRepository,
     private val scope: CoroutineScope,
-    private val waveform: MpvWaveform = MpvWaveform(DesktopDirectories.resolve().waveforms),
 ) : AutoCloseable {
     private val local = MutableStateFlow(LocalState())
     private var mediaControls: MprisService? = null
 
+    /** The one seek path: the timeline, keyboard shortcuts, the wheel and chapter jumps all go through it. */
+    internal val seek: SeekController = SeekController(
+        sink = { positionMillis, exact -> engine.seekTo(positionMillis, exact) }
+    )
+
     internal val commands = DesktopPlayerCommandExecutor(
         engine = engine,
         togglePlayback = { scope.launch { togglePlayback() } },
+        seekBy = { delta -> seek.seekBy(delta, engine.state.value.positionMillis, monotonicMillis()) },
         toggleShuffle = queue::toggleShuffle,
         cycleRepeat = queue::cycleRepeat,
         snapshots = SnapshotPlan(options = { local.value.snapshot }),
@@ -96,7 +100,6 @@ internal class PlayerViewModel(
             fullscreen = localState.fullscreen,
             mediaInfoVisible = mediaInfo,
             lyrics = localState.lyrics,
-            waveformPeaks = localState.waveformPeaks,
             maxVolume = engine.capabilities.maxVolume,
             presentation = localState.presentation,
             libraryRequest = localState.libraryRequest,
@@ -145,7 +148,8 @@ internal class PlayerViewModel(
         scope.launch { store.observePlayback(engine.state) }
         scope.launch { recordRecentMedia() }
         scope.launch { loadLyricsForCurrentMedia() }
-        scope.launch { loadWaveformForCurrentMedia() }
+        scope.launch { followSeeks() }
+        scope.launch(Dispatchers.IO) { deleteLegacyWaveformCache() }
         scope.launch { clearHudAfterDelay() }
     }
 
@@ -163,7 +167,7 @@ internal class PlayerViewModel(
             PlayerIntent.Next -> scope.launch { queue.next() }
             PlayerIntent.Previous -> scope.launch { queue.previous() }
             PlayerIntent.Stop -> engine.stop()
-            is PlayerIntent.Seek -> engine.seekTo(intent.positionMillis, intent.exact)
+            is PlayerIntent.Seek -> seek.seekTo(intent.positionMillis, monotonicMillis())
             is PlayerIntent.SetAbRepeat -> commands.perform("Repeat region") { engine.setABRepeat(intent.range) }
             is PlayerIntent.SetVolume -> commands.setVolumeLevel(intent.volume)
             is PlayerIntent.SetSpeed -> engine.setPlaybackSpeed(intent.speed)
@@ -489,18 +493,28 @@ internal class PlayerViewModel(
         }
     }
 
-    /** Computes the real peaks of the current audio file in the background; the timeline is a plain line until then. */
-    private suspend fun loadWaveformForCurrentMedia() {
-        engine.state.distinctUntilChangedBy { it.media?.uri }.collectLatest { playback ->
-            local.update { it.copy(waveformPeaks = null) }
-            val media = playback.media
-            val path = media?.takeIf { it.kind == MediaKind.AUDIO && it.uri.startsWith("file:") }
-                ?.let { runCatching { File(URI(it.uri)).path }.getOrNull() }
-            if (path != null) {
-                val peaks = waveform.peaks(path)
-                local.update { if (engine.state.value.media?.uri == media.uri) it.copy(waveformPeaks = peaks) else it }
+    /** Engine reports confirm (or keep holding) the timeline's seek target; a new file drops any hold. */
+    private suspend fun followSeeks() {
+        var media: String? = null
+        engine.state.collect { playback ->
+            if (playback.media?.uri != media) {
+                media = playback.media?.uri
+                seek.reset()
             }
+            seek.onEngineReport(
+                playback.positionMillis,
+                playback.durationMillis,
+                playback.isSeekable,
+                playback.isSeeking,
+                monotonicMillis(),
+            )
         }
+    }
+
+    /** Earlier versions cached timeline peaks on disk; the waveform is gone, so is its cache. */
+    private fun deleteLegacyWaveformCache() {
+        val dir = DesktopDirectories.resolve().legacyWaveformCache.toFile()
+        if (dir.exists() && !dir.deleteRecursively()) System.err.println("Could not delete $dir")
     }
 
     private suspend fun loadLyricsForCurrentMedia() {
@@ -533,7 +547,6 @@ internal class PlayerViewModel(
     private data class LocalState(
         val fullscreen: Boolean = false,
         val lyrics: LyricsDocument? = null,
-        val waveformPeaks: FloatArray? = null,
         val presentation: PlayerPresentation = PlayerPresentation.LIBRARY,
         val loadingTitle: String? = null,
         val loadingUri: String? = null,
@@ -583,3 +596,6 @@ internal class PlayerViewModel(
         }
     }
 }
+
+/** Monotonic milliseconds for [SeekController]; never the wall clock, which can jump. */
+internal fun monotonicMillis(): Long = System.nanoTime() / 1_000_000

@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +32,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -46,6 +48,7 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
@@ -57,8 +60,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.vimivo.desktop.player.monotonicMillis
 import dev.vimivo.playback.ABRepeatEnd
 import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.ChapterInfo
@@ -66,20 +71,30 @@ import dev.vimivo.playback.PlaybackClock
 import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
+import dev.vimivo.playback.SeekController
+import dev.vimivo.playback.TimelineGeometry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.awt.MouseInfo
 import kotlin.math.abs
 
+/** The ViewModel's single [SeekController]; every timeline seeks through it. */
+internal val LocalSeekController = staticCompositionLocalOf<SeekController> {
+    error("No SeekController provided: wrap the player in CompositionLocalProvider(LocalSeekController ...)")
+}
+
 /**
- * The player timeline (spec §3.1): one continuous thin bar (played / buffered / remaining), 3 dp growing to 5 dp on
- * hover, a 12 dp thumb on hover and drag (always when [alwaysShowThumb]), chapter ticks and the A–B range.
+ * The player timeline (spec §3.1), identical for video and audio: one continuous thin bar (played / buffered /
+ * remaining), 3 dp growing to 5 dp on hover, a 12 dp thumb on hover and drag (always when [alwaysShowThumb]), chapter
+ * ticks and the A–B range. No waveform.
  *
  * Smoothness: the playhead comes from a [PlaybackClock] read only in the draw phase; a frame loop runs only while
  * playing and invalidates drawing, so the bar moves every frame without recomposing the player.
  *
- * Input: click seeks exactly; dragging scrubs with keyframe seeks (throttled) and seeks exactly on release; the wheel
- * seeks ±5 s; hovering shows the time, the chapter and, when [preview] returns one, a frame preview.
+ * Input goes through the shared [SeekController]: a click is one exact seek; dragging previews with throttled keyframe
+ * seeks and seeks exactly on release; the wheel seeks ±5 s. While a seek is in flight the thumb stays on the target
+ * until the engine confirms it, then interpolation restarts from there (no snap-back). x is mapped against the drawn
+ * track, which is inset by the thumb radius inside the 24 dp hit area, and mirrored in right-to-left layouts.
  */
 // Click, scrub, wheel, hover, semantics and drawing form one control; detekt counts every branch.
 @Suppress("CyclomaticComplexMethod")
@@ -88,18 +103,21 @@ import kotlin.math.abs
 internal fun VimivoTimeline(
     playback: PlaybackState,
     label: String,
-    onSeek: (positionMillis: Long, exact: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     alwaysShowThumb: Boolean = false,
     preview: (suspend (positionMillis: Long) -> ImageBitmap?)? = null,
     onAbChange: (ABRepeatRange) -> Unit = {},
-    peaks: FloatArray? = null,
+    seek: SeekController = LocalSeekController.current,
 ) {
     val duration = playback.durationMillis?.takeIf { it > 0 }
+    val seekState by seek.state.collectAsState()
     val clock = remember { PlaybackClock() }
-    val running = playback.status == PlaybackStatus.Playing
-    LaunchedEffect(playback.positionMillis, running, playback.speed, duration, playback.sessionId) {
-        clock.report(playback.positionMillis, System.nanoTime(), running, playback.speed, duration)
+    val running = playback.status == PlaybackStatus.Playing && !playback.isSeeking
+    val held = seekState.overrideMillis != null
+    LaunchedEffect(playback.positionMillis, running, playback.speed, duration, playback.sessionId, held) {
+        // While a seek is held the engine's reports are stale; when the hold ends, restart exactly at the engine's
+        // confirmed position instead of blending from the old one.
+        if (!held) clock.report(playback.positionMillis, System.nanoTime(), running, playback.speed, duration, snap = true)
     }
     var frameNanos by remember { mutableLongStateOf(System.nanoTime()) }
     LaunchedEffect(running) {
@@ -110,17 +128,20 @@ internal fun VimivoTimeline(
     val hovered by interaction.collectIsHoveredAsState()
     var hoverX by remember { mutableStateOf<Float?>(null) }
     var hoverAnchor by remember { mutableStateOf<TooltipAnchor?>(null) }
-    var scrubMillis by remember { mutableStateOf<Long?>(null) }
     var widthPx by remember { mutableStateOf(1f) }
     var abDrag by remember { mutableStateOf<AbDrag?>(null) }
     val abChange by rememberUpdatedState(onAbChange)
     val region = abDrag?.range ?: playback.abRepeat
+    val scrubbing = seekState.scrubMillis != null
     val track by animateDpAsState(
-        if (hovered || scrubMillis != null) 5.dp else 3.dp,
+        if (hovered || scrubbing) 5.dp else 3.dp,
         spring(stiffness = Spring.StiffnessMedium),
     )
-    val seek by rememberUpdatedState(onSeek)
-    fun millisAt(x: Float): Long? = duration?.let { (x / widthPx).coerceIn(0f, 1f).times(it).toLong() }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val inset = with(LocalDensity.current) { THUMB_RADIUS.toPx() }
+    val trackWidth = (widthPx - 2 * inset).coerceAtLeast(1f)
+    fun millisAt(x: Float): Long? = duration?.let { TimelineGeometry.millisAt(x, inset, trackWidth, it, rtl) }
+    val enabled = duration != null && playback.isSeekable
 
     Box(modifier.height(HIT_HEIGHT)) {
         Canvas(
@@ -139,53 +160,51 @@ internal fun VimivoTimeline(
                 }
                 .onPointerEvent(PointerEventType.Scroll) { event ->
                     val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                    if (delta != 0f && duration != null) {
-                        val now = clock.positionAt(System.nanoTime()).toLong()
-                        val step = if (delta < 0) WHEEL_STEP_MILLIS else -WHEEL_STEP_MILLIS
-                        seek((now + step).coerceIn(0, duration), false)
+                    if (delta != 0f && enabled) {
+                        val shown = clock.positionAt(System.nanoTime()).toLong()
+                        seek.seekBy(if (delta < 0) WHEEL_STEP_MILLIS else -WHEEL_STEP_MILLIS, shown, monotonicMillis())
                     }
                 }
-                .pointerInput(duration) {
-                    detectTapGestures { offset -> millisAt(offset.x)?.let { seek(it, true) } }
+                .pointerInput(duration, enabled, inset, trackWidth, rtl) {
+                    if (!enabled) return@pointerInput
+                    detectTapGestures { offset -> millisAt(offset.x)?.let { seek.seekTo(it, monotonicMillis()) } }
                 }
-                .pointerInput(duration, playback.abRepeat) {
-                    var lastSeekNanos = 0L
+                .pointerInput(duration, enabled, playback.abRepeat, inset, trackWidth, rtl) {
+                    if (!enabled) return@pointerInput
                     detectDragGestures(
                         onDragStart = { offset ->
-                            val end = duration?.let {
-                                AbRegionGeometry.endAt(offset.x, playback.abRepeat, widthPx, it, AB_HIT_RADIUS.toPx())
-                            }
+                            val end = AbRegionGeometry.endAt(
+                                offset.x - inset,
+                                playback.abRepeat,
+                                trackWidth,
+                                duration,
+                                AB_HIT_RADIUS.toPx(),
+                            )
                             if (end != null) {
                                 abDrag = AbDrag(end, playback.abRepeat)
                             } else {
-                                scrubMillis = millisAt(offset.x)
+                                millisAt(offset.x)?.let { seek.dragStart(it, monotonicMillis()) }
                             }
                         },
                         onDragEnd = {
                             abDrag?.let { abChange(it.range) }
                             abDrag = null
-                            scrubMillis?.let { seek(it, true) }
-                            scrubMillis = null
+                            seek.dragEnd(monotonicMillis())
                         },
                         onDragCancel = {
                             abDrag = null
-                            scrubMillis = null
+                            seek.dragCancel(monotonicMillis())
                         },
                     ) { change, _ ->
                         hoverX = change.position.x
+                        val at = millisAt(change.position.x) ?: return@detectDragGestures
                         val dragging = abDrag
-                        if (dragging != null && duration != null) {
-                            val at = millisAt(change.position.x) ?: return@detectDragGestures
+                        if (dragging != null) {
                             abDrag = dragging.copy(
                                 range = PlaybackControlPolicy.moveABPoint(dragging.range, dragging.end, at, duration),
                             )
-                            return@detectDragGestures
-                        }
-                        scrubMillis = millisAt(change.position.x)
-                        val now = System.nanoTime()
-                        if (now - lastSeekNanos > SCRUB_THROTTLE_NANOS) {
-                            lastSeekNanos = now
-                            scrubMillis?.let { seek(it, false) }
+                        } else {
+                            seek.dragTo(at, monotonicMillis())
                         }
                     }
                 }
@@ -198,9 +217,11 @@ internal fun VimivoTimeline(
                     duration = duration,
                     region = region,
                     trackHeight = track.toPx(),
-                    positionMillis = scrubMillis?.toFloat() ?: clock.positionAt(System.nanoTime()).toFloat(),
-                    showThumb = alwaysShowThumb || hovered || scrubMillis != null,
-                    peaks = peaks,
+                    trackStart = inset,
+                    trackWidth = trackWidth,
+                    rightToLeft = rtl,
+                    positionMillis = seekState.overrideMillis?.toDouble() ?: clock.positionAt(System.nanoTime()),
+                    showThumb = enabled && (alwaysShowThumb || hovered || scrubbing),
                 ),
             )
         }
@@ -213,71 +234,58 @@ internal fun VimivoTimeline(
     }
 }
 
-/** What one frame of the timeline draws; read in the draw phase so playback never recomposes the player. */
 private fun Modifier.timelineSemantics(
     label: String,
     playback: PlaybackState,
     duration: Long?,
     region: ABRepeatRange,
-    seek: (Long, Boolean) -> Unit,
+    seek: SeekController,
 ): Modifier = semantics {
     contentDescription = label
     val total = duration?.let(::playerClock) ?: "unknown"
     stateDescription = "${playerClock(playback.positionMillis)} of $total" + AbRegionGeometry.describe(region)
-    if (duration != null) {
+    if (duration != null && playback.isSeekable) {
         val range = 0f..duration.toFloat()
         progressBarRangeInfo = ProgressBarRangeInfo(playback.positionMillis.toFloat(), range)
         setProgress { target ->
-            seek(target.toLong().coerceIn(0, duration), true)
+            seek.seekTo(target.toLong(), monotonicMillis())
             true
         }
     }
 }
 
+/** What one frame of the timeline draws; read in the draw phase so playback never recomposes the player. */
 private class TimelineFrame(
     val playback: PlaybackState,
     val duration: Long?,
     val region: ABRepeatRange,
     val trackHeight: Float,
-    val positionMillis: Float,
+    val trackStart: Float,
+    val trackWidth: Float,
+    val rightToLeft: Boolean,
+    val positionMillis: Double,
     val showThumb: Boolean,
-    val peaks: FloatArray? = null,
 )
-
-/** The real loudness of an audio file as faint bars behind the track; the part already played is tinted. */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPeaks(peaks: FloatArray, frame: TimelineFrame) {
-    val total = frame.duration?.toFloat() ?: return
-    val playedFraction = (frame.positionMillis / total).coerceIn(0f, 1f)
-    val slot = size.width / peaks.size
-    val barWidth = (slot * 0.6f).coerceAtLeast(1f)
-    val maxHeight = size.height * PEAK_HEIGHT_FRACTION
-    peaks.forEachIndexed { index, peak ->
-        val height = maxOf(2f, maxHeight * peak)
-        val played = (index + 0.5f) / peaks.size <= playedFraction
-        val colour = (if (played) PlayerPalette.trackPlayed else PlayerPalette.trackRemaining)
-            .copy(alpha = PEAK_ALPHA)
-        drawRect(
-            colour,
-            Offset(index * slot + (slot - barWidth) / 2, (size.height - height) / 2),
-            Size(barWidth, height),
-        )
-    }
-}
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTimeline(frame: TimelineFrame) {
     val trackHeight = frame.trackHeight
     val top = (size.height - trackHeight) / 2
     val radius = CornerRadius(trackHeight / 2)
-    frame.peaks?.let { drawPeaks(it, frame) }
-    drawRoundRect(PlayerPalette.trackRemaining, Offset(0f, top), Size(size.width, trackHeight), radius)
-    val total = frame.duration?.toFloat() ?: return
-    fun x(millis: Long) = (millis / total).coerceIn(0f, 1f) * size.width
-    val buffered = x(frame.playback.bufferedPositionMillis)
-    drawRoundRect(PlayerPalette.trackBuffered, Offset(0f, top), Size(buffered, trackHeight), radius)
+    val start = frame.trackStart
+    val width = frame.trackWidth
+    drawRoundRect(PlayerPalette.trackRemaining, Offset(start, top), Size(width, trackHeight), radius)
+    val total = frame.duration ?: return
+    fun x(millis: Long) = TimelineGeometry.xAt(millis.toDouble(), start, width, total, frame.rightToLeft)
+    // A span from the media start to [millis]: left-anchored, or right-anchored when right-to-left.
+    fun span(colour: Color, end: Float) {
+        val left = if (frame.rightToLeft) end else start
+        val right = if (frame.rightToLeft) start + width else end
+        if (right > left) drawRoundRect(colour, Offset(left, top), Size(right - left, trackHeight), radius)
+    }
+    span(PlayerPalette.trackBuffered, x(frame.playback.bufferedPositionMillis))
     if (frame.region.pointA != null) drawAbRange(frame.region, ::x, top, trackHeight)
-    val position = frame.positionMillis
-    val played = (position / total).coerceIn(0f, 1f) * size.width
-    drawRoundRect(PlayerPalette.trackPlayed, Offset(0f, top), Size(played, trackHeight), radius)
+    val played = TimelineGeometry.xAt(frame.positionMillis, start, width, total, frame.rightToLeft)
+    span(PlayerPalette.trackPlayed, played)
     frame.playback.chapters.drop(1).forEach { chapter ->
         drawRect(
             Color.Black.copy(alpha = 0.55f),
@@ -453,9 +461,7 @@ internal fun playerClock(millis: Long): String {
     }
 }
 
-private val HIT_HEIGHT = 20.dp
-private const val PEAK_HEIGHT_FRACTION = 0.9f
-private const val PEAK_ALPHA = 0.5f
+private val HIT_HEIGHT = 24.dp
 private val AB_HIT_RADIUS = 8.dp
 private const val MIN_REGION_PX = 2f
 private const val AB_CAP_WIDTH_PX = 2f
@@ -468,6 +474,5 @@ private val PREVIEW_WIDTH = 160.dp
 private val PREVIEW_HEIGHT = 90.dp
 private val TOOLTIP_TEXT = TextStyle(fontSize = 12.sp, fontFeatureSettings = "tnum")
 private const val WHEEL_STEP_MILLIS = 5_000L
-private const val SCRUB_THROTTLE_NANOS = 120_000_000L
 private const val PREVIEW_BUCKET_MILLIS = 2_000L
 private const val PREVIEW_DEBOUNCE_MILLIS = 120L

@@ -254,6 +254,8 @@ class MpvPlayerEngine : PlayerEngine {
         if (seekable) {
             val mode = if (exact) "absolute+exact" else "absolute+keyframes"
             command("seek", (positionMillis / 1_000.0).toString(), mode)
+            // Until the next poll reads mpv's own `seeking` flag, the seek is in flight.
+            mutableState.update { it.copy(isSeeking = true) }
         } else {
             setProperty("start", (positionMillis / 1_000.0).toString())
         }
@@ -655,6 +657,8 @@ class MpvPlayerEngine : PlayerEngine {
 
                     val speed = doubleProperty("speed")?.toFloat()
                     val seekable = flagProperty("seekable") ?: false
+                    // True from the seek command until playback restarts (mpv's playback-restart) at the new time.
+                    val seeking = flagProperty("seeking") ?: false
 
                     if (sessionGeneration != expectedSession) break
 
@@ -667,6 +671,7 @@ class MpvPlayerEngine : PlayerEngine {
                             durationMillis = duration,
                             speed = speed ?: current.speed,
                             isSeekable = seekable,
+                            isSeeking = seeking,
                             audioTracks = cachedAudio,
                             videoTracks = cachedVideo,
                             subtitleTracks = cachedSubtitle,

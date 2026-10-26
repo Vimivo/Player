@@ -232,11 +232,9 @@ private fun PlayerControlBar(
         VimivoTimeline(
             playback = playback,
             label = stringResource(Res.string.player_seek),
-            onSeek = { position, exact -> onIntent(PlayerIntent.Seek(position, exact)) },
             onAbChange = { onIntent(PlayerIntent.SetAbRepeat(it)) },
             modifier = Modifier.weight(1f),
             preview = preview,
-            peaks = state.waveformPeaks,
         )
         Spacer(Modifier.width(8.dp))
         TimeReadout(state, onIntent)

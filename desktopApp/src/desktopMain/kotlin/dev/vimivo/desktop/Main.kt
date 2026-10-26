@@ -108,6 +108,7 @@ import dev.vimivo.desktop.playback.MpvThumbnailer
 import dev.vimivo.desktop.player.FullscreenController
 import dev.vimivo.desktop.player.FullscreenPanelWindow
 import dev.vimivo.desktop.player.LaunchArguments
+import dev.vimivo.desktop.player.ui.LocalSeekController
 import dev.vimivo.desktop.player.LaunchSettingsSection
 import dev.vimivo.desktop.player.PlayerIntent
 import dev.vimivo.desktop.player.PlayerPresentation
@@ -538,26 +539,28 @@ private fun PlayerWindow(
         }
         menu()
         VimivoTheme(mode = ThemeMode.DARK) {
-            CompositionLocalProvider(LocalHostWindow provides window) {
-                PlayerWindowContent(
-                    state = playerState,
-                    videoSurface = { modifier ->
-                        SwingPanel(background = Color.Black, factory = { videoCanvas }, modifier = modifier)
-                    },
-                    engine = engine,
-                    commands = viewModel.commands,
-                    onIntent = viewModel::dispatch,
-                    preview = preview,
-                    videoComponent = videoCanvas,
-                )
-            }
-            if (openStreamRequested) {
-                OpenStreamDialog(queue, engine, onDismiss = onOpenStreamHandled)
-            }
-            if (visible && playerState.fullscreen && playerState.presentation == PlayerPresentation.VIDEO) {
-                FullscreenController(playerState, window, videoCanvas, viewModel::dispatch, preview)
-                playerState.panel?.let { panel ->
-                    FullscreenPanelWindow(playerState, panel, window, engine, viewModel.commands, viewModel::dispatch)
+            CompositionLocalProvider(LocalSeekController provides viewModel.seek) {
+                CompositionLocalProvider(LocalHostWindow provides window) {
+                    PlayerWindowContent(
+                        state = playerState,
+                        videoSurface = { modifier ->
+                            SwingPanel(background = Color.Black, factory = { videoCanvas }, modifier = modifier)
+                        },
+                        engine = engine,
+                        commands = viewModel.commands,
+                        onIntent = viewModel::dispatch,
+                        preview = preview,
+                        videoComponent = videoCanvas,
+                    )
+                }
+                if (openStreamRequested) {
+                    OpenStreamDialog(queue, engine, onDismiss = onOpenStreamHandled)
+                }
+                if (visible && playerState.fullscreen && playerState.presentation == PlayerPresentation.VIDEO) {
+                    FullscreenController(playerState, window, videoCanvas, viewModel::dispatch, preview)
+                    playerState.panel?.let { panel ->
+                        FullscreenPanelWindow(playerState, panel, window, engine, viewModel.commands, viewModel::dispatch)
+                    }
                 }
             }
         }

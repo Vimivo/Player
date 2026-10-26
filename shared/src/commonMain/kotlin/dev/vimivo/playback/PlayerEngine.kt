@@ -194,6 +194,12 @@ data class PlaybackState(
     val deinterlace: Boolean = false,
     val deinterlaceMode: DeinterlaceMode = DeinterlaceMode.OFF,
     val sessionId: Long = 0L,
+    /**
+     * True from a seek request until the engine has landed on the new position (mpv `seeking`, Media3 until
+     * STATE_READY after the discontinuity, AVPlayer until the seek completion handler ran). [SeekController] holds the
+     * timeline at the target while this is true.
+     */
+    val isSeeking: Boolean = false,
 )
 
 interface PlayerEngine : AutoCloseable {

@@ -116,6 +116,8 @@ internal interface DesktopFullscreenControl {
 internal class DesktopPlayerCommandExecutor(
     private val engine: PlayerEngine,
     private val togglePlayback: () -> Unit,
+    /** Relative seek through the shared SeekController (one exact seek, relative to a pending target). */
+    private val seekBy: (deltaMillis: Long) -> Unit,
     private val toggleShuffle: () -> Unit,
     private val cycleRepeat: () -> Unit,
     private val fullscreen: DesktopFullscreenControl,
@@ -157,7 +159,7 @@ internal class DesktopPlayerCommandExecutor(
 
     private fun executeMediaCommand(command: DesktopPlayerCommand): Boolean {
         val state = engine.state.value
-        fun seek(delta: Long) = engine.seekTo(PlaybackControlPolicy.seekTarget(state.positionMillis, delta, state.durationMillis), exact = false)
+        fun seek(delta: Long): Result<Unit> = Result.success(seekBy(delta))
         val result: Result<HudMessage?> = when (command) {
             DesktopPlayerCommand.SEEK_BACK_SHORT -> seek(-PlaybackControlPolicy.SHORT_SEEK_MILLIS).map { null }
             DesktopPlayerCommand.SEEK_FORWARD_SHORT -> seek(PlaybackControlPolicy.SHORT_SEEK_MILLIS).map { null }

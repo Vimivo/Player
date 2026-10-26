@@ -189,12 +189,10 @@ private fun ControllerContent(
         VimivoTimeline(
             playback = playback,
             label = stringResource(Res.string.player_seek),
-            onSeek = { position, exact -> onIntent(PlayerIntent.Seek(position, exact)) },
             onAbChange = { onIntent(PlayerIntent.SetAbRepeat(it)) },
             alwaysShowThumb = true,
             modifier = Modifier.fillMaxWidth(),
             preview = preview,
-            peaks = state.waveformPeaks,
         )
         Box(Modifier.fillMaxWidth()) {
             Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
