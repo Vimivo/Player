@@ -48,14 +48,14 @@ class MpvVideoFiltersLiveTest {
             val advanced = runCatching {
                 runBlocking {
                     withTimeout(TIMEOUT) {
-                        while ((engine.readProperty("time-pos")?.toDoubleOrNull() ?: 0.0) < before + 0.1) delay(POLL_MILLIS)
+                        while (timePosition(engine) < before + 0.1) delay(POLL_MILLIS)
                     }
                 }
             }
             check(advanced.isSuccess) {
-                "playback did not advance with ${mode.name}: time-pos ${engine.readProperty("time-pos")} (was $before), " +
-                    "vf ${engine.readProperty("vf")}, core-idle ${engine.readProperty("core-idle")}, " +
-                    "paused ${engine.readProperty("pause")}, hwdec ${engine.readProperty("hwdec-current")}"
+                val report = listOf("time-pos", "vf", "core-idle", "pause", "hwdec-current")
+                    .joinToString { "$it=${engine.readProperty(it)}" }
+                "playback did not advance with ${mode.name} (time-pos was $before): $report"
             }
         }
     }
@@ -68,6 +68,8 @@ class MpvVideoFiltersLiveTest {
         engine.setDeinterlace(false).getOrThrow()
         assertEquals(DeinterlaceMode.OFF, engine.state.value.deinterlaceMode)
     }
+
+    private fun timePosition(engine: MpvPlayerEngine) = engine.readProperty("time-pos")?.toDoubleOrNull() ?: 0.0
 
     /** How many filters in libmpv's `vf` chain carry [label]; the chain reads as `@label:name=params,@label2:...`. */
     private fun filtersLabelled(engine: MpvPlayerEngine, label: String): Int =
