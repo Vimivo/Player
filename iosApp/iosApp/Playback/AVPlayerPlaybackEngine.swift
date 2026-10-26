@@ -39,6 +39,9 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     /// The A–B region being repeated, in milliseconds (V1 #6); cleared whenever another item loads.
     public internal(set) var abRepeat: ClosedRange<Int64>?
     var abBoundaryToken: Any?
+    /// Equalizer, volume boost and ReplayGain (V1 #19, #21, #24), run on every item's audio through a tap.
+    public let audioEffects = AudioEffectsController()
+    @Published public internal(set) var audioSettings = AudioEffectSettings.load()
     /// The colour and crop applied to the picture (V1 #12, #14); applied to each item as it loads.
     @Published public internal(set) var pictureSettings = PictureSettings()
 
@@ -48,6 +51,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         AudioSessionController.shared.configureSession()
         RemoteCommandController.shared.delegate = self
         RemoteCommandController.shared.configureCommands()
+        audioEffects.update(settings: audioSettings)
         setupTimeObserver()
         setupEndObserver()
         setupLifecycleObservers()
@@ -289,6 +293,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             let settings = pictureSettings
             Task { playerItem.videoComposition = try? await PictureComposition.make(for: playerItem.asset, settings: settings) }
         }
+        attachAudioEffects(to: playerItem)
         player.replaceCurrentItem(with: playerItem)
         AudioSessionController.shared.configureSession()
         observeReadiness(of: playerItem, startMillis: startMillis)

@@ -5,6 +5,7 @@ public struct SettingsView: View {
     @AppStorage("vimivo_theme") private var theme: String = "system"
     @AppStorage(PlaybackPreferences.resumeVideoKey) private var resumeVideo: Bool = true
     @AppStorage(PlaybackPreferences.resumeSongsKey) private var resumeSongs: Bool = false
+    @ObservedObject private var engine = AVPlayerPlaybackEngine.shared
     @State private var cacheSizeFormatted: String = "Calculating..."
     @State private var showCacheAlert = false
 
@@ -29,6 +30,8 @@ public struct SettingsView: View {
                     Toggle("Resume Videos & Long Audio", isOn: $resumeVideo)
                     Toggle("Resume Songs", isOn: $resumeSongs)
                 }
+
+                soundSection
 
                 Section(header: Text("Storage & Cache")) {
                     HStack {
@@ -80,6 +83,66 @@ public struct SettingsView: View {
             .onAppear(perform: calculateCacheSize)
         }
     }
+
+    // MARK: Sound
+
+    private func soundBinding<T>(_ keyPath: WritableKeyPath<AudioEffectSettings, T>) -> Binding<T> {
+        Binding(
+            get: { engine.audioSettings[keyPath: keyPath] },
+            set: { value in
+                var settings = engine.audioSettings
+                settings[keyPath: keyPath] = value
+                engine.applyAudio(settings)
+            }
+        )
+    }
+
+    private func bandBinding(_ index: Int) -> Binding<Double> {
+        Binding(
+            get: { Double(engine.audioSettings.customGains[index]) },
+            set: { value in
+                var settings = engine.audioSettings
+                settings.customGains[index] = Float(value)
+                engine.applyAudio(settings)
+            }
+        )
+    }
+
+    private var soundSection: some View {
+        Section(
+            header: Text("Sound"),
+            footer: Text("The equalizer, volume boost and ReplayGain apply to music and video audio. Boost above 100 % is limited so it does not clip.")
+        ) {
+            Toggle("Equalizer", isOn: soundBinding(\.equalizerOn))
+            if engine.audioSettings.equalizerOn {
+                Picker("Preset", selection: soundBinding(\.preset)) {
+                    ForEach(EqualizerPreset.entries, id: \.name) { preset in Text(preset.name.capitalized.replacingOccurrences(of: "_", with: " ")).tag(preset) }
+                }
+                SoundSlider(title: "Bass", value: Binding(get: { Double(engine.audioSettings.bass) }, set: { setBass($0) }), range: 0...1, unit: "")
+                SoundSlider(title: "Treble", value: Binding(get: { Double(engine.audioSettings.treble) }, set: { setTreble($0) }), range: -12...12, unit: " dB")
+                SoundSlider(title: "Preamp", value: Binding(get: { Double(engine.audioSettings.preampDb) }, set: { setPreamp($0) }), range: -12...0, unit: " dB")
+                if engine.audioSettings.preset == EqualizerPreset.custom {
+                    ForEach(Array(GraphicEqualizerBands.shared.CENTRES_HZ.enumerated()), id: \.offset) { index, hz in
+                        SoundSlider(title: "\(hz) Hz", value: bandBinding(index), range: -12...12, unit: " dB")
+                    }
+                }
+            }
+            Picker("ReplayGain", selection: soundBinding(\.replayGain)) {
+                ForEach(ReplayGainMode.entries, id: \.name) { mode in Text(mode.name.capitalized).tag(mode) }
+            }
+            SoundSlider(
+                title: "Volume boost",
+                value: Binding(get: { Double(engine.audioSettings.boost) * 100 }, set: { setBoost($0 / 100) }),
+                range: 100...200,
+                unit: " %"
+            )
+        }
+    }
+
+    private func setBass(_ value: Double) { var s = engine.audioSettings; s.bass = Float(value); engine.applyAudio(s) }
+    private func setTreble(_ value: Double) { var s = engine.audioSettings; s.treble = Float(value); engine.applyAudio(s) }
+    private func setPreamp(_ value: Double) { var s = engine.audioSettings; s.preampDb = Float(value); engine.applyAudio(s) }
+    private func setBoost(_ value: Double) { var s = engine.audioSettings; s.boost = Float(value); engine.applyAudio(s) }
 
     private static var versionLabel: String {
         let info = Bundle.main.infoDictionary
@@ -150,5 +213,24 @@ struct OpenSourceLicensesView: View {
             }
         }
         .navigationTitle("Open-source licences")
+    }
+}
+
+/// A labelled slider that shows its value, for the sound settings.
+private struct SoundSlider: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let unit: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(String(format: "%.0f", value) + unit).monospacedDigit().foregroundColor(.secondary)
+            }
+            Slider(value: $value, in: range).accessibilityLabel(title)
+        }
     }
 }

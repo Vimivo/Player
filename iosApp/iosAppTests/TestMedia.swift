@@ -6,7 +6,7 @@ enum TestMedia {
     static let blockWidth = 8
 
     /// A mono 16-bit WAV with a sine tone.
-    static func sineWav(seconds: Double, hz: Double = 440, sampleRate: Double = 44_100) throws -> URL {
+    static func sineWav(seconds: Double, hz: Double = 440, sampleRate: Double = 44_100, amplitude: Double = 8_000) throws -> URL {
         let frames = Int(seconds * sampleRate)
         var data = Data()
         func append<T: FixedWidthInteger>(_ value: T) { withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) } }
@@ -15,7 +15,7 @@ enum TestMedia {
         append(UInt32(sampleRate)); append(UInt32(sampleRate) * 2); append(UInt16(2)); append(UInt16(16))
         data.append(contentsOf: Array("data".utf8)); append(UInt32(frames * 2))
         for frame in 0..<frames {
-            append(Int16(8_000 * sin(2 * Double.pi * hz * Double(frame) / sampleRate)))
+            append(Int16(amplitude * sin(2 * Double.pi * hz * Double(frame) / sampleRate)))
         }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("tone-\(UUID().uuidString).wav")
         try data.write(to: url)
