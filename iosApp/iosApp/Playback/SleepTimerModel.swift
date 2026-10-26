@@ -70,9 +70,9 @@ private final class EnginePlayer: NSObject, SleepTimerPlayer {
 
     func volume() -> Float { engine?.player.volume ?? 1 }
 
-    func setVolume(volume: Float) { engine?.player.volume = volume }
+    func setVolume(volume_ volume: Float) { engine?.player.volume = volume }
 
     func isPlaying() -> Bool { engine?.state.status == .playing }
 
-    func pause() { engine?.pause() }
+    func pause_() { engine?.pause() }
 }

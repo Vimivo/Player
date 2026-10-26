@@ -14,7 +14,7 @@ how it was checked, and what is still missing.
 | Queue | shortcut with a count | shortcut with a count |
 | Equalizer | panel over the player: on/off, 12 presets, ten vertical band sliders, preamp, bass, treble | sheet: same controls |
 | Lyrics | synced LRC view with fading lines, load a file, sidecar `.lrc` found automatically | same: panel, file picker, sidecar, and the chosen file is remembered per track |
-| Sleep timer | 15/30/45/60 min, stop after track | same, with a 10 s fade-out; the shared `SleepTimer` counts on the wall clock and `UIBackgroundModes: audio` keeps it running with the screen off |
+| Sleep timer | 15/30/45/60 min, stop after track | same options and fade (`PlaybackSleepTimer`, shared by Android, desktop and iOS; it counts on the wall clock and `UIBackgroundModes: audio` keeps it running with the screen off) |
 | Landscape | artwork left, controls centre, shortcut list right | artwork left, controls right |
 
 ## Waveform: real peaks only
@@ -49,6 +49,14 @@ aspect pills, picture-in-picture where the OS has it.
   toggles, sliders and menus as placeholders, so those were not judged from the images.
 - Not tested: a phone, VoiceOver/TalkBack walkthroughs, and the equalizer's sound on a device.
 
+## Sleep timer: one implementation
+
+`PlaybackSleepTimer` (shared) is the countdown, the fade-out (10 s, `SleepTimerOptions`), the pause, and the
+"stop after this track" request that queues read (`QueueStopRequest`). Choices are 15/30/45/60 minutes or after the
+current track on Android, desktop (Settings ▸ Sleep Timer) and iOS. Each platform supplies only a clock and a
+`SleepTimerPlayer` (volume, playing, pause). The shared `PlaybackQueueController` (desktop) and the Android session
+adapter stop at the end of the track and queue nothing behind it while the request is armed.
+
 ## Lyrics: one implementation
 
 `LrcLyricsParser`, `LyricsDocument.findActiveLineIndex` and `LyricsSidecar` (which `.lrc` sits beside a media file) live in
@@ -58,6 +66,5 @@ text a person loaded in the shared library database (schema v3, table `lyrics`).
 ## Known gaps
 
 - iOS: favourite/queue changes are not shared logic (they live in Swift).
-- Sleep timer: Android has its own `SleepTimerController` and desktop a minute-by-minute loop in `Main.kt`; only iOS uses the shared `SleepTimer` (fixed in this change: its default clock never advanced and the fade length was lost). Moving Android and desktop onto it is open.
 - Peaks of very long files (hours) take as long as decoding them; the plain line shows meanwhile.
 - Android colour controls for video exist in debug builds only and are unproven on a phone (see `ANDROID_COLOUR_CONTROLS.md`).

@@ -143,7 +143,7 @@ Now in `shared` and used by the iOS app: the library store, schema and migration
 order, position, shuffle, repeat, edits, skip-on-failure, gapless "what follows" and save/restore (`PlayQueue`), bookmark
 naming and the duplicate rule (`Bookmarks`), resume rules (`ResumePolicy`), the DSP chain (equalizer, boost, ReplayGain),
 crop maths and black-bar detection, A–B region handling, lyrics (parser, active line, sidecar choice, storage), the sleep
-timer countdown (`SleepTimer`, wall clock), waveform peaks (accumulator, codec, cache key), the snapshot naming.
+timer countdown, fade and pause (`PlaybackSleepTimer`, wall clock), waveform peaks (accumulator, codec, cache key), the snapshot naming.
 
 Still Swift-only (each is either platform API or logic that has not been moved yet):
 
@@ -157,6 +157,5 @@ Still Swift-only (each is either platform API or logic that has not been moved y
 | Indexing and import | folder/file import, security-scoped bookmarks, metadata and artwork reading with AVFoundation, file existence and moved-container repair | AVFoundation and file-access APIs; the decisions (what counts as media, duplicates) are not shared yet |
 | Preferences | `UserDefaults` for playback preferences and audio-effect settings | shared `AppSettings` exists for the other platforms; iOS has no shared settings store yet |
 | Playlist editing | add/remove/reorder inside `PlaylistView` | trivial list edits over the shared store; move with the media model |
-| Sleep fade | the volume ramp (`AVPlayer.volume`) | needs the player; the curve (`SleepFade`) and timer are shared |
 | Statistics | none computed on iOS yet | not built |
 
