@@ -22,6 +22,7 @@ struct PlayerSheetView: View {
                 case .audio: audioContent
                 case .subtitles: subtitleContent
                 case .options: optionsContent
+                case .queue: nextUpContent
                 }
             }
             .navigationTitle(title)
@@ -39,7 +40,8 @@ struct PlayerSheetView: View {
         case .speed: return "Playback speed"
         case .audio: return "Audio track"
         case .subtitles: return "Subtitles"
-        case .options: return "Video options"
+        case .options: return "Playback settings"
+        case .queue: return "Next up"
         }
     }
 
@@ -175,15 +177,33 @@ struct PlayerSheetView: View {
 
     // MARK: Options
 
-    private var optionsContent: some View {
+    private var nextUpContent: some View {
         List {
-            Section("Aspect ratio") {
-                ForEach(VideoAspect.allCases) { aspect in
-                    SelectableRow(title: aspect.label, detail: nil, selected: aspect == model.aspect) {
-                        model.setAspect(aspect)
+            ForEach(Array(engine.queue.enumerated()), id: \.element.id) { index, item in
+                Button {
+                    engine.playQueue(items: engine.queue, startIndex: index)
+                    dismiss()
+                } label: {
+                    HStack(spacing: 12) {
+                        ArtworkThumbnailView(uri: item.artworkUri, kind: item.kind, size: 54)
+                            .frame(width: 96, height: 54)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        Text(item.title)
+                            .lineLimit(1)
+                            .fontWeight(index == engine.currentIndex ? .bold : .regular)
+                            .foregroundColor(index == engine.currentIndex ? .accentColor : .primary)
+                        Spacer()
+                        if index == engine.currentIndex { Text("Playing").font(.caption).foregroundColor(.accentColor) }
                     }
                 }
+                .listRowBackground(index == engine.currentIndex ? Color.accentColor.opacity(0.12) : nil)
             }
+        }
+        .listStyle(.plain)
+    }
+
+    private var optionsContent: some View {
+        List {
             Section("Playback") {
                 Button {
                     model.sheet = .speed
@@ -200,8 +220,26 @@ struct PlayerSheetView: View {
                 } label: {
                     LabeledContent("Subtitles", value: model.selectedSubtitle?.displayName ?? "Off")
                 }
+                Toggle("Loop", isOn: Binding(
+                    get: { engine.state.repeatMode == .one },
+                    set: { engine.state.repeatMode = $0 ? .one : .off }
+                ))
+                if engine.queue.count > 1 {
+                    Button {
+                        model.sheet = .queue
+                    } label: {
+                        LabeledContent("Next up", value: "\(engine.queue.count) videos")
+                    }
+                }
             }
             .foregroundColor(.primary)
+            Section("Aspect ratio") {
+                ForEach(VideoAspect.allCases) { aspect in
+                    SelectableRow(title: aspect.label, detail: nil, selected: aspect == model.aspect) {
+                        model.setAspect(aspect)
+                    }
+                }
+            }
             Section("Picture") {
                 Picker("Crop", selection: Binding(
                     get: { engine.pictureSettings.cropPreset },

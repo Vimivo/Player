@@ -109,7 +109,7 @@ public struct VideoPlayerView: View {
         }
         .sheet(item: $model.sheet) { sheet in
             PlayerSheetView(sheet: sheet, engine: engine, model: model)
-                .presentationDetents(sheet == .options ? [.medium, .large] : [.medium])
+                .presentationDetents(sheet == .options || sheet == .queue ? [.medium, .large] : [.medium])
                 .presentationDragIndicator(.visible)
                 .preferredColorScheme(.dark)
         }
@@ -237,6 +237,9 @@ private struct VideoControls: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+            if engine.queue.count > 1 {
+                PlayerIconButton(systemName: "list.bullet", label: "Next up") { open(.queue) }
+            }
             PlayerIconButton(systemName: "waveform", label: "Audio track") { open(.audio) }
             PlayerIconButton(systemName: "captions.bubble", label: "Subtitles") { open(.subtitles) }
             if model.pipController != nil {
@@ -269,6 +272,7 @@ private struct VideoControls: View {
                     .foregroundColor(.white)
                     .frame(width: 76, height: 76)
                     .background(Color.black.opacity(0.42), in: Circle())
+                    .overlay(Circle().stroke(Color.accentColor, lineWidth: 2))
             }
             .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
             PlayerIconButton(systemName: "goforward.10", label: "Forward 10 seconds", size: 28) {
@@ -284,6 +288,7 @@ private struct VideoControls: View {
 
     private var bottomBar: some View {
         VStack(spacing: 2) {
+            SettingsHandle { open(.options) }
             VideoSeekBar(engine: engine, model: model)
             HStack(spacing: 4) {
                 PlayerIconButton(systemName: "lock.fill", label: "Lock screen controls", action: model.lockControls)
@@ -319,6 +324,25 @@ private struct VideoControls: View {
     private func open(_ sheet: PlayerSheet) {
         model.touch()
         model.sheet = sheet
+    }
+}
+
+/// A chevron with "Swipe up for settings": a tap or an upward swipe opens the playback settings.
+private struct SettingsHandle: View {
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            VStack(spacing: 0) {
+                Image(systemName: "chevron.up").font(.system(size: 14, weight: .semibold))
+                Text("Swipe up for settings").font(.caption2)
+            }
+            .foregroundColor(.white.opacity(0.7))
+            .frame(maxWidth: .infinity, minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .simultaneousGesture(DragGesture(minimumDistance: 20).onEnded { if $0.translation.height < -40 { onOpen() } })
+        .accessibilityLabel("Open playback settings")
     }
 }
 

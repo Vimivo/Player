@@ -46,7 +46,7 @@ enum VideoAspect: CaseIterable, Identifiable {
 }
 
 enum PlayerSheet: String, Identifiable {
-    case speed, audio, subtitles, options
+    case speed, audio, subtitles, options, queue
     var id: String { rawValue }
 }
 
