@@ -74,6 +74,8 @@
 		1307 /* AudioEffectsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2307 /* AudioEffectsTests.swift */; };
 		1308 /* GaplessPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2308 /* GaplessPlayback.swift */; };
 		1309 /* GaplessPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2309 /* GaplessPlaybackTests.swift */; };
+		1310 /* multitrack_tiny.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2310 /* multitrack_tiny.mp4 */; };
+		1311 /* TrackSwitchingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2311 /* TrackSwitchingTests.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -161,6 +163,8 @@
 		2307 /* AudioEffectsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEffectsTests.swift; sourceTree = "<group>"; };
 		2308 /* GaplessPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaplessPlayback.swift; sourceTree = "<group>"; };
 		2309 /* GaplessPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaplessPlaybackTests.swift; sourceTree = "<group>"; };
+		2310 /* multitrack_tiny.mp4 */ = {isa = PBXFileReference; lastKnownFileType = video.mp4; name = multitrack_tiny.mp4; path = ../../testmedia/multitrack_tiny.mp4; sourceTree = "<group>"; };
+		2311 /* TrackSwitchingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackSwitchingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -300,6 +304,8 @@
 		4012 /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2311 /* TrackSwitchingTests.swift */,
+				2310 /* multitrack_tiny.mp4 */,
 				2309 /* GaplessPlaybackTests.swift */,
 				2307 /* AudioEffectsTests.swift */,
 				2305 /* PictureCompositionTests.swift */,
@@ -384,6 +390,7 @@
 			buildPhases = (
 				7004 /* Sources */,
 				3002 /* Frameworks */,
+				7007 /* Test Resources */,
 			);
 			buildRules = (
 			);
@@ -463,6 +470,14 @@
 			files = ();
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7007 /* Test Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1310 /* multitrack_tiny.mp4 in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -534,6 +549,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1311 /* TrackSwitchingTests.swift in Sources */,
 				1309 /* GaplessPlaybackTests.swift in Sources */,
 				1307 /* AudioEffectsTests.swift in Sources */,
 				1305 /* PictureCompositionTests.swift in Sources */,

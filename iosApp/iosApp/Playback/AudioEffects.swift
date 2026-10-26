@@ -138,6 +138,10 @@ public final class AudioEffectsController {
     private var tags = ReplayGainTagValues()
     private var version = 0
 
+    /// Called with the first channel of every buffer after the effects, so tests can measure what is really played.
+    /// Nil in the app.
+    public var tapObserver: (([Float], Double) -> Void)?
+
     public init() {}
 
     public func update(settings: AudioEffectSettings) {
@@ -216,6 +220,7 @@ private final class TapState {
     private var channels = 0
     private var interleaved = false
     private var appliedVersion = -1
+    private var sampleRate = 44_100.0
 
     init(controller: AudioEffectsController) {
         self.controller = controller
@@ -227,6 +232,7 @@ private final class TapState {
         guard isFloat else { return } // anything else passes through untouched
         channels = Int(format.mChannelsPerFrame)
         interleaved = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
+        sampleRate = format.mSampleRate
         chain = AudioDspChain(sampleRate: Int32(format.mSampleRate), channels: Int32(channels))
         scratch = KotlinFloatArray(size: Int32(maxFrames * channels))
         appliedVersion = -1
@@ -246,7 +252,18 @@ private final class TapState {
             chain.gain = configuration.gain
             chain.setEqualizerGainsDb(gains: configuration.bandsDb.map { KotlinFloat(float: $0) })
         }
-        if chain.isNeutral { return }
+        if !chain.isNeutral { applyChain(chain, scratch, bufferList, frames) }
+        if let observer = controller.tapObserver { observe(bufferList, frames, observer) }
+    }
+
+    private func observe(_ bufferList: UnsafeMutablePointer<AudioBufferList>, _ frames: Int, _ observer: ([Float], Double) -> Void) {
+        let buffers = UnsafeMutableAudioBufferListPointer(bufferList)
+        guard let data = buffers.first?.mData?.assumingMemoryBound(to: Float.self) else { return }
+        let stride = interleaved ? channels : 1
+        observer((0..<frames).map { data[$0 * stride] }, sampleRate)
+    }
+
+    private func applyChain(_ chain: AudioDspChain, _ scratch: KotlinFloatArray, _ bufferList: UnsafeMutablePointer<AudioBufferList>, _ frames: Int) {
         let buffers = UnsafeMutableAudioBufferListPointer(bufferList)
         guard frames * channels <= Int(scratch.size) else { return }
         if interleaved, let data = buffers.first?.mData?.assumingMemoryBound(to: Float.self) {
