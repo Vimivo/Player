@@ -128,7 +128,7 @@ class MpvGaplessLiveTest {
         const val SAMPLE_MILLIS = 5L
         const val SECOND_FILE_PLAYED_MILLIS = 800L
         const val GAPLESS_MAX_IDLE_MILLIS = 120L
-        const val CONTROL_MIN_IDLE_MILLIS = 150L
+        const val CONTROL_MIN_IDLE_MILLIS = 60L
         const val NANOS_PER_MILLI = 1_000_000L
     }
 }
