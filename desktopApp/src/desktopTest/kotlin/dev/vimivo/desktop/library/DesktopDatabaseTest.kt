@@ -28,7 +28,7 @@ class DesktopDatabaseTest {
                 }
                 connection.createStatement().executeQuery("SELECT version FROM schema_version").use { result ->
                     result.next()
-                    assertEquals(6, result.getInt(1))
+                    assertEquals(DesktopDatabase.SCHEMA_VERSION, result.getInt(1))
                 }
             }
         }

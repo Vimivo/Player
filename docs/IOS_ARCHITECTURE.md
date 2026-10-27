@@ -23,9 +23,26 @@ Vimivo on iOS and iPadOS combines a native SwiftUI mobile interface with Kotlin 
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │      Kotlin Multiplatform Core (VimivoShared)          │
-│  Domain Contracts, Playlist/Queue State Logic, Models  │
+│  ResumePolicy, PlaybackSpeeds (consumed today);        │
+│  persistence, indexing, queue next (ADR-020/021)       │
 └────────────────────────────────────────────────────────┘
 ```
+
+`PlaybackPreferences.swift` is the bridge to shared rules: it maps the Swift `MediaKind` to the Kotlin enum and calls
+`ResumePolicy` and `PlaybackSpeeds`, so iOS resumes and offers speeds exactly like Android and desktop. Xcode links
+the framework from `shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)`, built by the
+`embedAndSignAppleFrameworkForXcode` script phase for whichever SDK and configuration is being built.
+
+## Getting Media In
+
+- **Files app / document picker**: security-scoped bookmarks (below).
+- **On My iPhone › Vimivo**: `DocumentsLibraryImporter` indexes the app's Documents folder (also reachable from Finder
+  over USB) on launch and whenever the app becomes active. Items get stable `documents:<relative path>` IDs, and their
+  stored URIs are refreshed because the container path changes when the app is updated.
+- **Open in Vimivo / share sheet**: `CFBundleDocumentTypes` declares `public.audio` and `public.movie` with the
+  `Alternate` rank; `AppRouter` imports and plays the file.
+- **Deep links**: `vimivo://now-playing` (widgets) and `vimivo://play?id=<media id>`. Debug builds also accept
+  `-VimivoOpenURL <url>` as a launch argument so simulator and CI smoke tests can drive playback.
 
 ## Native Multimedia Playback
 
@@ -96,9 +113,14 @@ The full-screen player (`VideoPlayerView`) mirrors the Android `AdvancedVideoPla
   - `media_items`: imported local and network media references, metadata, durations, and security bookmarks.
   - `playlists` & `playlist_items`: user playlists with preserved ordering.
   - `favorites`: bookmarked favorite tracks.
-  - `playback_history`: play counts, last played timestamps, and completion statuses.
-  - `playback_queue`: persisted active queue state.
-  - `bookmarks`: saved timestamp markers within media items.
+  - `playback_history`: play counts, last played timestamps, resume positions, and completion statuses. Starting
+    playback counts a play without touching the saved position; the position is saved every 10 s, on pause, when the
+    app resigns active or enters the background, and when switching items.
+  - `queue_items` + `queue_state`: the persisted queue and current index, restored paused at launch.
+  - `bookmarks`: saved positions within media items, managed from the video player's options sheet.
+- This describes the original Swift store. The app now opens the shared `LocalLibraryStore` (SQLite, schema v3,
+  migrated non-destructively on open, in Application Support): see `DATABASE_ARCHITECTURE.md` §1a and the status
+  section at the end of this file.
 
 ## Secure Credential Storage
 
@@ -114,3 +136,26 @@ The full-screen player (`VideoPlayerView`) mirrors the Android `AdvancedVideoPla
   - iPad: Two-column `NavigationSplitView` with native sidebar navigation, expanded library grid, and responsive player layout.
 - **Color & Theming**: Respects Dark and Light mode automatically using dynamic system colors and brand accent `#00D26A`.
 - **Accessibility**: Standard VoiceOver labels, accessibility traits, dynamic type scaling, and sufficient contrast across all controls.
+
+## Shared logic vs Swift (status after the queue migration)
+
+Now in `shared` and used by the iOS app: the library store, schema and migrations (`LocalLibraryStore`, v3), the queue's
+order, position, shuffle, repeat, edits, skip-on-failure, gapless "what follows" and save/restore (`PlayQueue`), bookmark
+naming and the duplicate rule (`Bookmarks`), resume rules (`ResumePolicy`), the DSP chain (equalizer, boost, ReplayGain),
+crop maths and black-bar detection, A–B region handling, lyrics (parser, active line, sidecar choice, storage), the sleep
+timer countdown, fade and pause (`PlaybackSleepTimer`, wall clock), waveform peaks (accumulator, codec, cache key), the snapshot naming.
+
+Still Swift-only (each is either platform API or logic that has not been moved yet):
+
+| Area | What stays in Swift | Why / next step |
+|---|---|---|
+| Player wiring | `AVQueuePlayer`, items, time and end observers, the legible (subtitle) output, picture-in-picture, now-playing and remote commands, audio session and interruptions | AVFoundation/MediaPlayer/UIKit: stays in `iosApp` by rule |
+| Gapless preparation | which following song may be queued early (song to song only, not when it should resume part-way) | policy is Swift; the shared `PlaybackQueueController` has a similar rule for the other platforms: unify when the libmpv fallback (ADR-005) lands |
+| Checkpoints and history | when to save the position (on item change, backgrounding, ending) and the completed flag | calls the shared store; the cadence rule could move next to `ResumePolicy` |
+| Library listing | filter chips (recent, favourites), text search, grouping into albums and artists, sorting by date added | pure functions over media items: should move to shared with a shared `MediaItem` (see below) |
+| Media model | Swift `MediaItem`, `Playlist`, `Bookmark`, `PlaybackHistory` structs mapped to the shared `Stored*` records in `IOSDatabase` | one model in shared would remove the mapping |
+| Indexing and import | folder/file import, security-scoped bookmarks, metadata and artwork reading with AVFoundation, file existence and moved-container repair | AVFoundation and file-access APIs; the decisions (what counts as media, duplicates) are not shared yet |
+| Preferences | `UserDefaults` for playback preferences and audio-effect settings | shared `AppSettings` exists for the other platforms; iOS has no shared settings store yet |
+| Playlist editing | add/remove/reorder inside `PlaylistView` | trivial list edits over the shared store; move with the media model |
+| Statistics | none computed on iOS yet | not built |
+

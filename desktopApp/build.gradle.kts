@@ -8,8 +8,9 @@ plugins {
 val isMacHost = org.gradle.internal.os.OperatingSystem.current().isMacOsX
 
 /**
- * libmpv comes from Homebrew, whose prefix differs by architecture (/opt/homebrew on Apple Silicon,
- * /usr/local on Intel). VIMIVO_MPV_PREFIX overrides it for custom libmpv builds.
+ * VIMIVO_MPV_PREFIX is the unpacked LGPL media package (scripts/build_media/fetch_media.py; lib/ + include/mpv).
+ * Without it a local Homebrew prefix is used for development only (/opt/homebrew on Apple Silicon, /usr/local
+ * on Intel); distributable builds always set it (ADR-004).
  */
 val macosMpvPrefix: Provider<String> = providers.environmentVariable("VIMIVO_MPV_PREFIX")
     .orElse(providers.environmentVariable("HOMEBREW_PREFIX"))
@@ -35,13 +36,40 @@ val macosMpvBridge by tasks.registering(Exec::class) {
         "src/desktopMain/native/macos/MpvCocoaRenderer.mm", "-o", output.get().asFile.absolutePath,
         "-L$mpvPrefix/lib", "-L${javaHome.get()}/lib", "-lmpv", "-ljawt", "-framework", "Cocoa", "-framework", "OpenGL", "-framework", "QuartzCore", "-framework", "MediaPlayer",
     )
-    // VIMIVO_MACOS_SDK pins an SDK; otherwise a locally installed stable Command Line Tools SDK is preferred.
+    // VIMIVO_MACOS_SDK pins an SDK; otherwise a locally installed stable Command Line Tools SDK is preferred, and
+    // failing that the active SDK from xcrun. Without -isysroot the Command Line Tools compiler may find no SDK
+    // at all ("'Cocoa/Cocoa.h' file not found" on the macos-15 runner image).
     val pinnedSdk = providers.environmentVariable("VIMIVO_MACOS_SDK").orNull?.let(::file)
         ?: file("/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk")
-    if (pinnedSdk.exists()) {
-        cmd.addAll(listOf("-isysroot", pinnedSdk.absolutePath))
-    }
+    val sdkPath = pinnedSdk.takeIf(File::exists)?.absolutePath
+        ?: if (macHost) {
+            providers.exec { commandLine("xcrun", "--sdk", "macosx", "--show-sdk-path") }
+                .standardOutput.asText.get().trim().takeIf(String::isNotEmpty)
+        } else {
+            null
+        }
+    sdkPath?.let { cmd.addAll(listOf("-isysroot", it)) }
     commandLine(cmd)
+}
+
+/** Builds the Windows media controls (SMTC) bridge; needs MSVC, e.g. a Visual Studio developer prompt. */
+val windowsMediaControlsBridge by tasks.registering(Exec::class) {
+    val buildable = org.gradle.internal.os.OperatingSystem.current().isWindows &&
+        providers.environmentVariable("VCINSTALLDIR").isPresent
+    onlyIf { buildable }
+    val javaHome = providers.environmentVariable("JAVA_HOME").orElse(System.getProperty("java.home")).get()
+    val source = file("src/desktopMain/native/windows/VimivoMediaControls.cpp")
+    val outputDir = layout.buildDirectory.dir("native").get().asFile
+    inputs.file(source)
+    outputs.file(File(outputDir, "vimivo_media_controls.dll"))
+    doFirst { outputDir.mkdirs() }
+    commandLine(
+        "cl", "/nologo", "/std:c++20", "/EHsc", "/O2", "/LD", "/permissive-",
+        "/I$javaHome\\include", "/I$javaHome\\include\\win32",
+        source.absolutePath, "windowsapp.lib",
+        "/Fe:${File(outputDir, "vimivo_media_controls.dll").absolutePath}",
+        "/Fo:${outputDir.absolutePath}\\",
+    )
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
@@ -65,19 +93,93 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 implementation(compose.material3)
                 implementation(libs.coroutines.core)
+                // Makes Dispatchers.Main the Swing event thread, where Compose Desktop and AWT already run.
+                implementation(libs.coroutines.swing)
                 implementation(libs.jna)
+                // Win32 registry access for per-user file associations (same project and license as JNA).
+                implementation(libs.jna.platform)
                 implementation(libs.sqlite.jdbc)
                 implementation(libs.jaudiotagger)
                 implementation(libs.coil.compose)
+                implementation(compose.components.resources)
+                // koin-core only: koin-compose 4.2.2 drags Compose up to 1.10, mismatching Skiko's 1.9.3 natives.
+                implementation(libs.koin.core)
             }
         }
         val desktopTest by getting {
             dependencies {
                 implementation(libs.kotlin.test)
+                implementation(libs.koin.test)
                 implementation(libs.coroutines.test)
             }
         }
     }
+}
+
+/** One row of `media-types.tsv`, the single source of file types for associations and the app itself. */
+data class MediaTypeRow(val extension: String, val mime: String, val family: String, val description: String, val uti: String?)
+
+val mediaTypes: List<MediaTypeRow> = file("src/desktopMain/resources/dev/vimivo/desktop/media-types.tsv")
+    .readLines()
+    .filter { it.isNotBlank() && !it.startsWith("#") }
+    .map { line ->
+        val columns = line.split('\t')
+        MediaTypeRow(columns[0], columns[1], columns[2], columns[3], columns.getOrNull(4)?.takeIf(String::isNotBlank))
+    }
+
+/**
+ * macOS document types keyed by UTI, plus imported declarations for types macOS does not know (mkv, opus…).
+ * LSHandlerRank "Alternate" lists Vimivo in "Open With" without claiming to be the default.
+ */
+fun macDocumentTypesXml(types: List<MediaTypeRow>): String {
+    fun importedUti(type: MediaTypeRow) = "dev.vimivo.media.${type.extension}"
+    fun uti(type: MediaTypeRow) = type.uti ?: importedUti(type)
+    val conformsTo = mapOf(
+        "video" to listOf("public.movie"),
+        "audio" to listOf("public.audio"),
+        "playlist" to listOf("public.data", "public.content"),
+        "subtitle" to listOf("public.text"),
+    )
+    val broad = mapOf("video" to listOf("public.movie"), "audio" to listOf("public.audio"))
+    val documentTypes = types.groupBy(MediaTypeRow::family).entries.joinToString("\n") { (family, rows) ->
+        val utis = (broad[family].orEmpty() + rows.map(::uti)).distinct()
+        """
+        <dict>
+            <key>CFBundleTypeName</key><string>${family.replaceFirstChar(Char::uppercase)}</string>
+            <key>CFBundleTypeRole</key><string>Viewer</string>
+            <key>LSHandlerRank</key><string>Alternate</string>
+            <key>LSItemContentTypes</key><array>${utis.joinToString("") { "<string>$it</string>" }}</array>
+        </dict>
+        """.trimIndent()
+    }
+    val imported = types.filter { it.uti == null }.joinToString("\n") { type ->
+        """
+        <dict>
+            <key>UTTypeIdentifier</key><string>${importedUti(type)}</string>
+            <key>UTTypeDescription</key><string>${type.description}</string>
+            <key>UTTypeConformsTo</key><array>${conformsTo.getValue(type.family).joinToString("") { "<string>$it</string>" }}</array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>${type.extension}</string></array>
+                <key>public.mime-type</key><array><string>${type.mime}</string></array>
+            </dict>
+        </dict>
+        """.trimIndent()
+    }
+    return """
+        <key>CFBundleDocumentTypes</key>
+        <array>
+        $documentTypes
+        </array>
+        <key>UTImportedTypeDeclarations</key>
+        <array>
+        $imported
+        </array>
+    """.trimIndent()
+}
+
+compose.resources {
+    packageOfResClass = "dev.vimivo.desktop.resources"
+    generateResClass = always
 }
 
 compose.desktop {
@@ -99,33 +201,12 @@ compose.desktop {
                 else -> emptyArray()
             }
             targetFormats(*formats)
-            // Registers Vimivo as an "Open With" handler without taking over the user's default player.
-            listOf(
-                Triple("video/mp4", "mp4", "MPEG-4 video"),
-                Triple("video/x-m4v", "m4v", "MPEG-4 video"),
-                Triple("video/x-matroska", "mkv", "Matroska video"),
-                Triple("video/webm", "webm", "WebM video"),
-                Triple("video/quicktime", "mov", "QuickTime movie"),
-                Triple("video/x-msvideo", "avi", "AVI video"),
-                Triple("video/mp2t", "ts", "MPEG transport stream"),
-                Triple("video/mp2t", "m2ts", "MPEG transport stream"),
-                Triple("video/x-ms-wmv", "wmv", "Windows Media video"),
-                Triple("video/x-flv", "flv", "Flash video"),
-                Triple("video/ogg", "ogv", "Ogg video"),
-                Triple("video/3gpp", "3gp", "3GPP video"),
-                Triple("video/mpeg", "mpg", "MPEG video"),
-                Triple("audio/mpeg", "mp3", "MP3 audio"),
-                Triple("audio/mp4", "m4a", "MPEG-4 audio"),
-                Triple("audio/aac", "aac", "AAC audio"),
-                Triple("audio/flac", "flac", "FLAC audio"),
-                Triple("audio/wav", "wav", "WAVE audio"),
-                Triple("audio/aiff", "aiff", "AIFF audio"),
-                Triple("audio/ogg", "ogg", "Ogg audio"),
-                Triple("audio/opus", "opus", "Opus audio"),
-                Triple("audio/x-ms-wma", "wma", "Windows Media audio"),
-                Triple("audio/x-ape", "ape", "Monkey's Audio"),
-                Triple("audio/x-dsf", "dsf", "DSD audio"),
-            ).forEach { (mimeType, extension, label) -> fileAssociation(mimeType, extension, label) }
+            // "Open With" registration comes from the same table the app uses to classify files. Windows and
+            // Linux use Compose's per-extension associations; macOS gets UTI-based document types below.
+            mediaTypes.forEach { type ->
+                windows.fileAssociation(type.mime, type.extension, type.description)
+                linux.fileAssociation(type.mime, type.extension, type.description)
+            }
             packageName = "Vimivo"
             packageVersion = "1.0.0"
             description = "Privacy-first music and video player"
@@ -142,6 +223,7 @@ compose.desktop {
                 "jdk.crypto.ec",
             )
             macOS {
+                infoPlist { extraKeysRawXml = macDocumentTypesXml(mediaTypes) }
                 bundleID = "dev.vimivo.desktop"
                 minimumSystemVersion = "12.0"
                 iconFile.set(project.file("src/desktopMain/resources/macos/icon.icns"))
@@ -168,7 +250,26 @@ compose.desktop {
     }
 }
 
+/**
+ * Generates the JDK's base class-data-sharing archive inside the bundled runtime (`-Xshare:dump` through the
+ * app's own launcher, which exits right after dumping). jlink drops this archive; restoring it shortens JVM
+ * startup and is location-independent, unlike JDK 17 application archives. Runs before macOS signing.
+ */
+val dumpBaseCdsArchive by tasks.registering(Exec::class) {
+    dependsOn("createDistributable")
+    val os = org.gradle.internal.os.OperatingSystem.current()
+    val appRoot = layout.buildDirectory.dir("compose/binaries/main/app").get().asFile
+    val launcher = when {
+        os.isMacOsX -> File(appRoot, "Vimivo.app/Contents/MacOS/Vimivo")
+        os.isWindows -> File(appRoot, "Vimivo/Vimivo.exe")
+        else -> File(appRoot, "Vimivo/bin/Vimivo")
+    }
+    environment("JAVA_TOOL_OPTIONS", "-Xshare:dump")
+    commandLine(launcher.absolutePath)
+}
+
 val bundleMacosMpv by tasks.registering(Exec::class) {
+    dependsOn(dumpBaseCdsArchive)
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isMacOsX }
     dependsOn("createDistributable")
     dependsOn(macosMpvBridge)
@@ -185,6 +286,7 @@ val bundleMacosMpv by tasks.registering(Exec::class) {
 }
 
 val bundleWindowsMpv by tasks.registering(Exec::class) {
+    dependsOn(dumpBaseCdsArchive)
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
     dependsOn("createDistributable")
     val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")
@@ -197,7 +299,16 @@ val bundleWindowsMpv by tasks.registering(Exec::class) {
     )
 }
 
+val bundleWindowsMediaControls by tasks.registering(Copy::class) {
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
+    dependsOn(windowsMediaControlsBridge)
+    mustRunAfter("createDistributable")
+    from(layout.buildDirectory.file("native/vimivo_media_controls.dll"))
+    into(layout.buildDirectory.dir("compose/binaries/main/app/Vimivo"))
+}
+
 val bundleLinuxMpv by tasks.registering(Exec::class) {
+    dependsOn(dumpBaseCdsArchive)
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isLinux }
     dependsOn("createDistributable")
     val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")
@@ -210,7 +321,9 @@ val bundleLinuxMpv by tasks.registering(Exec::class) {
     )
 }
 
-val packageAppImage by tasks.registering(Exec::class) {
+// Not "packageAppImage": Compose registers that name itself for TargetFormat.AppImage on Linux hosts,
+// and a duplicate breaks configuration of the whole project there.
+val packageVimivoAppImage by tasks.registering(Exec::class) {
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isLinux }
     dependsOn("createDistributable")
     dependsOn(bundleLinuxMpv)
@@ -226,7 +339,7 @@ val packageAppImage by tasks.registering(Exec::class) {
 tasks.matching { it.name == "createDistributable" }.configureEach {
     when {
         org.gradle.internal.os.OperatingSystem.current().isMacOsX -> finalizedBy(bundleMacosMpv)
-        org.gradle.internal.os.OperatingSystem.current().isWindows -> finalizedBy(bundleWindowsMpv)
+        org.gradle.internal.os.OperatingSystem.current().isWindows -> finalizedBy(bundleWindowsMpv, bundleWindowsMediaControls)
         org.gradle.internal.os.OperatingSystem.current().isLinux -> finalizedBy(bundleLinuxMpv)
     }
 }
@@ -254,7 +367,7 @@ tasks.matching {
         "packageReleaseDistributionForCurrentOS",
     )
 }.configureEach {
-    dependsOn(bundleWindowsMpv)
+    dependsOn(bundleWindowsMpv, bundleWindowsMediaControls)
 }
 
 tasks.matching {
@@ -278,3 +391,22 @@ detekt {
 }
 
 dependencies { detektPlugins(libs.detekt.formatting) }
+
+// CI points the live libmpv tests at the pinned LGPL media package (scripts/build_media): VIMIVO_TEST_MPV_DIR is its
+// library directory (bin/ on Windows, lib/ elsewhere). Without it the tests look for a local libmpv or skip.
+tasks.withType<Test>().configureEach {
+    providers.environmentVariable("VIMIVO_TEST_MPV_DIR").orNull?.let { dir ->
+        val os = org.gradle.internal.os.OperatingSystem.current()
+        val library = when {
+            os.isWindows -> "libmpv-2.dll"
+            os.isMacOsX -> "libmpv.2.dylib"
+            else -> "libmpv.so.2"
+        }
+        systemProperty("vimivo.mpv.library", file(dir).resolve(library).absolutePath)
+    }
+    // A failing live test should say why in the CI log, not only that it failed.
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}

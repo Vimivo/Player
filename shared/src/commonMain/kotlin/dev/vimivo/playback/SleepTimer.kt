@@ -22,10 +22,9 @@ data class SleepTimerState(
  */
 class SleepTimer(
     private val scope: CoroutineScope,
-    private val currentTimeProvider: () -> Long = {
-        kotlin.time.TimeSource.Monotonic.markNow().elapsedNow().inWholeMilliseconds
-    },
-    private val onTrigger: () -> Unit,
+    private val currentTimeProvider: () -> Long = MonotonicMillis(),
+    /** Called when the time is up, with the fade-out length that was chosen so the platform can fade before it stops. */
+    private val onTrigger: (fadeOutSeconds: Int) -> Unit,
 ) {
     private val mutableState = MutableStateFlow(SleepTimerState())
     val state: StateFlow<SleepTimerState> = mutableState.asStateFlow()
@@ -51,8 +50,9 @@ class SleepTimer(
                 val current = currentTimeProvider()
                 val remaining = deadline - current
                 if (remaining <= 0) {
+                    val fadeOutSeconds = mutableState.value.fadeOutSeconds
                     mutableState.value = SleepTimerState()
-                    onTrigger()
+                    onTrigger(fadeOutSeconds)
                     break
                 } else {
                     mutableState.value = mutableState.value.copy(remainingMillis = remaining)
@@ -79,5 +79,19 @@ class SleepTimer(
         if (!mutableState.value.stopAfterCurrent) return false
         cancel()
         return true
+    }
+}
+
+/** Milliseconds on a monotonic clock that really advances (one origin, read again on every call). */
+internal class MonotonicMillis : () -> Long {
+    private val origin = kotlin.time.TimeSource.Monotonic.markNow()
+    override fun invoke(): Long = origin.elapsedNow().inWholeMilliseconds
+}
+
+/** How loud playback is while a sleep timer fades it out: 1 at the start, 0 when [fadeMillis] have passed. */
+object SleepFade {
+    fun volumeFraction(elapsedMillis: Long, fadeMillis: Long): Float {
+        if (fadeMillis <= 0) return 0f
+        return (1f - elapsedMillis.toFloat() / fadeMillis).coerceIn(0f, 1f)
     }
 }

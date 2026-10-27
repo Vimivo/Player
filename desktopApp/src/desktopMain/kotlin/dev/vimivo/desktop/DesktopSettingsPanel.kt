@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,9 +35,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.vimivo.core.model.LibrarySort
 import dev.vimivo.desktop.library.DesktopLibraryUiState
+import dev.vimivo.desktop.player.ui.playerClock
 import dev.vimivo.playback.EqualizerPreset
 import dev.vimivo.playback.PlaybackProfile
+import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.playback.ReplayGainMode
+import dev.vimivo.playback.SleepTimerOptions
 import dev.vimivo.settings.LibraryViewMode
 import dev.vimivo.settings.RepeatBehavior
 import dev.vimivo.settings.ShuffleBehavior
@@ -54,7 +58,7 @@ internal fun DesktopSettingsPanel(
     onPlaybackProfileSelected: ((PlaybackProfile) -> Unit)? = null,
     onEqualizerPresetSelected: ((EqualizerPreset) -> Unit)? = null,
     onReplayGainModeSelected: ((ReplayGainMode) -> Unit)? = null,
-    onSleepTimerSet: ((Int?) -> Unit)? = null,
+    sleepTimer: PlaybackSleepTimer? = null,
     onExportDiagnostics: (() -> Unit)? = null,
     onCheckForUpdates: (() -> Unit)? = null,
     onOpenFeedback: (() -> Unit)? = null,
@@ -71,7 +75,6 @@ internal fun DesktopSettingsPanel(
     activeProfile: PlaybackProfile = PlaybackProfile.DEFAULT,
     activePreset: EqualizerPreset = EqualizerPreset.FLAT,
     activeReplayGain: ReplayGainMode = ReplayGainMode.OFF,
-    sleepTimerMinutesRemaining: Int? = null,
     diagnosticsStatus: String? = null,
     updateStatus: String? = null,
 ) {
@@ -293,41 +296,8 @@ internal fun DesktopSettingsPanel(
             }
         }
 
-        if (onSleepTimerSet != null) {
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-                        contentDescription = "Sleep timer settings"
-                    },
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        VimivoSettingsSectionHeader(
-                            title = "Sleep Timer",
-                            subtitle = if (sleepTimerMinutesRemaining != null && sleepTimerMinutesRemaining > 0) {
-                                "Active: playback will gently stop in $sleepTimerMinutesRemaining minute(s)."
-                            } else {
-                                "Set a timer to automatically pause playback."
-                            },
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            listOf(15, 30, 45, 60).forEach { mins ->
-                                OutlinedButton(onClick = { onSleepTimerSet(mins) }) {
-                                    Text("${mins}m")
-                                }
-                            }
-                            if (sleepTimerMinutesRemaining != null) {
-                                Button(onClick = { onSleepTimerSet(null) }) {
-                                    Text("Cancel")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        if (sleepTimer != null) {
+            item { SleepTimerCard(sleepTimer) }
         }
 
         // Category 4: Playback Defaults
@@ -585,6 +555,8 @@ internal fun DesktopSettingsPanel(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(8.dp))
+                    AboutLicensesSection()
+                    Spacer(Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = { showResetDialog = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -612,6 +584,39 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
         ) {
             Text(value, style = MaterialTheme.typography.headlineMedium)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** Start, change or cancel the sleep timer: the same choices, fade and "after this track" as on the phones. */
+@Composable
+private fun SleepTimerCard(sleepTimer: PlaybackSleepTimer) {
+    val state by sleepTimer.state.collectAsState()
+    val remaining = state.remainingMillis
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+            contentDescription = "Sleep timer settings"
+        },
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            VimivoSettingsSectionHeader(
+                title = "Sleep Timer",
+                subtitle = when {
+                    remaining != null -> "Active: the sound fades out and playback pauses in ${playerClock(remaining)}."
+                    state.stopAfterCurrent -> "Active: playback stops when the current track ends."
+                    else -> "Fade out and pause after a while, or when the current track ends."
+                },
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SleepTimerOptions.MINUTES.forEach { minutes ->
+                    OutlinedButton(onClick = { sleepTimer.start(minutes) }) { Text("${minutes}m") }
+                }
+                OutlinedButton(onClick = sleepTimer::afterCurrent) { Text("After this track") }
+                if (remaining != null || state.stopAfterCurrent) {
+                    Button(onClick = sleepTimer::cancel) { Text("Cancel") }
+                }
+            }
         }
     }
 }

@@ -24,15 +24,17 @@ import android.app.ActivityManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.launch
+import dev.vimivo.platform.android.library.AndroidMediaConverter
+import dev.vimivo.platform.android.library.AndroidRingtoneHelper
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -51,16 +53,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
@@ -69,6 +67,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
+import android.net.Uri
+import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
@@ -92,9 +92,7 @@ import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
@@ -131,13 +129,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -154,17 +150,12 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import dev.vimivo.ui.components.VimivoTabBar
 import dev.vimivo.ui.components.VimivoTabItem
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.media3.common.Player
-import androidx.media3.ui.PlayerView
 import dev.vimivo.core.model.LibraryCategoryField
 import dev.vimivo.core.model.LibrarySort
 import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.model.Playlist
-import dev.vimivo.core.model.Bookmark
 import dev.vimivo.app.R
 import dev.vimivo.features.home.HomeViewModel
 import dev.vimivo.platform.android.library.AndroidThumbnailRepository
@@ -177,7 +168,6 @@ import dev.vimivo.platform.android.network.StreamPlaybackStatus
 import dev.vimivo.platform.android.playback.PlaybackController
 import dev.vimivo.platform.android.playback.PlaybackUiState
 import dev.vimivo.platform.android.playback.PlaybackViewModel
-import dev.vimivo.platform.android.playback.LyricsDocument
 import dev.vimivo.platform.android.settings.SettingsViewModel
 import dev.vimivo.platform.android.ui.components.BottomSheet
 import dev.vimivo.platform.android.ui.components.EmptyState
@@ -186,7 +176,6 @@ import dev.vimivo.platform.android.ui.components.LoadingIndicator
 import dev.vimivo.platform.android.ui.components.MediaArtwork
 import dev.vimivo.platform.android.ui.components.MediaCard
 import dev.vimivo.platform.android.ui.components.MiniPlayer
-import dev.vimivo.platform.android.ui.components.PlayerControls
 import dev.vimivo.platform.android.ui.components.SearchBar
 import dev.vimivo.platform.android.ui.components.SettingsRow
 import dev.vimivo.platform.android.ui.components.SongRow
@@ -456,11 +445,12 @@ private fun AppShell(
             NetworkScreen()
         }
     }
-    if (nowPlayingVisible) NowPlayingSheet(
+    if (nowPlayingVisible) NowPlayingScreen(
         player,
         thumbnails,
         playback,
         playbackViewModel,
+        settingsViewModel,
         artworkBasedAccents,
         audioVisualizerEnabled,
         { nowPlayingVisible = false },
@@ -471,6 +461,7 @@ private fun AppShell(
         player = player,
         controller = playback.controller.collectAsState().value,
         viewModel = playbackViewModel,
+        thumbnails = thumbnails,
         settings = settingsViewModel.state.collectAsState().value,
         onGestureSensitivity = settingsViewModel::setVideoGestureSensitivity,
         onPreferredSubtitleLanguage = settingsViewModel::setPreferredSubtitleLanguage,
@@ -593,7 +584,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.mediaSection(
     item { SectionTitle(title) }
     item {
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(media, key = { it.id.value }) { item -> MediaCard(item, thumbnails) { playback.play(item) } }
+            items(media, key = { it.id.value }) { item ->
+                MediaCard(item, thumbnails) { playback.playQueue(media, media.indexOf(item)) }
+            }
         }
     }
     item { Spacer(Modifier.height(24.dp)) }
@@ -670,25 +663,199 @@ private fun VideoScreen(
     openPlayer: () -> Unit,
     viewModel: LibraryViewModel = koinViewModel(),
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val state by viewModel.state.collectAsState()
     LaunchedEffect(Unit) { viewModel.selectKind(MediaKind.VIDEO) }
-    LibraryChrome(state, viewModel, permissions, MediaKind.VIDEO) {
-        FilterChipRow(
-            listOf(
-                "All videos" to { viewModel.selectKind(MediaKind.VIDEO) },
-                "Folders" to { viewModel.showCategories(LibraryCategoryField.FOLDER) },
-                "Continue watching" to viewModel::continueWatching,
-                "Recently watched" to viewModel::recentlyWatched,
-                "Recently added" to viewModel::recentlyAdded,
-                "Favorites" to viewModel::favoriteVideos,
-            ),
-        )
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
-            LibraryViewToggle(state.viewMode, viewModel::setViewMode)
+
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(setOf<dev.vimivo.core.model.MediaId>()) }
+    var showSortSheet by remember { mutableStateOf(false) }
+    var showWifiDialog by remember { mutableStateOf(false) }
+    var propertiesMedia by remember { mutableStateOf<MediaItem?>(null) }
+    var showPrivateFolderDialog by remember { mutableStateOf(false) }
+    var currentSort by remember { mutableStateOf(LibrarySort.TITLE) }
+    var isAscending by remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val lastPlayedItem = remember(state.items) {
+        state.items.filter { (it.lastPlayedAtEpochMillis ?: 0L) > 0L }
+            .maxByOrNull { it.lastPlayedAtEpochMillis ?: 0L }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        LibraryChrome(state, viewModel, permissions, MediaKind.VIDEO) {
+            FilterChipRow(
+                listOf(
+                    "All videos" to { viewModel.selectKind(MediaKind.VIDEO) },
+                    "Folders" to { viewModel.showCategories(LibraryCategoryField.FOLDER) },
+                    "Continue watching" to viewModel::continueWatching,
+                    "Recently watched" to viewModel::recentlyWatched,
+                    "Recently added" to viewModel::recentlyAdded,
+                    "Favorites" to viewModel::favoriteVideos,
+                    "Private Vault" to { showPrivateFolderDialog = true },
+                ),
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showSortSheet = true }) {
+                        Icon(Icons.Rounded.Sort, "Sort videos")
+                    }
+                    IconButton(onClick = { showWifiDialog = true }) {
+                        Icon(Icons.Outlined.Share, "Wi-Fi Sharing")
+                    }
+                }
+                LibraryViewToggle(state.viewMode, viewModel::setViewMode)
+            }
+            if (state.categories != null) {
+                LazyColumn(contentPadding = aboveBottomChrome()) {
+                    items(state.categories!!, key = { it.name }) { category ->
+                        MxFolderRow(
+                            name = category.name,
+                            videoCount = category.itemCount,
+                            newCount = category.newCount,
+                            onClick = { viewModel.selectCategory(category) },
+                            onHide = { /* Hide folder */ },
+                        )
+                    }
+                }
+            } else if (state.viewMode == LibraryViewMode.GRID) {
+                VideoGrid(
+                    state = state,
+                    thumbnails = thumbnails,
+                    playback = playback,
+                    viewModel = viewModel,
+                    isSelectionMode = selectionMode,
+                    selectedIds = selectedIds,
+                    onToggleSelect = { id ->
+                        selectedIds = if (selectedIds.contains(id)) selectedIds - id else selectedIds + id
+                        if (selectedIds.isEmpty()) selectionMode = false
+                    },
+                    onStartSelection = { id ->
+                        selectionMode = true
+                        selectedIds = setOf(id)
+                    },
+                    openPlayer = openPlayer,
+                )
+            } else {
+                VideoList(
+                    state = state,
+                    thumbnails = thumbnails,
+                    playback = playback,
+                    viewModel = viewModel,
+                    isSelectionMode = selectionMode,
+                    selectedIds = selectedIds,
+                    lastPlayedId = lastPlayedItem?.id,
+                    onToggleSelect = { id ->
+                        selectedIds = if (selectedIds.contains(id)) selectedIds - id else selectedIds + id
+                        if (selectedIds.isEmpty()) selectionMode = false
+                    },
+                    onStartSelection = { id ->
+                        selectionMode = true
+                        selectedIds = setOf(id)
+                    },
+                    onProperties = { propertiesMedia = it },
+                    openPlayer = openPlayer,
+                )
+            }
         }
-        if (state.categories != null) CategoryOrMediaList(state, viewModel, thumbnails, playback)
-        else if (state.viewMode == LibraryViewMode.GRID) VideoGrid(state, thumbnails, playback, viewModel, openPlayer)
-        else VideoList(state, thumbnails, playback, viewModel, openPlayer)
+
+        // Play Last Floating Button
+        if (lastPlayedItem != null && !selectionMode && state.categories == null) {
+            MxPlayLastFab(
+                lastPlayedItem = lastPlayedItem,
+                onClick = {
+                    playback.play(lastPlayedItem)
+                    openPlayer()
+                },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp),
+            )
+        }
+
+        // Multi-select bottom action bar
+        if (selectionMode) {
+            MxMultiSelectBottomBar(
+                selectedCount = selectedIds.size,
+                onClose = {
+                    selectionMode = false
+                    selectedIds = emptySet()
+                },
+                onShare = {
+                    val selectedMedia = state.items.filter { selectedIds.contains(it.id) }
+                    val sendIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                        type = "video/*"
+                        val uris = ArrayList(selectedMedia.map { Uri.parse(it.uri) })
+                        putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                    }
+                    context.startActivity(Intent.createChooser(sendIntent, "Share videos"))
+                },
+                onDelete = {
+                    selectionMode = false
+                    selectedIds = emptySet()
+                },
+                onRename = {
+                    selectionMode = false
+                },
+                onAddToPlaylist = {
+                    selectionMode = false
+                },
+                onProperties = {
+                    val item = state.items.firstOrNull { selectedIds.contains(it.id) }
+                    propertiesMedia = item
+                },
+                onExtractAudio = {
+                    val selectedMedia = state.items.filter { selectedIds.contains(it.id) }
+                    coroutineScope.launch {
+                        for (item in selectedMedia) {
+                            val uri = Uri.parse(item.uri)
+                            val res = AndroidMediaConverter.extractAudio(context, uri, "${item.title}.m4a")
+                            res.onSuccess { file ->
+                                android.widget.Toast.makeText(context, "Extracted ${file.name}", android.widget.Toast.LENGTH_SHORT).show()
+                                viewModel.importFile(Uri.fromFile(file).toString())
+                            }.onFailure { err ->
+                                android.widget.Toast.makeText(context, "Extract error: ${err.message}", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        selectionMode = false
+                        selectedIds = emptySet()
+                    }
+                },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp),
+            )
+        }
+    }
+
+    if (showSortSheet) {
+        MxSortSheet(
+            currentSort = currentSort,
+            isAscending = isAscending,
+            onSelectSort = { sort, asc ->
+                currentSort = sort
+                isAscending = asc
+                viewModel.sort(sort, descending = !asc)
+            },
+            onDismiss = { showSortSheet = false },
+        )
+    }
+
+    propertiesMedia?.let { media ->
+        MxMediaPropertiesDialog(media = media, onDismiss = { propertiesMedia = null })
+    }
+
+    if (showPrivateFolderDialog) {
+        MxPrivateFolderDialog(
+            hasPinSet = false,
+            onUnlock = { true },
+            onSetPin = { /* Save vault PIN */ },
+            onDismiss = { showPrivateFolderDialog = false },
+        )
+    }
+
+    if (showWifiDialog) {
+        MxWifiTransferDialog(onDismiss = { showWifiDialog = false })
     }
 }
 
@@ -882,6 +1049,12 @@ private fun VideoList(
     thumbnails: AndroidThumbnailRepository,
     playback: PlaybackController,
     viewModel: LibraryViewModel,
+    isSelectionMode: Boolean,
+    selectedIds: Set<dev.vimivo.core.model.MediaId>,
+    lastPlayedId: dev.vimivo.core.model.MediaId?,
+    onToggleSelect: (dev.vimivo.core.model.MediaId) -> Unit,
+    onStartSelection: (dev.vimivo.core.model.MediaId) -> Unit,
+    onProperties: (MediaItem) -> Unit,
     openPlayer: () -> Unit,
 ) {
     when {
@@ -889,18 +1062,29 @@ private fun VideoList(
         state.items.isEmpty() -> EmptyState(Icons.Outlined.VideoLibrary, "No videos found", "Add a folder, open a video, or grant library access.", "Rescan", viewModel::rescan)
         else -> LazyColumn(contentPadding = aboveBottomChrome(PaddingValues(vertical = 8.dp))) {
             items(state.items, key = { it.id.value }) { item ->
-                SongRow(
+                MxVideoRow(
                     media = item,
                     thumbnails = thumbnails,
+                    isSelectionMode = isSelectionMode,
+                    isSelected = selectedIds.contains(item.id),
+                    isLastPlayed = item.id == lastPlayedId,
                     onClick = {
-                        viewModel.resolveCurrentItems { videos ->
-                            playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
-                            openPlayer()
+                        if (isSelectionMode) {
+                            onToggleSelect(item.id)
+                        } else {
+                            viewModel.resolveCurrentItems { videos ->
+                                playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
+                                openPlayer()
+                            }
                         }
                     },
-                    onFavorite = { viewModel.toggleFavorite(item) },
+                    onLongClick = {
+                        if (!isSelectionMode) onStartSelection(item.id)
+                        else onToggleSelect(item.id)
+                    },
+                    onMore = { onProperties(item) },
                 )
-                HorizontalDivider(Modifier.padding(start = 128.dp))
+                HorizontalDivider(Modifier.padding(start = 140.dp))
             }
             if (state.hasMore) item { OutlinedButton(viewModel::loadMore, Modifier.fillMaxWidth().padding(16.dp)) { Text("Load more") } }
         }
@@ -913,23 +1097,41 @@ private fun VideoGrid(
     thumbnails: AndroidThumbnailRepository,
     playback: PlaybackController,
     viewModel: LibraryViewModel,
+    isSelectionMode: Boolean,
+    selectedIds: Set<dev.vimivo.core.model.MediaId>,
+    onToggleSelect: (dev.vimivo.core.model.MediaId) -> Unit,
+    onStartSelection: (dev.vimivo.core.model.MediaId) -> Unit,
     openPlayer: () -> Unit,
 ) {
     when {
         state.isLoading && state.items.isEmpty() -> LoadingIndicator("Loading videos")
         state.items.isEmpty() -> EmptyState(Icons.Outlined.VideoLibrary, "No videos found", "Add a folder, open a video, or grant library access.", "Rescan", viewModel::rescan)
-        else -> LazyVerticalGrid(GridCells.Adaptive(240.dp), contentPadding = aboveBottomChrome(PaddingValues(16.dp)), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        else -> LazyVerticalGrid(
+            columns = GridCells.Adaptive(200.dp),
+            contentPadding = aboveBottomChrome(PaddingValues(16.dp)),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             items(state.items, key = { it.id.value }) { item ->
-                VideoCard(
-                    item,
-                    thumbnails,
+                MxVideoCard(
+                    media = item,
+                    thumbnails = thumbnails,
+                    isSelectionMode = isSelectionMode,
+                    isSelected = selectedIds.contains(item.id),
                     onClick = {
-                        viewModel.resolveCurrentItems { videos ->
-                            playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
-                            openPlayer()
+                        if (isSelectionMode) {
+                            onToggleSelect(item.id)
+                        } else {
+                            viewModel.resolveCurrentItems { videos ->
+                                playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
+                                openPlayer()
+                            }
                         }
                     },
-                    onFavorite = { viewModel.toggleFavorite(item) },
+                    onLongClick = {
+                        if (!isSelectionMode) onStartSelection(item.id)
+                        else onToggleSelect(item.id)
+                    },
                 )
             }
         }
@@ -1054,7 +1256,7 @@ private fun PlaylistDetail(
 }
 
 @Composable
-private fun PlaylistNameDialog(title: String, initial: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun PlaylistNameDialog(title: String, initial: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var name by remember(initial) { mutableStateOf(initial) }
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(24.dp)) {
@@ -1112,6 +1314,36 @@ private fun MediaActionsSheet(
             }
         }
         SettingsRow(Icons.Outlined.Favorite, if (item.isFavorite) "Remove favorite" else "Add favorite", onClick = { library.toggleFavorite(item); onDismiss() })
+        if (item.kind == MediaKind.AUDIO) {
+            SettingsRow(Icons.Filled.MusicNote, "Set as phone ringtone", onClick = {
+                val uri = android.net.Uri.parse(item.uri)
+                val res = AndroidRingtoneHelper.setAsRingtone(context, uri)
+                res.onSuccess { changed ->
+                    if (changed) {
+                        android.widget.Toast.makeText(context, "Ringtone set successfully", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }.onFailure { err ->
+                    android.widget.Toast.makeText(context, "Could not set ringtone: ${err.message}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                onDismiss()
+            })
+        }
+        if (item.kind == MediaKind.VIDEO) {
+            val sheetScope = rememberCoroutineScope()
+            SettingsRow(Icons.Filled.MusicNote, "Extract audio (M4A)", onClick = {
+                sheetScope.launch {
+                    val uri = android.net.Uri.parse(item.uri)
+                    val res = AndroidMediaConverter.extractAudio(context, uri, "${item.title}.m4a")
+                    res.onSuccess { file ->
+                        android.widget.Toast.makeText(context, "Extracted to: ${file.name}", android.widget.Toast.LENGTH_SHORT).show()
+                        library.importFile(android.net.Uri.fromFile(file).toString())
+                    }.onFailure { err ->
+                        android.widget.Toast.makeText(context, "Extract failed: ${err.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+                onDismiss()
+            })
+        }
         if (item.uri.startsWith("content://") || item.uri.startsWith("http://") || item.uri.startsWith("https://")) {
             SettingsRow(Icons.Outlined.Share, "Share media reference", onClick = {
                 val uri = android.net.Uri.parse(item.uri)
@@ -1439,6 +1671,18 @@ private fun SettingsScreen(
                     viewModel.setAudioEnhancements(settings.audioEnhancements.copy(preampDb = it))
                 }
             }
+            if (audio.capabilities.replayGain) item {
+                SettingsRow(
+                    Icons.Outlined.MusicNote,
+                    stringResource(R.string.replay_gain),
+                    settings.audioEnhancements.replayGainMode.name.lowercase(),
+                    onClick = {
+                        viewModel.setAudioEnhancements(
+                            settings.audioEnhancements.copy(replayGainMode = settings.audioEnhancements.replayGainMode.next()),
+                        )
+                    },
+                )
+            }
             if (settings.audioEnhancements.preset == dev.vimivo.playback.EqualizerPreset.CUSTOM) {
                 audio.availableBandsHz.forEach { frequency ->
                     item {
@@ -1551,12 +1795,9 @@ private fun SettingsScreen(
             dismissButton = { OutlinedButton({ confirmAction = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
-    if (noticesVisible) AlertDialog(
-        onDismissRequest = { noticesVisible = false },
-        title = { Text(stringResource(R.string.third_party_notices)) },
-        text = { Text(stringResource(R.string.notices_text)) },
-        confirmButton = { Button({ noticesVisible = false }) { Text(stringResource(R.string.ok)) } },
-    )
+    if (noticesVisible) {
+        dev.vimivo.platform.android.ui.components.AndroidLicensesDialog(onDismiss = { noticesVisible = false })
+    }
     if (feedbackVisible) {
         dev.vimivo.platform.android.ui.components.AndroidFeedbackDialog(
             onDismiss = { feedbackVisible = false },
@@ -1641,31 +1882,6 @@ private fun AudioSlider(label: String, value: Float, range: ClosedFloatingPointR
     }
 }
 
-/** Low-rate playback activity indicator; it intentionally avoids microphone/Visualizer permissions. */
-@Composable
-private fun PlaybackActivityVisualizer(positionMillis: Long, playing: Boolean) {
-    val reducedMotion = dev.vimivo.platform.android.ui.theme.LocalReducedMotion.current
-    val barShape = remember { RoundedCornerShape(2.dp) }
-    val primaryColor = MaterialTheme.colorScheme.primary
-    Row(
-        Modifier.height(36.dp).padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        repeat(18) { index ->
-            val height = if (playing && !reducedMotion) {
-                val phase = positionMillis / 250.0 + index * 0.83
-                6 + (kotlin.math.abs(kotlin.math.sin(phase)) * 22).toInt()
-            } else {
-                6
-            }
-            Box(
-                Modifier.width(3.dp).height(height.dp)
-                    .background(primaryColor, barShape),
-            )
-        }
-    }
-}
 private fun android.content.Context.openUrl(url: String) {
     runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
 }
@@ -1723,192 +1939,17 @@ private fun GlobalSearch(
                         },
                     )
                 }
-                items(state.items.take(20), key = { it.id.value }) { SongRow(it, thumbnails, { playback.play(it); onClose() }) }
+                val visibleResults = state.items.take(20)
+                items(visibleResults, key = { it.id.value }) { result ->
+                    SongRow(result, thumbnails, {
+                        playback.playQueue(visibleResults, visibleResults.indexOf(result))
+                        onClose()
+                    })
+                }
                 if (!state.isLoading && state.items.isEmpty() && playlistResults.isEmpty()) item { EmptyState(title = "No results", detail = "Try a different title, artist, album, folder, filename, or playlist.") }
             }
         }
     }
-}
-
-@Composable
-private fun NowPlayingSheet(
-    player: PlaybackUiState,
-    thumbnails: AndroidThumbnailRepository,
-    playback: PlaybackController,
-    viewModel: PlaybackViewModel,
-    artworkAccents: Boolean,
-    visualizerEnabled: Boolean,
-    onDismiss: () -> Unit,
-    openQueue: () -> Unit,
-) {
-    var settingsVisible by remember { mutableStateOf(false) }
-    val sleepTimer by viewModel.sleepTimerState.collectAsState()
-    val lyricsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let(viewModel::loadLyrics)
-    }
-    val controller by playback.controller.collectAsState()
-    val currentDomain = player.current?.toDomain()
-    val artworkAccent by produceState<Int?>(null, currentDomain?.uri, currentDomain?.artworkUri, artworkAccents) {
-        value = if (artworkAccents) currentDomain?.let { thumbnails.dominantColor(it.uri, it.artworkUri) } else null
-    }
-    if (!settingsVisible) Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
-        val ambient = artworkAccent?.let(::Color) ?: MaterialTheme.colorScheme.primary
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        listOf(ambient.copy(alpha = 0.30f), MaterialTheme.colorScheme.background.copy(alpha = 0.96f), MaterialTheme.colorScheme.background),
-                    ),
-                ),
-            ) {
-                val current = player.current
-                Column(
-                    Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Now Playing", style = MaterialTheme.typography.titleMedium)
-                        IconButton(onDismiss) { Icon(Icons.Outlined.Close, "Close player") }
-                    }
-                    if (current != null) {
-                        val media = current.toDomain()
-                        if (media.kind == MediaKind.VIDEO && controller != null) {
-                            AndroidView(
-                                factory = { PlayerView(it).apply { setShutterBackgroundColor(android.graphics.Color.TRANSPARENT); this.player = controller } },
-                                update = { it.player = controller },
-                                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).padding(vertical = 12.dp),
-                            )
-                        } else {
-                            MediaArtwork(media, thumbnails, Modifier.fillMaxWidth().widthIn(max = VimivoPlayer.artworkMaximum).aspectRatio(1f).padding(vertical = 20.dp))
-                        }
-                        Text(current.mediaMetadata.title?.toString() ?: current.mediaId, style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(current.mediaMetadata.artist?.toString() ?: "Unknown artist", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        current.mediaMetadata.albumTitle?.let { Text(it.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        if (visualizerEnabled && media.kind == MediaKind.AUDIO) PlaybackActivityVisualizer(player.positionMillis, player.isPlaying)
-                        player.lyrics?.let { lyrics ->
-                            PlayerLyrics(lyrics, player.currentLyricIndex, viewModel::seekTo)
-                        }
-                        player.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
-                        VimivoGlassSurface(VimivoGlassVariant.CONTROL, Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                                PlayerControls(player.isPlaying, player.positionMillis, player.durationMillis, viewModel::previous, viewModel::togglePlayback, viewModel::next, viewModel::seekTo)
-                                Text("Volume ${(player.volume * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
-                                Slider(player.volume, viewModel::setVolume, valueRange = 0f..1f, modifier = Modifier.semantics { contentDescription = "Playback volume" })
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                    IconButton(viewModel::toggleShuffle) { Icon(Icons.Outlined.Shuffle, if (player.shuffleEnabled) "Disable shuffle" else "Enable shuffle", tint = if (player.shuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
-                                    IconButton(viewModel::cycleRepeat) { Icon(Icons.Outlined.Repeat, "Repeat mode ${repeatModeLabel(player.repeatMode)}", tint = if (player.repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
-                                    IconButton(openQueue) { Icon(Icons.AutoMirrored.Outlined.QueueMusic, "Open queue") }
-                                    IconButton(viewModel::toggleFavorite) { Icon(Icons.Outlined.Favorite, if (player.isFavorite) "Remove favorite" else "Add favorite", tint = if (player.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
-                                    IconButton({ settingsVisible = true }) { Icon(Icons.Outlined.MoreVert, "Playback settings") }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    else {
-        var editingBookmark by remember { mutableStateOf<Bookmark?>(null) }
-        BottomSheet({ settingsVisible = false }) {
-        Text("Playback settings", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(20.dp))
-        Text("Speed", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp))
-        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            listOf(0.5f, 1f, 1.5f, 2f).forEach { speed ->
-                AssistChip({ viewModel.setSpeed(speed) }, { Text("${speed}×") })
-            }
-        }
-        SettingsRow(Icons.Outlined.Shuffle, "Shuffle", checked = player.shuffleEnabled, onClick = viewModel::toggleShuffle)
-        SettingsRow(Icons.Outlined.Repeat, "Repeat", detail = when (player.repeatMode) { Player.REPEAT_MODE_ONE -> "One"; Player.REPEAT_MODE_ALL -> "All"; else -> "Off" }, onClick = viewModel::cycleRepeat)
-        SettingsRow(Icons.Outlined.BookmarkAdd, "Save bookmark", detail = formatDuration(player.positionMillis), onClick = {
-            viewModel.addBookmark("Bookmark at ${formatDuration(player.positionMillis)}")
-        })
-        SettingsRow(Icons.Outlined.MusicNote, "Load LRC lyrics", detail = "Local synchronized or plain lyrics", onClick = {
-            lyricsPicker.launch(arrayOf("text/plain", "application/octet-stream"))
-        })
-        Text("Sleep timer", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(20.dp))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            listOf(15, 30, 60).forEach { minutes -> AssistChip({ viewModel.startSleepTimer(minutes, 10) }, { Text("$minutes min") }) }
-        }
-        SettingsRow(Icons.Outlined.MusicNote, "Stop after current track", onClick = { viewModel.stopAfterCurrent(10) })
-        if (sleepTimer.deadlineEpochMillis != null || sleepTimer.stopAfterCurrent) {
-            SettingsRow(Icons.Outlined.Close, "Cancel sleep timer", detail = sleepTimer.remainingMillis?.let(::formatDuration) ?: "After current track", onClick = viewModel::cancelSleepTimer)
-        }
-        if (player.bookmarks.isNotEmpty()) {
-            Text("Bookmarks", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(20.dp))
-            player.bookmarks.forEach { bookmark ->
-                ListItem(
-                    modifier = Modifier.clickable { viewModel.seekToBookmark(bookmark); settingsVisible = false },
-                    headlineContent = { Text(bookmark.name) },
-                    supportingContent = { Text(formatDuration(bookmark.positionMillis)) },
-                    trailingContent = {
-                        Row {
-                            IconButton({ editingBookmark = bookmark }) {
-                                Icon(Icons.Outlined.Edit, "Rename bookmark")
-                            }
-                            IconButton({ viewModel.deleteBookmark(bookmark) }) {
-                                Icon(Icons.Outlined.Delete, "Delete bookmark")
-                            }
-                        }
-                    },
-                )
-            }
-        }
-        }
-        editingBookmark?.let { bookmark ->
-            PlaylistNameDialog("Rename bookmark", bookmark.name, {
-                viewModel.renameBookmark(bookmark, it)
-                editingBookmark = null
-            }) { editingBookmark = null }
-        }
-    }
-}
-
-@Composable
-private fun PlayerLyrics(
-    lyrics: LyricsDocument,
-    currentIndex: Int,
-    onSeek: (Long) -> Unit,
-) {
-    val listState = rememberLazyListState()
-    val reducedMotion = LocalReducedMotion.current
-    LaunchedEffect(currentIndex, lyrics.lines.size) {
-        if (currentIndex >= 0 && lyrics.lines.isNotEmpty()) {
-            val target = (currentIndex - 2).coerceAtLeast(0)
-            if (reducedMotion) listState.scrollToItem(target) else listState.animateScrollToItem(target)
-        }
-    }
-    VimivoGlassSurface(VimivoGlassVariant.SHEET, Modifier.fillMaxWidth().padding(top = 16.dp)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Lyrics", style = MaterialTheme.typography.titleLarge)
-            Text(if (lyrics.synchronized) "Synchronized local LRC" else "Local lyrics", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxWidth().height(VimivoPlayer.lyricsViewport).padding(top = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(lyrics.lines.size, key = { index -> "${lyrics.lines[index].timeMillis ?: -1}:$index" }) { index ->
-                    val line = lyrics.lines[index]
-                    val active = index == currentIndex
-                    Text(
-                        text = line.text.ifBlank { " " },
-                        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = if (active) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.fillMaxWidth().clickable(enabled = line.timeMillis != null) { line.timeMillis?.let(onSeek) }.padding(vertical = 4.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun repeatModeLabel(mode: Int): String = when (mode) {
-    Player.REPEAT_MODE_ONE -> "one"
-    Player.REPEAT_MODE_ALL -> "all"
-    else -> "off"
 }
 
 @Composable
@@ -1998,6 +2039,9 @@ internal fun androidx.media3.common.MediaItem.toDomain() = MediaItem(
     artist = mediaMetadata.artist?.toString(),
     album = mediaMetadata.albumTitle?.toString(),
     artworkUri = mediaMetadata.artworkUri?.toString(),
+    durationMillis = mediaMetadata.durationMs,
 )
 
 private fun HomeSection.label() = name.lowercase().replace('_', ' ').replaceFirstChar(Char::uppercase)
+
+private fun dev.vimivo.playback.ReplayGainMode.next() = dev.vimivo.playback.ReplayGainMode.entries[(ordinal + 1) % dev.vimivo.playback.ReplayGainMode.entries.size]

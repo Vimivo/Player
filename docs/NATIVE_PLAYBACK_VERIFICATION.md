@@ -17,7 +17,7 @@ graph TD
     CTRL --> ENG[PlaybackEngineManager]
     ENG -->|macOS / Windows / Linux| MPV[MpvPlayerEngine (libmpv 2.0.0)]
     ENG -->|Android Preferred| M3[Media3 ExoPlayer Engine]
-    ENG -->|Android Video Fallback| VLC[LibVLC Android Engine]
+    ENG -->|Android Video Fallback| VLC[libmpv Android Engine]
     ENG -->|iOS / iPadOS| AVF[AVFoundation Engine]
 ```
 
@@ -30,7 +30,7 @@ graph TD
 | **macOS** | `libmpv.2.dylib` (2.0.0) | Cocoa `NSOpenGLView` (`vo=libmpv`) | VideoToolbox (`hwdec=videotoolbox`) | CoreAudio (`ao=coreaudio`) | MP3, AAC, FLAC, WAV, OGG, OPUS, ALAC, MP4, MKV, MOV, WebM, H.264, HEVC, VP9, AV1 |
 | **Windows** | `libmpv-2.dll` (2.0.0) | Direct Win32 HWND (`vo=gpu`) | D3D11VA / DXVA2 (`hwdec=d3d11va`) | WASAPI (`ao=wasapi`) | Full libmpv codec suite |
 | **Linux** | `libmpv.so.2` (2.0.0) | X11 / Wayland surface (`vo=gpu`) | VA-API / VDPAU / NVDEC | PipeWire / PulseAudio / ALSA | Full libmpv codec suite |
-| **Android** | AndroidX Media3 (1.11.1) / LibVLC (3.7.7) | Android `SurfaceView` / `TextureView` | Android MediaCodec NDK | AudioTrack / AAudio | Media3 supported formats + LibVLC full codec fallback |
+| **Android** | AndroidX Media3 (1.11.1) / libmpv (0.41.0) | Android `SurfaceView` / `TextureView` | Android MediaCodec NDK | AudioTrack / AAudio | Media3 supported formats + LibVLC full codec fallback |
 | **iOS** | Apple `AVPlayer` (AVFoundation) | `AVPlayerLayer` / `AVPlayerViewController` | Apple VideoToolbox / Metal | CoreAudio / AVAudioSession | Apple AVFoundation formats + HLS |
 
 ---

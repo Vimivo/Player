@@ -1,0 +1,5 @@
+# The system SQLite that ships with iOS (also what iosApp links); used by the shared library store on iOS.
+headers = sqlite3.h
+headerFilter = sqlite3.h
+package = dev.vimivo.sqlite3
+linkerOpts = -lsqlite3

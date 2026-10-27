@@ -1,6 +1,8 @@
 import SwiftUI
 import AVKit
 import UIKit
+import VimivoShared
+import Combine
 
 enum VideoAspect: CaseIterable, Identifiable {
     case fit, crop, stretch, ratio16x9, ratio4x3
@@ -46,8 +48,15 @@ enum VideoAspect: CaseIterable, Identifiable {
 }
 
 enum PlayerSheet: String, Identifiable {
-    case speed, audio, subtitles, options
+    case speed, audio, subtitles, options, queue, tools, decoder
     var id: String { rawValue }
+}
+
+struct KidParticle: Identifiable {
+    let id = UUID()
+    let point: CGPoint
+    let color: Color
+    let symbol: String
 }
 
 enum GestureFeedback: Equatable {
@@ -69,6 +78,8 @@ final class VideoPlayerModel: ObservableObject {
 
     @Published var controlsVisible = true
     @Published var locked = false
+    @Published var kidsLocked = false
+    @Published var kidParticles: [KidParticle] = []
     @Published var lockHintVisible = false
     @Published var rotationLocked = false
     @Published var aspect: VideoAspect = .fit
@@ -85,7 +96,27 @@ final class VideoPlayerModel: ObservableObject {
     @Published private(set) var selectedAudio: AVMediaSelectionOption?
     @Published private(set) var selectedSubtitle: AVMediaSelectionOption?
     /// Current subtitle cue, rendered by the player view so styling matches Android.
-    @Published private(set) var subtitleText: String?
+    @Published var subtitleText: String?
+    @Published var externalTracks: [ExternalSubtitleTrack] = []
+    @Published var selectedExternalTrack: ExternalSubtitleTrack?
+    @Published var secondarySubtitleOption: AVMediaSelectionOption?
+    @Published var selectedSecondaryExternalTrack: ExternalSubtitleTrack?
+    @Published var secondarySubtitleText: String?
+    @Published var subtitleDelayMillis: Int64 = 0
+    @Published var subtitleSpeedMultiplier: Double = 1.0
+    @Published var subtitleTextColor: Color = .white
+    @Published var subtitleBgOpacity: Double = 0.6
+    @Published var subtitleOutline: Bool = true
+    @Published var subtitleEncoding: SubtitleEncoding = .utf8
+    @Published var nightModeDim: Double = 0.0
+    @Published var audioDelayMillis: Int64 = 0
+    @Published var decoderMode: MobileDecoderMode = .hw
+    @Published var seekThumbnail: UIImage?
+    @Published var seekThumbnailTime: Int64?
+    @Published var subtitleBottomMargin: CGFloat = 32
+    @Published var subtitleFontSize: CGFloat = 18
+    @Published var currentTimeString: String = ""
+    @Published var batteryPercent: Int = 100
 
     /// Set by the player layer when picture in picture is supported on this device.
     var pipController: AVPictureInPictureController?
@@ -94,13 +125,46 @@ final class VideoPlayerModel: ObservableObject {
     private var feedbackTask: Task<Void, Never>?
     private var doubleTapTask: Task<Void, Never>?
     private var originalBrightness: (screen: UIScreen, value: CGFloat)?
-    private lazy var legibleRelay = LegibleOutputRelay { [weak self] text in self?.subtitleText = text }
+    private lazy var legibleRelay = LegibleOutputRelay { [weak self] text in
+        // If an external subtitle is chosen, ignore embedded cues
+        guard self?.selectedExternalTrack == nil else { return }
+        self?.subtitleText = text
+    }
     // Options are only valid with the group instance they were loaded from.
     private var audioGroup: AVMediaSelectionGroup?
     private var subtitleGroup: AVMediaSelectionGroup?
+    private var cancellables = Set<AnyCancellable>()
 
     init(engine: AVPlayerPlaybackEngine) {
         self.engine = engine
+        engine.$state
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                self?.updateCues(for: state.positionMillis)
+            }
+            .store(in: &cancellables)
+    }
+
+    func updateCues(for positionMillis: Int64) {
+        let adjusted = Int64(Double(positionMillis + subtitleDelayMillis) * subtitleSpeedMultiplier)
+
+        if let track = selectedExternalTrack {
+            if let cue = track.cues.first(where: { adjusted >= $0.startMillis && adjusted <= $0.endMillis }) {
+                self.subtitleText = cue.text
+            } else {
+                self.subtitleText = nil
+            }
+        }
+
+        if let secTrack = selectedSecondaryExternalTrack {
+            if let cue = secTrack.cues.first(where: { adjusted >= $0.startMillis && adjusted <= $0.endMillis }) {
+                self.secondarySubtitleText = cue.text
+            } else {
+                self.secondarySubtitleText = nil
+            }
+        } else if secondarySubtitleOption == nil {
+            self.secondarySubtitleText = nil
+        }
     }
 
     /// Starts receiving subtitle cues from the engine's legible output.
@@ -113,6 +177,60 @@ final class VideoPlayerModel: ObservableObject {
     /// Restarts the auto-hide countdown after any control interaction.
     func touch() {
         interactionTick &+= 1
+    }
+
+    func setDecoderMode(_ mode: MobileDecoderMode) {
+        self.decoderMode = mode
+        if let uri = engine.state.currentItem?.uri {
+            InMemoryDecoderPreferenceStore.companion.shared.setDecoderForMedia(uri: uri, mode: mode)
+        }
+    }
+
+    func setAudioDelay(_ millis: Int64) {
+        self.audioDelayMillis = millis
+    }
+
+    func addKidParticle(at point: CGPoint) {
+        let colors: [Color] = [.yellow, .pink, .cyan, .green, .orange, .purple]
+        let symbols = ["star.fill", "sparkles", "heart.fill", "circle.fill"]
+        let particle = KidParticle(point: point, color: colors.randomElement() ?? .yellow, symbol: symbols.randomElement() ?? "star.fill")
+        kidParticles.append(particle)
+        Task {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            kidParticles.removeAll { $0.id == particle.id }
+        }
+    }
+
+    func loadSeekThumbnail(at millis: Int64) {
+        seekThumbnailTime = millis
+        guard let item = engine.state.currentItem else { return }
+        let urlString = item.uri
+        let url: URL? = urlString.hasPrefix("/") ? URL(fileURLWithPath: urlString) : URL(string: urlString)
+        guard let targetUrl = url else { return }
+        Task.detached(priority: .userInitiated) {
+            let asset = AVURLAsset(url: targetUrl)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 240, height: 135)
+            let cmTime = CMTime(seconds: Double(millis) / 1000.0, preferredTimescale: 600)
+            if let cgImage = try? await generator.image(at: cmTime).image {
+                let uiImage = UIImage(cgImage: cgImage)
+                await MainActor.run {
+                    if self.seekThumbnailTime == millis {
+                        self.seekThumbnail = uiImage
+                    }
+                }
+            }
+        }
+    }
+
+    func updateSystemStatus() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        currentTimeString = formatter.string(from: Date())
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let level = UIDevice.current.batteryLevel
+        batteryPercent = level >= 0 ? Int(level * 100) : 100
     }
 
     // MARK: Taps
@@ -276,6 +394,22 @@ final class VideoPlayerModel: ObservableObject {
 
     func loadMediaOptions() async {
         subtitleText = nil
+        secondarySubtitleText = nil
+        externalTracks = []
+        selectedExternalTrack = nil
+        selectedSecondaryExternalTrack = nil
+
+        // Scan for companion subtitle files next to video or in Subs/ folder
+        if let current = engine.state.currentItem {
+            let candidateUrl = SecurityScopedMediaManager.shared.resolvedUrl(for: current) ?? URL(string: current.uri)
+            if let url = candidateUrl {
+                let companions = SubtitleLocator.findCompanionSubtitles(for: url)
+                await MainActor.run {
+                    self.externalTracks = companions
+                }
+            }
+        }
+
         guard let item = engine.player.currentItem else {
             audioOptions = []
             subtitleOptions = []
@@ -316,9 +450,51 @@ final class VideoPlayerModel: ObservableObject {
         guard let item = engine.player.currentItem, let group = subtitleGroup else { return }
         item.select(option, in: group)
         selectedSubtitle = option
+        selectedExternalTrack = nil
         subtitleText = nil
         engine.reattachLegibleOutput()
         showMessage(icon: "captions.bubble", text: option?.displayName ?? "Subtitles off")
+    }
+
+    func selectExternalSubtitle(_ track: ExternalSubtitleTrack?) {
+        if let item = engine.player.currentItem, let group = subtitleGroup {
+            item.select(nil, in: group)
+        }
+        selectedSubtitle = nil
+        selectedExternalTrack = track
+        subtitleText = nil
+        showMessage(icon: "captions.bubble", text: track?.name ?? "External subtitles off")
+    }
+
+    func selectSecondarySubtitle(_ option: AVMediaSelectionOption?) {
+        secondarySubtitleOption = option
+        selectedSecondaryExternalTrack = nil
+        secondarySubtitleText = nil
+        showMessage(icon: "captions.bubble", text: option != nil ? "Secondary: \(option!.displayName)" : "Secondary subtitle off")
+    }
+
+    func selectSecondaryExternalSubtitle(_ track: ExternalSubtitleTrack?) {
+        secondarySubtitleOption = nil
+        selectedSecondaryExternalTrack = track
+        secondarySubtitleText = nil
+        showMessage(icon: "captions.bubble", text: track != nil ? "Secondary: \(track!.name)" : "Secondary subtitle off")
+    }
+
+    func addExternalSubtitleFile(url: URL) {
+        guard url.startAccessingSecurityScopedResource() else {
+            loadSubtitleFromUrl(url)
+            return
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+        loadSubtitleFromUrl(url)
+    }
+
+    private func loadSubtitleFromUrl(_ url: URL) {
+        guard let data = try? Data(contentsOf: url) else { return }
+        let cues = SubtitleParser.parse(data: data, encoding: subtitleEncoding)
+        let track = ExternalSubtitleTrack(name: url.lastPathComponent, url: url, cues: cues)
+        externalTracks.append(track)
+        selectExternalSubtitle(track)
     }
 
     // MARK: Teardown

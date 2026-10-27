@@ -17,6 +17,8 @@ class AndroidAudioEnhancementTest {
         assertTrue(caps.trebleAdjustment)
         assertTrue(caps.attenuatingPreamp)
         assertTrue(caps.pitchPreservation)
+        assertTrue(caps.replayGain)
+        assertTrue(caps.gapless)
     }
 
     @Test

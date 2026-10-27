@@ -61,6 +61,8 @@ internal class DesktopDatabase private constructor(private val connection: Conne
             if (version < 4) migrateToVersion4(statement)
             if (version < 5) migrateToVersion5(statement)
             if (version < 6) migrateToVersion6(statement)
+            if (version < 7) migrateToVersion7(statement)
+            if (version < 8) migrateToVersion8(statement)
             ensurePerformanceIndexes(statement)
         }
     }
@@ -202,10 +204,57 @@ internal class DesktopDatabase private constructor(private val connection: Conne
         statement.execute("UPDATE schema_version SET version=6")
     }
 
+    /**
+     * v7: resume positions for files opened outside the library (Finder, "Open with", command line). They
+     * are keyed by file URI because such files have no media_items row to reference.
+     */
+    private fun migrateToVersion7(statement: java.sql.Statement) {
+        statement.execute(
+            "CREATE TABLE IF NOT EXISTS external_playback_positions (uri TEXT PRIMARY KEY, position_ms INTEGER NOT NULL, " +
+                "duration_ms INTEGER, completed INTEGER NOT NULL DEFAULT 0, updated_at_ms INTEGER NOT NULL)",
+        )
+        statement.execute("CREATE INDEX IF NOT EXISTS external_positions_updated ON external_playback_positions(updated_at_ms DESC)")
+        statement.execute("UPDATE schema_version SET version=7")
+    }
+
+    private fun migrateToVersion8(statement: java.sql.Statement) {
+        statement.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS media_fts USING fts5(" +
+                "media_id UNINDEXED, title, file_name, artist, album" +
+            ")",
+        )
+        statement.execute(
+            "INSERT OR IGNORE INTO media_fts(rowid, media_id, title, file_name, artist, album) " +
+                "SELECT m.rowid, m.id, m.title, m.file_name, COALESCE(x.artist, ''), COALESCE(x.album, '') " +
+                "FROM media_items m LEFT JOIN media_metadata x ON m.id = x.media_id",
+        )
+        statement.execute(
+            "CREATE TRIGGER IF NOT EXISTS media_items_fts_ai AFTER INSERT ON media_items BEGIN " +
+                "INSERT INTO media_fts(rowid, media_id, title, file_name, artist, album) VALUES (new.rowid, new.id, new.title, new.file_name, '', ''); END",
+        )
+        statement.execute(
+            "CREATE TRIGGER IF NOT EXISTS media_items_fts_ad AFTER DELETE ON media_items BEGIN " +
+                "DELETE FROM media_fts WHERE rowid = old.rowid; END",
+        )
+        statement.execute(
+            "CREATE TRIGGER IF NOT EXISTS media_items_fts_au AFTER UPDATE OF title, file_name ON media_items BEGIN " +
+                "UPDATE media_fts SET title = new.title, file_name = new.file_name WHERE rowid = new.rowid; END",
+        )
+        statement.execute(
+            "CREATE TRIGGER IF NOT EXISTS media_metadata_fts_ai AFTER INSERT ON media_metadata BEGIN " +
+                "UPDATE media_fts SET artist = COALESCE(new.artist, ''), album = COALESCE(new.album, '') WHERE rowid = (SELECT rowid FROM media_items WHERE id = new.media_id); END",
+        )
+        statement.execute(
+            "CREATE TRIGGER IF NOT EXISTS media_metadata_fts_au AFTER UPDATE ON media_metadata BEGIN " +
+                "UPDATE media_fts SET artist = COALESCE(new.artist, ''), album = COALESCE(new.album, '') WHERE rowid = (SELECT rowid FROM media_items WHERE id = new.media_id); END",
+        )
+        statement.execute("UPDATE schema_version SET version=8")
+    }
+
     override fun close() = connection.close()
 
     companion object {
-        const val SCHEMA_VERSION = 6
+        const val SCHEMA_VERSION = 8
 
         fun open(path: Path = defaultPath()): DesktopDatabase {
             Files.createDirectories(path.parent)

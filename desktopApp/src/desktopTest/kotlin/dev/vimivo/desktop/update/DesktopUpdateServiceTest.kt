@@ -49,7 +49,7 @@ class DesktopUpdateServiceTest {
                   "filename": "Vimivo-Setup-1.0.0.exe",
                   "downloadUrl": "https://example.com/Vimivo-Setup-1.0.0.exe",
                   "sizeBytes": 145000000,
-                  "sha256": "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef",
+                  "sha256": "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
                   "architecture": "x64"
                 }
               ]
@@ -57,7 +57,7 @@ class DesktopUpdateServiceTest {
         """.trimIndent()
 
         val result = service.checkFromManifestContent(sampleJson)
-        assertTrue(result is UpdateCheckResult.UpdateAvailable)
+        assertTrue(result is UpdateCheckResult.UpdateAvailable, "got $result")
         assertEquals("1.0.0", result.newVersion)
         assertNotNull(result.matchedArtifact, "Must match an artifact for platform ${service.currentPlatform}")
     }

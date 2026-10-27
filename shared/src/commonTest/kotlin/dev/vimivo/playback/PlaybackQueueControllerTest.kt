@@ -8,12 +8,15 @@ import dev.vimivo.core.model.MediaKind
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -43,6 +46,39 @@ class PlaybackQueueControllerTest {
         assertEquals("one", controller.state.value.currentMedia?.id?.value)
     }
 
+    /** "Stop after this track" from a sleep timer: the finished item stays, nothing is prepared behind it. */
+    @Test
+    fun aSleepTimerStopRequestKeepsTheQueueOnTheFinishedItem() = runTest {
+        val engine = FakeQueueEngine().also { it.gapless = true }
+        val timer = PlaybackSleepTimer(backgroundScope, { 0L }, object : SleepTimerPlayer {
+            override fun volume() = 1f
+            override fun setVolume(volume: Float) = Unit
+            override fun isPlaying() = true
+            override fun pause() = Unit
+        })
+        val controller = PlaybackQueueController(engine, backgroundScope, stopRequest = timer)
+        controller.play(listOf(media("one"), media("two"), media("three"))).getOrThrow()
+        engine.startPlaying()
+        runCurrent()
+        engine.setPosition(5_000)
+        runCurrent()
+        assertEquals(listOf<String?>("two"), engine.prepared, "the next song is queued behind the first")
+
+        timer.afterCurrent()
+        engine.setPosition(6_000) // the engine's next tick makes the queue look again
+        runCurrent()
+        assertEquals(null, engine.prepared.last(), "arming the request takes the queued song out")
+
+        engine.complete()
+        runCurrent()
+        assertEquals("one", controller.state.value.currentMedia?.id?.value, "the queue did not move on")
+        assertFalse(timer.armed, "the request is used up")
+
+        engine.complete()
+        runCurrent()
+        assertEquals("one", controller.state.value.currentMedia?.id?.value, "a completion already handled is not handled twice")
+    }
+
     @Test
     fun mutatesQueueWithoutLosingCurrentItem() = runTest {
         val engine = FakeQueueEngine()
@@ -60,6 +96,44 @@ class PlaybackQueueControllerTest {
         assertTrue(controller.state.value.shuffleEnabled)
         controller.remove(controller.state.value.items.indexOfFirst { it.media.id.value == "three" })
         assertEquals(4, controller.state.value.items.size)
+    }
+
+    /** Q1 regression: a file that fails while playing must not stop the rest of the list. */
+    @Test
+    fun skipsItemsThatFailWhilePlayingAndReportsThem() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        val skipped = mutableListOf<String>()
+        backgroundScope.launch { controller.skipped.collect { skipped += it.id.value } }
+        controller.play(listOf(media("one"), media("broken"), media("three"))).getOrThrow()
+        runCurrent()
+
+        engine.complete()
+        runCurrent()
+        engine.fail()
+        runCurrent()
+
+        assertEquals("three", controller.state.value.currentMedia?.id?.value)
+        assertEquals(listOf("broken"), skipped)
+    }
+
+    @Test
+    fun stopsInsteadOfLoopingWhenEveryItemFailsUnderRepeatAll() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("a"), media("b"))).getOrThrow()
+        controller.cycleRepeat()
+        controller.cycleRepeat()
+        assertEquals(QueueRepeatMode.ALL, controller.state.value.repeatMode)
+        runCurrent()
+
+        repeat(2) {
+            engine.fail()
+            runCurrent()
+        }
+
+        assertTrue(engine.stopped)
+        assertEquals(listOf("a", "b"), engine.opened)
     }
 
     @Test
@@ -280,6 +354,125 @@ class PlaybackQueueControllerTest {
         assertTrue(engine.stopped, "Engine must be stopped when all items fail to open")
     }
 
+    @Test
+    fun aControlErrorBeforeAnyMediaDoesNotSkipTheItemBeingOpened() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        runCurrent()
+        engine.failWithoutMedia()
+        engine.yieldBeforeOpen = true
+
+        controller.play(listOf(media("first"), media("second"), media("third")), startIndex = 1).getOrThrow()
+        runCurrent()
+
+        assertEquals(listOf("second"), engine.opened)
+        assertEquals("second", controller.state.value.currentMedia?.id?.value)
+    }
+
+    @Test
+    fun preparesTheFollowingAudioItemOnceTheCurrentOneIsPlaying() = runTest {
+        val engine = FakeQueueEngine().apply { gapless = true }
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("one"), media("two"), media("three"))).getOrThrow()
+        runCurrent()
+        assertEquals(emptyList(), engine.prepared, "nothing is prepared while the current item is still loading")
+        engine.startPlaying()
+        runCurrent()
+        engine.setPosition(5_000)
+        runCurrent()
+        assertEquals(listOf<String?>("two"), engine.prepared)
+    }
+
+    @Test
+    fun followsAnEngineSideAdvanceWithoutOpeningAnything() = runTest {
+        val engine = FakeQueueEngine().apply { gapless = true }
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("one"), media("two"), media("three"))).getOrThrow()
+        engine.startPlaying()
+        runCurrent()
+        engine.advanceGapless(media("two"))
+        runCurrent()
+        assertEquals("two", controller.state.value.currentMedia?.id?.value)
+        assertEquals(listOf("one"), engine.opened, "the engine started it, the queue must not open it again")
+        assertEquals(listOf<String?>("two", "three"), engine.prepared)
+        engine.complete()
+        runCurrent()
+        assertEquals("three", controller.state.value.currentMedia?.id?.value)
+    }
+
+    @Test
+    fun wrapsToTheFirstItemUnderRepeatAll() = runTest {
+        val engine = FakeQueueEngine().apply { gapless = true }
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.cycleRepeat()
+        controller.cycleRepeat()
+        controller.play(listOf(media("one"), media("two")), startIndex = 1).getOrThrow()
+        engine.startPlaying()
+        runCurrent()
+        assertEquals(listOf<String?>("one"), engine.prepared)
+    }
+
+    @Test
+    fun prepareNothingForRepeatOneVideoOrTheSameItem() = runTest {
+        val video = MediaItem(MediaId("clip"), "file:///clip.mp4", "clip", MediaKind.VIDEO)
+        val one = FakeQueueEngine().apply { gapless = true }
+        val repeatOne = PlaybackQueueController(one, backgroundScope)
+        repeatOne.cycleRepeat()
+        repeatOne.play(listOf(media("a"), media("b"))).getOrThrow()
+        one.startPlaying()
+        runCurrent()
+        assertEquals(emptyList(), one.prepared, "repeat one is handled by the queue")
+
+        val withVideo = FakeQueueEngine().apply { gapless = true }
+        PlaybackQueueController(withVideo, backgroundScope).play(listOf(media("a"), video)).getOrThrow()
+        withVideo.startPlaying()
+        runCurrent()
+        assertEquals(emptyList(), withVideo.prepared, "video is not handed over gaplessly")
+
+        val same = FakeQueueEngine().apply { gapless = true }
+        PlaybackQueueController(same, backgroundScope).play(listOf(media("a"), media("a"))).getOrThrow()
+        same.startPlaying()
+        runCurrent()
+        assertEquals(emptyList(), same.prepared, "two occurrences of one item cannot be told apart by the engine")
+    }
+
+    @Test
+    fun changingTheQueueUpdatesOrClearsThePreparedItem() = runTest {
+        val engine = FakeQueueEngine().apply { gapless = true }
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("one"), media("two"))).getOrThrow()
+        engine.startPlaying()
+        runCurrent()
+        controller.playNext(listOf(media("inserted")))
+        runCurrent()
+        engine.setPosition(1_000)
+        runCurrent()
+        assertEquals(listOf<String?>("two", "inserted"), engine.prepared)
+        controller.remove(1)
+        controller.remove(1)
+        runCurrent()
+        engine.setPosition(2_000)
+        runCurrent()
+        assertEquals(null, engine.prepared.last(), "nothing follows any more, so the preparation is cleared")
+    }
+
+    @Test
+    fun anEngineWithoutGaplessSupportIsAskedOncePerItemNotEveryTick() = runTest {
+        val engine = FakeQueueEngine()
+        val controller = PlaybackQueueController(engine, backgroundScope)
+        controller.play(listOf(media("one"), media("two"))).getOrThrow()
+        engine.startPlaying()
+        runCurrent()
+        repeat(5) {
+            engine.setPosition(it * 1_000L)
+            runCurrent()
+        }
+        assertEquals(1, engine.prepareCalls)
+        engine.complete()
+        runCurrent()
+        assertEquals("two", controller.state.value.currentMedia?.id?.value, "completion still advances the queue")
+    }
+
     private fun media(id: String) = MediaItem(MediaId(id), "file:///$id.mp3", id, MediaKind.AUDIO)
 }
 
@@ -300,9 +493,20 @@ private class FakeQueueEngine : PlayerEngine {
     var openHook: (() -> Unit)? = null
     var failOnOpen = false
     var stopped = false
+    var yieldBeforeOpen = false
+    var gapless = false
+    var prepareCalls = 0
+    val prepared = mutableListOf<String?>()
 
     override fun supportFor(media: MediaItem) = SupportLevel.PREFERRED
+    override fun prepareNext(media: MediaItem?): Result<Unit> {
+        prepareCalls++
+        if (!gapless) return super.prepareNext(media)
+        prepared += media?.id?.value
+        return Result.success(Unit)
+    }
     override suspend fun open(media: MediaItem, startPositionMillis: Long): Result<Unit> {
+        if (yieldBeforeOpen) yield()
         if (failOnOpen) {
             return Result.failure(IllegalStateException("Simulated decoder open failure"))
         }
@@ -334,8 +538,28 @@ private class FakeQueueEngine : PlayerEngine {
     override fun selectSubtitleTrack(trackId: String?) = Result.success(Unit)
     override fun close() = Unit
 
+    fun startPlaying() {
+        mutableState.value = state.value.copy(status = PlaybackStatus.Playing)
+    }
+
+    /** The engine started the prepared item by itself. */
+    fun advanceGapless(next: MediaItem) {
+        mutableState.value = PlaybackState(engine = id, media = next, status = PlaybackStatus.Playing)
+    }
+
     fun complete() {
         mutableState.value = state.value.copy(status = PlaybackStatus.Completed)
+    }
+
+    fun fail() {
+        val error = PlaybackError(PlaybackErrorCode.UNSUPPORTED_CODEC, "no decoder", engine = id)
+        mutableState.value = state.value.copy(status = PlaybackStatus.Error(error))
+    }
+
+    /** A control used before any media was opened, as libmpv-backed engines report it. */
+    fun failWithoutMedia() {
+        val error = PlaybackError(PlaybackErrorCode.ENGINE_INITIALIZATION, "Open media first", engine = id)
+        mutableState.value = state.value.copy(media = null, status = PlaybackStatus.Error(error))
     }
 
     fun setPosition(pos: Long) {

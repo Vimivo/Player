@@ -65,7 +65,7 @@ class FaultInjectionReliabilityTest {
     @Test
     fun testCorruptMediaFallbackAndPreservation() = runTest {
         val primary = FaultInjectableFactory(EngineId.MEDIA3)
-        val fallback = FaultInjectableFactory(EngineId.LIBVLC)
+        val fallback = FaultInjectableFactory(EngineId.MPV)
         val manager = PlaybackEngineManager(mapOf(primary.id to primary, fallback.id to fallback), backgroundScope)
 
         val corruptItem = MediaItem(
@@ -83,7 +83,7 @@ class FaultInjectionReliabilityTest {
         runCurrent()
 
         // Should cleanly switch to fallback without losing position
-        assertEquals(EngineId.LIBVLC, manager.state.value.engine)
+        assertEquals(EngineId.MPV, manager.state.value.engine)
         assertEquals(10_000, fallback.latest.state.value.positionMillis)
         assertEquals(1, primary.created)
         assertEquals(1, fallback.created)

@@ -1,31 +1,27 @@
-@file:Suppress(
-    "ArgumentListWrapping", "ComplexCondition", "CyclomaticComplexMethod", "MagicNumber",
-    "MaximumLineLength", "MaxLineLength", "MultiLineIfElse", "NestedBlockDepth", "ReturnCount", "TooGenericExceptionCaught", "Wrapping",
-)
+@file:Suppress("MagicNumber") // Thumbnail timing heuristics.
 
 package dev.vimivo.desktop.library
 
 import dev.vimivo.core.model.ExtractedMediaMetadata
 import dev.vimivo.core.model.MediaItem
-import kotlinx.coroutines.CancellationException
+import dev.vimivo.desktop.playback.MpvMediaInspector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 /**
- * Isolated native media inspector and video thumbnail generator.
- * Uses bounded timeouts, argument-safe ProcessBuilder execution without shell interpolation,
- * and concurrency limits to safeguard UI and playback performance.
+ * Video metadata and thumbnails for the library, read with the bundled LGPL libmpv/FFmpeg (ADR-004) through
+ * [MpvMediaInspector]: no external ffprobe/ffmpeg programs, bounded time per file, and a concurrency limit that keeps
+ * library scans from competing with playback.
  */
 internal object DesktopVideoInspector {
     private val concurrencyLimit = Semaphore(3)
-    private const val PROCESS_TIMEOUT_SECONDS = 5L
-    private const val MAX_OUTPUT_BYTES = 1024 * 1024
-    private const val MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024
+    private val inspector = MpvMediaInspector()
+    private const val THUMBNAIL_MAX_WIDTH = 640
+    private const val BITS_PER_BYTE = 8L
+    private const val MILLIS_PER_SECOND = 1_000L
 
     suspend fun inspect(
         media: MediaItem,
@@ -33,71 +29,33 @@ internal object DesktopVideoInspector {
         cache: DesktopMediaCache,
     ): ExtractedMediaMetadata = concurrencyLimit.withPermit {
         withContext(Dispatchers.IO) {
-            val ffprobe = DesktopMediaToolLocator.ffprobePath()
-                ?: error("Native inspection tool ffprobe is not available")
-            val output = executeProbe(ffprobe, file)
-            val properties = parseProperties(output)
-            require(properties.isNotEmpty()) { "Could not inspect video format for ${file.name}" }
-
-            val nbStreams = properties["format.nb_streams"]?.toIntOrNull() ?: 0
-            require(nbStreams > 0) { "No streams found in ${file.name}" }
-
-            var videoWidth: Int? = null
-            var videoHeight: Int? = null
-            var frameRate: Float? = null
-            var videoCodec: String? = null
-            var audioCodec: String? = null
-            var sampleRate: Int? = null
-            var channels: Int? = null
-            var audioTracks = 0
-            var subtitleTracks = 0
-
-            for (i in 0 until nbStreams) {
-                val prefix = "streams.stream.$i"
-                val codecType = properties["$prefix.codec_type"]
-                if (codecType == "video" && videoCodec == null) {
-                    videoCodec = properties["$prefix.codec_name"]
-                    videoWidth = properties["$prefix.width"]?.toIntOrNull()
-                    videoHeight = properties["$prefix.height"]?.toIntOrNull()
-                    val fps = properties["$prefix.avg_frame_rate"] ?: properties["$prefix.r_frame_rate"]
-                    frameRate = fps?.let(::parseFrameRate)
-                } else if (codecType == "audio") {
-                    audioTracks++
-                    if (audioCodec == null) {
-                        audioCodec = properties["$prefix.codec_name"]
-                        sampleRate = properties["$prefix.sample_rate"]?.toIntOrNull()
-                        channels = properties["$prefix.channels"]?.toIntOrNull()
-                    }
-                } else if (codecType == "subtitle") {
-                    subtitleTracks++
-                }
-            }
-
-            val durationSeconds = properties["format.duration"]?.toDoubleOrNull()
-                ?: (0 until nbStreams).firstNotNullOfOrNull { properties["streams.stream.$it.duration"]?.toDoubleOrNull() }
-            val durationMillis = durationSeconds?.let { (it * 1_000).toLong() }
-            val bitrate = properties["format.bit_rate"]?.toIntOrNull()
-            val formatName = properties["format.format_name"].orEmpty()
-            val container = resolveContainer(formatName, file.extension)
-            val title = properties["format.tags.title"] ?: media.title
+            val inspection = inspector.inspect(file)
+            val tracks = inspection.tracks.filterNot { it.albumArt }
+            require(tracks.isNotEmpty()) { "No streams found in ${file.name}" }
+            val video = tracks.firstOrNull { it.type == "video" }
+            val audio = tracks.filter { it.type == "audio" }
+            val durationMillis = inspection.durationMillis
+            val bitrate = durationMillis?.takeIf { it > 0 }
+                ?.let { (file.length() * BITS_PER_BYTE * MILLIS_PER_SECOND / it).coerceAtMost(Int.MAX_VALUE.toLong()) }
+                ?.toInt()
 
             val cacheIdentity = "${media.id.value}:${media.sizeBytes}:${media.dateModifiedEpochSeconds}"
-            val thumbnailUri = extractThumbnail(file, durationMillis, cache, cacheIdentity)
+            val thumbnailUri = if (video != null) extractThumbnail(file, durationMillis, cache, cacheIdentity) else null
 
             ExtractedMediaMetadata(
-                title = title,
+                title = inspection.title ?: media.title,
                 durationMillis = durationMillis,
                 bitrate = bitrate,
-                sampleRate = sampleRate,
-                channels = channels,
-                width = videoWidth,
-                height = videoHeight,
-                frameRate = frameRate,
-                videoCodec = videoCodec,
-                audioCodec = audioCodec,
-                container = container,
-                audioTrackCount = audioTracks,
-                subtitleTrackCount = subtitleTracks,
+                sampleRate = audio.firstOrNull()?.sampleRate,
+                channels = audio.firstOrNull()?.channels,
+                width = video?.width,
+                height = video?.height,
+                frameRate = video?.fps,
+                videoCodec = video?.codec,
+                audioCodec = audio.firstOrNull()?.codec,
+                container = resolveContainer(inspection.fileFormat.orEmpty(), file.extension),
+                audioTrackCount = audio.size,
+                subtitleTrackCount = tracks.count { it.type == "sub" },
                 thumbnailUri = thumbnailUri,
                 artworkUri = thumbnailUri,
             )
@@ -111,113 +69,19 @@ internal object DesktopVideoInspector {
         cacheIdentity: String,
     ): String? {
         cache.getThumbnail(cacheIdentity)?.let { return it }
-        val ffmpeg = DesktopMediaToolLocator.ffmpegPath() ?: return null
-
-        val targetTimestamp = when {
+        val targetSeconds = when {
             durationMillis != null && durationMillis > 2_000L -> (durationMillis * 0.1 / 1_000.0).coerceIn(0.2, 5.0)
             durationMillis != null && durationMillis > 200L -> 0.05
             else -> 0.0
         }
-
-        val bytes = captureFrame(ffmpeg, file, targetTimestamp)
-            ?: if (targetTimestamp > 0.0) captureFrame(ffmpeg, file, 0.0) else null
-
-        return bytes?.takeIf(ByteArray::isNotEmpty)?.let { frameBytes ->
-            cache.storeThumbnail(cacheIdentity, frameBytes).getOrNull()
-        }
+        // A frame a little into the video avoids black intros; very short files fall back to the first frame.
+        val bytes = captureOrNull(file, targetSeconds)
+            ?: if (targetSeconds > 0.0) captureOrNull(file, 0.0) else null
+        return bytes?.let { frame -> cache.storeThumbnail(cacheIdentity, frame).getOrNull() }
     }
 
-    private fun captureFrame(ffmpeg: String, file: File, timestamp: Double): ByteArray? {
-        val arguments = listOf(
-            ffmpeg,
-            "-nostdin",
-            "-v", "error",
-            "-ss", "%.3f".format(Locale.US, timestamp),
-            "-i", file.absolutePath,
-            "-frames:v", "1",
-            "-vf", "scale='min(640,iw)':-2",
-            "-f", "image2pipe",
-            "-vcodec", "mjpeg",
-            "-",
-        )
-        val process = ProcessBuilder(arguments)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-
-        return try {
-            val bytes = process.inputStream.readNBytes(MAX_THUMBNAIL_BYTES)
-            val finished = process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            if (!finished) {
-                process.destroyForcibly()
-                null
-            } else if (process.exitValue() == 0 && bytes.isNotEmpty()) {
-                bytes
-            } else null
-        } catch (cancelled: CancellationException) {
-            process.destroyForcibly()
-            throw cancelled
-        } catch (_: Throwable) {
-            process.destroyForcibly()
-            null
-        }
-    }
-
-    private fun executeProbe(ffprobe: String, file: File): String {
-        val arguments = listOf(
-            ffprobe,
-            "-v", "quiet",
-            "-print_format", "flat",
-            "-show_format",
-            "-show_streams",
-            "-show_chapters",
-            file.absolutePath,
-        )
-        val process = ProcessBuilder(arguments)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-
-        return try {
-            val output = process.inputStream.readNBytes(MAX_OUTPUT_BYTES).decodeToString()
-            val finished = process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            if (!finished) {
-                process.destroyForcibly()
-                error("ffprobe timed out on ${file.name}")
-            }
-            if (process.exitValue() != 0) {
-                error("ffprobe failed with exit code ${process.exitValue()} on ${file.name}")
-            }
-            output
-        } catch (cancelled: CancellationException) {
-            process.destroyForcibly()
-            throw cancelled
-        } catch (error: Throwable) {
-            process.destroyForcibly()
-            throw error
-        }
-    }
-
-    private fun parseProperties(output: String): Map<String, String> {
-        val result = mutableMapOf<String, String>()
-        output.lines().forEach { line ->
-            val index = line.indexOf('=')
-            if (index > 0) {
-                val key = line.substring(0, index).trim()
-                val value = line.substring(index + 1).trim().removeSurrounding("\"")
-                result[key] = value
-            }
-        }
-        return result
-    }
-
-    private fun parseFrameRate(raw: String): Float? {
-        val slash = raw.indexOf('/')
-        if (slash > 0) {
-            val num = raw.substring(0, slash).toFloatOrNull() ?: return null
-            val den = raw.substring(slash + 1).toFloatOrNull() ?: return null
-            if (den > 0f) return num / den
-        }
-        return raw.toFloatOrNull()
-    }
+    private fun captureOrNull(file: File, seconds: Double): ByteArray? =
+        runCatching { inspector.captureFrame(file, seconds, THUMBNAIL_MAX_WIDTH) }.getOrNull()
 
     private fun resolveContainer(formatName: String, extension: String): String = when {
         formatName.contains("mp4") || formatName.contains("mov") -> "MP4"

@@ -26,6 +26,7 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.playback.EngineId
+import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.playback.PlaybackStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,35 +39,70 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import org.koin.android.ext.android.inject
 import dev.vimivo.settings.SettingsRepository
+import dev.vimivo.app.R
+import androidx.core.content.ContextCompat
+import android.widget.Toast
 
 class VimivoPlaybackService : MediaLibraryService() {
     private val media3Factory: Media3PlayerEngineFactory by inject()
-    private val libVlcFactory: LibVlcPlayerEngineFactory by inject()
+    private val libmpvFactory: LibmpvPlayerEngineFactory by inject()
     private val mediaRepository: MediaRepository by inject()
     private val stateStore: PlaybackStateStore by inject()
     private val diagnostics: PlaybackDiagnostics by inject()
     private val settingsRepository: SettingsRepository by inject()
-    private val sleepTimer: SleepTimerController by inject()
+    private val sleepTimer: PlaybackSleepTimer by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var sessionPlayer: SessionPlayerAdapter
     private lateinit var mediaSession: MediaLibrarySession
 
+    private var pausedByUnplug = false
+
+    private val audioDeviceCallback = object : android.media.AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) {
+            serviceScope.launch {
+                val settings = settingsRepository.settings.first()
+                if (pausedByUnplug && settings.resumeOnHeadsetReconnect) {
+                    pausedByUnplug = false
+                    sessionPlayer.play()
+                }
+            }
+        }
+    }
+
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) sessionPlayer.pause()
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                serviceScope.launch {
+                    val settings = settingsRepository.settings.first()
+                    if (settings.pauseOnHeadsetUnplug) {
+                        pausedByUnplug = true
+                        sessionPlayer.pause()
+                    }
+                }
+            }
         }
     }
 
     override fun onCreate() {
         super.onCreate()
         val engineManager = PlaybackEngineManager(
-            factories = mapOf(EngineId.MEDIA3 to media3Factory, EngineId.LIBVLC to libVlcFactory),
+            factories = mapOf(EngineId.MEDIA3 to media3Factory, EngineId.MPV to libmpvFactory),
             scope = serviceScope,
         )
         diagnostics.attach(engineManager)
-        sessionPlayer = SessionPlayerAdapter(engineManager, serviceScope, stateStore, sleepTimer)
+        sessionPlayer = SessionPlayerAdapter(engineManager, serviceScope, stateStore, sleepTimer).also { player ->
+            player.skippedListener = { item ->
+                val name = item.mediaMetadata.title ?: item.mediaId
+                // The adapter reports from its playback scope; toasts must be shown on the main thread.
+                ContextCompat.getMainExecutor(this).execute {
+                    Toast.makeText(this, getString(R.string.playback_skipped, name), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, LibraryCallback()).build()
         registerNoisyReceiver()
+        val audioManager = getSystemService(AudioManager::class.java)
+        audioManager?.registerAudioDeviceCallback(audioDeviceCallback, android.os.Handler(android.os.Looper.getMainLooper()))
         serviceScope.launch {
             val settings = settingsRepository.settings.first()
             if (settings.restoreQueue) sessionPlayer.restoreWithoutPlaying()
@@ -125,6 +161,8 @@ class VimivoPlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        val audioManager = getSystemService(AudioManager::class.java)
+        audioManager?.unregisterAudioDeviceCallback(audioDeviceCallback)
         unregisterReceiver(noisyReceiver)
         mediaSession.release()
         sessionPlayer.release()
@@ -144,6 +182,49 @@ class VimivoPlaybackService : MediaLibraryService() {
     }
 
     private inner class LibraryCallback : MediaLibrarySession.Callback {
+        private var headsetClickCount = 0
+        private var lastHeadsetClickTime = 0L
+        private var headsetJob: kotlinx.coroutines.Job? = null
+
+        override fun onMediaButtonEvent(
+            session: MediaSession,
+            controllerInfo: MediaSession.ControllerInfo,
+            intent: Intent,
+        ): Boolean {
+            @Suppress("DEPRECATION")
+            val keyEvent = intent.getParcelableExtra<android.view.KeyEvent>(Intent.EXTRA_KEY_EVENT)
+            if (keyEvent != null && keyEvent.action == android.view.KeyEvent.ACTION_UP) {
+                val code = keyEvent.keyCode
+                if (code == android.view.KeyEvent.KEYCODE_HEADSETHOOK || code == android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
+                    val now = SystemClock.uptimeMillis()
+                    if (now - lastHeadsetClickTime > 400L) {
+                        headsetClickCount = 0
+                    }
+                    lastHeadsetClickTime = now
+                    headsetClickCount++
+
+                    headsetJob?.cancel()
+                    headsetJob = serviceScope.launch {
+                        kotlinx.coroutines.delay(350L)
+                        when (headsetClickCount) {
+                            1 -> {
+                                if (sessionPlayer.playWhenReady) sessionPlayer.pause() else sessionPlayer.play()
+                            }
+                            2 -> {
+                                sessionPlayer.seekToNextMediaItem()
+                            }
+                            3 -> {
+                                sessionPlayer.seekToPreviousMediaItem()
+                            }
+                        }
+                        headsetClickCount = 0
+                    }
+                    return true
+                }
+            }
+            return super.onMediaButtonEvent(session, controllerInfo, intent)
+        }
+
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
@@ -183,6 +264,7 @@ class VimivoPlaybackService : MediaLibraryService() {
                             .setArtist(item.artist)
                             .setAlbumTitle(item.album)
                             .setArtworkUri(item.artworkUri?.let(android.net.Uri::parse))
+                            .setDurationMs(item.durationMillis)
                             .setIsPlayable(true)
                             .build(),
                     )

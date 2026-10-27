@@ -5,7 +5,7 @@ import dev.vimivo.playback.AudioEnhancementSettings
 import kotlinx.coroutines.flow.Flow
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
-enum class PreferredEngine { AUTOMATIC, MEDIA3, LIBVLC }
+enum class PreferredEngine { AUTOMATIC, MEDIA3, LIBMPV }
 enum class SubtitleEdgeStyle { NONE, OUTLINE, DROP_SHADOW }
 enum class AccentColor { AURORA, VIOLET, BLUE, GREEN, ORANGE, PINK }
 enum class ShuffleBehavior { OFF, ON, REMEMBER }
@@ -70,6 +70,20 @@ data class AppSettings(
     val hiddenMediaBehavior: HiddenMediaBehavior = HiddenMediaBehavior.HIDE,
     val autoReconnectStreams: Boolean = true,
     val homeSections: List<HomeSection> = HomeSection.entries,
+    val gestureSeekEnabled: Boolean = true,
+    val gestureVolumeEnabled: Boolean = true,
+    val gestureBrightnessEnabled: Boolean = true,
+    val gestureZoomEnabled: Boolean = true,
+    val swapVolumeBrightnessSides: Boolean = false,
+    val nightModeDimFraction: Float = 0f,
+    val pauseOnHeadsetUnplug: Boolean = true,
+    val resumeOnHeadsetReconnect: Boolean = false,
+    val sortAscending: Boolean = true,
+    val hiddenFolders: Set<String> = emptySet(),
+    val showHiddenFolders: Boolean = false,
+    val privateFolderPinHash: String? = null,
+    val appLanguage: String = "system",
+    val subtitleEncoding: String = "auto",
 )
 
 interface SettingsRepository {

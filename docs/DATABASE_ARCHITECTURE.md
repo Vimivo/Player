@@ -11,7 +11,25 @@ Vimivo uses SQLite with Write-Ahead Logging (WAL) and foreign keys enabled:
 - **Windows**: `%LOCALAPPDATA%\Vimivo\vimivo.sqlite`
 - **Linux**: `$XDG_DATA_HOME/Vimivo/vimivo.sqlite` (defaults to `~/.local/share/Vimivo/vimivo.sqlite`)
 - **Android**: Room Database stored in application internal data directory.
-- **iOS**: SQLite database under `Library/Application Support/Vimivo/vimivo.sqlite`.
+- **iOS**: SQLite database `vimivo.db` under `Library/Application Support/vimivo/`, owned by the shared module (see §1a).
+
+### 1a. iOS: one shared store
+
+The iOS library (media, playlists, favourites, bookmarks, the play queue, resume and history) is no longer written by
+Swift. `shared/commonMain` holds the schema and migrations (`dev.vimivo.storage.LibrarySchema`) and every query
+(`LocalLibraryStore`) over a small `SqlDatabase` contract; `iosMain` supplies the driver (`IosSqliteDatabase`, the
+system SQLite through a cinterop for `sqlite3.h`, write-ahead logging and foreign keys on). `iosApp/Storage/IOSDatabase.swift`
+only opens the file, maps the shared records to the app's models and logs failures.
+
+- **Versioning.** The file's `PRAGMA user_version` numbers the steps and each step runs in one transaction. Version 1 is
+  the baseline of tables the first iOS releases created without a version number (`CREATE TABLE IF NOT EXISTS`, so an
+  existing library is recognised and left as it is); version 2 adds the optional `media_items` columns (`width`,
+  `height`, `size_bytes`, `date_added_millis`) where they are missing. A database from a newer build is refused, not
+  modified. Steps only add; nothing is dropped or rewritten.
+- **Evidence.** `LocalLibraryStoreTest` and `LibrarySchemaMigrationTest` (JVM, over JDBC SQLite) cover every operation and
+  the upgrade from a pre-versioning database; `IosLibraryStoreTest` runs the same store over the real iOS driver on a
+  simulator (`./gradlew :shared:iosSimulatorArm64Test`), including a legacy file, blobs, reopening and rollback;
+  `IOSDatabaseTests` in `iosApp` repeats the legacy upgrade through the Swift facade.
 
 ---
 

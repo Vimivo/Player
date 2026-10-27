@@ -17,7 +17,7 @@ class PlaybackEngineManagerTest {
     @Test
     fun prefersMedia3AndPreservesQueue() = runTest {
         val media3 = FakeFactory(EngineId.MEDIA3)
-        val vlc = FakeFactory(EngineId.LIBVLC)
+        val vlc = FakeFactory(EngineId.MPV)
         val manager = PlaybackEngineManager(mapOf(media3.id to media3, vlc.id to vlc), backgroundScope)
         val queue = QueueContext(listOf(media("one.mp4"), media("two.mkv")), 1)
 
@@ -33,7 +33,7 @@ class PlaybackEngineManagerTest {
     @Test
     fun fallsBackOnceForVerifiedRecoverableErrorAndKeepsPosition() = runTest {
         val media3 = FakeFactory(EngineId.MEDIA3)
-        val vlc = FakeFactory(EngineId.LIBVLC)
+        val vlc = FakeFactory(EngineId.MPV)
         val manager = PlaybackEngineManager(mapOf(media3.id to media3, vlc.id to vlc), backgroundScope)
 
         manager.open(media("sample.avi"), 500)
@@ -41,7 +41,7 @@ class PlaybackEngineManagerTest {
         media3.latest.failRecoverably(position = 9_000)
         runCurrent()
 
-        assertEquals(EngineId.LIBVLC, manager.state.value.engine)
+        assertEquals(EngineId.MPV, manager.state.value.engine)
         assertEquals(9_000, vlc.latest.state.value.positionMillis)
         assertEquals(1, media3.created)
         assertEquals(1, vlc.created)
@@ -50,7 +50,7 @@ class PlaybackEngineManagerTest {
     @Test
     fun doesNotFallbackForMissingOrDeniedSource() = runTest {
         val media3 = FakeFactory(EngineId.MEDIA3)
-        val vlc = FakeFactory(EngineId.LIBVLC)
+        val vlc = FakeFactory(EngineId.MPV)
         val manager = PlaybackEngineManager(mapOf(media3.id to media3, vlc.id to vlc), backgroundScope)
 
         manager.open(media("missing.mp4"))
@@ -65,7 +65,7 @@ class PlaybackEngineManagerTest {
     @Test
     fun reappliesExternalSubtitleAfterEngineFallback() = runTest {
         val media3 = FakeFactory(EngineId.MEDIA3)
-        val vlc = FakeFactory(EngineId.LIBVLC)
+        val vlc = FakeFactory(EngineId.MPV)
         val manager = PlaybackEngineManager(mapOf(media3.id to media3, vlc.id to vlc), backgroundScope)
         val subtitle = ExternalSubtitle("content://subtitle", "movie.en.srt", "en", "application/x-subrip")
 
@@ -80,7 +80,7 @@ class PlaybackEngineManagerTest {
 
     @Test
     fun selectsConfiguredEnginePrioritizingPreferredSupport() = runTest {
-        val fallbackVlc = CustomFactory(EngineId.LIBVLC, SupportLevel.FALLBACK)
+        val fallbackVlc = CustomFactory(EngineId.MPV, SupportLevel.FALLBACK)
         val preferredMpv = CustomFactory(EngineId.MPV, SupportLevel.PREFERRED)
         val manager = PlaybackEngineManager(
             mapOf(fallbackVlc.id to fallbackVlc, preferredMpv.id to preferredMpv),
@@ -98,7 +98,7 @@ class PlaybackEngineManagerTest {
     @Test
     fun fallsBackToNextCandidateWhenPreferredEngineFailsToOpen() = runTest {
         val media3 = FakeFactory(EngineId.MEDIA3)
-        val vlc = FakeFactory(EngineId.LIBVLC)
+        val vlc = FakeFactory(EngineId.MPV)
         val manager = PlaybackEngineManager(mapOf(media3.id to media3, vlc.id to vlc), backgroundScope)
 
         media3.failOnOpen = true
@@ -106,8 +106,8 @@ class PlaybackEngineManagerTest {
         val result = manager.open(media("unsupported_by_media3.mkv"))
         runCurrent()
 
-        assertTrue(result.isSuccess, "Manager should fall back to LibVLC when Media3 fails to open")
-        assertEquals(EngineId.LIBVLC, manager.state.value.engine)
+        assertTrue(result.isSuccess, "Manager should fall back to libmpv when Media3 fails to open")
+        assertEquals(EngineId.MPV, manager.state.value.engine)
         assertEquals(PlaybackStatus.Ready, manager.state.value.status)
         assertEquals(1, media3.created)
         assertEquals(1, vlc.created)
@@ -116,7 +116,7 @@ class PlaybackEngineManagerTest {
     @Test
     fun marksStateAsErrorWhenAllCandidateEnginesFailToOpen() = runTest {
         val media3 = FakeFactory(EngineId.MEDIA3)
-        val vlc = FakeFactory(EngineId.LIBVLC)
+        val vlc = FakeFactory(EngineId.MPV)
         val manager = PlaybackEngineManager(mapOf(media3.id to media3, vlc.id to vlc), backgroundScope)
 
         media3.failOnOpen = true
@@ -176,7 +176,7 @@ private class FakeEngine(
         localVideo = true,
         httpStreaming = true,
         hardwareDecoding = true,
-        softwareDecoding = id == EngineId.LIBVLC,
+        softwareDecoding = id == EngineId.MPV,
         playbackSpeed = true,
         audioTrackSelection = true,
         videoTrackSelection = true,

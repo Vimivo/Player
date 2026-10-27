@@ -32,12 +32,12 @@ reported separately and must not be inferred from this inventory.
 | Native distribution | Implemented (APK/AAB) | Implemented (DMG/App) | Configured (MSI/EXE) | Configured (DEB/RPM/AppImage) | Implemented (Xcode Archive) |
 | 10-Band Graphic Equalizer | Implemented, tested (12 presets + custom) | Implemented, runtime verified | Implemented, tested | Implemented, tested | Blocked (AVPlayer audio unit) |
 | ReplayGain (Track/Album) | Partial (metadata only) | Implemented, runtime verified | Implemented, tested | Implemented, tested | Not implemented |
-| Gapless Audio Playback | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Implemented, tested |
+| Gapless Audio Playback | Not gapless: each item opens separately (V0 audit B1, see VLC_FEATURE_GAP.md) | Option set, not gapless across files (V0 audit B1) | Option set, not gapless across files (V0 audit B1) | Option set, not gapless across files (V0 audit B1) | Not implemented (source check 2026-10-18, see VLC_FEATURE_GAP.md) |
 | Speed & Pitch Preservation | Implemented, tested (0.25x-4x) | Implemented, runtime verified | Implemented, tested | Implemented, tested | Implemented, tested |
 | Stereo Balance Control | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Not implemented |
 | Audio Output Routing | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Implemented, tested |
-| Synchronized Lyrics (LRC) | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Implemented, tested |
-| Sleep Timer (Duration/End) | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Implemented, tested |
+| Synchronized Lyrics (LRC) | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Not implemented (source check 2026-10-18, see VLC_FEATURE_GAP.md) |
+| Sleep Timer (Duration/End) | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Not implemented (source check 2026-10-18, see VLC_FEATURE_GAP.md) |
 | A-B Repeat Looping | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Implemented, tested |
 | Chapter Navigation | Implemented, tested | Implemented, runtime verified | Implemented, tested | Implemented, tested | Implemented, tested |
 | External Subtitles & Timing | Implemented, tested (.srt/.vtt/.ass) | Implemented, runtime verified | Implemented, tested | Implemented, tested | Implemented, tested |

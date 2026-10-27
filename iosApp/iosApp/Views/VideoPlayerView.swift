@@ -31,18 +31,36 @@ public struct VideoPlayerView: View {
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
             errorCard
+            if let secondary = model.secondarySubtitleText {
+                VStack {
+                    Text(secondary)
+                        .font(.system(size: model.subtitleFontSize * 0.9, weight: .semibold))
+                        .foregroundColor(model.subtitleTextColor)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.black.opacity(model.subtitleBgOpacity), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .shadow(color: model.subtitleOutline ? .black : .clear, radius: 2)
+                        .padding(.horizontal, 24)
+                        .padding(.top, model.controlsVisible && !model.locked ? 80 : 36)
+                    Spacer()
+                }
+                .allowsHitTesting(false)
+                .accessibilityLabel("Secondary subtitle: \(secondary)")
+            }
             if let cue = model.subtitleText {
                 VStack {
                     Spacer()
                     Text(cue)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
+                        .font(.system(size: model.subtitleFontSize, weight: .semibold))
+                        .foregroundColor(model.subtitleTextColor)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .background(Color.black.opacity(model.subtitleBgOpacity), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .shadow(color: model.subtitleOutline ? .black : .clear, radius: 2)
                         .padding(.horizontal, 24)
-                        .padding(.bottom, model.controlsVisible && !model.locked ? 120 : 32)
+                        .padding(.bottom, model.controlsVisible && !model.locked ? 120 : model.subtitleBottomMargin)
                 }
                 .allowsHitTesting(false)
                 .accessibilityLabel("Subtitle: \(cue)")
@@ -51,7 +69,14 @@ public struct VideoPlayerView: View {
                 DoubleTapSeekIndicator(side: model.doubleTapSide, seconds: model.doubleTapSeconds)
                     .allowsHitTesting(false)
             }
-            if model.locked {
+            if model.nightModeDim > 0 {
+                Color.black.opacity(model.nightModeDim)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+            if model.kidsLocked {
+                kidsLockOverlay
+            } else if model.locked {
                 lockOverlay
             } else if model.controlsVisible {
                 VideoControls(engine: engine, model: model, onClose: close)
@@ -109,7 +134,7 @@ public struct VideoPlayerView: View {
         }
         .sheet(item: $model.sheet) { sheet in
             PlayerSheetView(sheet: sheet, engine: engine, model: model)
-                .presentationDetents(sheet == .options ? [.medium, .large] : [.medium])
+                .presentationDetents(sheet == .options || sheet == .queue ? [.medium, .large] : [.medium])
                 .presentationDragIndicator(.visible)
                 .preferredColorScheme(.dark)
         }
@@ -148,6 +173,39 @@ public struct VideoPlayerView: View {
             .frame(maxWidth: 420)
             .background(Color(white: 0.13).opacity(0.9), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .padding(32)
+        }
+    }
+
+    private var kidsLockOverlay: some View {
+        ZStack {
+            ForEach(model.kidParticles) { particle in
+                Image(systemName: particle.symbol)
+                    .font(.system(size: 36))
+                    .foregroundColor(particle.color)
+                    .position(particle.point)
+            }
+            VStack {
+                HStack {
+                    Button {
+                        model.kidsLocked = false
+                        model.controlsVisible = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "lock.shield.fill")
+                            Text("Kids Lock (Tap to unlock)")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.25), in: Capsule())
+                        .foregroundColor(.white)
+                    }
+                    Spacer()
+                }
+                .padding(.top, 48)
+                .padding(.leading, 24)
+                Spacer()
+            }
         }
     }
 
@@ -227,16 +285,39 @@ private struct VideoControls: View {
                     .font(.headline)
                     .foregroundColor(.white)
                     .lineLimit(1)
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundColor(.white.opacity(0.7))
-                        .lineLimit(1)
+                HStack(spacing: 6) {
+                    if let subtitle = subtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundColor(.white.opacity(0.7))
+                            .lineLimit(1)
+                    }
+                    Text(model.currentTimeString)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundColor(.white.opacity(0.6))
+                    Image(systemName: "battery.100")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+
+            Button {
+                open(.decoder)
+            } label: {
+                Text(model.decoderMode.chipLabel)
+                    .font(.caption2.weight(.bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.accentColor.opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
+                    .foregroundColor(.white)
+            }
+
+            if engine.queue.count > 1 {
+                PlayerIconButton(systemName: "list.bullet", label: "Next up") { open(.queue) }
+            }
             PlayerIconButton(systemName: "waveform", label: "Audio track") { open(.audio) }
             PlayerIconButton(systemName: "captions.bubble", label: "Subtitles") { open(.subtitles) }
             if model.pipController != nil {
@@ -244,6 +325,7 @@ private struct VideoControls: View {
                     model.togglePictureInPicture()
                 }
             }
+            PlayerIconButton(systemName: "square.grid.2x2", label: "Tools") { open(.tools) }
             PlayerIconButton(systemName: "ellipsis", label: "Video options") { open(.options) }
         }
         .padding(.horizontal, 4)
@@ -269,6 +351,7 @@ private struct VideoControls: View {
                     .foregroundColor(.white)
                     .frame(width: 76, height: 76)
                     .background(Color.black.opacity(0.42), in: Circle())
+                    .overlay(Circle().stroke(Color.accentColor, lineWidth: 2))
             }
             .accessibilityLabel(model.isPlaying ? "Pause" : "Play")
             PlayerIconButton(systemName: "goforward.10", label: "Forward 10 seconds", size: 28) {
@@ -284,6 +367,7 @@ private struct VideoControls: View {
 
     private var bottomBar: some View {
         VStack(spacing: 2) {
+            SettingsHandle { open(.options) }
             VideoSeekBar(engine: engine, model: model)
             HStack(spacing: 4) {
                 PlayerIconButton(systemName: "lock.fill", label: "Lock screen controls", action: model.lockControls)
@@ -322,6 +406,25 @@ private struct VideoControls: View {
     }
 }
 
+/// A chevron with "Swipe up for settings": a tap or an upward swipe opens the playback settings.
+private struct SettingsHandle: View {
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            VStack(spacing: 0) {
+                Image(systemName: "chevron.up").font(.system(size: 14, weight: .semibold))
+                Text("Swipe up for settings").font(.caption2)
+            }
+            .foregroundColor(.white.opacity(0.7))
+            .frame(maxWidth: .infinity, minHeight: 36)
+            .contentShape(Rectangle())
+        }
+        .simultaneousGesture(DragGesture(minimumDistance: 20).onEnded { if $0.translation.height < -40 { onOpen() } })
+        .accessibilityLabel("Open playback settings")
+    }
+}
+
 private struct VideoSeekBar: View {
     @ObservedObject var engine: AVPlayerPlaybackEngine
     @ObservedObject var model: VideoPlayerModel
@@ -348,6 +451,22 @@ private struct VideoSeekBar: View {
                         .fill(Color.white)
                         .frame(width: scrubFraction == nil ? 14 : 20, height: scrubFraction == nil ? 14 : 20)
                         .offset(x: width * played - (scrubFraction == nil ? 7 : 10))
+                    if let thumb = model.seekThumbnail, scrubFraction != nil {
+                        VStack(spacing: 4) {
+                            Image(uiImage: thumb)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 140, height: 80)
+                                .cornerRadius(6)
+                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                            Text(MediaFormatting.clock(millis: position))
+                                .font(.caption2.monospacedDigit())
+                                .foregroundColor(.white)
+                        }
+                        .padding(4)
+                        .background(Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 8))
+                        .offset(x: min(max(width * played - 70, 0), max(width - 140, 0)), y: -65)
+                    }
                 }
                 .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())
@@ -356,7 +475,9 @@ private struct VideoSeekBar: View {
                         .onChanged { value in
                             guard duration > 0 else { return }
                             model.touch()
-                            scrubFraction = min(max(Double(value.location.x / width), 0), 1)
+                            let fraction = min(max(Double(value.location.x / width), 0), 1)
+                            scrubFraction = fraction
+                            model.loadSeekThumbnail(at: Int64(fraction * Double(duration)))
                         }
                         .onEnded { _ in
                             if let fraction = scrubFraction {

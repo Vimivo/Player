@@ -17,12 +17,14 @@ import dev.vimivo.platform.android.library.MediaStoreScanner
 import dev.vimivo.platform.android.library.PlaylistViewModel
 import dev.vimivo.platform.android.library.PlaylistDocuments
 import dev.vimivo.platform.android.library.SafMediaScanner
-import dev.vimivo.platform.android.playback.LibVlcPlayerEngineFactory
+import dev.vimivo.platform.android.playback.LibmpvPlayerEngineFactory
 import dev.vimivo.platform.android.playback.AndroidSubtitleRepository
 import dev.vimivo.platform.android.playback.Media3PlayerEngineFactory
 import dev.vimivo.platform.android.playback.PlaybackController
+import dev.vimivo.platform.android.playback.AndroidSnapshotStore
 import dev.vimivo.platform.android.playback.PlaybackDiagnostics
-import dev.vimivo.platform.android.playback.SleepTimerController
+import dev.vimivo.platform.android.playback.DiagnosticsSleepTimerPlayer
+import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.platform.android.playback.LyricsRepository
 import dev.vimivo.platform.android.playback.PlaybackStateStore
 import dev.vimivo.platform.android.playback.PlaybackViewModel
@@ -64,17 +66,24 @@ val androidModule = module {
     single<NetworkSourceRepository> { AndroidNetworkSourceRepository(get(), get()) }
     single { LocalBackupManager(get(), get(), get(), get(), get(), get(), get()) }
     single { Media3PlayerEngineFactory(get()) }
-    single { LibVlcPlayerEngineFactory(get(), get()) }
+    single { LibmpvPlayerEngineFactory(get(), get()) }
     single { AndroidSubtitleRepository(get(), get()) }
     single { PlaybackStateStore(get()) }
     single { PlaybackController(get(), get()) }
     single { PlaybackDiagnostics() }
-    single { SleepTimerController(get()) }
+    single { AndroidSnapshotStore(get()) }
+    single {
+        PlaybackSleepTimer(
+            CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            System::currentTimeMillis,
+            DiagnosticsSleepTimerPlayer(get()),
+        )
+    }
     single { LyricsRepository(get()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     viewModel { HomeViewModel(get()) }
     viewModel { LibraryViewModel(get(), get()) }
-    viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { NetworkViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { PlaylistViewModel(get(), get(), get()) }

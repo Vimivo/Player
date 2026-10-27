@@ -1,0 +1,495 @@
+@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+
+package dev.vimivo.desktop.player
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.QueueMusic
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.Audiotrack
+import androidx.compose.material.icons.outlined.FiberManualRecord
+import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.FullscreenExit
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PictureInPicture
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
+import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.SkipPrevious
+import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FastForward
+import kotlin.math.roundToInt
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import dev.vimivo.desktop.player.ui.DesktopAudioVisualizer
+import dev.vimivo.desktop.player.ui.DesktopMiniPlayerView
+import dev.vimivo.desktop.player.ui.DesktopPipOverlay
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.vimivo.core.model.MediaItem
+import dev.vimivo.desktop.DesktopArtwork
+import dev.vimivo.desktop.playback.DesktopPlayerCommand
+import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
+import dev.vimivo.desktop.playback.MpvPlayerEngine
+import dev.vimivo.desktop.player.ui.PlayerIconButton
+import dev.vimivo.desktop.player.ui.PlayerPalette
+import dev.vimivo.desktop.player.ui.PlayerSidePanel
+import dev.vimivo.desktop.player.ui.PlayerVolumeControl
+import dev.vimivo.desktop.player.ui.VimivoTimeline
+import dev.vimivo.desktop.player.ui.playerClock
+import dev.vimivo.desktop.player.ui.rememberPointerAwake
+import dev.vimivo.desktop.resources.Res
+import dev.vimivo.desktop.resources.player_controls
+import dev.vimivo.desktop.resources.player_exit_fullscreen
+import dev.vimivo.desktop.resources.player_fullscreen
+import dev.vimivo.desktop.resources.player_next
+import dev.vimivo.desktop.resources.player_panel
+import dev.vimivo.desktop.resources.player_pause
+import dev.vimivo.desktop.resources.player_play
+import dev.vimivo.desktop.resources.player_playlist
+import dev.vimivo.desktop.resources.player_previous
+import dev.vimivo.desktop.resources.player_seek
+import dev.vimivo.desktop.resources.player_stop
+import dev.vimivo.desktop.resources.player_time_toggle
+import dev.vimivo.desktop.resources.player_unknown_time
+import dev.vimivo.desktop.resources.player_volume
+import dev.vimivo.playback.PlaybackStatus
+import org.jetbrains.compose.resources.stringResource
+import java.awt.Component
+
+/**
+ * The player window: only the player, never the library. Video fills the stage on black; audio shows its own
+ * layout. The video surface is always composed (collapsed to 1 dp when hidden) because libmpv renders into it.
+ * In fullscreen the controls move to the floating controller ([FullscreenController]); nothing can draw over the
+ * native video in this window.
+ */
+@Composable
+internal fun PlayerWindowContent(
+    state: PlayerState,
+    /** Hosts the native video surface; always composed, collapsed to 1 dp when no video shows. */
+    videoSurface: @Composable (Modifier) -> Unit,
+    engine: MpvPlayerEngine,
+    commands: DesktopPlayerCommandExecutor,
+    onIntent: (PlayerIntent) -> Unit,
+    /** Timeline hover preview for the current media, when it has pictures to show. */
+    preview: (suspend (Long) -> ImageBitmap?)? = null,
+    /** The native video component: mouse movement over it brings auto-hidden controls back. */
+    videoComponent: Component? = null,
+) {
+    if (state.miniPlayer) {
+        DesktopMiniPlayerView(state, onIntent)
+        return
+    }
+
+    if (state.pipMode) {
+        Box(Modifier.fillMaxSize()) {
+            videoSurface(Modifier.fillMaxSize())
+            DesktopPipOverlay(state, onIntent)
+        }
+        return
+    }
+
+    val media = state.playback.media
+    val showsVideo = state.presentation == PlayerPresentation.VIDEO && state.loadingTitle == null && !state.audioOnlyMode
+    val barInteraction = remember { MutableInteractionSource() }
+    val barHovered by barInteraction.collectIsHoveredAsState()
+    val paused = state.playback.status != PlaybackStatus.Playing
+    // Optional (View ▸ Auto-hide Controls, off by default): windowed video hides the bar while the pointer rests.
+    val controlsAwake = videoComponent?.takeIf { state.autoHidesControls(showsVideo) }
+        ?.let { rememberPointerAwake(it, hold = barHovered || paused) } ?: true
+    val panel = state.panel?.takeUnless { state.fullscreen }
+    // Black stage with light content: text never falls back to the default dark content colour.
+    Surface(Modifier.fillMaxSize(), color = Color.Black, contentColor = Color.White) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.weight(1f).fillMaxWidth()) {
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    when {
+                        state.loadingTitle != null -> PlayerLoadingCard(state.loadingTitle, Modifier.fillMaxSize())
+                        (state.presentation == PlayerPresentation.AUDIO || state.audioOnlyMode) && media != null -> {
+                            AudioStage(media, state.playback.status == PlaybackStatus.Playing)
+                        }
+                    }
+                    videoSurface(
+                        if (showsVideo) Modifier.fillMaxSize() else Modifier.size(1.dp).align(Alignment.TopStart),
+                    )
+                    var introDismissed by remember(media?.uri) { mutableStateOf(false) }
+                    if (showsVideo && state.playback.status == PlaybackStatus.Playing &&
+                        state.playback.positionMillis in 1_000L..120_000L && !introDismissed
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.Black.copy(alpha = 0.80f),
+                            shadowElevation = 8.dp,
+                            modifier = Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 20.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clickable { onIntent(PlayerIntent.SkipIntro) }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.FastForward,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "Skip Intro (+85s)",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                IconButton(
+                                    onClick = { introDismissed = true },
+                                    modifier = Modifier.size(18.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Close,
+                                        contentDescription = "Dismiss",
+                                        tint = Color.LightGray,
+                                        modifier = Modifier.size(12.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (state.statsHudVisible) {
+                        dev.vimivo.desktop.player.ui.DesktopStatsOverlay(
+                            engine = engine,
+                            onDismiss = { onIntent(PlayerIntent.ToggleStatsHud) },
+                            modifier = Modifier.align(Alignment.TopStart),
+                        )
+                    }
+                }
+                if (panel != null) PlayerSidePanel(state, panel, engine, commands, onIntent)
+            }
+            PlayerMessages(state, onIntent)
+            if (state.showsControlBar() && controlsAwake) {
+                PlayerControlBar(state, onIntent, preview, Modifier.hoverable(barInteraction))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudioStage(media: MediaItem, isPlaying: Boolean) {
+    var showVisualizer by remember { mutableStateOf(false) }
+
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (showVisualizer) {
+            DesktopAudioVisualizer(
+                isPlaying = isPlaying,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            )
+        } else {
+            DesktopArtwork(uri = media.artworkUri, title = media.title, size = 220.dp)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            media.title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        listOfNotNull(media.artist, media.album).joinToString(" · ").takeIf(String::isNotBlank)?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { showVisualizer = !showVisualizer }) {
+            Icon(
+                if (showVisualizer) Icons.Outlined.GraphicEq else Icons.AutoMirrored.Outlined.ShowChart,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(if (showVisualizer) "Show Artwork" else "Visualizer")
+        }
+    }
+}
+
+/** Resume prompt and HUD feedback; laid out above the controls because nothing can draw over native video. */
+@Composable
+private fun PlayerMessages(state: PlayerState, onIntent: (PlayerIntent) -> Unit) {
+    val prompt = state.resumePrompt
+    val hud = state.hud
+    if (prompt == null && hud == null) return
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.Center) {
+        if (prompt != null) {
+            ResumeToast(
+                prompt = prompt,
+                onStartOver = { onIntent(PlayerIntent.StartOver) },
+                onDismiss = { onIntent(PlayerIntent.DismissResume) },
+            )
+        } else if (hud != null) {
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            ) {
+                Text(hud.text(), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+        }
+    }
+}
+
+/**
+ * The windowed control bar (spec §2.1): 48 dp, #141416 at 92 % with a 6 % hairline on top, one row:
+ * ⏮ ⏯ ⏭ ■ ≡ · timeline · time · volume · ⚙ · ⛶.
+ */
+@Composable
+private fun PlayerControlBar(
+    state: PlayerState,
+    onIntent: (PlayerIntent) -> Unit,
+    preview: (suspend (Long) -> ImageBitmap?)?,
+    modifier: Modifier = Modifier,
+) {
+    val playback = state.playback
+    val playing = playback.status == PlaybackStatus.Playing
+    val controlsLabel = stringResource(Res.string.player_controls)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(BAR_HEIGHT)
+            .background(PlayerPalette.bar)
+            .drawBehind { drawLine(PlayerPalette.hairline, Offset(0f, 0f), Offset(size.width, 0f), 1f) }
+            .padding(horizontal = 8.dp)
+            .semantics { contentDescription = controlsLabel },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        PlayerIconButton(
+            Icons.Outlined.SkipPrevious,
+            stringResource(Res.string.player_previous)
+        ) { onIntent(PlayerIntent.Previous) }
+        PlayerIconButton(
+            if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+            stringResource(if (playing) Res.string.player_pause else Res.string.player_play),
+        ) { onIntent(PlayerIntent.TogglePlayback) }
+        PlayerIconButton(
+            Icons.Outlined.SkipNext,
+            stringResource(Res.string.player_next)
+        ) { onIntent(PlayerIntent.Next) }
+        PlayerIconButton(Icons.Outlined.Stop, stringResource(Res.string.player_stop)) { onIntent(PlayerIntent.Stop) }
+        PlayerIconButton(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(Res.string.player_playlist)) {
+            onIntent(PlayerIntent.ShowLibrary)
+        }
+        Spacer(Modifier.width(8.dp))
+        VimivoTimeline(
+            playback = playback,
+            label = stringResource(Res.string.player_seek),
+            bookmarks = state.bookmarks,
+            onAbChange = { onIntent(PlayerIntent.SetAbRepeat(it)) },
+            modifier = Modifier.weight(1f),
+            preview = preview,
+        )
+        Spacer(Modifier.width(8.dp))
+        TimeReadout(state, onIntent)
+        Spacer(Modifier.width(6.dp))
+        QuickSpeedPill(playback.speed, onSetSpeed = { onIntent(PlayerIntent.SetSpeed(it)) })
+        Spacer(Modifier.width(8.dp))
+        PlayerVolumeControl(
+            volume = playback.volume,
+            maxVolume = state.maxVolume,
+            muteIcon = Icons.AutoMirrored.Outlined.VolumeOff,
+            volumeIcon = Icons.AutoMirrored.Outlined.VolumeUp,
+            label = stringResource(Res.string.player_volume),
+            onVolume = { onIntent(PlayerIntent.SetVolume(it)) },
+            onToggleMute = { onIntent(PlayerIntent.Command(DesktopPlayerCommand.TOGGLE_MUTE)) },
+        )
+        PlayerIconButton(
+            Icons.Outlined.Search,
+            "Command Palette (Cmd+K)",
+        ) {
+            onIntent(PlayerIntent.ToggleCommandPalette)
+        }
+        if (state.toolbarConfig.showAudioOnly && state.presentation == PlayerPresentation.VIDEO) {
+            PlayerIconButton(
+                Icons.Outlined.Audiotrack,
+                if (state.audioOnlyMode) "Disable Audio-only Mode" else "Audio-only Mode",
+                selected = state.audioOnlyMode,
+            ) {
+                onIntent(PlayerIntent.ToggleAudioOnlyMode)
+            }
+        }
+        if (state.toolbarConfig.showPip) {
+            PlayerIconButton(
+                Icons.Outlined.PictureInPicture,
+                "Picture-in-Picture",
+                selected = state.pipMode,
+            ) {
+                onIntent(PlayerIntent.TogglePipMode)
+            }
+        }
+        if (state.toolbarConfig.showMiniPlayer) {
+            PlayerIconButton(
+                Icons.Outlined.Headphones,
+                "Mini Player (M)",
+                selected = state.miniPlayer,
+            ) {
+                onIntent(PlayerIntent.ToggleMiniPlayer)
+            }
+        }
+        if (state.toolbarConfig.showRecord) {
+            PlayerIconButton(
+                Icons.Outlined.FiberManualRecord,
+                if (state.isRecording) "Recording Stream… (Click to Stop)" else "Record Stream to File",
+                selected = state.isRecording,
+            ) {
+                onIntent(PlayerIntent.ToggleRecording)
+            }
+        }
+        if (state.toolbarConfig.showSettings) {
+            PlayerIconButton(
+                Icons.Outlined.Settings,
+                stringResource(Res.string.player_panel),
+                selected = state.panel != null,
+            ) {
+                onIntent(PlayerIntent.ShowPanel(if (state.panel == null) PlayerPanel.VIDEO else null))
+            }
+        }
+        if (state.toolbarConfig.showFullscreen) {
+            PlayerIconButton(
+                if (state.fullscreen) Icons.Outlined.FullscreenExit else Icons.Outlined.Fullscreen,
+                stringResource(if (state.fullscreen) Res.string.player_exit_fullscreen else Res.string.player_fullscreen),
+            ) { onIntent(PlayerIntent.SetFullscreen(!state.fullscreen)) }
+        }
+    }
+}
+
+/** "00:24 / 05:12" in tabular figures; a click switches to "-04:48 / 05:12" (remembered). */
+@Composable
+internal fun TimeReadout(state: PlayerState, onIntent: (PlayerIntent) -> Unit, modifier: Modifier = Modifier) {
+    val playback = state.playback
+    val duration = playback.durationMillis?.takeIf { it > 0 }
+    val unknown = stringResource(Res.string.player_unknown_time)
+    val shown = if (state.showRemainingTime && duration != null) {
+        "-" + playerClock(duration - playback.positionMillis)
+    } else {
+        playerClock(playback.positionMillis)
+    }
+    val label = stringResource(Res.string.player_time_toggle)
+    Text(
+        "$shown / ${duration?.let(::playerClock) ?: unknown}",
+        color = PlayerPalette.content,
+        style = TIME_TEXT,
+        maxLines = 1,
+        softWrap = false,
+        modifier = modifier
+            .clickable { onIntent(PlayerIntent.ToggleRemainingTime) }
+            .semantics { contentDescription = label }
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+    )
+}
+
+private val BAR_HEIGHT = 48.dp
+private val TIME_TEXT = TextStyle(fontSize = 12.sp, fontFeatureSettings = "tnum")
+
+@Composable
+private fun QuickSpeedPill(speed: Float, onSetSpeed: (Float) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f)
+
+    Box {
+        val isCustomSpeed = kotlin.math.abs(speed - 1.0f) > 0.01f
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = if (isCustomSpeed) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                Color.White.copy(alpha = 0.12f)
+            },
+            modifier = Modifier
+                .clickable { expanded = true }
+                .padding(horizontal = 2.dp),
+        ) {
+            Text(
+                "${(speed * 100).roundToInt() / 100f}×",
+                color = if (isCustomSpeed) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    Color.White
+                },
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            speeds.forEach { s ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "${s}×",
+                            fontWeight = if (kotlin.math.abs(speed - s) < 0.01f) FontWeight.Bold else FontWeight.Normal,
+                        )
+                    },
+                    onClick = {
+                        onSetSpeed(s)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}

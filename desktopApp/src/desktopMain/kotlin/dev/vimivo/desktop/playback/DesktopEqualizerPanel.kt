@@ -432,6 +432,67 @@ internal fun DesktopEqualizerPanel(
                             }
                         }
                     }
+
+                    // Compressor, Spatializer, Stereo Widener & Mono Downmix
+                    HorizontalDivider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            Text("Dynamic Range Compressor", style = MaterialTheme.typography.bodyMedium)
+                            Text("Even out loud & quiet passages (night mode)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = settings.compressorEnabled,
+                            onCheckedChange = { updateAndApply(settings.copy(compressorEnabled = it)) },
+                            enabled = settings.enabled,
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            Text("Virtual Surround / Spatializer", style = MaterialTheme.typography.bodyMedium)
+                            Text("3D spatialized sound stage for headphones", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = settings.spatializerEnabled,
+                            onCheckedChange = { updateAndApply(settings.copy(spatializerEnabled = it)) },
+                            enabled = settings.enabled,
+                        )
+                    }
+
+                    VimivoAccessibleSlider(
+                        value = settings.stereoWidenerStrength,
+                        onValueChange = {
+                            updateAndApply(settings.copy(stereoWidenerStrength = (it * 100f).roundToInt() / 100f))
+                        },
+                        valueRange = 0f..1f,
+                        label = "Stereo Field Widener",
+                        formattedValue = "${(settings.stereoWidenerStrength * 100).roundToInt()}%",
+                        enabled = settings.enabled,
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            Text("Mono Downmix", style = MaterialTheme.typography.bodyMedium)
+                            Text("Combine all channels into single mono stream", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = settings.monoDownmix,
+                            onCheckedChange = { updateAndApply(settings.copy(monoDownmix = it)) },
+                            enabled = settings.enabled,
+                        )
+                    }
                 }
             }
 

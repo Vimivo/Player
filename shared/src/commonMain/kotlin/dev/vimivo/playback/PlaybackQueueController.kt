@@ -3,12 +3,18 @@
 package dev.vimivo.playback
 
 import dev.vimivo.core.model.MediaItem
+import dev.vimivo.core.model.MediaKind
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -68,6 +74,7 @@ class PlaybackQueueController(
     scope: CoroutineScope,
     private val isAvailable: suspend (MediaItem) -> Boolean = { true },
     private val random: Random = Random.Default,
+    private val stopRequest: QueueStopRequest = QueueStopRequest.NONE,
 ) : AutoCloseable {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(PlaybackQueueState())
@@ -75,16 +82,117 @@ class PlaybackQueueController(
     private var nextQueueId = 0L
     private var sessionGeneration = 0L
     private var lastHandledCompletionQueueId: Long? = null
+    private var consecutiveSkips = 0
+
+    /** The entry the engine was asked to start by itself after the current one; null when none is prepared. */
+    private var prepared: QueueItem? = null
+
+    /** The (current, following) pair the engine was last asked about, so a refusal is not repeated on every tick. */
+    private var preparedFor: Pair<Long, Long?>? = null
+    private val mutableSkipped = MutableSharedFlow<MediaItem>(extraBufferCapacity = SKIP_BUFFER)
+
+    /** Items that failed while playing and were skipped, so the UI can say "Skipped: name". */
+    val skipped: SharedFlow<MediaItem> = mutableSkipped.asSharedFlow()
+
     private val observer: Job = scope.launch {
         engine.state.collect { playback ->
             val current = mutableState.value.current
-            if (playback.status == PlaybackStatus.Completed) {
-                if (shouldHandleCompletion(playback, current)) {
+            val status = playback.status
+            when {
+                status == PlaybackStatus.Completed && shouldHandleCompletion(playback, current) -> {
                     lastHandledCompletionQueueId = current?.queueId
-                    advance(automatic = true)
+                    consecutiveSkips = 0
+                    // "Stop after this track" (a sleep timer): stay on the finished item instead of moving on.
+                    if (!stopRequest.consume()) advance(automatic = true)
                 }
-            } else if (playback.status == PlaybackStatus.Playing) {
-                lastHandledCompletionQueueId = null
+                // Only an error reported for the current item skips it: a control failure with no media loaded
+                // (for example setting the volume before the first file opens) is not a failed item.
+                status is PlaybackStatus.Error && !status.error.recoverableByFallback && playback.media != null &&
+                    shouldHandleCompletion(playback, current) -> skipFailed(checkNotNull(current))
+                status == PlaybackStatus.Playing -> {
+                    lastHandledCompletionQueueId = null
+                    consecutiveSkips = 0
+                }
+            }
+            playback.media?.let { adoptPreparedItem(it) }
+            if (status == PlaybackStatus.Playing || status == PlaybackStatus.Paused) {
+                mutex.withLock { prepareFollowing() }
+            }
+        }
+    }
+
+    private val preparer: Job = scope.launch {
+        mutableState.map { Triple(it.items, it.currentIndex, it.repeatMode) }.distinctUntilChanged().collect {
+            mutex.withLock { prepareFollowing() }
+        }
+    }
+
+    /**
+     * The engine started the prepared item by itself (gapless): the queue follows it without opening anything, so
+     * the current index, resume bookkeeping and the next preparation all move on as for any other advance.
+     */
+    private suspend fun adoptPreparedItem(playing: MediaItem) = mutex.withLock {
+        val next = prepared ?: return@withLock
+        val current = mutableState.value
+        if (next.media.id != playing.id || current.current?.media?.id == playing.id) return@withLock
+        val index = current.items.indexOfFirst { it.queueId == next.queueId }
+        if (index < 0) return@withLock
+        prepared = null
+        lastHandledCompletionQueueId = null
+        consecutiveSkips = 0
+        mutableState.value = current.copy(currentIndex = index)
+    }
+
+    /**
+     * Prepares the entry that follows the current one for a gapless start. Only audio followed by different audio is
+     * prepared; repeat-one and a queue of one are left to the normal path. Anything else clears the preparation.
+     */
+    private suspend fun prepareFollowing() {
+        val current = mutableState.value
+        val playing = engine.state.value
+        val entry = current.current ?: return
+        val ready = playing.media?.id == entry.media.id &&
+            (playing.status == PlaybackStatus.Playing || playing.status == PlaybackStatus.Paused)
+        if (!ready) return
+        val following = followingEntry(current, entry)
+        val key = entry.queueId to following?.queueId
+        if (key == preparedFor || (following == null && prepared == null)) return
+        preparedFor = key
+        val candidate = following?.takeIf { gaplessPair(entry.media, it.media) && isAvailable(it.media) }
+        if (candidate == null && prepared == null) return
+        prepared = if (engine.prepareNext(candidate?.media).isSuccess) candidate else null
+    }
+
+    private fun followingEntry(state: PlaybackQueueState, current: QueueItem): QueueItem? = when {
+        stopRequest.armed -> null
+        state.repeatMode == QueueRepeatMode.ONE -> null
+        state.currentIndex < state.items.lastIndex -> state.items[state.currentIndex + 1]
+        state.repeatMode == QueueRepeatMode.ALL -> state.items.firstOrNull()
+        else -> null
+    }?.takeIf { it.queueId != current.queueId }
+
+    private fun gaplessPair(current: MediaItem, next: MediaItem) =
+        current.kind == MediaKind.AUDIO && next.kind == MediaKind.AUDIO && current.id != next.id
+
+    /**
+     * An item that cannot be played never stops the queue: it is reported and the next one starts. Repeat-one
+     * is ignored for failures, and once every item has failed in a row the queue stops instead of looping.
+     */
+    private suspend fun skipFailed(failed: QueueItem) {
+        lastHandledCompletionQueueId = failed.queueId
+        mutableSkipped.tryEmit(failed.media)
+        consecutiveSkips++
+        if (consecutiveSkips >= mutableState.value.items.size) {
+            engine.stop()
+            return
+        }
+        mutex.withLock {
+            val current = mutableState.value
+            val next = current.currentIndex + 1
+            when {
+                next <= current.items.lastIndex -> openAvailable(next, 1, 0)
+                current.repeatMode == QueueRepeatMode.ALL -> openAvailable(0, 1, 0)
+                else -> engine.stop()
             }
         }
     }
@@ -289,6 +397,10 @@ class PlaybackQueueController(
         mutableState.value = mutableState.value.copy(repeatMode = next)
     }
 
+    fun setRepeatMode(mode: QueueRepeatMode) {
+        mutableState.value = mutableState.value.copy(repeatMode = mode)
+    }
+
     private suspend fun advance(automatic: Boolean): Result<Unit> = mutex.withLock { advanceLocked(automatic) }
 
     private suspend fun advanceLocked(automatic: Boolean): Result<Unit> {
@@ -307,6 +419,8 @@ class PlaybackQueueController(
      */
     private suspend fun openAvailable(startIndex: Int, direction: Int, positionMillis: Long): Result<Unit> {
         val currentSession = ++sessionGeneration
+        prepared = null
+        preparedFor = null
         lastHandledCompletionQueueId = null
         val queue = mutableState.value.items
         var index = startIndex
@@ -343,11 +457,13 @@ class PlaybackQueueController(
     override fun close() {
         sessionGeneration++
         observer.cancel()
+        preparer.cancel()
     }
 
     private fun entries(items: List<MediaItem>) = items.map { QueueItem(nextQueueId++, it) }
 
     private companion object {
         const val PREVIOUS_RESTART_THRESHOLD_MILLIS = 3_000L
+        private const val SKIP_BUFFER = 8
     }
 }

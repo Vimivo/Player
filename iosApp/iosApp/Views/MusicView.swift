@@ -4,6 +4,8 @@ enum MusicFilter: String, CaseIterable {
     case songs = "All songs"
     case albums = "Albums"
     case artists = "Artists"
+    case folders = "Folders"
+    case genres = "Genres"
     case recentlyAdded = "Recently added"
     case recentlyPlayed = "Recently played"
     case favorites = "Favorites"
@@ -32,7 +34,7 @@ public struct MusicView: View {
             return history.compactMap { byId[$0.mediaId] }
         case .favorites:
             return musicItems.filter { favorites.contains($0.id) }
-        case .songs, .albums, .artists:
+        case .songs, .albums, .artists, .folders, .genres:
             return musicItems
         }
     }
@@ -55,6 +57,20 @@ public struct MusicView: View {
 
     private var artists: [String: [MediaItem]] {
         Dictionary(grouping: filteredItems) { $0.artist ?? "Unknown Artist" }
+    }
+
+    private var folders: [String: [MediaItem]] {
+        Dictionary(grouping: filteredItems) { item in
+            guard let url = URL(string: item.uri) else { return "Music" }
+            let dir = url.deletingLastPathComponent().lastPathComponent
+            return dir.isEmpty || dir == "/" || dir == "file:" ? "Music" : dir
+        }
+    }
+
+    private var genres: [String: [MediaItem]] {
+        Dictionary(grouping: filteredItems) { item in
+            item.albumArtist ?? item.artist ?? "General"
+        }
     }
 
     public var body: some View {
@@ -94,6 +110,10 @@ public struct MusicView: View {
                         albumsGrid
                     case .artists:
                         artistsList
+                    case .folders:
+                        foldersList
+                    case .genres:
+                        genresList
                     default:
                         songsList
                     }
@@ -167,8 +187,9 @@ public struct MusicView: View {
                         item: item,
                         isPlaying: engine.state.currentItem?.id == item.id,
                         isFavorite: favorites.contains(item.id),
-                        onPlay: { engine.play(item: item) },
-                        onPlayNext: { engine.queue.insert(item, at: min(engine.currentIndex + 1, engine.queue.count)) },
+                        // Starts the visible list at this song; the rest continues in on-screen order.
+                        onPlay: { engine.playQueue(items: filteredItems, startIndex: filteredItems.firstIndex(of: item) ?? 0) },
+                        onPlayNext: { engine.playNextInQueue(item) },
                         onAddToQueue: { engine.appendToQueue(item: item) },
                         onToggleFavorite: { toggleFavorite(item) },
                         onDelete: { deleteItem(item) }
@@ -225,6 +246,70 @@ public struct MusicView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     engine.playQueue(items: artistTracks, startIndex: 0)
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    private var foldersList: some View {
+        List {
+            ForEach(Array(folders.keys.sorted()), id: \.self) { folderName in
+                let folderTracks = folders[folderName] ?? []
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.accentColor.opacity(0.15))
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "folder.fill")
+                            .foregroundColor(.accentColor)
+                            .font(.system(size: 20))
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(folderName)
+                            .font(.body)
+                            .fontWeight(.medium)
+                        Text("\(folderTracks.count) songs")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    engine.playQueue(items: folderTracks, startIndex: 0)
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    private var genresList: some View {
+        List {
+            ForEach(Array(genres.keys.sorted()), id: \.self) { genreName in
+                let genreTracks = genres[genreName] ?? []
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.purple.opacity(0.15))
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "guitars.fill")
+                            .foregroundColor(.purple)
+                            .font(.system(size: 20))
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(genreName)
+                            .font(.body)
+                            .fontWeight(.medium)
+                        Text("\(genreTracks.count) songs")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    engine.playQueue(items: genreTracks, startIndex: 0)
                 }
             }
         }

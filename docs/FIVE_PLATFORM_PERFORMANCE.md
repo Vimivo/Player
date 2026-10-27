@@ -17,7 +17,7 @@ This document summarizes the verified performance metrics, graphics surfaces, an
 
 | Platform | Rendering Surface | Primary Media Engine | Secondary / Fallback | Hardware Decoder | Storage Engine |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Android** | Jetpack Compose (Vulkan) + SurfaceView | Media3 / ExoPlayer | LibVLC | MediaCodec (NDK) | Room / SQLite WAL |
+| **Android** | Jetpack Compose (Vulkan) + SurfaceView | Media3 / ExoPlayer | libmpv | MediaCodec (NDK) | Room / SQLite WAL |
 | **macOS** | Compose Desktop (Metal / Skiko) + NSOpenGLView/CALayer | libmpv (v2.x Client API) | Platform Audio | VideoToolbox (HW) | JDBC SQLite WAL |
 | **Windows** | Compose Desktop (DirectX / Skiko) + AWT Canvas | libmpv (v2.x Client API) | Platform Audio | D3D11VA (HW) | JDBC SQLite WAL |
 | **Linux** | Compose Desktop (Vulkan/OpenGL / Skiko) + AWT Canvas | libmpv (v2.x Client API) | Platform Audio | VAAPI / VDPAU | JDBC SQLite WAL |

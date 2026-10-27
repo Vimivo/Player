@@ -62,15 +62,36 @@ actor VideoThumbnailStore {
     }
 }
 
-/// 16:9 video thumbnail with duration badge and optional resume progress.
+/// 16:9 video thumbnail with duration badge, NEW badge, resolution badge, and optional resume progress.
 struct VideoThumbnailView: View {
     let item: MediaItem
     var width: CGFloat = 96
     var cornerRadius: CGFloat = 10
     var progress: Double?
-    var showsDuration = false
+    var showsDuration = true
 
     @State private var image: UIImage?
+
+    private var resolutionBadge: String? {
+        guard let width = item.width, let height = item.height else { return nil }
+        let minDim = min(width, height)
+        switch minDim {
+        case 2000...: return "4K"
+        case 1400..<2000: return "1440p"
+        case 1000..<1400: return "1080p"
+        case 700..<1000: return "720p"
+        case 400..<700: return "480p"
+        default: return "\(minDim)p"
+        }
+    }
+
+    private var isNew: Bool {
+        guard let added = item.dateAddedMillis else { return false }
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        let isRecent = (now - added) < 7 * 86400 * 1000
+        let notDone = (progress ?? 0) < 0.95
+        return isRecent && notDone
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -90,6 +111,38 @@ struct VideoThumbnailView: View {
             }
             .frame(width: width, height: width * 9 / 16)
             .clipped()
+
+            if isNew {
+                VStack {
+                    HStack {
+                        Text("NEW")
+                            .font(.system(size: 9, weight: .bold))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 3))
+                            .foregroundColor(.white)
+                            .padding(4)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+            }
+
+            if let res = resolutionBadge {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text(res)
+                            .font(.system(size: 9, weight: .bold))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 3))
+                            .foregroundColor(.white)
+                            .padding(4)
+                    }
+                    Spacer()
+                }
+            }
 
             if showsDuration, let ms = item.durationMillis, ms > 0 {
                 Text(item.formattedDuration)

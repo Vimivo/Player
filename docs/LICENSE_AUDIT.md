@@ -1,5 +1,7 @@
 # Dependency and native-library license audit
 
+> **Superseded for native media libraries (2026-10-26):** LibVLC, the "material licensing risk" below, was removed. Android and the desktop apps now use Vimivo's own LGPL-only libmpv/FFmpeg build with a reproducible pipeline and automatic licence verification: see [ADR-004](adr/ADR-004-LGPL-MEDIA-STACK.md), [ADR-005](adr/ADR-005-MOBILE-MEDIA-ENGINE.md) and [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md). The LibVLC findings are kept for history.
+
 Audit date: 2026-10-13. Versions are those pinned in `gradle/libs.versions.toml` and resolved by the release project. This engineering audit is not legal advice.
 
 | Dependency group | Version | License | Release obligations |

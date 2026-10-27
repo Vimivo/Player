@@ -1,3 +1,4 @@
+import SQLite3
 import XCTest
 @testable import iosApp
 
@@ -150,5 +151,59 @@ final class IOSDatabaseTests: XCTestCase {
         XCTAssertEqual(db.getAllMediaItems().first { $0.id == testId }?.width, 1920)
 
         db.deleteMediaItem(id: testId)
+    }
+
+    /// An update must keep a library created by the first releases, which had no schema version and no video columns.
+    func testDatabaseFromBeforeVersioningIsMigratedWithoutLosingData() throws {
+        let path = NSTemporaryDirectory() + "legacy-\(UUID().uuidString).db"
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        var handle: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(path, &handle), SQLITE_OK)
+        let legacy = """
+        CREATE TABLE media_items (id TEXT PRIMARY KEY, uri TEXT NOT NULL, title TEXT NOT NULL, kind TEXT NOT NULL,
+            duration_millis INTEGER, artist TEXT, album TEXT, artwork_uri TEXT, album_artist TEXT, bookmark_data BLOB);
+        CREATE TABLE playlists (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at_millis INTEGER NOT NULL);
+        CREATE TABLE playlist_items (playlist_id TEXT NOT NULL, media_id TEXT NOT NULL, position INTEGER NOT NULL,
+            PRIMARY KEY (playlist_id, position));
+        CREATE TABLE favorites (media_id TEXT PRIMARY KEY);
+        CREATE TABLE playback_history (id TEXT PRIMARY KEY, media_id TEXT NOT NULL, last_played_at_millis INTEGER NOT NULL,
+            position_millis INTEGER NOT NULL, completed INTEGER NOT NULL, play_count INTEGER NOT NULL);
+        INSERT INTO media_items (id, uri, title, kind, duration_millis, artist) VALUES ('old', 'file:///old.mp3', 'Old Song', 'audio', 90000, 'Someone');
+        INSERT INTO playlists VALUES ('p', 'My list', 42);
+        INSERT INTO playlist_items VALUES ('p', 'old', 0);
+        INSERT INTO favorites VALUES ('old');
+        INSERT INTO playback_history VALUES ('old', 'old', 777, 30000, 0, 3);
+        """
+        XCTAssertEqual(sqlite3_exec(handle, legacy, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(handle)
+
+        let db = IOSDatabase(path: path)
+
+        XCTAssertEqual(db.getAllMediaItems().map(\.title), ["Old Song"])
+        XCTAssertEqual(db.getAllMediaItems().first?.artist, "Someone")
+        XCTAssertEqual(db.getAllPlaylists().first?.mediaIds, ["old"])
+        XCTAssertEqual(db.getFavorites(), ["old"])
+        XCTAssertEqual(db.resumeState(mediaId: "old"), ResumeState(positionMillis: 30_000, durationMillis: nil, completed: false))
+        XCTAssertEqual(db.getHistory().first?.playCount, 3)
+
+        db.updateVideoMetadata(id: "old", width: 640, height: 360, sizeBytes: 10)
+        XCTAssertEqual(db.getAllMediaItems().first?.width, 640)
+    }
+
+    func testBookmarkBlobAndOptionalFieldsSurviveTheSharedStore() {
+        let db = IOSDatabase(path: NSTemporaryDirectory() + "blob-\(UUID().uuidString).db")
+        let blob = Data([0, 1, 2, 255, 128])
+        let item = MediaItem(
+            id: "blob", uri: "file:///b.mp4", title: "Blob", kind: .video, durationMillis: 5,
+            bookmarkData: blob, width: 10, height: 20, sizeBytes: 30, dateAddedMillis: 40
+        )
+        db.saveMediaItem(item)
+        let saved = db.getAllMediaItems().first
+        XCTAssertEqual(saved?.bookmarkData, blob)
+        XCTAssertEqual(saved?.width, 10)
+        XCTAssertEqual(saved?.height, 20)
+        XCTAssertEqual(saved?.sizeBytes, 30)
+        XCTAssertEqual(saved?.dateAddedMillis, 40)
+        XCTAssertEqual(saved?.kind, .video)
     }
 }

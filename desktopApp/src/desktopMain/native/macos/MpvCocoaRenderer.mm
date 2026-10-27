@@ -7,6 +7,7 @@
 #include <jawt_md.h>
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
+#include <atomic>
 
 static void *get_proc_address(void *, const char *name) {
     CFStringRef symbol = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingASCII);
@@ -16,18 +17,93 @@ static void *get_proc_address(void *, const char *name) {
     return address;
 }
 
-static CGLPixelFormatObj createPixelFormat(void) {
-    CGLPixelFormatAttribute attributes[] = {
+enum class PixelFormatKind { Accelerated, Any, Software };
+
+static CGLPixelFormatObj choosePixelFormat(PixelFormatKind kind) {
+    CGLPixelFormatAttribute attributes[12] = {
         kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute)kCGLOGLPVersion_3_2_Core,
         kCGLPFAColorSize, (CGLPixelFormatAttribute)24,
         kCGLPFAAlphaSize, (CGLPixelFormatAttribute)8,
-        kCGLPFAAccelerated,
-        kCGLPFADoubleBuffer, (CGLPixelFormatAttribute)0,
+        kCGLPFADoubleBuffer,
     };
+    int next = 7;
+    if (kind == PixelFormatKind::Accelerated) attributes[next++] = kCGLPFAAccelerated;
+    if (kind == PixelFormatKind::Software) {
+        attributes[next++] = kCGLPFARendererID;
+        attributes[next++] = (CGLPixelFormatAttribute)kCGLRendererGenericFloatID;
+    }
+    attributes[next] = (CGLPixelFormatAttribute)0;
     CGLPixelFormatObj format = NULL;
     GLint count = 0;
     if (CGLChoosePixelFormat(attributes, &format, &count) != kCGLNoError) return NULL;
     return format;
+}
+
+// Hardware OpenGL first. Macs without it (virtual machines, CI runners) get whatever CGL offers, which is Apple's
+// software renderer; libmpv reports it as "Apple Software Renderer" and Vimivo switches to performance mode.
+// VIMIVO_SOFTWARE_GL=1 forces the software renderer for testing.
+static CGLPixelFormatObj createPixelFormat(void) {
+    const char *forceSoftware = getenv("VIMIVO_SOFTWARE_GL");
+    if (forceSoftware && strcmp(forceSoftware, "1") == 0) return choosePixelFormat(PixelFormatKind::Software);
+    CGLPixelFormatObj format = choosePixelFormat(PixelFormatKind::Accelerated);
+    return format ? format : choosePixelFormat(PixelFormatKind::Any);
+}
+
+// Frames libmpv has rendered into the layer and the size of the last one, so tests can wait for a real frame after a
+// window change instead of sleeping.
+static std::atomic<long long> presentedFrames{0};
+static std::atomic<int> presentedWidth{0};
+static std::atomic<int> presentedHeight{0};
+
+// The size of the colour attachment of the framebuffer Core Animation bound for this draw: what mpv must render into.
+// The layer's bounds can already describe the next window size while the IOSurface behind the bound framebuffer still
+// has the previous one (a fullscreen or resize transition); rendering a bounds-sized picture into it clips or shifts it.
+static bool boundFramebufferSize(GLint framebuffer, int *width, int *height) {
+    if (framebuffer == 0) return false;
+    GLint type = 0, name = 0;
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                          GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &type);
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                          GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &name);
+    GLint w = 0, h = 0;
+    if (type == GL_RENDERBUFFER) {
+        GLint previous = 0;
+        glGetIntegerv(GL_RENDERBUFFER_BINDING, &previous);
+        glBindRenderbuffer(GL_RENDERBUFFER, (GLuint)name);
+        glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &w);
+        glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &h);
+        glBindRenderbuffer(GL_RENDERBUFFER, (GLuint)previous);
+    } else if (type == GL_TEXTURE) {
+        // IOSurface-backed layers use rectangle textures.
+        GLint previous = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &previous);
+        glBindTexture(GL_TEXTURE_RECTANGLE, (GLuint)name);
+        glGetTexLevelParameteriv(GL_TEXTURE_RECTANGLE, 0, GL_TEXTURE_WIDTH, &w);
+        glGetTexLevelParameteriv(GL_TEXTURE_RECTANGLE, 0, GL_TEXTURE_HEIGHT, &h);
+        glBindTexture(GL_TEXTURE_RECTANGLE, (GLuint)previous);
+    }
+    if (w <= 0 || h <= 0) return false;
+    *width = w;
+    *height = h;
+    return true;
+}
+
+static std::atomic<long long> sizeMismatches{0};
+// True between a window's will-enter/exit-fullscreen and did-enter/exit notifications. AppKit ignores a fullscreen
+// toggle requested while the previous one is animating, so the app waits on this before the next request.
+static std::atomic<bool> fullscreenTransitioning{false};
+
+static void observeFullscreenTransitions() {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+        for (NSNotificationName name in @[NSWindowWillEnterFullScreenNotification, NSWindowWillExitFullScreenNotification]) {
+            [center addObserverForName:name object:nil queue:nil usingBlock:^(NSNotification *) { fullscreenTransitioning = true; }];
+        }
+        for (NSNotificationName name in @[NSWindowDidEnterFullScreenNotification, NSWindowDidExitFullScreenNotification]) {
+            [center addObserverForName:name object:nil queue:nil usingBlock:^(NSNotification *) { fullscreenTransitioning = false; }];
+        }
+    });
 }
 
 // libmpv's render context owns GL objects (FBOs, shaders) that belong to the context it was created on,
@@ -54,11 +130,31 @@ static CGLPixelFormatObj createPixelFormat(void) {
     CGLLockContext(cglContext);
     CGLSetCurrentContext(cglContext);
     const CGFloat scale = self.contentsScale > 0 ? self.contentsScale : 1;
-    const int width = MAX(1, (int)(self.bounds.size.width * scale));
-    const int height = MAX(1, (int)(self.bounds.size.height * scale));
+    int width = MAX(1, (int)(self.bounds.size.width * scale));
+    int height = MAX(1, (int)(self.bounds.size.height * scale));
+    GLint boundFramebuffer = 0;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &boundFramebuffer);
+    int actualWidth = 0, actualHeight = 0;
+    if (boundFramebufferSize(boundFramebuffer, &actualWidth, &actualHeight)) {
+        if (actualWidth != width || actualHeight != height) {
+            sizeMismatches++;
+            if (getenv("VIMIVO_RENDER_LOG")) {
+                fprintf(stderr, "VIMIVO_RENDER size mismatch: bounds %dx%d, framebuffer %dx%d\n", width, height,
+                        actualWidth, actualHeight);
+            }
+        }
+        // Render into what is really there, whatever the bounds say at this instant.
+        width = actualWidth;
+        height = actualHeight;
+    } else if (getenv("VIMIVO_RENDER_LOG")) {
+        fprintf(stderr, "VIMIVO_RENDER could not read the framebuffer size (fbo %d)\n", boundFramebuffer);
+    }
     glViewport(0, 0, width, height);
     if (self.renderContext) {
-        mpv_opengl_fbo fbo = { .fbo = 0, .w = width, .h = height, .internal_format = 0 };
+        // Core Animation binds the layer's own IOSurface-backed framebuffer before calling this method. It is
+        // framebuffer 0 only by accident (a layer created at its final size); rendering into 0 otherwise fails with
+        // GL_INVALID_FRAMEBUFFER_OPERATION and the picture stays black while audio plays.
+        mpv_opengl_fbo fbo = { .fbo = boundFramebuffer, .w = width, .h = height, .internal_format = 0 };
         int flip = 1;
         mpv_render_param params[] = {
             { MPV_RENDER_PARAM_OPENGL_FBO, &fbo },
@@ -66,6 +162,9 @@ static CGLPixelFormatObj createPixelFormat(void) {
             { MPV_RENDER_PARAM_INVALID, NULL },
         };
         mpv_render_context_render(self.renderContext, params);
+        presentedWidth = width;
+        presentedHeight = height;
+        presentedFrames++;
     } else {
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -251,10 +350,14 @@ Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_attachNative(JNIEnv *env, jobj
         }
         VimivoMpvLayer *layer = [VimivoMpvLayer layer];
         layer.contentsScale = NSScreen.mainScreen.backingScaleFactor;
+        // Draw again when the layer's size changes: a paused video that is resized (or leaves fullscreen) gets no new
+        // frame from libmpv, and would otherwise keep the old picture or none until playback resumes.
+        layer.needsDisplayOnBoundsChange = YES;
         layer.sharedPixelFormat = pixelFormat;
         layer.sharedContext = glContext;
         layer.renderContext = renderContext;
         mpv_render_context_set_update_callback(layer.renderContext, on_mpv_update, (__bridge void *)layer);
+        observeFullscreenTransitions();
         target.layer = layer;
         activeLayer = layer;
         activeSurface = target;
@@ -289,4 +392,93 @@ Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_detachNative(JNIEnv *, jobject
         activeLayer = nil;
         activeSurface = nil;
     });
+}
+
+// ---- Window helpers for the player's chrome and overlays (dev.vimivo.desktop.platform.MacWindows) ----
+
+// The NSWindow behind an AWT window, found from the CALayer JAWT exposes for it: walking up from that layer reaches
+// the window's content or frame view layer. Works on any JDK, without private AWT classes.
+static NSWindow *nativeWindowFor(JNIEnv *env, jobject component) {
+    JAWT awt;
+    awt.version = JAWT_VERSION_1_7;
+    if (!JAWT_GetAWT(env, &awt)) return nil;
+    JAWT_DrawingSurface *surface = awt.GetDrawingSurface(env, component);
+    if (!surface) return nil;
+    if (surface->Lock(surface) & JAWT_LOCK_ERROR) {
+        awt.FreeDrawingSurface(surface);
+        return nil;
+    }
+    JAWT_DrawingSurfaceInfo *info = surface->GetDrawingSurfaceInfo(surface);
+    id<JAWT_SurfaceLayers> layers = info ? (__bridge id<JAWT_SurfaceLayers>)info->platformInfo : nil;
+    CALayer *windowLayer = layers.windowLayer;
+    if (info) surface->FreeDrawingSurfaceInfo(info);
+    surface->Unlock(surface);
+    awt.FreeDrawingSurface(surface);
+    if (!windowLayer) return nil;
+    __block NSWindow *found = nil;
+    void (^search)(void) = ^{
+        for (NSWindow *window in NSApp.windows) {
+            for (CALayer *layer = windowLayer; layer && !found; layer = layer.superlayer) {
+                if (layer == window.contentView.layer || layer == window.contentView.superview.layer) found = window;
+            }
+            if (found) return;
+        }
+    };
+    if (NSThread.isMainThread) search();
+    else dispatch_sync(dispatch_get_main_queue(), search);
+    return found;
+}
+
+// Dark title bar and controls for one window (JDK 17 has no per-window appearance property).
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_vimivo_desktop_platform_MacWindows_setDarkAppearanceNative(JNIEnv *env, jobject, jobject window) {
+    NSWindow *nativeWindow = nativeWindowFor(env, window);
+    if (!nativeWindow) return JNI_FALSE;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        nativeWindow.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+    });
+    return JNI_TRUE;
+}
+
+// Makes an overlay a real child window: it moves with its owner and appears in the owner's fullscreen space.
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_vimivo_desktop_platform_MacWindows_attachChildNative(JNIEnv *env, jobject, jobject owner, jobject child) {
+    NSWindow *parent = nativeWindowFor(env, owner);
+    NSWindow *overlay = nativeWindowFor(env, child);
+    if (!parent || !overlay || parent == overlay) return JNI_FALSE;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (overlay.parentWindow != parent) [parent addChildWindow:overlay ordered:NSWindowAbove];
+        overlay.collectionBehavior |= NSWindowCollectionBehaviorFullScreenAuxiliary;
+    });
+    return JNI_TRUE;
+}
+
+// Brings Vimivo to the front; macOS sends mouse-moved (hover) events only to the active app. Used by --ui-capture.
+extern "C" JNIEXPORT void JNICALL
+Java_dev_vimivo_desktop_platform_MacWindows_activateNative(JNIEnv *, jobject) {
+    dispatch_async(dispatch_get_main_queue(), ^{ [NSApp activateIgnoringOtherApps:YES]; });
+}
+
+extern "C" JNIEXPORT jlongArray JNICALL
+Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_presentedFrameNative(JNIEnv *env, jobject) {
+    if (getenv("VIMIVO_RENDER_LOG")) {
+        // Read off the main thread on purpose: this is a diagnostic and must not wait for AppKit.
+        static int lastState = -1;
+        VimivoMpvLayer *layer = activeLayer;
+        id<JAWT_SurfaceLayers> surface = activeSurface;
+        const int state = (layer ? 1 : 0) | (layer.superlayer ? 2 : 0) | ((surface && surface.layer == layer) ? 4 : 0);
+        if (state != lastState) {
+            fprintf(stderr, "VIMIVO_RENDER layer state %d (1 exists, 2 has superlayer, 4 is the host's layer)\n", state);
+            lastState = state;
+        }
+    }
+    jlong values[4] = { presentedFrames.load(), presentedWidth.load(), presentedHeight.load(), sizeMismatches.load() };
+    jlongArray result = env->NewLongArray(4);
+    if (result) env->SetLongArrayRegion(result, 0, 4, values);
+    return result;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_vimivo_desktop_playback_MpvCocoaRenderer_windowTransitioningNative(JNIEnv *, jobject) {
+    return fullscreenTransitioning.load() ? JNI_TRUE : JNI_FALSE;
 }

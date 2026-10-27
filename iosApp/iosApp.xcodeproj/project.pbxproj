@@ -61,8 +61,38 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 		1101 /* MediaModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2101 /* MediaModelsTests.swift */; };
+		1192 /* ContinuousPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2192 /* ContinuousPlaybackTests.swift */; };
 		1102 /* IOSDatabaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2102 /* IOSDatabaseTests.swift */; };
 		1103 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2025 /* libsqlite3.tbd */; };
+		1300 /* VideoTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2300 /* VideoTools.swift */; };
+		1301 /* TestMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2301 /* TestMedia.swift */; };
+		1302 /* VideoToolsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2302 /* VideoToolsTests.swift */; };
+		1303 /* PlaybackSpeedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2303 /* PlaybackSpeedTests.swift */; };
+		1304 /* PictureComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2304 /* PictureComposition.swift */; };
+		1305 /* PictureCompositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2305 /* PictureCompositionTests.swift */; };
+		1306 /* AudioEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2306 /* AudioEffects.swift */; };
+		1307 /* AudioEffectsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2307 /* AudioEffectsTests.swift */; };
+		1308 /* GaplessPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2308 /* GaplessPlayback.swift */; };
+		1309 /* GaplessPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2309 /* GaplessPlaybackTests.swift */; };
+		1310 /* multitrack_tiny.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2310 /* multitrack_tiny.mp4 */; };
+		1311 /* TrackSwitchingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2311 /* TrackSwitchingTests.swift */; };
+		1330 /* track1_solaris.flac in Resources */ = {isa = PBXBuildFile; fileRef = 2330 /* track1_solaris.flac */; };
+		1331 /* track2_lunar.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 2331 /* track2_lunar.mp3 */; };
+		1332 /* video_landscape.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2332 /* video_landscape.mp4 */; };
+		1333 /* hdr10_tiny.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2333 /* hdr10_tiny.mp4 */; };
+		1334 /* interlaced_tiny.ts in Resources */ = {isa = PBXBuildFile; fileRef = 2334 /* interlaced_tiny.ts */; };
+		1335 /* video_sample.mkv in Resources */ = {isa = PBXBuildFile; fileRef = 2335 /* video_sample.mkv */; };
+		1336 /* FormatSupportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2336 /* FormatSupportTests.swift */; };
+		1337 /* PlayerComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2337 /* PlayerComponents.swift */; };
+		1338 /* EqualizerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2338 /* EqualizerSheet.swift */; };
+		1339 /* NowPlayingSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2339 /* NowPlayingSnapshotTests.swift */; };
+		1340 /* LyricsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2340 /* LyricsModel.swift */; };
+		1341 /* LyricsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2341 /* LyricsPanel.swift */; };
+		1342 /* LyricsModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2342 /* LyricsModelTests.swift */; };
+		1346 /* SleepTimerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2346 /* SleepTimerModel.swift */; };
+		1347 /* SleepTimerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2347 /* SleepTimerSheet.swift */; };
+		1348 /* SleepTimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2348 /* SleepTimerTests.swift */; };
+		1349 /* QueueEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2349 /* QueueEngineTests.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -139,6 +169,36 @@
 		2033 /* Vimivo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Vimivo.entitlements; sourceTree = "<group>"; };
 		2101 /* MediaModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModelsTests.swift; sourceTree = "<group>"; };
 		2102 /* IOSDatabaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSDatabaseTests.swift; sourceTree = "<group>"; };
+		2192 /* ContinuousPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinuousPlaybackTests.swift; sourceTree = "<group>"; };
+		2300 /* VideoTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTools.swift; sourceTree = "<group>"; };
+		2301 /* TestMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMedia.swift; sourceTree = "<group>"; };
+		2302 /* VideoToolsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoToolsTests.swift; sourceTree = "<group>"; };
+		2303 /* PlaybackSpeedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSpeedTests.swift; sourceTree = "<group>"; };
+		2304 /* PictureComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureComposition.swift; sourceTree = "<group>"; };
+		2305 /* PictureCompositionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureCompositionTests.swift; sourceTree = "<group>"; };
+		2306 /* AudioEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEffects.swift; sourceTree = "<group>"; };
+		2307 /* AudioEffectsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEffectsTests.swift; sourceTree = "<group>"; };
+		2308 /* GaplessPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaplessPlayback.swift; sourceTree = "<group>"; };
+		2309 /* GaplessPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaplessPlaybackTests.swift; sourceTree = "<group>"; };
+		2310 /* multitrack_tiny.mp4 */ = {isa = PBXFileReference; lastKnownFileType = video.mp4; name = multitrack_tiny.mp4; path = ../../testmedia/multitrack_tiny.mp4; sourceTree = "<group>"; };
+		2311 /* TrackSwitchingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackSwitchingTests.swift; sourceTree = "<group>"; };
+		2330 /* track1_solaris.flac */ = {isa = PBXFileReference; lastKnownFileType = audio.flac; name = track1_solaris.flac; path = ../../testmedia/track1_solaris.flac; sourceTree = "<group>"; };
+		2331 /* track2_lunar.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; name = track2_lunar.mp3; path = ../../testmedia/track2_lunar.mp3; sourceTree = "<group>"; };
+		2332 /* video_landscape.mp4 */ = {isa = PBXFileReference; lastKnownFileType = video.mp4; name = video_landscape.mp4; path = ../../testmedia/video_landscape.mp4; sourceTree = "<group>"; };
+		2333 /* hdr10_tiny.mp4 */ = {isa = PBXFileReference; lastKnownFileType = video.mp4; name = hdr10_tiny.mp4; path = ../../testmedia/hdr10_tiny.mp4; sourceTree = "<group>"; };
+		2334 /* interlaced_tiny.ts */ = {isa = PBXFileReference; lastKnownFileType = file; name = interlaced_tiny.ts; path = ../../testmedia/interlaced_tiny.ts; sourceTree = "<group>"; };
+		2335 /* video_sample.mkv */ = {isa = PBXFileReference; lastKnownFileType = file; name = video_sample.mkv; path = ../../testmedia/video_sample.mkv; sourceTree = "<group>"; };
+		2336 /* FormatSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatSupportTests.swift; sourceTree = "<group>"; };
+		2337 /* PlayerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerComponents.swift; sourceTree = "<group>"; };
+		2338 /* EqualizerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerSheet.swift; sourceTree = "<group>"; };
+		2339 /* NowPlayingSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingSnapshotTests.swift; sourceTree = "<group>"; };
+		2340 /* LyricsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsModel.swift; sourceTree = "<group>"; };
+		2341 /* LyricsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsPanel.swift; sourceTree = "<group>"; };
+		2342 /* LyricsModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsModelTests.swift; sourceTree = "<group>"; };
+		2346 /* SleepTimerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerModel.swift; sourceTree = "<group>"; };
+		2347 /* SleepTimerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerSheet.swift; sourceTree = "<group>"; };
+		2348 /* SleepTimerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerTests.swift; sourceTree = "<group>"; };
+		2349 /* QueueEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueEngineTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -228,6 +288,12 @@
 		4006 /* Playback */ = {
 			isa = PBXGroup;
 			children = (
+				2346 /* SleepTimerModel.swift */,
+				2340 /* LyricsModel.swift */,
+				2308 /* GaplessPlayback.swift */,
+				2306 /* AudioEffects.swift */,
+				2304 /* PictureComposition.swift */,
+				2300 /* VideoTools.swift */,
 				2007 /* AudioSessionController.swift */,
 				2008 /* NowPlayingManager.swift */,
 				2100 /* PlaybackPreferences.swift */,
@@ -274,8 +340,28 @@
 		4012 /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2349 /* QueueEngineTests.swift */,
+				2348 /* SleepTimerTests.swift */,
+				2342 /* LyricsModelTests.swift */,
+				2339 /* NowPlayingSnapshotTests.swift */,
+				2336 /* FormatSupportTests.swift */,
+				2335 /* video_sample.mkv */,
+				2334 /* interlaced_tiny.ts */,
+				2333 /* hdr10_tiny.mp4 */,
+				2332 /* video_landscape.mp4 */,
+				2331 /* track2_lunar.mp3 */,
+				2330 /* track1_solaris.flac */,
+				2311 /* TrackSwitchingTests.swift */,
+				2310 /* multitrack_tiny.mp4 */,
+				2309 /* GaplessPlaybackTests.swift */,
+				2307 /* AudioEffectsTests.swift */,
+				2305 /* PictureCompositionTests.swift */,
+				2303 /* PlaybackSpeedTests.swift */,
+				2302 /* VideoToolsTests.swift */,
+				2301 /* TestMedia.swift */,
 				2101 /* MediaModelsTests.swift */,
 				2102 /* IOSDatabaseTests.swift */,
+				2192 /* ContinuousPlaybackTests.swift */,
 			);
 			path = iosAppTests;
 			sourceTree = "<group>";
@@ -283,6 +369,10 @@
 		4009 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				2347 /* SleepTimerSheet.swift */,
+				2341 /* LyricsPanel.swift */,
+				2338 /* EqualizerSheet.swift */,
+				2337 /* PlayerComponents.swift */,
 				4010 /* Components */,
 				2013 /* NowPlayingBar.swift */,
 				2014 /* NowPlayingView.swift */,
@@ -351,6 +441,7 @@
 			buildPhases = (
 				7004 /* Sources */,
 				3002 /* Frameworks */,
+				7007 /* Test Resources */,
 			);
 			buildRules = (
 			);
@@ -430,6 +521,20 @@
 			files = ();
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7007 /* Test Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1310 /* multitrack_tiny.mp4 in Resources */,
+				1335 /* video_sample.mkv in Resources */,
+				1334 /* interlaced_tiny.ts in Resources */,
+				1333 /* hdr10_tiny.mp4 in Resources */,
+				1332 /* video_landscape.mp4 in Resources */,
+				1331 /* track2_lunar.mp3 in Resources */,
+				1330 /* track1_solaris.flac in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -458,6 +563,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1347 /* SleepTimerSheet.swift in Sources */,
+				1346 /* SleepTimerModel.swift in Sources */,
+				1341 /* LyricsPanel.swift in Sources */,
+				1340 /* LyricsModel.swift in Sources */,
+				1338 /* EqualizerSheet.swift in Sources */,
+				1337 /* PlayerComponents.swift in Sources */,
+				1308 /* GaplessPlayback.swift in Sources */,
+				1306 /* AudioEffects.swift in Sources */,
+				1304 /* PictureComposition.swift in Sources */,
+				1300 /* VideoTools.swift in Sources */,
 				1001 /* VimivoApp.swift in Sources */,
 				1191 /* AppRouter.swift in Sources */,
 				1002 /* MediaModels.swift in Sources */,
@@ -497,8 +612,21 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1349 /* QueueEngineTests.swift in Sources */,
+				1348 /* SleepTimerTests.swift in Sources */,
+				1342 /* LyricsModelTests.swift in Sources */,
+				1339 /* NowPlayingSnapshotTests.swift in Sources */,
+				1336 /* FormatSupportTests.swift in Sources */,
+				1311 /* TrackSwitchingTests.swift in Sources */,
+				1309 /* GaplessPlaybackTests.swift in Sources */,
+				1307 /* AudioEffectsTests.swift in Sources */,
+				1305 /* PictureCompositionTests.swift in Sources */,
+				1303 /* PlaybackSpeedTests.swift in Sources */,
+				1302 /* VideoToolsTests.swift in Sources */,
+				1301 /* TestMedia.swift in Sources */,
 				1101 /* MediaModelsTests.swift in Sources */,
 				1102 /* IOSDatabaseTests.swift in Sources */,
+				1192 /* ContinuousPlaybackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

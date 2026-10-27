@@ -11,13 +11,13 @@ class DesktopVideoRendererTest {
 
     @Test
     fun capabilityReportingReflectsWindowsAndLinuxNativeVideoSupport() {
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.WINDOWS).localVideo)
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.WINDOWS).hdr)
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.WINDOWS).localAudio)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.WINDOWS).localVideo)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.WINDOWS).hdr)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.WINDOWS).localAudio)
 
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX).localVideo)
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX).hdr)
-        assertTrue(MpvPlayerEngine.capabilitiesFor(DesktopPlatform.LINUX).localAudio)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.LINUX).localVideo)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.LINUX).hdr)
+        assertTrue(MpvCapabilities.forPlatform(DesktopPlatform.LINUX).localAudio)
     }
 
     @Test
@@ -31,13 +31,15 @@ class DesktopVideoRendererTest {
     }
 
     @Test
-    fun linuxRendererInstantiatesX11RendererAndFailsCleanlyWithoutXid() {
+    fun linuxRendererUsesTheRenderApiAndFailsCleanlyWithoutAWindow() {
+        // The LGPL libmpv has no X11 output; Linux renders into Vimivo's own EGL context (ADR-004).
         val renderer = DesktopVideoRendererFactory.create(DesktopPlatform.LINUX)
-        assertTrue(renderer is MpvX11Renderer)
+        assertTrue(renderer is MpvEglRenderer)
         val error = assertFailsWith<IllegalStateException> {
             renderer.attach(Canvas(), Pointer.createConstant(1))
         }
-        assertTrue(error.message.orEmpty().contains("X11"))
+        assertTrue(error.message.orEmpty().contains("not displayable"))
+        renderer.detach()
     }
 
     @Test

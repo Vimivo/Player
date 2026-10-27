@@ -255,6 +255,7 @@ private fun AppSettings.toJson() = JSONObject()
     .put("audioBassStrength", audioEnhancements.bassStrength)
     .put("audioTrebleGainDb", audioEnhancements.trebleGainDb)
     .put("audioPreampDb", audioEnhancements.preampDb)
+    .put("audioReplayGain", audioEnhancements.replayGainMode.name)
     .put("audioVisualizerEnabled", audioVisualizerEnabled)
     .put("subtitleTextSize", subtitleAppearance.textSizeSp)
     .put("subtitlePosition", subtitleAppearance.positionFraction)
@@ -310,6 +311,7 @@ private fun JSONObject.toSettings(): AppSettings {
             bassStrength = optDouble("audioBassStrength", 0.0).toFloat(),
             trebleGainDb = optDouble("audioTrebleGainDb", 0.0).toFloat(),
             preampDb = optDouble("audioPreampDb", 0.0).toFloat(),
+            replayGainMode = enum("audioReplayGain", defaults.audioEnhancements.replayGainMode),
         ),
         audioVisualizerEnabled = optBoolean("audioVisualizerEnabled", defaults.audioVisualizerEnabled),
         subtitleAppearance = SubtitleAppearance(

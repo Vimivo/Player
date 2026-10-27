@@ -65,7 +65,7 @@ Every platform engine implements `dev.vimivo.core.playback.PlayerEngine`:
 - Video output configured dynamically:
   - macOS: Uses `MpvCocoaRenderer.mm` (OpenGL context attached to `SwingPanel`).
   - Windows: Uses `MpvWin32Renderer` (`wid` attached to Win32 Canvas HWND).
-  - Linux: Uses `MpvX11Renderer` (`wid` attached to X11 Canvas XID).
+  - Linux: Uses `MpvEglRenderer` (`vo=libmpv`; libmpv render API into Vimivo's EGL context on the Canvas XID, since the LGPL libmpv has no X11 output).
 
 ### Android (`VimivoMediaService` & `Media3PlayerEngine`)
 - Runs as an Android Foreground Service using AndroidX Media3 `MediaSessionService`.

@@ -47,6 +47,14 @@ data class AudioEnhancementSettings(
     val volumeNormalization: Boolean = false,
     val customPresetName: String? = null,
     val customPresets: List<CustomEqualizerPreset> = emptyList(),
+    val monoDownmix: Boolean = false,
+    val bassBoostStrength: Float = 0f,
+    val virtualizerStrength: Float = 0f,
+    val reverbPreset: String = "OFF",
+    val compressorEnabled: Boolean = false,
+    val stereoWidenerStrength: Float = 0f,
+    val spatializerEnabled: Boolean = false,
+    val dialogueClarityEnabled: Boolean = false,
 )
 
 data class AudioEnhancementCapabilities(

@@ -11,7 +11,6 @@
 package dev.vimivo.platform.android.playback
 
 import android.os.Looper
-import android.view.Surface
 import android.view.SurfaceHolder
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -27,10 +26,13 @@ import dev.vimivo.core.model.MediaId
 import dev.vimivo.core.model.MediaKind
 import dev.vimivo.playback.PlaybackEngineManager
 import dev.vimivo.playback.PlaybackErrorCode
+import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.QueueContext
+import dev.vimivo.playback.QueueNavigation
+import dev.vimivo.playback.QueueRepeatMode
 import dev.vimivo.settings.RepeatBehavior
 import dev.vimivo.settings.ShuffleBehavior
 import kotlinx.coroutines.CoroutineScope
@@ -40,21 +42,25 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 import dev.vimivo.core.model.MediaItem as VimivoMediaItem
 
-/** Media3 session-facing player that keeps Media3 and LibVLC behind one system session. */
+/** Media3 session-facing player that keeps Media3 and the libmpv fallback engine behind one system session. */
 class SessionPlayerAdapter(
     private val manager: PlaybackEngineManager,
     private val scope: CoroutineScope,
     private val store: PlaybackStateStore,
-    private val sleepTimer: SleepTimerController,
+    private val sleepTimer: PlaybackSleepTimer,
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var playlist = emptyList<MediaItem>()
     private var currentIndex = 0
     private var repeatMode = Player.REPEAT_MODE_OFF
     private var shuffle = false
+    private var shuffleOrder: List<Int>? = null
+    private var consecutiveFailures = 0
     private var released = false
     private var restorePosition = 0L
     private var persistJob: Job? = null
     private var videoOutput: Any? = null
+
+    private val handoff = GaplessHandoff(manager::prepareNext, MediaItem::toVimivo)
 
     // Engines are recreated for every opened item, so track the attached instance rather than its id.
     private var attachedVideoEngine: PlayerEngine? = null
@@ -63,8 +69,22 @@ class SessionPlayerAdapter(
         scope.launch {
             manager.state.collectLatest { state ->
                 attachVideoOutputIfNeeded()
-                if (state.status == PlaybackStatus.Completed) {
-                    if (sleepTimer.consumeStopAfterCurrent()) manager.stop() else advanceAfterCompletion()
+                handoff.followedIndex(state, playlist, currentIndex)?.let { index ->
+                    currentIndex = index
+                    consecutiveFailures = 0
+                }
+                // Nothing is prepared for repeat-one or "stop after this track": the engine would run on past it.
+                val stopsHere = repeatMode == Player.REPEAT_MODE_ONE || sleepTimer.armed
+                val following = QueueNavigation.next(currentIndex, playlist.size, queueRepeatMode(), currentShuffleOrder())
+                handoff.prepareFollowing(state, playlist, currentIndex, following.takeUnless { stopsHere || it == currentIndex })
+                val status = state.status
+                if (status == PlaybackStatus.Completed) {
+                    consecutiveFailures = 0
+                    if (sleepTimer.consume()) manager.stop() else advanceAfterCompletion()
+                } else if (status is PlaybackStatus.Error && !status.error.recoverableByFallback) {
+                    skipFailedItem()
+                } else if (status == PlaybackStatus.Playing) {
+                    consecutiveFailures = 0
                 }
                 persistDebounced(state)
                 invalidateState()
@@ -168,6 +188,8 @@ class SessionPlayerAdapter(
 
     override fun handleSetMediaItems(items: List<MediaItem>, startIndex: Int, startPositionMs: Long): ListenableFuture<*> {
         playlist = items
+        shuffleOrder = null
+        consecutiveFailures = 0
         currentIndex = startIndex.takeUnless { it == C.INDEX_UNSET }?.coerceIn(playlist.indices) ?: 0
         openCurrent(startPositionMs.takeUnless { it == C.TIME_UNSET } ?: 0)
         return done()
@@ -230,6 +252,7 @@ class SessionPlayerAdapter(
 
     override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean): ListenableFuture<*> = done().also {
         shuffle = shuffleModeEnabled
+        shuffleOrder = null
         persistNow()
     }
 
@@ -248,8 +271,8 @@ class SessionPlayerAdapter(
     }
 
     override fun handleClearVideoOutput(videoOutput: Any?): ListenableFuture<*> = done().also {
-        (manager.activeEngine.value as? Media3PlayerEngine)?.player?.clearVideoSurface()
-        (manager.activeEngine.value as? LibVlcPlayerEngine)?.clearVideoSurface()
+        (manager.activeEngine.value as? Media3PlayerEngine)?.video?.clear()
+        (manager.activeEngine.value as? LibmpvPlayerEngine)?.clearVideoSurface()
         this.videoOutput = null
         attachedVideoEngine = null
     }
@@ -259,11 +282,8 @@ class SessionPlayerAdapter(
         val engine = manager.activeEngine.value
         if (output == null || engine == null || attachedVideoEngine === engine) return
         when (engine) {
-            is Media3PlayerEngine -> when (output) {
-                is Surface -> engine.player.setVideoSurface(output)
-                is SurfaceHolder -> engine.player.setVideoSurfaceHolder(output)
-            }
-            is LibVlcPlayerEngine -> if (output is SurfaceHolder) engine.setVideoSurfaceHolder(output)
+            is Media3PlayerEngine -> engine.video.attach(output)
+            is LibmpvPlayerEngine -> if (output is SurfaceHolder) engine.setVideoSurfaceHolder(output)
             else -> return
         }
         attachedVideoEngine = engine
@@ -278,6 +298,7 @@ class SessionPlayerAdapter(
     }
 
     private fun openCurrent(position: Long, play: Boolean = false) {
+        handoff.reset()
         val queue = playlist.map(MediaItem::toVimivo)
         if (queue.isEmpty()) return
         scope.launch {
@@ -285,17 +306,37 @@ class SessionPlayerAdapter(
         }
     }
 
-    private fun advanceAfterCompletion() {
+    private fun advanceAfterCompletion(afterFailure: Boolean = false) {
         if (playlist.isEmpty()) return
-        val next = when {
-            repeatMode == Player.REPEAT_MODE_ONE -> currentIndex
-            shuffle && playlist.size > 1 -> playlist.indices.filterNot { it == currentIndex }.random()
-            currentIndex < playlist.lastIndex -> currentIndex + 1
-            repeatMode == Player.REPEAT_MODE_ALL -> 0
-            else -> return
-        }
+        val next = QueueNavigation.next(currentIndex, playlist.size, queueRepeatMode(), currentShuffleOrder(), afterFailure)
+            ?: return
         currentIndex = next
         openCurrent(0, play = true)
+    }
+
+    /** An unplayable item never stops the queue; once every item has failed in a row, playback stops. */
+    private fun skipFailedItem() {
+        val failed = playlist.getOrNull(currentIndex) ?: return
+        consecutiveFailures++
+        skippedListener?.invoke(failed)
+        if (consecutiveFailures >= playlist.size) manager.stop() else advanceAfterCompletion(afterFailure = true)
+    }
+
+    /** Notified with each item skipped because it could not be played. */
+    var skippedListener: ((MediaItem) -> Unit)? = null
+
+    private fun queueRepeatMode() = when (repeatMode) {
+        Player.REPEAT_MODE_ONE -> QueueRepeatMode.ONE
+        Player.REPEAT_MODE_ALL -> QueueRepeatMode.ALL
+        else -> QueueRepeatMode.OFF
+    }
+
+    /** Shuffle visits each item once, starting from the current one; rebuilt whenever the list changes. */
+    private fun currentShuffleOrder(): List<Int>? {
+        if (!shuffle) return null
+        val order = shuffleOrder
+        if (order != null && order.size == playlist.size && currentIndex in order) return order
+        return QueueNavigation.shuffledOrder(playlist.size, currentIndex).also { shuffleOrder = it }
     }
 
     private fun persistDebounced(state: PlaybackState) {

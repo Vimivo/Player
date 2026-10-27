@@ -7,7 +7,7 @@ Vimivo exposes an audio control only when the active engine reports that it is o
 - Media3: Android session graphic equalizer with device-reported bands and gain limits, Flat/Rock/Pop/Classical/Jazz/Vocal/Bass Boost/Custom curves, optional BassBoost when the device reports strength control, upper-band treble adjustment, and attenuation-only preamp.
 - Clipping protection: positive curve peaks are offset by automatic headroom. Preamp is limited to `-12..0 dB`; Vimivo does not offer unsafe positive digital preamp gain.
 - Route handling: speaker, wired, Bluetooth, USB, and HDMI routes are identified from Android output devices. Effects are released and recreated when the audio session or reported route changes.
-- LibVLC: Vimivo disables its Android session effects. The current LibVLC integration does not expose a stable audio-session contract on which these effects can be guaranteed.
+- libmpv (Android fallback): Vimivo disables the Android session effects while this engine is active. libmpv's own audio filter chain (equalizer, compressor, normalization; same as desktop) is not wired into the Android engine yet and is a V1 item.
 - Playback speed: supported by both engines within their declared ranges. Pitch preservation is delegated to each engine and Android audio sink.
 - Sleep timer: durations, stop-after-current, cancellation, and an optional bounded fade before pause. Timers are process-local and do not unexpectedly restart playback after process death.
 - Lyrics: UTF-8 local LRC and plain text through SAF, multiple timestamps per line, synchronization, auto-advancing display, and tap-to-seek. The selected document permission is persisted when the provider allows it.

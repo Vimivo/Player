@@ -3,10 +3,11 @@
 Vimivo Multiplatform App Icon & Logo Generator
 Derives all official application icons from docs/brand/vimivo-icon-source.png:
 - iOS AppIcon (1024x1024, RGB no alpha, App Store compliant)
-- macOS icon.icns (Retina 16 to 1024 via iconutil)
+- macOS icon.icns (Retina 16 to 1024 via iconutil) from a macOS master on Apple's icon grid (rounded 824 px body on a
+  transparent 1024 px canvas, scripts/MacIconMaster.java), and the same shape as the macOS window/Dock icon
 - Desktop Compose Window icon (512x512)
 - Linux icons (512x512 and hicolor theme sizes 16 to 512)
-- Windows icon.ico (embedded PNGs at 16, 32, 48, 64, 128, 256)
+- Windows icon.ico (embedded PNGs at 16, 20, 24, 32, 40, 48, 64, 128, 256 — every size Windows shell surfaces request)
 - Android legacy mipmaps (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi)
 """
 
@@ -39,6 +40,12 @@ def generate_ios_icon():
     )
     resize_image(SOURCE_ICON, dst, 1024, 1024)
 
+def generate_macos_master(tmpdir):
+    """The full-bleed source shaped for macOS: rounded body, transparent margin, soft shadow."""
+    master = os.path.join(tmpdir, "macos-master.png")
+    run(f'java "{os.path.join(PROJECT_ROOT, "scripts", "MacIconMaster.java")}" "{SOURCE_ICON}" "{master}"')
+    return master
+
 def generate_macos_icns():
     print("==> Generating macOS icon.icns...")
     dst = os.path.join(
@@ -52,6 +59,7 @@ def generate_macos_icns():
     )
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     with tempfile.TemporaryDirectory() as tmpdir:
+        master = generate_macos_master(tmpdir)
         iconset = os.path.join(tmpdir, "vimivo.iconset")
         os.makedirs(iconset)
         specs = [
@@ -68,8 +76,10 @@ def generate_macos_icns():
         ]
         for name, w, h in specs:
             target = os.path.join(iconset, name)
-            resize_image(SOURCE_ICON, target, w, h)
+            resize_image(master, target, w, h)
         run(f'iconutil -c icns "{iconset}" -o "{dst}"')
+        # Window and Dock icon while running unpackaged (gradle run) uses the same macOS shape.
+        resize_image(master, os.path.join(os.path.dirname(dst), "icon.png"), 512, 512)
 
 def generate_desktop_window_icon():
     print("==> Generating Desktop Window icon...")
@@ -125,7 +135,7 @@ def generate_windows_ico():
         "icon.ico",
     )
     os.makedirs(os.path.dirname(dst), exist_ok=True)
-    sizes = [16, 32, 48, 64, 128, 256]
+    sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
     with tempfile.TemporaryDirectory() as tmpdir:
         blobs = []
         for s in sizes:

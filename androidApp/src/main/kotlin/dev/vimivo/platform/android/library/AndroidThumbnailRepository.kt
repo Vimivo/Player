@@ -25,6 +25,20 @@ class AndroidThumbnailRepository(private val context: Context) {
         cache[key] ?: loadBitmap(key).also { bitmap -> if (bitmap != null) cache.put(key, bitmap) }
     }
 
+    suspend fun loadFrameAt(uri: String, timeMillis: Long): Bitmap? = withContext(Dispatchers.IO) {
+        val key = "$uri@${timeMillis / 1000L}"
+        cache[key] ?: runCatching {
+            MediaMetadataRetriever().let { retriever ->
+                try {
+                    retriever.setDataSource(context, Uri.parse(uri))
+                    retriever.getFrameAtTime(timeMillis * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)?.bounded()
+                } finally {
+                    retriever.release()
+                }
+            }
+        }.getOrNull()?.also { cache.put(key, it) }
+    }
+
     suspend fun dominantColor(uri: String, artworkUri: String? = null): Int? {
         val key = artworkUri ?: uri
         paletteCache[key]?.let { return it }

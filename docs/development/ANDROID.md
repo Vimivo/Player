@@ -13,7 +13,7 @@ This guide details the Android architecture, toolchain requirements, permissions
 - **AGP Version**: 8.13
 - **Kotlin**: 2.2.0 with Kotlin Multiplatform integration
 - **UI Framework**: Jetpack Compose with Material 3 tokens
-- **Playback Engine**: AndroidX Media3 (`MediaSessionService`, `ExoPlayer`, `MediaController`) with LibVLC controlled fallback
+- **Playback Engine**: AndroidX Media3 (`MediaSessionService`, `ExoPlayer`, `MediaController`) with libmpv controlled fallback
 - **Persistence**: Room Database with SQLite, Android DataStore Preferences
 - **System Media Controls**: Lock Screen controls, Notification shade controls, Bluetooth AVRCP metadata synchronization, Android 13+ `POST_NOTIFICATIONS` runtime permission handling.
 

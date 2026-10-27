@@ -14,6 +14,7 @@ import dev.vimivo.settings.AppSettings
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.EqualizerBand
 import dev.vimivo.playback.EqualizerPreset
+import dev.vimivo.playback.ReplayGainMode
 import dev.vimivo.settings.AccentColor
 import dev.vimivo.settings.DecoderPreference
 import dev.vimivo.settings.HiddenMediaBehavior
@@ -42,7 +43,9 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             themeMode = preferences[Keys.theme]
                 ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: ThemeMode.SYSTEM,
-            preferredEngine = preferences[Keys.engine]?.let { runCatching { PreferredEngine.valueOf(it) }.getOrNull() }
+            // "LIBVLC" was stored before libmpv replaced LibVLC as the fallback engine (ADR-005).
+            preferredEngine = preferences[Keys.engine]
+                ?.let { runCatching { PreferredEngine.valueOf(it.replace("LIBVLC", "LIBMPV")) }.getOrNull() }
                 ?: PreferredEngine.AUTOMATIC,
             resumePlayback = preferences[Keys.resume] ?: true,
             dynamicColor = preferences[Keys.dynamicColor] ?: true,
@@ -77,6 +80,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
                 bassStrength = preferences[Keys.bassStrength] ?: 0f,
                 trebleGainDb = preferences[Keys.trebleGain] ?: 0f,
                 preampDb = preferences[Keys.preamp] ?: 0f,
+                replayGainMode = preferences.enum(Keys.replayGain, ReplayGainMode.OFF),
             ),
             audioVisualizerEnabled = preferences[Keys.audioVisualizer] ?: true,
             subtitleAppearance = SubtitleAppearance(
@@ -138,6 +142,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
             preferences[Keys.bassStrength] = updated.audioEnhancements.bassStrength
             preferences[Keys.trebleGain] = updated.audioEnhancements.trebleGainDb
             preferences[Keys.preamp] = updated.audioEnhancements.preampDb
+            preferences[Keys.replayGain] = updated.audioEnhancements.replayGainMode.name
             preferences[Keys.audioVisualizer] = updated.audioVisualizerEnabled
             preferences[Keys.subtitleTextSize] = updated.subtitleAppearance.textSizeSp
             preferences[Keys.subtitlePosition] = updated.subtitleAppearance.positionFraction
@@ -186,6 +191,7 @@ class AndroidSettingsRepository(private val context: Context) : SettingsReposito
         val bassStrength = floatPreferencesKey("audio_bass_strength")
         val trebleGain = floatPreferencesKey("audio_treble_gain")
         val preamp = floatPreferencesKey("audio_preamp")
+        val replayGain = stringPreferencesKey("audio_replay_gain")
         val audioVisualizer = booleanPreferencesKey("audio_visualizer")
         val subtitleTextSize = floatPreferencesKey("subtitle_text_size_sp")
         val subtitlePosition = floatPreferencesKey("subtitle_position_fraction")

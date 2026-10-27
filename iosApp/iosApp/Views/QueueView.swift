@@ -44,15 +44,15 @@ public struct QueueView: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        engine.currentIndex = index
                         engine.play(item: item)
                     }
+                    .deleteDisabled(index == engine.currentIndex)
                 }
                 .onMove { indices, newOffset in
-                    engine.queue.move(fromOffsets: indices, toOffset: newOffset)
+                    engine.moveInQueue(fromOffsets: indices, toOffset: newOffset)
                 }
                 .onDelete { indices in
-                    engine.queue.remove(atOffsets: indices)
+                    engine.removeFromQueue(atOffsets: indices)
                 }
             }
             .listStyle(.plain)

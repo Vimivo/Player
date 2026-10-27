@@ -45,7 +45,7 @@ Vimivo links and redistributes native multimedia libraries with pinned versions 
 | **libplacebo** | `6.338.0` | LGPL v2.1+ | Embedded inside libmpv | High-performance GPU shader rendering |
 | **libass** | `0.17.1` | ISC / MIT | Embedded inside libmpv | Vector subtitle font rendering |
 | **Android Media3** | `1.11.1` | Apache 2.0 | Android APK / AAB | ProGuard / R8 keep rules verified |
-| **Android LibVLC** | `3.7.7` | LGPL v2.1+ | Android APK / AAB (Fallback) | JNI bindings with ABI filters (`arm64-v8a`, `armeabi-v7a`, `x86_64`) |
+| **Android libmpv/FFmpeg** | `0.41.0` / `9.0.2` | LGPL v2.1+ | Android APK / AAB (Fallback) | Own JNI bridge, `lib*.so` per ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`) |
 | **SQLite JDBC** | `3.45.1.0` | Apache 2.0 | Desktop (macOS, Windows, Linux) | Bundled platform SQLite dynamic libraries |
 
 ### 2.1 Dynamic Library Relocation & Integrity

@@ -24,7 +24,7 @@ class DesktopDatabaseMigrationTest {
             database.transaction { conn ->
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(6, rs.getInt(1), "Fresh database must initialize to schema version 6")
+                    assertEquals(DesktopDatabase.SCHEMA_VERSION, rs.getInt(1), "Fresh database must initialize to the latest schema")
                 }
             }
         }
@@ -67,7 +67,7 @@ class DesktopDatabaseMigrationTest {
                 // Check schema version
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(6, rs.getInt(1))
+                    assertEquals(DesktopDatabase.SCHEMA_VERSION, rs.getInt(1))
                 }
 
                 // Verify original data is intact
@@ -151,7 +151,7 @@ class DesktopDatabaseMigrationTest {
                 // Schema version should now be 6
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(6, rs.getInt(1))
+                    assertEquals(DesktopDatabase.SCHEMA_VERSION, rs.getInt(1))
                 }
 
                 // Verify metadata title column added by v3 migration exists
@@ -215,7 +215,7 @@ class DesktopDatabaseMigrationTest {
             database.transaction { conn ->
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(6, rs.getInt(1))
+                    assertEquals(DesktopDatabase.SCHEMA_VERSION, rs.getInt(1))
                 }
 
                 // Verify queue tables exist and cascade delete when media is removed
@@ -280,7 +280,7 @@ class DesktopDatabaseMigrationTest {
             database.transaction { conn ->
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(6, rs.getInt(1), "Database must be migrated to schema version 6")
+                    assertEquals(DesktopDatabase.SCHEMA_VERSION, rs.getInt(1), "Database must be migrated to the latest schema")
                 }
 
                 // Verify indexes created in v5
@@ -347,7 +347,7 @@ class DesktopDatabaseMigrationTest {
             database.transaction { conn ->
                 conn.createStatement().executeQuery("SELECT version FROM schema_version").use { rs ->
                     assertTrue(rs.next())
-                    assertEquals(6, rs.getInt(1), "Schema version must be 6 after migration")
+                    assertEquals(DesktopDatabase.SCHEMA_VERSION, rs.getInt(1), "Schema version must be the latest after migration")
                 }
 
                 // Verify original data intact
@@ -382,7 +382,7 @@ class DesktopDatabaseMigrationTest {
         DriverManager.getConnection("jdbc:sqlite:${dbPath.toAbsolutePath()}").use { conn ->
             conn.createStatement().use { stmt ->
                 stmt.execute("CREATE TABLE schema_version (version INTEGER NOT NULL)")
-                stmt.execute("INSERT INTO schema_version(version) VALUES (7)")
+                stmt.execute("INSERT INTO schema_version(version) VALUES (${DesktopDatabase.SCHEMA_VERSION + 1})")
             }
         }
 
@@ -417,6 +417,40 @@ class DesktopDatabaseMigrationTest {
                 conn.createStatement().executeQuery("SELECT value FROM settings WHERE key = 'key1'").use { rs ->
                     assertTrue(rs.next())
                     assertEquals("value1", rs.getString(1), "Key1 must be retained")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun migratesVersionSixToSevenKeepingDataAndAddingExternalPositions() {
+        val dbPath = Files.createTempDirectory("vimivo-v7").resolve("vimivo.sqlite")
+        // Build a genuine v6 database: current schema minus the v7 table, with user data in it.
+        DesktopDatabase.open(dbPath).use { database ->
+            database.transaction { conn ->
+                conn.createStatement().use { stmt ->
+                    stmt.execute("DROP TABLE external_playback_positions")
+                    stmt.execute("UPDATE schema_version SET version=6")
+                    stmt.execute("INSERT INTO playlists(id, name, created_at_ms, updated_at_ms) VALUES ('p-1', 'Road trip', 1, 1)")
+                }
+            }
+        }
+
+        DesktopDatabase.open(dbPath).use { database ->
+            database.transaction { conn ->
+                conn.createStatement().use { stmt ->
+                    stmt.executeQuery("SELECT version FROM schema_version").use { rs ->
+                        assertTrue(rs.next())
+                        assertEquals(8, rs.getInt(1))
+                    }
+                    stmt.executeQuery("SELECT name FROM playlists WHERE id = 'p-1'").use { rs ->
+                        assertTrue(rs.next())
+                        assertEquals("Road trip", rs.getString(1))
+                    }
+                    stmt.execute(
+                        "INSERT INTO external_playback_positions(uri, position_ms, duration_ms, completed, updated_at_ms) " +
+                            "VALUES ('file:///Movies/a.mkv', 42000, 600000, 0, 2)",
+                    )
                 }
             }
         }

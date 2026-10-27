@@ -31,6 +31,21 @@ public struct MainTabView: View {
             }
         }
         .onChange(of: router.playerRequest) { _ in expandNowPlaying() }
+        .overlay(alignment: .top) {
+            if let skipped = engine.skippedItemTitle {
+                Text("Skipped: \(skipped) (could not be played)")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.top, 8)
+                    .accessibilityAddTraits(.updatesFrequently)
+                    .task(id: skipped) {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        engine.skippedItemTitle = nil
+                    }
+            }
+        }
     }
 
     /// Starts a video queue and opens the full-screen player; the engine resumes where the viewer left off.

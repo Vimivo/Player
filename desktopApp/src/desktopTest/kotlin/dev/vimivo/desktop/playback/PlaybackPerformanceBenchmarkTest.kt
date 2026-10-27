@@ -2,6 +2,7 @@
 
 package dev.vimivo.desktop.playback
 
+import dev.vimivo.desktop.performance.PerformanceBudget
 import dev.vimivo.playback.ColorTransfer
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.PlaybackDiagnosticsSnapshot
@@ -34,7 +35,7 @@ class PlaybackPerformanceBenchmarkTest {
                 }
             }
             val avgMs = elapsed / 20.0
-            assertTrue(avgMs < 10.0, "Average probe sniffing time ($avgMs ms) should be well under 10ms")
+            PerformanceBudget.check("Average probe sniffing", avgMs, 10.0)
         } finally {
             flacFile.delete()
         }

@@ -88,6 +88,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -103,7 +104,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -121,6 +124,7 @@ import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.QueueRepeatMode
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
+import kotlin.math.roundToInt
 
 // Destination Enum with Icon mappings
 internal enum class DesktopDestination(
@@ -714,6 +718,7 @@ internal fun DesktopPlaybackErrorCard(
 internal fun DesktopHomeScreenView(
     state: DesktopLibraryUiState,
     onPlay: (MediaItem) -> Unit,
+    onPlayFrom: (List<MediaItem>, Int) -> Unit = { items, index -> onPlay(items[index]) },
     onOpenFile: () -> Unit,
     onAddFolder: () -> Unit,
     onOpenStreamDialog: () -> Unit,
@@ -867,7 +872,10 @@ internal fun DesktopHomeScreenView(
                         Card(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { onPlay(media) },
+                                .clickable {
+                                    val recent = state.history.take(4).map { it.media }
+                                    onPlayFrom(recent, recent.indexOf(media))
+                                },
                             shape = RoundedCornerShape(10.dp),
                             colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLow),
                         ) {
@@ -1049,6 +1057,7 @@ internal fun DesktopPlaybackBarView(
     onSeek: (Long) -> Unit,
     onSetVolume: (Float) -> Unit,
     onSetSpeed: (Float) -> Unit,
+    maxVolume: Float = 1f,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     onToggleFavorite: (MediaItem) -> Unit,
@@ -1312,17 +1321,29 @@ internal fun DesktopPlaybackBarView(
                         )
                     }
 
+                    // Above 100% the track switches to the warning colour so amplification is never a surprise.
+                    val boosted = state.volume > 1f
+                    val volumeTint = if (boosted) colors.error else colors.primary
                     Slider(
                         value = state.volume,
                         onValueChange = onSetVolume,
-                        valueRange = 0f..1f,
-                        modifier = Modifier.width(70.dp).height(20.dp),
+                        valueRange = 0f..maxVolume,
+                        colors = SliderDefaults.colors(thumbColor = volumeTint, activeTrackColor = volumeTint),
+                        modifier = Modifier.width(96.dp).height(20.dp)
+                            .semantics { stateDescription = "Volume ${(state.volume * 100).roundToInt()} percent" },
+                    )
+                    Text(
+                        text = "${(state.volume * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                        color = if (boosted) colors.error else colors.onSurfaceVariant,
+                        modifier = Modifier.width(36.dp),
+                        textAlign = TextAlign.End,
                     )
 
                     Spacer(Modifier.width(6.dp))
 
                     // Speed button
-                    val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+                    val speeds = dev.vimivo.playback.PlaybackSpeeds.PRESETS
                     Surface(
                         onClick = {
                             val nextIdx = (speeds.indexOfFirst { kotlin.math.abs(it - state.speed) < 0.05f } + 1) % speeds.size

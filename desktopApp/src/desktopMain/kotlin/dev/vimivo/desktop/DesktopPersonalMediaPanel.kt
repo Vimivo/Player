@@ -54,7 +54,7 @@ internal fun DesktopPlaylistsPanel(
     onShufflePlay: ((String) -> Unit)? = null,
     onPlayNext: ((String) -> Unit)? = null,
     onAddToQueue: ((String) -> Unit)? = null,
-    onPlayMedia: ((MediaItem) -> Unit)? = null,
+    onPlayMedia: ((List<MediaItem>, Int) -> Unit)? = null,
     onPlayMediaNext: ((MediaItem) -> Unit)? = null,
     onAddMediaToQueue: ((MediaItem) -> Unit)? = null,
     onExportM3u: ((String, java.io.File) -> Unit)? = null,
@@ -107,7 +107,10 @@ internal fun DesktopPlaylistsPanel(
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(media?.title ?: "Unavailable media", modifier = Modifier.weight(1f))
                             if (media != null && onPlayMedia != null) {
-                                OutlinedButton(onClick = { onPlayMedia(media) }) { Text("Play") }
+                                OutlinedButton(onClick = {
+                                    val playlistMedia = playlist.items.mapNotNull(mediaById::get)
+                                    onPlayMedia(playlistMedia, playlistMedia.indexOf(media))
+                                }) { Text("Play") }
                             }
                             if (media != null && onPlayMediaNext != null) {
                                 OutlinedButton(onClick = { onPlayMediaNext(media) }) { Text("Next") }
@@ -151,7 +154,7 @@ internal fun DesktopPlaylistsPanel(
 @Composable
 internal fun DesktopFavoritesPanel(
     items: List<MediaItem>,
-    onPlay: (MediaItem) -> Unit,
+    onPlay: (List<MediaItem>, Int) -> Unit,
     onPlayNext: ((MediaItem) -> Unit)? = null,
     onAddToQueue: ((MediaItem) -> Unit)? = null,
     onToggle: (MediaItem) -> Unit,
@@ -163,7 +166,7 @@ internal fun DesktopFavoritesPanel(
 @Composable
 internal fun DesktopHistoryPanel(
     items: List<DesktopHistoryItem>,
-    onPlay: (MediaItem) -> Unit,
+    onPlay: (List<MediaItem>, Int) -> Unit,
     onPlayNext: ((MediaItem) -> Unit)? = null,
     onAddToQueue: ((MediaItem) -> Unit)? = null,
     onRemove: (MediaId) -> Unit,
@@ -181,7 +184,9 @@ internal fun DesktopHistoryPanel(
                         Text(item.media.title, style = MaterialTheme.typography.titleMedium)
                         Text("Played ${item.history.playCount} time(s) · ${formatPersonalTime(item.history.positionMillis)}")
                     }
-                    Button(onClick = { onPlay(item.media) }) { Text(if (item.history.completed) "Play" else "Resume") }
+                    Button(onClick = { onPlay(items.map { it.media }, items.indexOf(item)) }) {
+                        Text(if (item.history.completed) "Play" else "Resume")
+                    }
                     if (onPlayNext != null) OutlinedButton(onClick = { onPlayNext(item.media) }) { Text("Next") }
                     if (onAddToQueue != null) OutlinedButton(onClick = { onAddToQueue(item.media) }) { Text("+ Queue") }
                     OutlinedButton(onClick = { onRemove(item.media.id) }) { Text("Remove") }
@@ -219,7 +224,12 @@ internal fun DesktopBookmarksPanel(
     }
     matching.forEach { bookmark ->
         var editedLabel by remember(bookmark.id, bookmark.name) { mutableStateOf(bookmark.name) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            DesktopArtwork(media.artworkUri, bookmark.name, size = 36.dp)
             OutlinedTextField(editedLabel, { editedLabel = it }, modifier = Modifier.weight(1f), singleLine = true)
             OutlinedButton(onClick = { onRename(bookmark.id, editedLabel) }) { Text("Rename") }
             OutlinedButton(onClick = { onSeek(bookmark.positionMillis) }) {
@@ -314,7 +324,7 @@ internal fun DesktopQueuePanel(
 @Composable
 private fun MediaActionList(
     items: List<MediaItem>,
-    onPlay: (MediaItem) -> Unit,
+    onPlay: (List<MediaItem>, Int) -> Unit,
     onPlayNext: ((MediaItem) -> Unit)? = null,
     onAddToQueue: ((MediaItem) -> Unit)? = null,
     action: @Composable (MediaItem) -> Unit,
@@ -328,7 +338,7 @@ private fun MediaActionList(
                         Text(media.title, style = MaterialTheme.typography.titleMedium)
                         Text(listOfNotNull(media.artist, media.album, media.fileName).joinToString(" · "))
                     }
-                    Button(onClick = { onPlay(media) }) { Text("Play") }
+                    Button(onClick = { onPlay(items, items.indexOf(media)) }) { Text("Play") }
                     if (onPlayNext != null) OutlinedButton(onClick = { onPlayNext(media) }) { Text("Next") }
                     if (onAddToQueue != null) OutlinedButton(onClick = { onAddToQueue(media) }) { Text("+ Queue") }
                     action(media)

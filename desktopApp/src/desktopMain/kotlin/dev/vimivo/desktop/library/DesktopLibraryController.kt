@@ -38,14 +38,12 @@ import dev.vimivo.playback.PlaybackQueueSnapshot
 import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.ResumePolicy
-import dev.vimivo.playback.PlaybackStatus
-import dev.vimivo.playback.QueueItem
+import dev.vimivo.desktop.diagnostics.StartupTrace
 import dev.vimivo.settings.LibraryViewMode
 import dev.vimivo.settings.RepeatBehavior
 import dev.vimivo.settings.ShuffleBehavior
 import dev.vimivo.settings.ThemeMode
 import java.io.File
-import java.net.URI
 import java.nio.file.Path
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -102,11 +100,14 @@ internal data class DesktopHistoryItem(val media: MediaItem, val history: Playba
 
 internal class DesktopLibraryController(
     private val database: DesktopDatabase = DesktopDatabase.open(),
+    /** Shared with the player so both see the same resume positions, queue and history. */
+    private val playbackStore: DesktopPlaybackStore = DesktopPlaybackStore(database),
+    /** False when the database belongs to someone else (the app graph) and outlives this controller. */
+    private val closeDatabase: Boolean = true,
 ) : AutoCloseable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val repository = DesktopLibraryRepository(database)
     private val personalRepository = DesktopPersonalMediaRepository(database)
-    private val queueRepository = DesktopPlaybackQueueRepository(database)
     val metadataEditor = DesktopMetadataEditorService(database)
     val renameOrganizer = DesktopBatchRenameOrganizer(database)
     val missingMediaRelinker = DesktopMissingMediaRelinker(database)
@@ -130,9 +131,17 @@ internal class DesktopLibraryController(
     val state: StateFlow<DesktopLibraryUiState> = mutableState.asStateFlow()
 
     init {
+        StartupTrace.mark("library")
         scope.launch {
             repository.generation.collectLatest { refresh() }
         }
+        scope.launch {
+            playbackStore.changes.collect {
+                generationCache = null
+                refresh()
+            }
+        }
+        scope.launch { playbackStore.errors.collect(::report) }
     }
 
     fun setSearch(query: String) {
@@ -287,56 +296,18 @@ internal class DesktopLibraryController(
             personalRepository.clearSettings()
         }
     }
-    fun uiSetting(key: String): String? = personalRepository.setting(key)
-    fun setUiSetting(key: String, value: String) = mutatePersonalData {
-        personalRepository.putSetting(key, value)
-    }
+    fun uiSetting(key: String): String? = playbackStore.uiSetting(key)
+    fun setUiSetting(key: String, value: String) = scope.launch { playbackStore.setUiSetting(key, value) }
     fun addBookmark(mediaId: MediaId, positionMillis: Long, label: String?) =
-        mutatePersonalData { personalRepository.addBookmark(mediaId, positionMillis, label) }
-    fun renameBookmark(id: String, label: String) = mutatePersonalData { personalRepository.renameBookmark(id, label) }
+        scope.launch { playbackStore.addBookmark(mediaId, positionMillis, label) }
+    fun renameBookmark(id: String, label: String) = scope.launch { playbackStore.renameBookmark(id, label) }
     fun albumDetails(albumId: String): AlbumDetails? = repository.albumDetails(albumId)
     fun artistDetails(artistId: String): ArtistDetails? = repository.artistDetails(artistId)
-    fun deleteBookmark(id: String) = mutatePersonalData { personalRepository.deleteBookmark(id) }
+    fun deleteBookmark(id: String) = scope.launch { playbackStore.deleteBookmark(id) }
 
-    /**
-     * Persists indexed media only; transient file and network entries cannot be restored safely, so they are
-     * filtered while preserving occurrence identities, ordering, and the nearest active entry.
-     */
-    suspend fun saveQueue(snapshot: PlaybackQueueSnapshot): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            val indexed = queueRepository.indexedMediaIds(snapshot.playbackItems.map { it.media.id })
-            val persistable = snapshot.retainOnly { it.id in indexed }
-            if (persistable.playbackItems.isEmpty()) queueRepository.clear() else queueRepository.save(persistable)
-        }.onFailure(::report)
-    }
+    suspend fun saveQueue(snapshot: PlaybackQueueSnapshot): Result<Unit> = playbackStore.saveQueue(snapshot)
 
-    /**
-     * Restores a paused queue. Temporarily unavailable media (for example an unmounted drive) is kept and marked
-     * unavailable so the queue can skip it; media removed from the library is dropped. Corrupt state is discarded.
-     */
-    suspend fun restoredQueue(): PlaybackQueueSnapshot? = withContext(Dispatchers.IO) {
-        runCatching {
-            val stored = queueRepository.load() ?: return@runCatching null
-            val mediaById = repository.media(stored.items.map(StoredQueueItem::mediaId), includeUnavailable = true).associateBy { it.id }
-            val entries = stored.items.map { storedItem -> storedItem to mediaById[storedItem.mediaId] }
-            val queueItem = { pair: Pair<StoredQueueItem, MediaItem?> ->
-                QueueItem(pair.first.queueId, pair.second ?: MediaItem(pair.first.mediaId, "", "", MediaKind.AUDIO, isAvailable = false))
-            }
-            val snapshot = PlaybackQueueSnapshot(
-                sourceItems = entries.sortedBy { it.first.sourcePosition }.map(queueItem),
-                playbackItems = entries.sortedBy { it.first.playbackPosition }.map(queueItem),
-                currentQueueId = stored.currentQueueId,
-                shuffleEnabled = stored.shuffleEnabled,
-                repeatMode = stored.repeatMode,
-                sourceLabel = stored.sourceLabel,
-            ).retainOnly { it.id in mediaById }
-            snapshot.takeIf { it.playbackItems.isNotEmpty() }
-        }.getOrElse { error ->
-            report(IllegalStateException("The saved playback queue could not be restored and was discarded", error))
-            runCatching { queueRepository.clear() }
-            null
-        }
-    }
+    suspend fun restoredQueue(): PlaybackQueueSnapshot? = playbackStore.restoredQueue()
 
     suspend fun playlistMedia(playlistId: String): Result<List<MediaItem>> = withContext(Dispatchers.IO) {
         runCatching {
@@ -346,85 +317,9 @@ internal class DesktopLibraryController(
         }.onFailure(::report)
     }
 
-    suspend fun preparePlayback(media: MediaItem): Result<DesktopPlaybackRequest> = withContext(Dispatchers.IO) {
-        runCatching {
-            require(media.uri.startsWith("file:")) { "Only indexed local files can be opened from the library" }
-            require(File(URI(media.uri)).isFile) { "The indexed media file is unavailable" }
-            val resumeEnabled = personalRepository.setting("resume_playback")?.toBooleanStrictOrNull() ?: true
-            val pref = personalRepository.mediaPreference(media.id)
-            val pos = if (resumeEnabled && (pref?.resumeEligible != false)) {
-                resumePositionMillis(media, personalRepository.position(media.id))
-            } else {
-                0L
-            }
-            DesktopPlaybackRequest(media, pos)
-        }.onFailure(::report)
-    }
+    suspend fun preparePlayback(media: MediaItem): Result<DesktopPlaybackRequest> = playbackStore.preparePlayback(media)
 
-    suspend fun observePlayback(playback: StateFlow<PlaybackState>) {
-        var mediaId: String? = null
-        var persistable = false
-        var historyRecorded = false
-        var completionSaved = false
-        var lastSavedPosition = -PLAYBACK_SAVE_INTERVAL_MILLIS
-        var previousState: PlaybackState? = null
-        playback.collect { playbackState ->
-            val media = playbackState.media
-            if (media?.id?.value != mediaId) {
-                val leaving = previousState
-                val leavingMedia = leaving?.media
-                if (persistable && leavingMedia != null) {
-                    withContext(Dispatchers.IO) {
-                        personalRepository.savePosition(
-                            leavingMedia.id,
-                            leaving.positionMillis,
-                            leaving.durationMillis,
-                            leaving.status == PlaybackStatus.Completed,
-                        )
-                    }
-                }
-                mediaId = media?.id?.value
-                persistable = media != null && withContext(Dispatchers.IO) { personalRepository.containsMedia(media.id) }
-                historyRecorded = false
-                completionSaved = false
-                lastSavedPosition = -PLAYBACK_SAVE_INTERVAL_MILLIS
-            }
-            if (media == null || !persistable) {
-                previousState = playbackState
-                return@collect
-            }
-            if (playbackState.status == PlaybackStatus.Playing && !historyRecorded) {
-                withContext(Dispatchers.IO) {
-                    personalRepository.recordPlayback(media.id, playbackState.positionMillis, completed = false)
-                }
-                historyRecorded = true
-                refresh()
-            }
-            val completed = playbackState.status == PlaybackStatus.Completed
-            val shouldPersist = when {
-                completed && !completionSaved -> true
-                playbackState.status == PlaybackStatus.Paused -> playbackState.positionMillis != lastSavedPosition
-                playbackState.status == PlaybackStatus.Playing ->
-                    playbackState.positionMillis - lastSavedPosition >= PLAYBACK_SAVE_INTERVAL_MILLIS
-                else -> false
-            }
-            if (shouldPersist) {
-                withContext(Dispatchers.IO) {
-                    personalRepository.savePosition(
-                        media.id,
-                        playbackState.positionMillis,
-                        playbackState.durationMillis,
-                        completed,
-                    )
-                    if (completed) personalRepository.markPlaybackCompleted(media.id, playbackState.positionMillis)
-                }
-                lastSavedPosition = playbackState.positionMillis
-                completionSaved = completed
-                if (completed) refresh()
-            }
-            previousState = playbackState
-        }
-    }
+    suspend fun observePlayback(playback: StateFlow<PlaybackState>) = playbackStore.observePlayback(playback)
 
     private data class GenerationCache(
         val generation: Long,
@@ -739,12 +634,10 @@ internal class DesktopLibraryController(
 
     override fun close() {
         scope.cancel()
-        database.close()
+        if (closeDatabase) database.close()
     }
 
     companion object {
-        private const val PLAYBACK_SAVE_INTERVAL_MILLIS = 10_000L
-
         internal fun resumePositionMillis(media: MediaItem, saved: ResumePosition?): Long {
             if (saved == null) return 0
             return ResumePolicy.startPositionMillis(

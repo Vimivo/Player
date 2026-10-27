@@ -1,0 +1,5 @@
+VIMIVO_SMOKE PASS track2_lunar.mp3 position=1696ms videoTracks=1
+VIMIVO_SMOKE PASS colorbars.mp4 position=1666ms videoTracks=1 picture=[lit=0.66 colours=18 size=960x456]
+VIMIVO_SMOKE PASS colorbars.mp4#fullscreen-enter position=0ms videoTracks=1 picture=[lit=0.71 colours=19 size=1470x923]
+VIMIVO_SMOKE PASS colorbars.mp4#fullscreen-exit position=0ms videoTracks=1 picture=[lit=0.74 colours=18 size=1470x779]
+VIMIVO_SMOKE PASS colorbars.mp4#resize position=0ms videoTracks=1 picture=[lit=0.66 colours=18 size=720x336]

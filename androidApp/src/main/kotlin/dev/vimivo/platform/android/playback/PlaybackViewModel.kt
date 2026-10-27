@@ -21,17 +21,31 @@ import dev.vimivo.core.model.Bookmark
 import dev.vimivo.core.model.MediaId
 import dev.vimivo.domain.repository.MediaRepository
 import dev.vimivo.domain.repository.OrganizationRepository
+import dev.vimivo.core.lyrics.LyricsDocument
+import dev.vimivo.playback.ABRepeatRange
+import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.EngineCapabilities
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
+import dev.vimivo.playback.PlaybackSleepTimer
+import dev.vimivo.playback.SnapshotFormat
+import dev.vimivo.playback.SnapshotNaming
 import dev.vimivo.playback.TrackInfo
+import dev.vimivo.playback.VideoAdjustments
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import android.os.SystemClock
+import androidx.media3.common.C
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
+import dev.vimivo.playback.SeekController
 import java.util.UUID
 
 data class PlaybackUiState(
@@ -56,11 +70,15 @@ data class PlaybackUiState(
     val subtitleTracks: List<TrackInfo> = emptyList(),
     val externalSubtitleCandidates: List<ExternalSubtitle> = emptyList(),
     val trackErrorMessage: String? = null,
+    val snapshotMessage: String? = null,
     val bookmarks: List<Bookmark> = emptyList(),
     val lyrics: LyricsDocument? = null,
     val currentLyricIndex: Int = -1,
     val abRepeatStartMillis: Long? = null,
     val abRepeatEndMillis: Long? = null,
+    val videoCrop: VideoCrop? = null,
+    val videoColour: VideoAdjustments = VideoAdjustments(),
+    val decoderMode: dev.vimivo.playback.MobileDecoderMode = dev.vimivo.playback.MobileDecoderMode.HW,
 )
 
 class PlaybackViewModel(
@@ -69,8 +87,9 @@ class PlaybackViewModel(
     private val diagnostics: PlaybackDiagnostics,
     private val subtitles: AndroidSubtitleRepository,
     private val organization: OrganizationRepository,
-    private val sleepTimer: SleepTimerController,
+    private val sleepTimer: PlaybackSleepTimer,
     private val lyricsRepository: LyricsRepository,
+    private val snapshots: AndroidSnapshotStore,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(PlaybackUiState())
     private var player: Player? = null
@@ -78,8 +97,18 @@ class PlaybackViewModel(
     private var detectedSubtitleMediaId: String? = null
     private var bookmarkMediaId: String? = null
     private var lyricMediaId: String? = null
+    private var currentMediaId: String? = null
     private var bookmarkJob: Job? = null
-    private var abRepeatJob: Job? = null
+
+    val seek = SeekController(
+        sink = { positionMillis, exact ->
+            val p = player ?: return@SeekController
+            (p as? ExoPlayer)?.setSeekParameters(
+                if (exact) SeekParameters.EXACT else SeekParameters.CLOSEST_SYNC,
+            )
+            p.seekTo(positionMillis)
+        },
+    )
     val state: StateFlow<PlaybackUiState> = mutableState.asStateFlow()
     val sleepTimerState = sleepTimer.state
     val audioEnhancementState = diagnostics.audio
@@ -122,8 +151,29 @@ class PlaybackViewModel(
                     audioTracks = engineState.audioTracks,
                     videoTracks = engineState.videoTracks,
                     subtitleTracks = engineState.subtitleTracks,
+                    decoderMode = resolveDecoderMode(engineState.engine, currentMediaId),
                 )
             }
+        }
+    }
+
+    private fun resolveDecoderMode(engine: EngineId?, uri: String?): dev.vimivo.playback.MobileDecoderMode {
+        if (uri != null) {
+            dev.vimivo.playback.InMemoryDecoderPreferenceStore.shared.getDecoderForMedia(uri)?.let { return it }
+        }
+        return if (engine == EngineId.MPV) dev.vimivo.playback.MobileDecoderMode.HW_PLUS else dev.vimivo.playback.MobileDecoderMode.HW
+    }
+
+    fun setDecoderMode(mode: dev.vimivo.playback.MobileDecoderMode) {
+        val currentUri = state.value.current?.mediaId ?: return
+        dev.vimivo.playback.InMemoryDecoderPreferenceStore.shared.setDecoderForMedia(currentUri, mode)
+        mutableState.update { it.copy(decoderMode = mode) }
+        val currentPos = state.value.positionMillis
+        val wasPlaying = state.value.isPlaying
+        viewModelScope.launch {
+            val p = player ?: return@launch
+            p.seekTo(currentPos)
+            if (wasPlaying) p.play()
         }
     }
 
@@ -140,11 +190,25 @@ class PlaybackViewModel(
     fun stop() = player?.stop()
     fun next() = player?.seekToNext()
     fun previous() = player?.seekToPrevious()
-    fun seekTo(positionMillis: Long) = player?.seekTo(positionMillis)
+    fun seekTo(positionMillis: Long, exact: Boolean = true) {
+        seek.seekTo(positionMillis, SystemClock.elapsedRealtime())
+    }
+    fun seekBy(deltaMillis: Long) {
+        val current = seek.current.overrideMillis ?: player?.currentPosition ?: 0L
+        seek.seekBy(deltaMillis, current, SystemClock.elapsedRealtime())
+    }
     fun playQueueIndex(index: Int) = player?.seekToDefaultPosition(index)
     fun removeQueueItem(index: Int) = player?.removeMediaItem(index)
     fun moveQueueItem(from: Int, to: Int) = player?.moveMediaItem(from, to)
     fun toggleShuffle() { player?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }
+
+    /** Loop on repeats the current item; off returns to no repeat. */
+    fun toggleLoop() {
+        player?.let {
+            it.repeatMode = if (it.repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+        }
+    }
+
     fun cycleRepeat() {
         player?.let {
             it.repeatMode = when (it.repeatMode) {
@@ -156,6 +220,13 @@ class PlaybackViewModel(
     }
     fun setSpeed(speed: Float) { player?.setPlaybackSpeed(speed) }
     fun setVolume(volume: Float) { player?.volume = volume.coerceIn(0f, 1f) }
+
+    /** The software boost above the device volume (1 = none, up to 2 = 200 %), limited so it does not clip. */
+    val boost: Float get() = diagnostics.state.value.volume.coerceAtLeast(1f)
+
+    fun setBoost(multiplier: Float) {
+        diagnostics.setVolume(multiplier.coerceIn(1f, AndroidAudioEnhancementController.MAX_BOOST))
+    }
     fun setAbRepeatStart() {
         val position = state.value.positionMillis
         mutableState.value = state.value.copy(abRepeatStartMillis = position, abRepeatEndMillis = null)
@@ -168,17 +239,19 @@ class PlaybackViewModel(
             mutableState.value = state.value.copy(trackErrorMessage = "Choose an end point at least one second after A")
             return
         }
-        mutableState.value = state.value.copy(abRepeatEndMillis = end, trackErrorMessage = null)
-        observeAbRepeat()
+        val applied = diagnostics.setAbRepeat(ABRepeatRange(start, end, enabled = true))
+        mutableState.value = state.value.copy(
+            abRepeatEndMillis = end.takeIf { applied.isSuccess },
+            trackErrorMessage = applied.exceptionOrNull()?.message,
+        )
     }
 
     fun clearAbRepeat() {
-        abRepeatJob?.cancel()
-        abRepeatJob = null
+        diagnostics.setAbRepeat(ABRepeatRange())
         mutableState.value = state.value.copy(abRepeatStartMillis = null, abRepeatEndMillis = null)
     }
-    fun startSleepTimer(minutes: Int, fadeOutSeconds: Int = 0) = sleepTimer.schedule(minutes, fadeOutSeconds)
-    fun stopAfterCurrent(fadeOutSeconds: Int = 0) = sleepTimer.afterCurrent(fadeOutSeconds)
+    fun startSleepTimer(minutes: Int) = sleepTimer.start(minutes)
+    fun stopAfterCurrent() = sleepTimer.afterCurrent()
     fun cancelSleepTimer() = sleepTimer.cancel()
     fun loadLyrics(uri: android.net.Uri) {
         viewModelScope.launch {
@@ -212,6 +285,58 @@ class PlaybackViewModel(
     }
     fun loadExternalSubtitle(subtitle: ExternalSubtitle) = reportTrackResult(diagnostics.addExternalSubtitle(subtitle))
     fun clearTrackError() { mutableState.value = state.value.copy(trackErrorMessage = null) }
+
+    /** Steps one frame while paused; the engine decides how (exact seek on Media3, `frame-step` on libmpv). */
+    fun stepFrame(forward: Boolean) = reportTrackResult(diagnostics.frameStep(forward))
+
+    /** Saves the frame on screen as a PNG in Pictures/Vimivo and says where it went (or why it could not). */
+    fun saveSnapshot() {
+        val title = state.value.current?.mediaMetadata?.title?.toString()
+        val position = state.value.positionMillis
+        viewModelScope.launch {
+            val name = SnapshotNaming.fileName(title, position, System.currentTimeMillis(), SnapshotFormat.PNG)
+            val saved = diagnostics.captureFrame().mapCatching { bitmap ->
+                snapshots.save(bitmap, name, SnapshotFormat.PNG).getOrThrow()
+            }
+            mutableState.value = state.value.copy(
+                trackErrorMessage = saved.exceptionOrNull()?.message,
+                snapshotMessage = saved.getOrNull()?.let { "Snapshot saved to Pictures/Vimivo" },
+            )
+        }
+    }
+
+    /** Applies brightness, contrast, saturation and hue (-100..100 each); a default [VideoAdjustments] resets them. */
+    fun setVideoColour(adjustments: VideoAdjustments) {
+        val applied = diagnostics.applyVideoAdjustments(adjustments)
+        mutableState.value = state.value.copy(
+            videoColour = if (applied.isSuccess) adjustments else state.value.videoColour,
+            trackErrorMessage = applied.exceptionOrNull()?.message,
+        )
+    }
+
+    /** Crops the picture to a ratio or to its content; needs a frame on screen to measure. [CropPreset.NONE] resets. */
+    fun selectCrop(preset: CropPreset) {
+        if (preset == CropPreset.NONE) {
+            mutableState.value = state.value.copy(videoCrop = null)
+            return
+        }
+        viewModelScope.launch {
+            val result = diagnostics.captureFrame().map { frame ->
+                try {
+                    withContext(Dispatchers.Default) { VideoCropping.crop(preset, frame) }
+                } finally {
+                    frame.recycle()
+                }
+            }
+            val crop = result.getOrNull()
+            mutableState.value = state.value.copy(
+                videoCrop = crop?.takeIf { it.rect != null },
+                trackErrorMessage = result.exceptionOrNull()?.message
+                    ?: if (crop?.rect == null) "No black bars or crop to apply" else null,
+            )
+        }
+    }
+
     fun toggleFavorite() {
         val id = state.value.current?.mediaId ?: return
         val favorite = !state.value.isFavorite
@@ -272,15 +397,16 @@ class PlaybackViewModel(
             subtitleTracks = previous.subtitleTracks,
             externalSubtitleCandidates = previous.externalSubtitleCandidates,
             trackErrorMessage = previous.trackErrorMessage,
+            snapshotMessage = previous.snapshotMessage,
             bookmarks = previous.bookmarks,
             lyrics = previous.lyrics.takeIf { previous.current?.mediaId == player.currentMediaItem?.mediaId },
             currentLyricIndex = previous.lyrics.takeIf {
                 previous.current?.mediaId == player.currentMediaItem?.mediaId
-            }?.lines?.indexOfLast {
-                it.timeMillis != null && it.timeMillis <= player.currentPosition
-            } ?: -1,
+            }?.findActiveLineIndex(player.currentPosition) ?: -1,
             abRepeatStartMillis = previous.abRepeatStartMillis,
             abRepeatEndMillis = previous.abRepeatEndMillis,
+            videoCrop = previous.videoCrop,
+            videoColour = previous.videoColour,
         )
         val id = player.currentMediaItem?.mediaId
         if (id != bookmarkMediaId) {
@@ -309,6 +435,19 @@ class PlaybackViewModel(
                 }
             }
         }
+        val currentId = player.currentMediaItem?.mediaId
+        if (currentId != currentMediaId) {
+            currentMediaId = currentId
+            seek.reset()
+        }
+        val isSeeking = player.playbackState == Player.STATE_BUFFERING
+        seek.onEngineReport(
+            positionMillis = player.currentPosition.coerceAtLeast(0),
+            durationMillis = player.duration.takeIf { it != C.TIME_UNSET && it > 0 },
+            isSeekable = player.isCurrentMediaItemSeekable,
+            isSeeking = isSeeking,
+            nowMillis = SystemClock.elapsedRealtime(),
+        )
         if (id != lyricMediaId) {
             lyricMediaId = id
             val uri = player.currentMediaItem?.localConfiguration?.uri
@@ -346,26 +485,11 @@ class PlaybackViewModel(
 
     private fun diagnosticsCapabilities(engine: EngineId): EngineCapabilities = when (engine) {
         EngineId.MEDIA3 -> Media3PlayerEngine.CAPABILITIES
-        EngineId.LIBVLC -> LibVlcPlayerEngine.CAPABILITIES
-        EngineId.MPV -> error("MPV is not an Android playback engine")
-    }
-
-    private fun observeAbRepeat() {
-        abRepeatJob?.cancel()
-        abRepeatJob = viewModelScope.launch {
-            while (true) {
-                delay(100)
-                val playback = state.value
-                val start = playback.abRepeatStartMillis ?: break
-                val end = playback.abRepeatEndMillis ?: break
-                if (playback.isPlaying && playback.positionMillis >= end) seekTo(start)
-            }
-        }
+        EngineId.MPV -> LibmpvPlayerEngine.CAPABILITIES
     }
 
     override fun onCleared() {
         player?.removeListener(listener)
-        abRepeatJob?.cancel()
         bookmarkJob?.cancel()
     }
 

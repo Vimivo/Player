@@ -98,7 +98,7 @@ class LargeMediaLibraryBenchmarkTest {
             }
 
             println("Benchmark [$size items] - Insertion Time: ${insertTimeMs}ms")
-            assertTrue(insertTimeMs < 10_000, "Insertion of $size items took too long: ${insertTimeMs}ms")
+            PerformanceBudget.check("[$size] insertion", insertTimeMs, 10_000)
 
             // 2. Measure Library Browsing (Unfiltered media query)
             var mediaList: List<MediaItem>
@@ -106,7 +106,7 @@ class LargeMediaLibraryBenchmarkTest {
                 mediaList = repository.media(MediaKind.AUDIO, query = "")
             }
             println("Benchmark [$size items] - Unfiltered Media Query: ${browseTimeMs}ms (returned ${mediaList.size} items)")
-            assertTrue(browseTimeMs <= maxQueryMs, "Browsing query exceeded $maxQueryMs ms: ${browseTimeMs}ms")
+            PerformanceBudget.check("[$size] browse query", browseTimeMs, maxQueryMs)
             assertEquals(minOf(size, 500), mediaList.size)
 
             // 3. Measure Targeted Search Query
@@ -115,7 +115,7 @@ class LargeMediaLibraryBenchmarkTest {
                 searchResults = repository.media(MediaKind.AUDIO, query = "Symphony")
             }
             println("Benchmark [$size items] - Search Query ('Symphony'): ${searchTimeMs}ms (returned ${searchResults.size} items)")
-            assertTrue(searchTimeMs <= maxQueryMs * 2, "Search query exceeded threshold: ${searchTimeMs}ms")
+            PerformanceBudget.check("[$size] search query", searchTimeMs, maxQueryMs * 2)
 
             // 4. Measure Album Aggregation
             var albums: List<dev.vimivo.core.model.AlbumItem>
@@ -123,7 +123,7 @@ class LargeMediaLibraryBenchmarkTest {
                 albums = repository.albums()
             }
             println("Benchmark [$size items] - Album Aggregation: ${albumTimeMs}ms (found ${albums.size} albums)")
-            assertTrue(albumTimeMs <= maxAlbumMs, "Album aggregation exceeded $maxAlbumMs ms: ${albumTimeMs}ms")
+            PerformanceBudget.check("[$size] album aggregation", albumTimeMs, maxAlbumMs)
 
             // 5. Measure Cached Album Details Lookup
             val sampleAlbum = albums.firstOrNull()
@@ -134,7 +134,7 @@ class LargeMediaLibraryBenchmarkTest {
                 assertTrue(details.tracks.isNotEmpty())
             }
             println("Benchmark [$size items] - Album Details: ${albumDetailMs}ms")
-            assertTrue(albumDetailMs <= 50, "Album details lookup must be under 50ms: ${albumDetailMs}ms")
+            PerformanceBudget.check("[$size] album details", albumDetailMs, 50)
 
             // 6. Measure Artist Aggregation
             var artists: List<dev.vimivo.core.model.ArtistItem>
@@ -142,7 +142,7 @@ class LargeMediaLibraryBenchmarkTest {
                 artists = repository.artists()
             }
             println("Benchmark [$size items] - Artist Aggregation: ${artistTimeMs}ms (found ${artists.size} artists)")
-            assertTrue(artistTimeMs <= maxAlbumMs, "Artist aggregation exceeded $maxAlbumMs ms: ${artistTimeMs}ms")
+            PerformanceBudget.check("[$size] artist aggregation", artistTimeMs, maxAlbumMs)
 
             // 7. Measure Queue Persistence & Restoration
             val sampleMedia = mediaList.take(minOf(size, 200))
@@ -160,7 +160,7 @@ class LargeMediaLibraryBenchmarkTest {
                 queueRepo.save(snapshot)
             }
             println("Benchmark [$size items] - Queue Save: ${queueSaveMs}ms")
-            assertTrue(queueSaveMs <= 100, "Queue save took too long: ${queueSaveMs}ms")
+            PerformanceBudget.check("[$size] queue save", queueSaveMs, 100)
 
             val queueLoadMs = measureTimeMillis {
                 val loaded = queueRepo.load()
@@ -168,7 +168,7 @@ class LargeMediaLibraryBenchmarkTest {
                 assertEquals(queueItems.size, loaded.items.size)
             }
             println("Benchmark [$size items] - Queue Load: ${queueLoadMs}ms")
-            assertTrue(queueLoadMs <= 50, "Queue load took too long: ${queueLoadMs}ms")
+            PerformanceBudget.check("[$size] queue load", queueLoadMs, 50)
 
             // 8. Database Size on Disk
             val fileSize = Files.size(dbPath)

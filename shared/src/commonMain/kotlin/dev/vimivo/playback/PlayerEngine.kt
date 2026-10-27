@@ -5,7 +5,7 @@ package dev.vimivo.playback
 import dev.vimivo.core.model.MediaItem
 import kotlinx.coroutines.flow.StateFlow
 
-enum class EngineId { MEDIA3, LIBVLC, MPV }
+enum class EngineId { MEDIA3, MPV }
 enum class TrackType { AUDIO, VIDEO, SUBTITLE }
 enum class TrackOrigin { EMBEDDED, EXTERNAL }
 enum class SupportLevel { PREFERRED, FALLBACK, UNSUPPORTED }
@@ -47,19 +47,23 @@ data class ABRepeatRange(
     val enabled: Boolean = false,
 )
 
+/** One end of an A–B region, for dragging it on the timeline. */
+enum class ABRepeatEnd { A, B }
+
 data class ChapterInfo(
     val index: Int,
     val title: String,
     val startPositionMillis: Long,
 )
 
-enum class VideoAspectRatio(val label: String, val value: String) {
-    ORIGINAL("Original", "-1"),
-    FIT("Fit", "0"),
-    FILL("Fill", "none"),
-    RATIO_16_9("16:9", "16:9"),
-    RATIO_4_3("4:3", "4:3"),
-    RATIO_21_9("21:9", "2.35:1"),
+/** Platform-neutral aspect presets; each engine maps them to its own controls. */
+enum class VideoAspectRatio(val label: String) {
+    ORIGINAL("Original"),
+    FIT("Fit"),
+    FILL("Fill"),
+    RATIO_16_9("16:9"),
+    RATIO_4_3("4:3"),
+    RATIO_21_9("21:9"),
 }
 
 data class VideoAdjustments(
@@ -67,11 +71,25 @@ data class VideoAdjustments(
     val contrast: Int = 0,
     val saturation: Int = 0,
     val gamma: Int = 0,
+    val hue: Int = 0,
+    /** The crop applied to the picture, or null for none; [cropPreset] is the choice that produced it. */
+    val crop: CropRect? = null,
+    val cropPreset: CropPreset = CropPreset.NONE,
     val rotationDegrees: Int = 0,
     val zoom: Float = 0f,
     val panX: Float = 0f,
     val panY: Float = 0f,
     val aspectRatio: VideoAspectRatio = VideoAspectRatio.ORIGINAL,
+    val sharpen: Boolean = false,
+    val blur: Boolean = false,
+    val hflip: Boolean = false,
+    val vflip: Boolean = false,
+    val grain: Boolean = false,
+    val denoise: Boolean = false,
+    val colorThreshold: Boolean = false,
+    val negate: Boolean = false,
+    val vignette: Boolean = false,
+    val deband: Boolean = false,
 )
 
 data class SubtitleStyle(
@@ -79,6 +97,14 @@ data class SubtitleStyle(
     val textColorHex: String = "#FFFFFF",
     val backgroundColorHex: String? = null,
     val bottomMarginPercent: Int = 5,
+    val fontName: String? = null,
+    val outlineColorHex: String = "#000000",
+    val outlineSize: Float = 2f,
+    val shadowColorHex: String = "#000000",
+    val shadowOffset: Float = 1f,
+    val assOverride: String = "no",
+    val encoding: String = "auto",
+    val secondaryTrackId: String? = null,
 )
 
 data class AudioOutputDevice(
@@ -114,6 +140,8 @@ data class EngineCapabilities(
     val frameStepping: Boolean = false,
     val deinterlacing: Boolean = false,
     val supportedSpeedRange: ClosedFloatingPointRange<Float> = PlaybackSpeeds.RANGE,
+    /** Highest volume the engine accepts; values above 1.0 amplify (e.g. 2.0 = 200%). */
+    val maxVolume: Float = PlaybackControlPolicy.UNITY_VOLUME,
     val audioEnhancements: AudioEnhancementCapabilities = AudioEnhancementCapabilities(
         limitation = "Audio enhancements are unavailable with this engine",
     ),
@@ -182,7 +210,14 @@ data class PlaybackState(
     val subtitleDelayMillis: Long = 0L,
     val audioDelayMillis: Long = 0L,
     val deinterlace: Boolean = false,
+    val deinterlaceMode: DeinterlaceMode = DeinterlaceMode.OFF,
     val sessionId: Long = 0L,
+    /**
+     * True from a seek request until the engine has landed on the new position (mpv `seeking`, Media3 until
+     * STATE_READY after the discontinuity, AVPlayer until the seek completion handler ran). [SeekController] holds the
+     * timeline at the target while this is true.
+     */
+    val isSeeking: Boolean = false,
 )
 
 interface PlayerEngine : AutoCloseable {
@@ -192,6 +227,16 @@ interface PlayerEngine : AutoCloseable {
     val audioEnhancementState: StateFlow<AudioEnhancementState>
 
     fun supportFor(media: MediaItem): SupportLevel
+
+    /**
+     * Tells the engine which item follows the current one so it can start it without a gap (null clears it). When the
+     * engine moves on by itself, [state] simply shows the prepared item as the current media, with no `Completed`
+     * state in between. Engines that cannot do this keep the default, a failure the caller treats as "not
+     * prepared": the queue then opens the next item itself once the current one completes.
+     */
+    fun prepareNext(media: MediaItem?): Result<Unit> =
+        Result.failure(UnsupportedOperationException("This engine cannot prepare the next item"))
+
     suspend fun open(media: MediaItem, startPositionMillis: Long = 0): Result<Unit>
     fun play(): Result<Unit>
     fun pause(): Result<Unit>
@@ -209,6 +254,14 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Subtitle delay is not supported"))
     fun setAudioDelay(delayMillis: Long): Result<Unit> =
         Result.failure(UnsupportedOperationException("Audio delay is not supported"))
+    fun setSecondarySubtitleDelay(delayMillis: Long): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Secondary subtitle delay is not supported"))
+    fun setSubtitleSpeed(speed: Float): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Subtitle speed is not supported"))
+    fun setSubtitleFps(fps: Float): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Subtitle FPS is not supported"))
+    fun syncSubtitleToNow(): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Subtitle sync to now is not supported"))
     fun setAudioBalance(balance: Float): Result<Unit> =
         Result.failure(UnsupportedOperationException("Stereo balance adjustment is not supported"))
     fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> =
@@ -231,11 +284,18 @@ interface PlayerEngine : AutoCloseable {
     fun takeScreenshot(destinationFilePath: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("Video screenshot capture is not supported"))
 
+    /** Saves the current frame to [destinationFilePath] (the extension picks the format); V1 #16. */
+    fun takeSnapshot(destinationFilePath: String, options: SnapshotOptions): Result<Unit> =
+        takeScreenshot(destinationFilePath)
+
     /** Steps one decoded frame forward or backward; playback is left paused. */
     fun frameStep(forward: Boolean = true): Result<Unit> =
         Result.failure(UnsupportedOperationException("Frame stepping is not supported"))
     fun setDeinterlace(enabled: Boolean): Result<Unit> =
         Result.failure(UnsupportedOperationException("Deinterlacing is not supported"))
+
+    /** Selects a deinterlacing filter (V1 #13); engines without modes fall back to on/off. */
+    fun setDeinterlaceMode(mode: DeinterlaceMode): Result<Unit> = setDeinterlace(mode != DeinterlaceMode.OFF)
     fun getAudioOutputDevices(): List<AudioOutputDevice> = emptyList()
     fun selectAudioOutputDevice(deviceId: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("Audio output selection is not supported"))

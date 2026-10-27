@@ -1,0 +1,195 @@
+{
+  "comment": "Third-party code shipped inside the apps, other than the desktop media package (that comes from scripts/build_media/manifest.json). 'version' is a literal or 'toml:<key>' from gradle/libs.versions.toml. Regenerate with: python3 scripts/generate_notices.py",
+  "components": [
+    {
+      "name": "Kotlin standard library",
+      "version": "toml:kotlin",
+      "license": "Apache-2.0",
+      "url": "https://github.com/JetBrains/kotlin",
+      "platforms": [
+        "android",
+        "ios",
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "kotlinx.coroutines",
+      "version": "toml:coroutines",
+      "license": "Apache-2.0",
+      "url": "https://github.com/Kotlin/kotlinx.coroutines",
+      "platforms": [
+        "android",
+        "ios",
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "kotlinx.serialization",
+      "version": "toml:serialization",
+      "license": "Apache-2.0",
+      "url": "https://github.com/Kotlin/kotlinx.serialization",
+      "platforms": [
+        "android",
+        "ios",
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "Compose Multiplatform",
+      "version": "toml:compose",
+      "license": "Apache-2.0",
+      "url": "https://github.com/JetBrains/compose-multiplatform",
+      "platforms": [
+        "android",
+        "ios",
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "Navigation Compose",
+      "version": "toml:navigation",
+      "license": "Apache-2.0",
+      "url": "https://github.com/JetBrains/compose-multiplatform-core",
+      "platforms": [
+        "android",
+        "ios",
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "Haze",
+      "version": "toml:haze",
+      "license": "Apache-2.0",
+      "url": "https://github.com/chrisbanes/haze",
+      "platforms": [
+        "android",
+        "ios",
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "Koin",
+      "version": "toml:koin",
+      "license": "Apache-2.0",
+      "url": "https://github.com/InsertKoinIO/koin",
+      "platforms": [
+        "android",
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "AndroidX (Activity, Core, Lifecycle, DataStore, Room, DocumentFile, Compose)",
+      "version": "toml:coreKtx",
+      "license": "Apache-2.0",
+      "url": "https://github.com/androidx/androidx",
+      "platforms": [
+        "android"
+      ]
+    },
+    {
+      "name": "AndroidX Media3",
+      "version": "toml:media3",
+      "license": "Apache-2.0",
+      "url": "https://github.com/androidx/media",
+      "platforms": [
+        "android"
+      ]
+    },
+    {
+      "name": "Coil",
+      "version": "toml:coil",
+      "license": "Apache-2.0",
+      "url": "https://github.com/coil-kt/coil",
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "JNA",
+      "version": "toml:jna",
+      "license": "Apache-2.0 OR LGPL-2.1-or-later",
+      "url": "https://github.com/java-native-access/jna",
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "SQLite JDBC (includes SQLite, public domain)",
+      "version": "toml:sqliteJdbc",
+      "license": "Apache-2.0",
+      "url": "https://github.com/xerial/sqlite-jdbc",
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "jaudiotagger",
+      "version": "toml:jaudiotagger",
+      "license": "LGPL-2.1-or-later",
+      "url": "https://bitbucket.org/ijabz/jaudiotagger",
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "OpenJDK runtime (Eclipse Temurin)",
+      "version": "17",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0",
+      "url": "https://github.com/adoptium/jdk17u",
+      "platforms": [
+        "macos",
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "name": "GCC runtime (libgcc, libstdc++)",
+      "version": "mingw-w64 toolchain",
+      "license": "GPL-3.0-or-later WITH GCC-exception-3.1",
+      "url": "https://gcc.gnu.org/",
+      "platforms": [
+        "windows"
+      ]
+    },
+    {
+      "name": "mingw-w64 winpthreads",
+      "version": "mingw-w64 toolchain",
+      "license": "MIT AND BSD-3-Clause",
+      "url": "https://sourceforge.net/projects/mingw-w64/",
+      "platforms": [
+        "windows"
+      ]
+    },
+    {
+      "name": "LLVM libc++ (Android NDK runtime, in the media package)",
+      "version": "NDK r27b",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "url": "https://github.com/llvm/llvm-project",
+      "platforms": [
+        "android"
+      ]
+    }
+  ]
+}

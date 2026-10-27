@@ -21,31 +21,28 @@ import dev.vimivo.core.model.MediaKind
 import dev.vimivo.core.streaming.LiveLatencyMode
 import dev.vimivo.desktop.platform.DesktopPlatform
 import dev.vimivo.playback.ABRepeatRange
+import dev.vimivo.playback.AbRegionWatcher
 import dev.vimivo.playback.AudioEnhancementCapabilities
 import dev.vimivo.playback.AudioEnhancementSettings
 import dev.vimivo.playback.AudioEnhancementState
 import dev.vimivo.playback.AudioOutputDevice
 import dev.vimivo.playback.ChapterInfo
-import dev.vimivo.playback.ColorTransfer
-import dev.vimivo.playback.EngineCapabilities
+import dev.vimivo.playback.DeinterlaceMode
 import dev.vimivo.playback.EngineId
 import dev.vimivo.playback.ExternalSubtitle
 import dev.vimivo.playback.HardwareAccelerationMode
 import dev.vimivo.playback.PlaybackDiagnosticsSnapshot
-import dev.vimivo.playback.PlaybackError
-import dev.vimivo.playback.PlaybackErrorCode
 import dev.vimivo.playback.PlaybackMetadata
-import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.PlaybackStatus
 import dev.vimivo.playback.PlayerEngine
 import dev.vimivo.playback.ReplayGainMode
+import dev.vimivo.playback.SnapshotOptions
 import dev.vimivo.playback.SubtitleStyle
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.TrackInfo
-import dev.vimivo.playback.TrackOrigin
-import dev.vimivo.playback.TrackType
 import dev.vimivo.playback.VideoAdjustments
+import dev.vimivo.playback.VideoAspectRatio
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -70,7 +67,7 @@ import kotlin.time.TimeSource
 class MpvPlayerEngine : PlayerEngine {
     override val id = EngineId.MPV
     private val desktopPlatform = DesktopPlatform.detect()
-    override val capabilities = capabilitiesFor(desktopPlatform)
+    override val capabilities = MpvCapabilities.forPlatform(desktopPlatform)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutableState = MutableStateFlow(PlaybackState(engine = id))
     private val mutableAudio = MutableStateFlow(
@@ -82,10 +79,35 @@ class MpvPlayerEngine : PlayerEngine {
     private var renderer: DesktopVideoRenderer? = null
     private var videoSurface: Canvas? = null
     private var hwdecMode: HardwareAccelerationMode = HardwareAccelerationMode.AUTO
+    private val audioChain = MpvAudioChain { filter -> setProperty("af", filter) }
+
+    private val preparedNext = MpvPreparedNext(
+        clearPlaylist = { command("playlist-clear") },
+        append = { target -> command("loadfile", target, "append") },
+    )
+
+    private val trackReader = MpvTrackReader(::stringProperty)
+
+    /** Set when a track was selected or added, so the next poll refreshes the track lists. */
+    @Volatile private var trackListChanged = false
+
+    private val abWatcher = AbRegionWatcher(
+        scope,
+        positionMillis = { doubleProperty("time-pos")?.times(1_000)?.toLong() ?: 0L },
+        isPaused = { flagProperty("pause") ?: true },
+        seekTo = { millis -> command("seek", (millis / 1_000.0).toString(), "absolute+exact") },
+    )
     private var attemptedSoftwareFallback = false
+    private val rendererWatch = MpvRendererWatch()
     private var closed = false
     private var sessionGeneration = 0L
     private var userPaused = false
+
+    /** libmpv's latest fatal player message for the current file, until the next open. */
+    @Volatile private var fatalPlaybackText: String? = null
+
+    /** Set for local files; reloads them at the end while they are still growing. */
+    @Volatile private var growing: GrowingFileTracker? = null
     private var userStopped = false
     var liveLatencyMode: LiveLatencyMode = LiveLatencyMode.BALANCED
         private set
@@ -130,16 +152,20 @@ class MpvPlayerEngine : PlayerEngine {
         }
         userStopped = false
         userPaused = false
-        val previousDeinterlace = mutableState.value.deinterlace
+        abWatcher.stop()
+        preparedNext.clear()
+        val previousDeinterlace = mutableState.value.deinterlaceMode
         mutableState.value = PlaybackState(
             engine = id,
             media = media,
             status = PlaybackStatus.Preparing,
             metadata = PlaybackMetadata(media.title, media.artist, media.album, media.artworkUri),
+            volume = audioChain.requestedVolume,
             sessionId = currentSession,
         )
         // Published Preparing state lets the UI compose the video surface before the renderer needs it.
-        attachRendererIfPossible(media)
+        // Only video needs the renderer: if it cannot attach, audio still plays and video reports why.
+        runCatching { attachRendererIfPossible(media) }.onFailure { error -> if (media.kind == MediaKind.VIDEO) throw error }
         if (media.kind == MediaKind.STREAM) {
             applyLatencySettings(liveLatencyMode)
         }
@@ -148,17 +174,50 @@ class MpvPlayerEngine : PlayerEngine {
         } else {
             setProperty("start", "none")
         }
+        setProperty("sub-file-paths", MpvSubtitleFiles.foldersBeside(media).joinToString(File.pathSeparator))
         // A-B loop points and sync offsets are global mpv options; a new file must not inherit them.
         setProperty("ab-loop-a", "no")
         setProperty("ab-loop-b", "no")
         setProperty("sub-delay", "0")
         setProperty("audio-delay", "0")
         command("loadfile", mpvTarget(media.uri), "replace")
+        growing = GrowingFileTracker.forMedia(media)
+        fatalPlaybackText = null
         setProperty("pause", "yes")
-        setProperty("deinterlace", if (previousDeinterlace) "yes" else "no")
-        mutableState.update { it.copy(deinterlace = previousDeinterlace) }
+        // The deinterlacing filter outlives the file in libmpv's filter list; the state must say so.
+        mutableState.update { it.copy(deinterlace = previousDeinterlace != DeinterlaceMode.OFF, deinterlaceMode = previousDeinterlace) }
         startPolling(currentSession)
     }.onFailure(::publishFailure)
+
+    /** See [MpvPreparedNext]: the poll loop notices libmpv moving on (`playlist-pos`) and calls [adoptPreparedNext]. */
+    override fun prepareNext(media: MediaItem?): Result<Unit> = action {
+        require(media == null || supportFor(media) != SupportLevel.UNSUPPORTED) { "Unsupported desktop media URI" }
+        synchronized(nativeLock) { preparedNext.prepare(mutableState.value.media, media) }
+    }
+
+    /** libmpv moved to the prepared file on its own: publish it like [open] does and poll for it. */
+    private fun adoptPreparedNext(expectedSession: Long): Boolean {
+        val session = synchronized(nativeLock) {
+            if (sessionGeneration != expectedSession || closed) return false
+            ++sessionGeneration
+        }
+        val next = preparedNext.take() ?: return false
+        runCatching { command("playlist-remove", "0") }
+        abWatcher.stop()
+        growing = GrowingFileTracker.forMedia(next)
+        fatalPlaybackText = null
+        mutableState.value = PlaybackState(
+            engine = id,
+            media = next,
+            status = PlaybackStatus.Playing,
+            metadata = PlaybackMetadata(next.title, next.artist, next.album, next.artworkUri),
+            volume = audioChain.requestedVolume,
+            speed = mutableState.value.speed,
+            sessionId = session,
+        )
+        startPolling(session)
+        return true
+    }
 
     override fun play() = action {
         userStopped = false
@@ -179,6 +238,7 @@ class MpvPlayerEngine : PlayerEngine {
         userStopped = true
         userPaused = false
         sessionGeneration++
+        preparedNext.clear()
         polling?.cancel()
         if (context != null) {
             command("stop")
@@ -194,6 +254,8 @@ class MpvPlayerEngine : PlayerEngine {
         if (seekable) {
             val mode = if (exact) "absolute+exact" else "absolute+keyframes"
             command("seek", (positionMillis / 1_000.0).toString(), mode)
+            // Until the next poll reads mpv's own `seeking` flag, the seek is in flight.
+            mutableState.update { it.copy(isSeeking = true) }
         } else {
             setProperty("start", (positionMillis / 1_000.0).toString())
         }
@@ -203,13 +265,24 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("speed", speed.toString())
     }
     override fun setVolume(volume: Float) = action {
-        require(volume in 0f..1f)
-        setProperty("volume", (volume * 100).toString())
+        require(volume in 0f..capabilities.maxVolume) { "Volume must be between 0 and ${capabilities.maxVolume}" }
+        // Up to 100 % is mpv's own volume; above that the gain and a limiter go into the audio filter chain.
+        setProperty("volume", (volume.coerceAtMost(1f) * 100).toString())
+        audioChain.setVolume(volume)
+        mutableState.update { it.copy(volume = volume) }
     }
-    override fun selectAudioTrack(trackId: String?) = action { setProperty("aid", trackId ?: "no") }
-    override fun selectVideoTrack(trackId: String?) = action { setProperty("vid", trackId ?: "no") }
-    override fun selectSubtitleTrack(trackId: String?) = action { setProperty("sid", trackId ?: "no") }
-    override fun addExternalSubtitle(subtitle: ExternalSubtitle) = action { command("sub-add", mpvTarget(subtitle.uri), "select") }
+    override fun selectAudioTrack(trackId: String?) = trackAction { setProperty("aid", trackId ?: "no") }
+    override fun selectVideoTrack(trackId: String?) = trackAction { setProperty("vid", trackId ?: "no") }
+    override fun selectSubtitleTrack(trackId: String?) = trackAction { setProperty("sid", trackId ?: "no") }
+    override fun addExternalSubtitle(subtitle: ExternalSubtitle) = trackAction {
+        command("sub-add", mpvTarget(subtitle.uri), "select")
+    }
+
+    /** A track change: the poll loop rereads the track lists at once, so the UI shows it without waiting. */
+    private fun trackAction(block: () -> Unit) = action {
+        block()
+        trackListChanged = true
+    }
     override fun setSubtitleDelay(delayMillis: Long) = action {
         setProperty("sub-delay", (delayMillis / 1_000.0).toString())
         mutableState.update { it.copy(subtitleDelayMillis = delayMillis) }
@@ -225,9 +298,16 @@ class MpvPlayerEngine : PlayerEngine {
         command(if (forward) "frame-step" else "frame-back-step")
     }
 
-    override fun setDeinterlace(enabled: Boolean): Result<Unit> = action {
-        setProperty("deinterlace", if (enabled) "yes" else "no")
-        mutableState.update { it.copy(deinterlace = enabled) }
+    override fun setDeinterlace(enabled: Boolean): Result<Unit> =
+        setDeinterlaceMode(if (enabled) DeinterlaceMode.AUTO else DeinterlaceMode.OFF)
+
+    /** Replaces the labelled deinterlacing filter in libmpv's video filter chain (V1 #13). */
+    override fun setDeinterlaceMode(mode: DeinterlaceMode): Result<Unit> = action {
+        // Removing a filter that is not there is an error libmpv reports; nothing to undo in that case.
+        runCatching { command("vf", "remove", "@$DEINTERLACE_LABEL") }
+        mode.lavfiFilter?.let { command("vf", "add", "@$DEINTERLACE_LABEL:lavfi=[$it]") }
+        setProperty("deinterlace", "no")
+        mutableState.update { it.copy(deinterlace = mode != DeinterlaceMode.OFF, deinterlaceMode = mode) }
     }
 
     /** Container-level details for the media information dialog; null when nothing is loaded. */
@@ -248,6 +328,7 @@ class MpvPlayerEngine : PlayerEngine {
                 stringProperty("video-params/primaries"),
                 stringProperty("video-params/gamma"),
             ).joinToString(" · ").ifBlank { null },
+            rendering = rendererWatch.description(),
             audioParameters = listOfNotNull(
                 stringProperty("audio-params/format"),
                 stringProperty("audio-params/hr-channels") ?: stringProperty("audio-params/channels"),
@@ -272,15 +353,7 @@ class MpvPlayerEngine : PlayerEngine {
     }
 
     override fun setABRepeat(range: ABRepeatRange): Result<Unit> = action {
-        val a = range.pointA
-        val b = range.pointB
-        if (range.enabled && a != null && b != null) {
-            setProperty("ab-loop-a", (a / 1_000.0).toString())
-            setProperty("ab-loop-b", (b / 1_000.0).toString())
-        } else {
-            setProperty("ab-loop-a", "no")
-            setProperty("ab-loop-b", "no")
-        }
+        abWatcher.watch(range)
         mutableState.value = mutableState.value.copy(abRepeat = range)
     }
 
@@ -311,23 +384,96 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("contrast", adjustments.contrast.toString())
         setProperty("saturation", adjustments.saturation.toString())
         setProperty("gamma", adjustments.gamma.toString())
+        setProperty("hue", adjustments.hue.toString())
+        setProperty("video-crop", adjustments.crop?.toMpvValue().orEmpty())
         setProperty("video-rotate", adjustments.rotationDegrees.toString())
         setProperty("video-zoom", adjustments.zoom.toString())
         setProperty("video-pan-x", adjustments.panX.toString())
         setProperty("video-pan-y", adjustments.panY.toString())
-        setProperty("video-aspect-override", adjustments.aspectRatio.value)
+        setProperty("video-aspect-override", mpvAspectOverride(adjustments.aspectRatio))
+        // Fill crops the picture to cover the window; every other preset shows the whole picture.
+        setProperty("panscan", if (adjustments.aspectRatio == VideoAspectRatio.FILL) "1.0" else "0.0")
+
+        // LGPL Video filters (#15)
+        fun applyFilter(label: String, filter: String, enabled: Boolean) {
+            runCatching { command("vf", "remove", "@$label") }
+            if (enabled) {
+                command("vf", "add", "@$label:$filter")
+            }
+        }
+        applyFilter("vimivo-sharpen", "lavfi=[unsharp=5:5:1.0:5:5:0.0]", adjustments.sharpen)
+        applyFilter("vimivo-blur", "lavfi=[gblur=sigma=2]", adjustments.blur)
+        applyFilter("vimivo-hflip", "hflip", adjustments.hflip)
+        applyFilter("vimivo-vflip", "vflip", adjustments.vflip)
+        applyFilter("vimivo-grain", "lavfi=[noise=alls=20:allf=t+u]", adjustments.grain)
+        applyFilter("vimivo-denoise", "lavfi=[atadenoise]", adjustments.denoise)
+        applyFilter("vimivo-threshold", "lavfi=[edgedetect]", adjustments.colorThreshold)
+        applyFilter("vimivo-negate", "lavfi=[negate]", adjustments.negate)
+        applyFilter("vimivo-vignette", "lavfi=[vignette]", adjustments.vignette)
+        applyFilter("vimivo-deband", "lavfi=[deband]", adjustments.deband)
+
         mutableState.value = mutableState.value.copy(videoAdjustments = adjustments)
     }
 
     override fun applySubtitleStyle(style: SubtitleStyle): Result<Unit> = action {
         setProperty("sub-font-size", style.fontSizeSp.toString())
         setProperty("sub-color", style.textColorHex)
+        style.fontName?.takeIf { it.isNotBlank() }?.let { setProperty("sub-font", it) }
+        setProperty("sub-border-color", style.outlineColorHex)
+        setProperty("sub-border-size", style.outlineSize.toString())
+        setProperty("sub-shadow-color", style.shadowColorHex)
+        setProperty("sub-shadow-offset", style.shadowOffset.toString())
         style.backgroundColorHex?.let { setProperty("sub-back-color", it) }
         setProperty("sub-pos", (100 - style.bottomMarginPercent).coerceIn(0, 100).toString())
+        setProperty("sub-ass-override", style.assOverride)
+        if (style.encoding != "auto") {
+            setProperty("sub-codepage", style.encoding)
+        }
+        style.secondaryTrackId?.let { setProperty("secondary-sid", it) }
     }
 
-    override fun takeScreenshot(destinationFilePath: String): Result<Unit> = action {
-        command("screenshot-to-file", destinationFilePath, "video")
+    override fun setSecondarySubtitleDelay(delayMillis: Long): Result<Unit> = action {
+        setProperty("secondary-sub-delay", (delayMillis / 1000.0).toString())
+    }
+
+    override fun setSubtitleSpeed(speed: Float): Result<Unit> = action {
+        setProperty("sub-speed", speed.toString())
+    }
+
+    override fun setSubtitleFps(fps: Float): Result<Unit> = action {
+        setProperty("sub-fps", fps.toString())
+    }
+
+    override fun syncSubtitleToNow(): Result<Unit> = action {
+        val subStart = doubleProperty("sub-start")
+        val pos = doubleProperty("time-pos")
+        if (subStart != null && pos != null) {
+            val offset = pos - subStart
+            setProperty("sub-delay", offset.toString())
+        }
+    }
+
+    override fun takeScreenshot(destinationFilePath: String): Result<Unit> =
+        takeSnapshot(destinationFilePath, SnapshotOptions())
+
+    /** `screenshot-to-file`: "subtitles" burns the visible subtitles in, "video" is the bare picture. */
+    override fun takeSnapshot(destinationFilePath: String, options: SnapshotOptions): Result<Unit> = action {
+        command("screenshot-to-file", destinationFilePath, if (options.includeSubtitles) "subtitles" else "video")
+    }
+
+    fun toggleStreamRecording(destinationFilePath: String? = null): Result<Boolean> = runCatching {
+        val current = stringProperty("stream-record")
+        if (!current.isNullOrBlank()) {
+            setProperty("stream-record", "")
+            false
+        } else {
+            val path = destinationFilePath ?: File(
+                System.getProperty("user.home"),
+                "Vimivo_Recording_${System.currentTimeMillis()}.ts"
+            ).absolutePath
+            setProperty("stream-record", path)
+            true
+        }
     }
 
     override fun getAudioOutputDevices(): List<AudioOutputDevice> = synchronized(nativeLock) {
@@ -345,19 +491,69 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("audio-device", deviceId)
     }
 
+    fun setAudioPassthrough(enabled: Boolean): Result<Unit> = action {
+        setProperty("audio-spdif", if (enabled) "ac3,dts,eac3,truehd,dts-hd" else "")
+    }
+
     override fun setHardwareAccelerationMode(mode: HardwareAccelerationMode): Result<Unit> = action {
         hwdecMode = mode
-        val hwdecValue = when (mode) {
-            HardwareAccelerationMode.AUTO -> "auto-safe"
-            HardwareAccelerationMode.SOFTWARE -> "no"
-            HardwareAccelerationMode.HARDWARE_PREFERRED -> when (desktopPlatform) {
-                DesktopPlatform.MACOS -> "videotoolbox"
-                DesktopPlatform.WINDOWS -> "d3d11va"
-                DesktopPlatform.LINUX -> "vaapi"
-                DesktopPlatform.UNKNOWN -> "auto"
-            }
+        setProperty("hwdec", hwdecValue(mode))
+    }
+
+    /** Live real-time statistics for the "Stats for Nerds" HUD overlay. */
+    fun playbackStats(): MpvPlaybackStats = synchronized(nativeLock) {
+        if (context == null || closed) return MpvPlaybackStats()
+        val vCodec = stringProperty("video-codec")
+        val aCodec = stringProperty("audio-codec")
+        val w = stringProperty("width")?.toIntOrNull()
+        val h = stringProperty("height")?.toIntOrNull()
+        val fps = stringProperty("container-fps")?.toDoubleOrNull() ?: stringProperty("fps")?.toDoubleOrNull()
+        val outFps = stringProperty("estimated-vf-fps")?.toDoubleOrNull()
+        val hwdec = stringProperty("hwdec-current")
+        val vBitrate = stringProperty("video-bitrate")?.toDoubleOrNull()?.let { (it / 1000).toLong() }
+        val aBitrate = stringProperty("audio-bitrate")?.toDoubleOrNull()?.let { (it / 1000).toLong() }
+        val dropped = stringProperty("drop-frame-count")?.toLongOrNull() ?: 0L
+        val channels = stringProperty("audio-params/channel-count")?.toIntOrNull()
+        val sRate = stringProperty("audio-params/samplerate")?.toIntOrNull()
+        val cache = stringProperty("demuxer-cache-duration")?.toDoubleOrNull() ?: 0.0
+        MpvPlaybackStats(
+            videoCodec = vCodec,
+            audioCodec = aCodec,
+            width = w,
+            height = h,
+            fps = fps,
+            outputFps = outFps,
+            hwdec = hwdec,
+            videoBitrateKbps = vBitrate,
+            audioBitrateKbps = aBitrate,
+            droppedFrames = dropped,
+            audioChannels = channels,
+            audioSampleRate = sRate,
+            cacheDurationSeconds = cache,
+        )
+    }
+
+    /** libmpv's value of [name] right now (null when unset or unavailable); for diagnostics and live tests. */
+    internal fun readProperty(name: String): String? = stringProperty(name)
+
+    /** Frames the video renderer has presented, for tests that wait on real frames (null where not tracked). */
+    internal fun presentedFrame(): PresentedFrame? = renderer?.presentedFrame()
+
+    /** True while the window system animates a fullscreen change and would ignore another one. */
+    internal fun windowTransitioning(): Boolean = renderer?.windowTransitioning() == true
+
+    // macOS uses VideoToolbox's copy variant: zero-copy frames cannot be saved as snapshots or run through filters
+    // (crop detection, deinterlacing), and on unified memory the copy costs little.
+    private fun hwdecValue(mode: HardwareAccelerationMode): String = when (mode) {
+        HardwareAccelerationMode.AUTO ->
+            if (desktopPlatform == DesktopPlatform.MACOS) "videotoolbox-copy" else "auto-safe"
+        HardwareAccelerationMode.SOFTWARE -> "no"
+        HardwareAccelerationMode.HARDWARE_PREFERRED -> when (desktopPlatform) {
+            DesktopPlatform.MACOS -> "videotoolbox-copy"
+            DesktopPlatform.WINDOWS -> "d3d11va"
+            DesktopPlatform.LINUX -> "vaapi"
+            DesktopPlatform.UNKNOWN -> "auto"
         }
-        setProperty("hwdec", hwdecValue)
     }
 
     fun attemptSoftwareDecoderFallback(): Result<Unit> = runCatching {
@@ -376,63 +572,31 @@ class MpvPlayerEngine : PlayerEngine {
 
     override fun getDiagnosticsSnapshot(): PlaybackDiagnosticsSnapshot? {
         if (context == null || closed) return null
-        val mediaUri = mutableState.value.media?.uri ?: return null
-        val vCodec = stringProperty("video-codec") ?: stringProperty("video-format")
-        val aCodec = stringProperty("audio-codec") ?: stringProperty("audio-format")
-        val activeHwdec = stringProperty("hwdec-current")
-        val isHwdecActive = flagProperty("hwdec-active") ?: (activeHwdec != null && activeHwdec != "no")
-        val activeRenderer = stringProperty("current-vo")
-            ?: if (desktopPlatform == DesktopPlatform.MACOS) "libmpv/cocoa" else "gpu"
-        val dropped = longProperty("drop-frame-count") ?: longProperty("vo-delayed-frame-count") ?: 0L
-        val totalFrames = longProperty("estimated-frame-count") ?: 0L
-        val avDriftSec = doubleProperty("avsync") ?: 0.0
-        val fps = doubleProperty("container-fps")?.toFloat() ?: 0f
-        val cacheBytes = longProperty("demuxer-cache-state/cache-used")
-            ?: longProperty("demuxer-cache-state/bytes") ?: 0L
-        val colormatrix = stringProperty("colormatrix")
-        val colorTransfer = when {
-            colormatrix?.contains("2084") == true || colormatrix?.contains("pq") == true -> ColorTransfer.HDR10_PQ
-            colormatrix?.contains("hlg") == true || colormatrix?.contains("arib") == true -> ColorTransfer.HLG
-            colormatrix?.contains("bt.709") == true || colormatrix?.contains("709") == true -> ColorTransfer.SDR_BT709
-            else -> ColorTransfer.UNKNOWN
+        val state = mutableState.value
+        val mediaUri = state.media?.uri ?: return null
+        val properties = object : MpvProperties {
+            override fun string(name: String) = stringProperty(name)
+            override fun flag(name: String) = flagProperty(name)
+            override fun long(name: String) = longProperty(name)
+            override fun double(name: String) = doubleProperty(name)
         }
-
-        return PlaybackDiagnosticsSnapshot(
-            engineId = id,
-            mediaUri = mediaUri,
-            activeVideoCodec = vCodec,
-            activeAudioCodec = aCodec,
-            activeDecoder = if (isHwdecActive) "hw:$activeHwdec" else (stringProperty("video-dec") ?: "sw:$vCodec"),
-            hwdecActive = isHwdecActive,
-            hwdecMode = activeHwdec ?: hwdecMode.name.lowercase(),
-            activeRenderer = activeRenderer,
-            droppedFrames = dropped,
-            totalFrames = totalFrames,
-            avDriftMillis = avDriftSec * 1000.0,
-            estimatedFps = fps,
-            cacheBufferBytes = cacheBytes,
-            colorTransfer = colorTransfer,
-            positionMillis = mutableState.value.positionMillis,
-            durationMillis = mutableState.value.durationMillis,
+        return MpvDiagnostics.snapshot(
+            properties,
+            DiagnosticsContext(
+                engineId = id,
+                mediaUri = mediaUri,
+                positionMillis = state.positionMillis,
+                durationMillis = state.durationMillis,
+                requestedHwdec = hwdecMode.name.lowercase(),
+                defaultRenderer = if (desktopPlatform == DesktopPlatform.MACOS) "libmpv/cocoa" else "gpu",
+                softwareRendering = rendererWatch.softwareRenderer,
+            ),
         )
     }
 
-    /** Finds sibling subtitles only for file URIs the user has already opened. */
-    fun detectAssociatedSubtitles(media: MediaItem): List<ExternalSubtitle> = runCatching {
-        val mediaFile = File(URI(media.uri))
-        val stem = mediaFile.nameWithoutExtension.lowercase()
-        mediaFile.parentFile?.listFiles()
-            .orEmpty()
-            .asSequence()
-            .filter { it.isFile && it.extension.lowercase() in SUBTITLE_EXTENSIONS }
-            .filter { it.nameWithoutExtension.lowercase() == stem || it.nameWithoutExtension.lowercase().startsWith("$stem.") }
-            .map { file -> ExternalSubtitle(file.toPath().toUri().toString(), file.name, languageFromSubtitleName(file.name), subtitleMimeType(file.extension)) }
-            .toList()
-    }.getOrDefault(emptyList())
-
     override fun applyAudioEnhancements(settings: AudioEnhancementSettings): Result<Unit> = action {
         val effective = DesktopAudioEffects.effectiveSettings(settings)
-        setProperty("af", DesktopAudioEffects.filter(effective).orEmpty())
+        audioChain.setSettings(effective)
         val active = effective.enabled || effective.volumeNormalization
         setProperty("balance", effective.balance.toString())
         mutableAudio.value = AudioEnhancementState(
@@ -468,24 +632,36 @@ class MpvPlayerEngine : PlayerEngine {
     private fun ensureInitialized() = synchronized(nativeLock) {
         if (context != null) return@synchronized
         val loaded = MpvNative.load()
+        MpvLocale.ensureCNumeric(desktopPlatform)
         val created = checkNotNull(loaded.mpv_create()) { "libmpv could not create a playback context" }
         native = loaded
         context = created
         checkCode(loaded.mpv_set_option_string(created, "config", "no"))
         checkCode(loaded.mpv_set_option_string(created, "terminal", "no"))
-        val vo = if (desktopPlatform == DesktopPlatform.MACOS) "libmpv" else "gpu"
-        checkCode(loaded.mpv_set_option_string(created, "vo", vo))
-        val initialHwdec = when (hwdecMode) {
-            HardwareAccelerationMode.AUTO -> "auto-safe"
-            HardwareAccelerationMode.SOFTWARE -> "no"
-            HardwareAccelerationMode.HARDWARE_PREFERRED -> when (desktopPlatform) {
-                DesktopPlatform.MACOS -> "videotoolbox"
-                DesktopPlatform.WINDOWS -> "d3d11va"
-                DesktopPlatform.LINUX -> "vaapi"
-                DesktopPlatform.UNKNOWN -> "auto"
-            }
+        // Opt-in diagnostics for bug reports and CI: libmpv's own log, written only where the user points it.
+        System.getenv("VIMIVO_MPV_LOG_FILE")?.takeIf(String::isNotBlank)?.let { path ->
+            checkCode(loaded.mpv_set_option_string(created, "log-file", path))
         }
-        loaded.mpv_set_option_string(created, "hwdec", initialHwdec)
+        // libmpv never opens its own top-level window: without a Vimivo surface (headless use, tests) video is
+        // decoded but not displayed. macOS and Linux render through the render API into Vimivo's own GL context
+        // (the LGPL libmpv has no X11 output, ADR-004); Windows embeds libmpv's Direct3D output in the canvas.
+        val vo = when {
+            // No surface (tests, headless use): libmpv's render-API output would fail to initialize without a render
+            // context and take video-only files down with it.
+            videoSurface == null -> "null"
+            desktopPlatform == DesktopPlatform.MACOS || desktopPlatform == DesktopPlatform.LINUX -> "libmpv"
+            else -> "gpu"
+        }
+        checkCode(loaded.mpv_set_option_string(created, "vo", vo))
+        if (vo == "gpu") {
+            // Without GPU drivers (VMs, remote desktops, CI) only a software OpenGL renderer exists. libmpv refuses it
+            // by default and shows no picture at all; a slower picture is better than none.
+            checkCode(loaded.mpv_set_option_string(created, "gpu-sw", "yes"))
+        }
+        // VIMIVO_HWDEC (e.g. "no", "vaapi", "auto-safe") overrides the decoder for hardware test runs
+        // (docs/LINUX_MANUAL_TEST_CHECKLIST.md); normal use follows the hardware acceleration mode.
+        val hwdec = System.getenv("VIMIVO_HWDEC")?.takeIf { it.matches(HWDEC_OVERRIDE) } ?: hwdecValue(hwdecMode)
+        loaded.mpv_set_option_string(created, "hwdec", hwdec)
         loaded.mpv_set_option_string(created, "demuxer-max-bytes", "33554432")
         loaded.mpv_set_option_string(created, "demuxer-readahead-secs", "5.0")
         loaded.mpv_set_option_string(created, "network-timeout", "15")
@@ -493,8 +669,28 @@ class MpvPlayerEngine : PlayerEngine {
         loaded.mpv_set_option_string(created, "user-agent", "Vimivo/1.0.0 (Universal Media Player)")
         checkCode(loaded.mpv_set_option_string(created, "keep-open", "yes"))
         checkCode(loaded.mpv_set_option_string(created, "gapless-audio", "yes"))
+        // Without any working audio output (no device, device unplugged, headless machine) keep playing
+        // the picture instead of stalling the whole player.
+        checkCode(loaded.mpv_set_option_string(created, "audio-fallback-to-null", "yes"))
+        // Vimivo draws cover art itself. Left to libmpv, embedded art becomes a video track, and where no GPU
+        // context can be created (headless Linux, broken EGL) the failed video output aborts the whole song.
+        checkCode(loaded.mpv_set_option_string(created, "audio-display", "no"))
+        // Vimivo owns the pointer: libmpv's embedded window must not take mouse input or hide the cursor itself,
+        // so the fullscreen controller sees mouse movement over the video.
+        checkCode(loaded.mpv_set_option_string(created, "input-cursor", "no"))
+        checkCode(loaded.mpv_set_option_string(created, "cursor-autohide", "no"))
+        checkCode(loaded.mpv_set_option_string(created, "sub-auto", "fuzzy"))
+        loaded.mpv_set_option_string(created, "sub-create-cc-track", "yes")
+        loaded.mpv_set_option_string(created, "sub-font-provider", "auto")
+        loaded.mpv_set_option_string(created, "sub-ass-vsfilter-color-compat", "basic")
+        // Software amplification up to 200%; the UI marks the range above 100% as boosted.
+        checkCode(loaded.mpv_set_option_string(created, "volume-max", (capabilities.maxVolume * 100).toInt().toString()))
         checkCode(loaded.mpv_set_option_string(created, "audio-pitch-correction", "yes"))
+        loaded.mpv_set_option_string(created, "screenshot-jpeg-quality", SNAPSHOT_JPEG_QUALITY)
         checkCode(loaded.mpv_initialize(created))
+        // Log lines arrive as events; the polling loop reads them (see handleLogMessages). "v" includes the renderer
+        // name libmpv reports when its video output starts.
+        loaded.mpv_request_log_messages(created, "v")
     }
 
     private fun startPolling(expectedSession: Long) {
@@ -502,37 +698,59 @@ class MpvPlayerEngine : PlayerEngine {
             if (sessionGeneration != expectedSession) return
             polling?.cancel()
             polling = scope.launch {
-                var lastTrackCount = -1
+                val trackWatcher = MpvTrackListWatcher()
                 var cachedAudio: List<TrackInfo> = emptyList()
                 var cachedVideo: List<TrackInfo> = emptyList()
                 var cachedSubtitle: List<TrackInfo> = emptyList()
+                var cachedTags = PlaybackMetadata()
                 var iteration = 0L
                 var everLoaded = false
                 val openedAt = TimeSource.Monotonic.markNow()
 
                 while (isActive && !closed && sessionGeneration == expectedSession) {
                     iteration++
+                    handleLogMessages()
+                    renderer?.afterVideoOutputChange()
                     val duration = doubleProperty("duration")?.times(1_000)?.toLong()
                     val position = doubleProperty("time-pos")?.times(1_000)?.toLong()?.coerceAtLeast(0) ?: 0
                     val paused = flagProperty("pause") ?: true
+                    if (preparedNext.pending != null && stringProperty("playlist-pos")?.toIntOrNull() == 1 &&
+                        adoptPreparedNext(expectedSession)
+                    ) {
+                        return@launch // adoptPreparedNext started the poll for the next file
+                    }
                     val idle = flagProperty("idle-active") ?: false
                     val pausedForCache = flagProperty("paused-for-cache") ?: false
                     val cacheDurationMs = doubleProperty("demuxer-cache-time")?.times(1_000)?.toLong() ?: 0L
                     val bufferedPosition = position + cacheDurationMs
 
                     val currentTrackCount = stringProperty("track-list/count")?.toIntOrNull() ?: 0
-                    if (currentTrackCount != lastTrackCount || iteration % 20L == 1L) {
-                        lastTrackCount = currentTrackCount
-                        cachedAudio = tracks(TrackType.AUDIO)
-                        cachedVideo = tracks(TrackType.VIDEO)
-                        cachedSubtitle = tracks(TrackType.SUBTITLE)
+                    trackWatcher.refresh(trackReader, currentTrackCount, iteration, trackListChanged)?.let { lists ->
+                        trackListChanged = false
+                        cachedAudio = lists.audio
+                        cachedVideo = lists.video
+                        cachedSubtitle = lists.subtitle
+                        cachedTags = fileTags()
                     }
+                    // Tags appear a moment after the track list; retry until they do so integrations update promptly.
+                    if (cachedTags == PlaybackMetadata() && currentTrackCount > 0) cachedTags = fileTags()
 
                     // Track lists only exist once a demuxer opened the file, so this separates "loading" from "failed".
                     if (duration != null || (!idle && currentTrackCount > 0)) everLoaded = true
                     val loadFailed = idle && !everLoaded && openedAt.elapsedNow() >= LOAD_FAILURE_GRACE
+                    // Opened but nothing could be played (output or decoder failed): libmpv says so with a fatal line.
+                    val playbackFatal = fatalPlaybackText?.takeIf { idle && everLoaded && position <= 0 }
+                    // With keep-open=yes libmpv pauses on the last frame at end of file and never goes idle;
+                    // eof-reached is its end-of-file signal. Without it the queue never advanced (Q1).
+                    val eofReached = flagProperty("eof-reached") ?: false
+                    // A file that is still being written (a download or recording) is reloaded at its end position
+                    // and keeps playing; it completes only once it stopped growing (V1 #3).
+                    val followingGrowingFile = eofReached && everLoaded && reloadGrowingFile(duration ?: position)
                     val status = when {
-                        loadFailed -> PlaybackStatus.Error(loadFailure(mutableState.value.media))
+                        loadFailed -> PlaybackStatus.Error(MpvPlaybackErrors.loadFailure(mutableState.value.media))
+                        playbackFatal != null -> PlaybackStatus.Error(MpvPlaybackErrors.playbackFailure(playbackFatal))
+                        followingGrowingFile -> PlaybackStatus.Buffering
+                        eofReached && everLoaded -> PlaybackStatus.Completed
                         idle && duration != null && position >= duration - 500 -> PlaybackStatus.Completed
                         idle -> PlaybackStatus.Ready
                         pausedForCache -> PlaybackStatus.Buffering
@@ -541,8 +759,9 @@ class MpvPlayerEngine : PlayerEngine {
                     }
 
                     val speed = doubleProperty("speed")?.toFloat()
-                    val volume = doubleProperty("volume")?.let { (it / 100.0).toFloat().coerceIn(0f, 1f) }
                     val seekable = flagProperty("seekable") ?: false
+                    // True from the seek command until playback restarts (mpv's playback-restart) at the new time.
+                    val seeking = flagProperty("seeking") ?: false
 
                     if (sessionGeneration != expectedSession) break
 
@@ -554,11 +773,12 @@ class MpvPlayerEngine : PlayerEngine {
                             bufferedPositionMillis = bufferedPosition,
                             durationMillis = duration,
                             speed = speed ?: current.speed,
-                            volume = volume ?: current.volume,
                             isSeekable = seekable,
+                            isSeeking = seeking,
                             audioTracks = cachedAudio,
                             videoTracks = cachedVideo,
                             subtitleTracks = cachedSubtitle,
+                            metadata = current.metadata.withTags(cachedTags),
                             sessionId = expectedSession,
                         )
                     }
@@ -571,6 +791,29 @@ class MpvPlayerEngine : PlayerEngine {
                 }
             }
         }
+    }
+
+    /** At the end of a local file: true when it is still growing and playback must not finish (see the tracker). */
+    private fun reloadGrowingFile(positionMillis: Long): Boolean {
+        val media = mutableState.value.media ?: return false
+        return growing?.keepFollowing {
+            runCatching {
+                command("loadfile", mpvTarget(media.uri), "replace", "-1", "start=${positionMillis / 1_000.0}")
+                if (!userPaused) setProperty("pause", "no")
+            }.isSuccess
+        } ?: false
+    }
+
+    /** Reads libmpv's queued events; switches to the `fast` profile when it reports a software renderer. */
+    private fun handleLogMessages() {
+        val messages = synchronized(nativeLock) {
+            val handle = context
+            val loaded = native
+            if (closed || handle == null || loaded == null) return
+            MpvLogEvents.drain(loaded, handle)
+        }
+        messages.firstNotNullOfOrNull(MpvLogEvents::fatalPlaybackText)?.let { fatalPlaybackText = it }
+        if (rendererWatch.firstSoftwareRendererReport(messages)) runCatching { command("apply-profile", "fast") }
     }
 
     private fun command(vararg arguments: String) {
@@ -616,85 +859,28 @@ class MpvPlayerEngine : PlayerEngine {
         } else null
     }
 
-    private fun tracks(type: TrackType): List<TrackInfo> {
-        val count = stringProperty("track-list/count")?.toIntOrNull() ?: return emptyList()
-        val selected = stringProperty(when (type) {
-            TrackType.AUDIO -> "aid"
-            TrackType.VIDEO -> "vid"
-            TrackType.SUBTITLE -> "sid"
-        })
-        return (0 until count).mapNotNull { index ->
-            val prefix = "track-list/$index"
-            val actualType = stringProperty("$prefix/type") ?: return@mapNotNull null
-            if (actualType != type.mpvName) return@mapNotNull null
-            val id = stringProperty("$prefix/id") ?: return@mapNotNull null
-            val language = stringProperty("$prefix/lang")
-            TrackInfo(
-                id = id,
-                type = type,
-                label = stringProperty("$prefix/title") ?: language ?: "${type.displayName} $id",
-                language = language,
-                codec = stringProperty("$prefix/codec"),
-                bitrate = stringProperty("$prefix/demux-bitrate")?.toIntOrNull(),
-                channels = stringProperty("$prefix/demux-channel-count")?.toIntOrNull(),
-                sampleRate = stringProperty("$prefix/demux-samplerate")?.toIntOrNull(),
-                width = stringProperty("$prefix/demux-w")?.toIntOrNull(),
-                height = stringProperty("$prefix/demux-h")?.toIntOrNull(),
-                frameRate = stringProperty("$prefix/demux-fps")?.toFloatOrNull(),
-                isSelected = id == selected,
-                origin = if (stringProperty("$prefix/external") == "yes") TrackOrigin.EXTERNAL else TrackOrigin.EMBEDDED,
-            )
-        }
-    }
-
+    /**
+     * Runs a control (property or command) against the loaded media. A failed control is returned to the caller,
+     * which reports it; it never becomes a playback error, so the queue does not skip a file that still plays.
+     */
     private fun action(block: () -> Unit): Result<Unit> = runCatching {
         check(!closed && context != null) { "Open media before using playback controls" }
         block()
-    }.onFailure(::publishFailure)
+    }
 
     private fun checkCode(code: Int) {
         if (code < 0) error(native?.mpv_error_string(code) ?: "libmpv error $code")
     }
 
-    private fun loadFailure(media: MediaItem?): PlaybackError {
-        val localFile = media?.uri?.takeIf { it.startsWith("file:") }?.let { runCatching { File(URI(it)) }.getOrNull() }
-        val code = when {
-            localFile != null && !localFile.exists() -> PlaybackErrorCode.SOURCE_NOT_FOUND
-            localFile != null && !localFile.canRead() -> PlaybackErrorCode.ACCESS_DENIED
-            localFile == null -> PlaybackErrorCode.NETWORK
-            else -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
-        }
-        val message = when (code) {
-            PlaybackErrorCode.SOURCE_NOT_FOUND -> "The file no longer exists"
-            PlaybackErrorCode.ACCESS_DENIED -> "Vimivo does not have permission to read this file"
-            PlaybackErrorCode.NETWORK -> "The stream could not be opened"
-            else -> "This file could not be opened; it may be damaged or in an unsupported format"
-        }
-        return PlaybackError(code, message, engine = id)
-    }
+    /** Title/artist/album tags of the loaded file, so files opened outside the library still show them. */
+    private fun fileTags(): PlaybackMetadata = PlaybackMetadata(
+        title = stringProperty("metadata/by-key/title")?.takeIf(String::isNotBlank),
+        artist = stringProperty("metadata/by-key/artist")?.takeIf(String::isNotBlank),
+        album = stringProperty("metadata/by-key/album")?.takeIf(String::isNotBlank),
+    )
 
     private fun publishFailure(error: Throwable) {
-        val message = error.message.orEmpty()
-        val lower = message.lowercase()
-        val code = when {
-            error is java.io.FileNotFoundException || "not found" in lower || "no such file" in lower -> PlaybackErrorCode.SOURCE_NOT_FOUND
-            error is java.lang.SecurityException || "permission denied" in lower || "access denied" in lower -> PlaybackErrorCode.ACCESS_DENIED
-            error is java.net.SocketException || error is java.net.UnknownHostException || "timeout" in lower || "network" in lower || "connection" in lower -> PlaybackErrorCode.NETWORK
-            "unsupported" in lower || "codec" in lower -> PlaybackErrorCode.UNSUPPORTED_CODEC
-            "demux" in lower || "container" in lower || "corrupt" in lower -> PlaybackErrorCode.UNSUPPORTED_CONTAINER
-            "decode" in lower || "decoder" in lower -> PlaybackErrorCode.DECODING_FAILED
-            else -> PlaybackErrorCode.ENGINE_INITIALIZATION
-        }
-        mutableState.value = mutableState.value.copy(
-            status = PlaybackStatus.Error(
-                PlaybackError(
-                    code,
-                    if (message.isNotBlank()) message else "libmpv playback failed",
-                    engine = id,
-                    cause = error,
-                ),
-            ),
-        )
+        mutableState.value = mutableState.value.copy(status = PlaybackStatus.Error(MpvPlaybackErrors.fromException(error)))
     }
 
     override fun close() {
@@ -702,9 +888,13 @@ class MpvPlayerEngine : PlayerEngine {
         closed = true
         polling?.cancel()
         synchronized(nativeLock) {
-            renderer?.detach()
+            val closing = renderer
+            val loaded = native
+            context?.let { handle -> loaded?.let { MpvShutdown.stopBeforeDestroy(it, handle, desktopPlatform) } }
+            closing?.detach()
             renderer = null
             context?.let { native?.mpv_terminate_destroy(it) }
+            closing?.afterVideoOutputChange()
             context = null
             native = null
         }
@@ -716,11 +906,24 @@ class MpvPlayerEngine : PlayerEngine {
         private val LOAD_FAILURE_GRACE = 1.5.seconds
         private const val SURFACE_READY_TIMEOUT_MILLIS = 5_000L
         private const val SURFACE_POLL_MILLIS = 16L
+        private const val DEINTERLACE_LABEL = "vimivo-deint"
+        private const val SNAPSHOT_JPEG_QUALITY = "92"
+        private val HWDEC_OVERRIDE = Regex("[a-z0-9,-]{1,64}")
         private const val MPV_FORMAT_FLAG = 3
         private const val MPV_FORMAT_INT64 = 4
         private const val MPV_FORMAT_DOUBLE = 5
-        private val SUBTITLE_EXTENSIONS = setOf("srt", "ass", "ssa", "vtt", "webvtt")
-        private val SUPPORTED_SCHEMES = setOf("file", "http", "https", "rtsp", "rtsps")
+        private val SUPPORTED_SCHEMES = setOf(
+            "file", "http", "https", "rtsp", "rtsps", "rtp", "udp", "mms", "mmsh", "mmst", "bd",
+        )
+
+        /** libmpv `video-aspect-override` values; Fill keeps the source aspect and crops through `panscan`. */
+        internal fun mpvAspectOverride(ratio: VideoAspectRatio): String = when (ratio) {
+            VideoAspectRatio.ORIGINAL, VideoAspectRatio.FILL -> "-1"
+            VideoAspectRatio.FIT -> "0"
+            VideoAspectRatio.RATIO_16_9 -> "16:9"
+            VideoAspectRatio.RATIO_4_3 -> "4:3"
+            VideoAspectRatio.RATIO_21_9 -> "2.35:1"
+        }
 
         /**
          * libmpv rejects single-slash `file:/path` URIs (what `File.toURI()` produces), so local media is always
@@ -731,65 +934,7 @@ class MpvPlayerEngine : PlayerEngine {
             return runCatching { Paths.get(URI(uri)).toString() }
                 .getOrElse { error -> throw IllegalArgumentException("Invalid local file URI", error) }
         }
-        internal fun capabilitiesFor(platform: DesktopPlatform) = EngineCapabilities(
-            localAudio = true,
-            localVideo = platform != DesktopPlatform.UNKNOWN,
-            httpStreaming = true,
-            hlsStreaming = true,
-            dashStreaming = true,
-            liveStreaming = true,
-            hardwareDecoding = true,
-            softwareDecoding = true,
-            playbackSpeed = true,
-            audioTrackSelection = true,
-            videoTrackSelection = true,
-            embeddedSubtitles = true,
-            externalSubtitles = true,
-            hdr = platform != DesktopPlatform.UNKNOWN,
-            subtitleDelay = true,
-            audioDelay = true,
-            subtitleAppearance = true,
-            subtitlePosition = true,
-            chapters = true,
-            abRepeat = true,
-            videoAdjustments = true,
-            screenshots = true,
-            frameStepping = platform != DesktopPlatform.UNKNOWN,
-            deinterlacing = platform != DesktopPlatform.UNKNOWN,
-            supportedSpeedRange = PlaybackSpeeds.RANGE,
-            audioEnhancements = AudioEnhancementCapabilities(
-                graphicEqualizer = true,
-                bassEnhancement = true,
-                trebleAdjustment = true,
-                attenuatingPreamp = true,
-                replayGain = true,
-                gapless = true,
-                stereoBalance = true,
-                pitchPreservation = true,
-                outputSelection = true,
-                normalization = true,
-                limitation = "Equalizer uses libmpv's FFmpeg filter chain; crossfade and bit-perfect output are not available",
-            ),
-        )
     }
-}
-
-private val TrackType.mpvName: String get() = when (this) {
-    TrackType.AUDIO -> "audio"
-    TrackType.VIDEO -> "video"
-    TrackType.SUBTITLE -> "sub"
-}
-
-private val TrackType.displayName: String get() = name.lowercase().replaceFirstChar(Char::uppercase)
-
-private fun languageFromSubtitleName(fileName: String): String? =
-    fileName.substringBeforeLast('.').substringAfterLast('.', "").takeIf { it.length in 2..8 }
-
-private fun subtitleMimeType(extension: String): String = when (extension.lowercase()) {
-    "srt" -> "application/x-subrip"
-    "vtt", "webvtt" -> "text/vtt"
-    "ass", "ssa" -> "text/x-ssa"
-    else -> "application/octet-stream"
 }
 
 /** Container-level properties read through the libmpv property API. */
@@ -799,4 +944,30 @@ data class DesktopContainerInfo(
     val videoParameters: String?,
     val audioParameters: String?,
     val metadata: List<Pair<String, String>>,
+    /** The video renderer, e.g. "Software rendering — performance mode on (llvmpipe …)". */
+    val rendering: String? = null,
+)
+
+/** Real-time playback metrics for Stats for Nerds HUD overlay. */
+data class MpvPlaybackStats(
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val fps: Double? = null,
+    val outputFps: Double? = null,
+    val hwdec: String? = null,
+    val videoBitrateKbps: Long? = null,
+    val audioBitrateKbps: Long? = null,
+    val droppedFrames: Long = 0L,
+    val audioChannels: Int? = null,
+    val audioSampleRate: Int? = null,
+    val cacheDurationSeconds: Double = 0.0,
+)
+
+/** Embedded tags win over values derived from the file name; missing tags keep what was there. */
+internal fun PlaybackMetadata.withTags(tags: PlaybackMetadata) = copy(
+    title = tags.title ?: title,
+    artist = tags.artist ?: artist,
+    album = tags.album ?: album,
 )

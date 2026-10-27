@@ -67,17 +67,45 @@ object StreamValidator {
         }
 
         val scheme = schemeCandidate
-        if (scheme in setOf("file", "content", "javascript", "data", "about", "ftp", "sftp")) {
+        if (scheme in setOf("file", "content", "javascript", "data", "about")) {
             return StreamValidationResult.Invalid(
                 reason = StreamFailureReason.UNSUPPORTED_PROTOCOL,
                 message = "Protocol '$scheme' cannot be opened as a network media stream.",
             )
         }
 
-        if (scheme !in setOf("http", "https", "rtsp", "rtsps")) {
+        val deviceAndDiscSchemes = setOf(
+            "avfoundation", "dshow", "v4l2", "lavfi", "gdigrab", "dvd", "bd", "cdda"
+        )
+        if (scheme !in setOf(
+                "http", "https", "rtsp", "rtsps", "rtp", "udp", "mms", "mmsh", "mmst",
+                "smb", "sftp", "ftp", "nfs",
+            ) + deviceAndDiscSchemes
+        ) {
             return StreamValidationResult.Invalid(
                 reason = StreamFailureReason.UNSUPPORTED_PROTOCOL,
-                message = "Protocol '$scheme' is not supported. Supported protocols: http, https, rtsp, rtsps.",
+                message = "Protocol '$scheme' is not supported. Supported protocols: http, https, rtsp, rtsps, rtp, udp, mms, smb, sftp, ftp, nfs.",
+            )
+        }
+
+        if (scheme in deviceAndDiscSchemes) {
+            val title = when (scheme) {
+                "avfoundation" -> if (trimmed.contains("default")) "Screen Capture" else "Camera Capture"
+                "dshow" -> "DirectShow Video Capture"
+                "v4l2" -> "V4L2 Video Device"
+                "gdigrab", "lavfi" -> "Screen Capture (Display)"
+                "dvd" -> "DVD Optical Disc"
+                "bd" -> "Blu-ray Disc"
+                "cdda" -> "Audio CD"
+                else -> "Capture Device ($scheme)"
+            }
+            val isLive = !setOf("dvd", "bd", "cdda").contains(scheme)
+            return StreamValidationResult.Valid(
+                protocol = StreamProtocol.CAPTURE,
+                type = if (isLive) StreamType.LIVE else StreamType.VOD,
+                normalizedUrl = trimmed,
+                isLive = isLive,
+                displayTitle = title,
             )
         }
 
@@ -98,7 +126,7 @@ object StreamValidator {
             )
         }
 
-        if (hostPart.contains('@')) {
+        if (hostPart.contains('@') && scheme !in setOf("smb", "sftp", "ftp", "nfs")) {
             return StreamValidationResult.Invalid(
                 reason = StreamFailureReason.INVALID_URL,
                 message = "URLs containing embedded credentials are not permitted for security reasons.",
@@ -144,6 +172,14 @@ object StreamValidator {
 
     private fun detectProtocol(scheme: String, path: String, hostPart: String): StreamProtocol {
         if (scheme == "rtsp" || scheme == "rtsps") return StreamProtocol.RTSP
+        if (scheme == "rtp") return StreamProtocol.RTP
+        if (scheme == "udp") return StreamProtocol.UDP
+        if (scheme == "mms" || scheme == "mmsh" || scheme == "mmst") return StreamProtocol.MMS
+        if (scheme == "smb") return StreamProtocol.SMB
+        if (scheme == "sftp") return StreamProtocol.SFTP
+        if (scheme == "ftp") return StreamProtocol.FTP
+        if (scheme == "nfs") return StreamProtocol.NFS
+        if (scheme in setOf("avfoundation", "dshow", "v4l2", "lavfi")) return StreamProtocol.CAPTURE
 
         val lowerPath = path.lowercase()
         return when {
@@ -167,7 +203,10 @@ object StreamValidator {
     }
 
     private fun detectIsLive(protocol: StreamProtocol, path: String): Boolean {
-        if (protocol == StreamProtocol.RTSP || protocol == StreamProtocol.INTERNET_RADIO) return true
+        if (protocol == StreamProtocol.RTSP || protocol == StreamProtocol.RTP ||
+            protocol == StreamProtocol.UDP || protocol == StreamProtocol.MMS ||
+            protocol == StreamProtocol.INTERNET_RADIO
+        ) return true
         val lower = path.lowercase()
         return lower.contains("/live") || lower.contains("live.m3u8") || lower.contains("live.mpd")
     }
@@ -215,6 +254,9 @@ object StreamValidator {
             StreamProtocol.HLS -> "HLS Live Stream ($hostClean)"
             StreamProtocol.DASH -> "DASH Stream ($hostClean)"
             StreamProtocol.RTSP -> "RTSP Stream ($hostClean)"
+            StreamProtocol.RTP -> "RTP Stream ($hostClean)"
+            StreamProtocol.UDP -> "UDP Stream ($hostClean)"
+            StreamProtocol.MMS -> "MMS Stream ($hostClean)"
             StreamProtocol.INTERNET_RADIO -> "Internet Radio ($hostClean)"
             else -> "Network Stream ($hostClean)"
         }
@@ -234,9 +276,11 @@ object StreamValidator {
     fun toStreamSource(valid: StreamValidationResult.Valid): StreamSource = when (valid.protocol) {
         StreamProtocol.HLS -> StreamSource.HlsStream(valid.normalizedUrl, valid.isLive)
         StreamProtocol.DASH -> StreamSource.DashStream(valid.normalizedUrl, valid.isLive)
-        StreamProtocol.RTSP -> StreamSource.RtspStream(valid.normalizedUrl)
+        StreamProtocol.RTSP, StreamProtocol.RTP, StreamProtocol.UDP, StreamProtocol.MMS ->
+            StreamSource.RtspStream(valid.normalizedUrl)
         StreamProtocol.INTERNET_RADIO -> StreamSource.InternetRadio(valid.normalizedUrl, valid.displayTitle)
-        StreamProtocol.HTTP_PROGRESSIVE, StreamProtocol.HTTPS_PROGRESSIVE ->
+        StreamProtocol.HTTP_PROGRESSIVE, StreamProtocol.HTTPS_PROGRESSIVE,
+        StreamProtocol.SMB, StreamProtocol.SFTP, StreamProtocol.FTP, StreamProtocol.NFS, StreamProtocol.CAPTURE ->
             StreamSource.DirectHttpMedia(valid.normalizedUrl, valid.protocol)
         StreamProtocol.UNKNOWN -> StreamSource.DirectHttpMedia(valid.normalizedUrl, valid.protocol)
     }

@@ -83,7 +83,7 @@ class LargeMediaLibraryOptimizationTest {
             println("Batch allPositions() on $itemCount items took: ${batchTimeMs}ms (loaded ${positionsMap.size} positions)")
 
             assertEquals(itemCount, positionsMap.size)
-            assertTrue(batchTimeMs < 100, "Batch allPositions() must complete under 100ms, actual: ${batchTimeMs}ms")
+            PerformanceBudget.check("Batch allPositions()", batchTimeMs, 100)
 
             // Verify accuracy of parsed positions
             val sample = positionsMap["track-42"]
@@ -129,6 +129,6 @@ class LargeMediaLibraryOptimizationTest {
         println("Second image store (fast-path hit) took: ${secondStoreMs}ms")
 
         assertNotNull(cachedUri)
-        assertTrue(secondStoreMs < 5, "Fast-path store should be near-instantaneous (< 5ms), actual: ${secondStoreMs}ms")
+        PerformanceBudget.check("Fast-path store", secondStoreMs, 5)
     }
 }

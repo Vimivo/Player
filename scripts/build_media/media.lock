@@ -1,0 +1,27 @@
+{
+  "comment": "Published LGPL media packages (ADR-004, ADR-005), each pinned to its release and SHA-256. App workflows download only these, from our own releases, and refuse any other checksum. media-1: desktop (build-media.yml run 39305242030). media-2: Android (build-media.yml run 39379561519).",
+  "repository": "Vimivo/Player",
+  "release": "media-1",
+  "assets": {
+    "macos-universal": {
+      "file": "vimivo-media-media-1-macos-universal.tar.xz",
+      "sha256": "9a7c1e5306bb16239543e8deb0cf608542c7a4fb44d29aeb112ee14e260f6364",
+      "release": "media-1"
+    },
+    "windows-x86_64": {
+      "file": "vimivo-media-media-1-windows-x86_64.tar.xz",
+      "sha256": "e02cdded31c216f6163274bad06adaa0adaed45b70b5f2c6541acb38a97c0188",
+      "release": "media-1"
+    },
+    "linux-x86_64": {
+      "file": "vimivo-media-media-1-linux-x86_64.tar.xz",
+      "sha256": "a405f7afb68e1872ec45390a832622d152807dbaf57547bdfb65be431be1992e",
+      "release": "media-1"
+    },
+    "android": {
+      "file": "vimivo-media-media-2-android.tar.xz",
+      "sha256": "159a94436f06bb54a178227d5f35f02f2bf376ee323992b73747edce9ef90c9b",
+      "release": "media-2"
+    }
+  }
+}

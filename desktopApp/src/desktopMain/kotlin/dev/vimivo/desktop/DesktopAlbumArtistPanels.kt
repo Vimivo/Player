@@ -96,7 +96,7 @@ internal fun DesktopAlbumDetailsPanel(
     onShufflePlay: (List<MediaItem>, String) -> Unit,
     onPlayNext: (List<MediaItem>) -> Unit,
     onAddToQueue: (List<MediaItem>) -> Unit,
-    onPlayTrack: (MediaItem) -> Unit,
+    onPlayTrack: (List<MediaItem>, Int) -> Unit,
     onToggleFavorite: (MediaItem) -> Unit,
     onAddToPlaylist: (String, MediaItem) -> Unit,
 ) {
@@ -160,7 +160,7 @@ internal fun DesktopAlbumDetailsPanel(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Button(onClick = { onPlayTrack(track) }) { Text("Play") }
+                        Button(onClick = { onPlayTrack(details.tracks, details.tracks.indexOf(track)) }) { Text("Play") }
                         OutlinedButton(onClick = { onPlayNext(listOf(track)) }) { Text("Next") }
                         OutlinedButton(onClick = { onAddToQueue(listOf(track)) }) { Text("+ Queue") }
                         OutlinedButton(onClick = { onToggleFavorite(track) }) {
@@ -234,7 +234,7 @@ internal fun DesktopArtistDetailsPanel(
     onShufflePlay: (List<MediaItem>, String) -> Unit,
     onPlayNext: (List<MediaItem>) -> Unit,
     onAddToQueue: (List<MediaItem>) -> Unit,
-    onPlayTrack: (MediaItem) -> Unit,
+    onPlayTrack: (List<MediaItem>, Int) -> Unit,
     onToggleFavorite: (MediaItem) -> Unit,
     onAddToPlaylist: (String, MediaItem) -> Unit,
 ) {
@@ -302,7 +302,7 @@ internal fun DesktopArtistDetailsPanel(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Button(onClick = { onPlayTrack(track) }) { Text("Play") }
+                        Button(onClick = { onPlayTrack(details.tracks, details.tracks.indexOf(track)) }) { Text("Play") }
                         OutlinedButton(onClick = { onPlayNext(listOf(track)) }) { Text("Next") }
                         OutlinedButton(onClick = { onAddToQueue(listOf(track)) }) { Text("+ Queue") }
                         OutlinedButton(onClick = { onToggleFavorite(track) }) {
