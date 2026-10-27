@@ -288,6 +288,28 @@ private fun MenuBarScope.VideoMenu(context: MenuContext) = with(context) {
             DesktopPlayerCommand.SNAPSHOT to "Shift+S",
             DesktopPlayerCommand.CYCLE_ASPECT_RATIO to "A"
         )
+        Menu("360° Video Navigation") {
+            Item("Pan Left", enabled = hasMedia, onClick = {
+                val adj = playback.videoAdjustments
+                engine.applyVideoAdjustments(adj.copy(panX = (adj.panX - 0.1f).coerceIn(-1f, 1f)))
+            })
+            Item("Pan Right", enabled = hasMedia, onClick = {
+                val adj = playback.videoAdjustments
+                engine.applyVideoAdjustments(adj.copy(panX = (adj.panX + 0.1f).coerceIn(-1f, 1f)))
+            })
+            Item("Pan Up", enabled = hasMedia, onClick = {
+                val adj = playback.videoAdjustments
+                engine.applyVideoAdjustments(adj.copy(panY = (adj.panY - 0.1f).coerceIn(-1f, 1f)))
+            })
+            Item("Pan Down", enabled = hasMedia, onClick = {
+                val adj = playback.videoAdjustments
+                engine.applyVideoAdjustments(adj.copy(panY = (adj.panY + 0.1f).coerceIn(-1f, 1f)))
+            })
+            Item("Reset Pan", enabled = hasMedia, onClick = {
+                val adj = playback.videoAdjustments
+                engine.applyVideoAdjustments(adj.copy(panX = 0f, panY = 0f, zoom = 0f))
+            })
+        }
         Item("Picture Settings…", enabled = hasMedia, onClick = { send(PlayerIntent.ShowPanel(PlayerPanel.VIDEO)) })
     }
 }
@@ -310,7 +332,7 @@ private fun MenuBarScope.SubtitlesMenu(context: MenuContext) = with(context) {
             enabled = hasMedia,
             onClick = { send(PlayerIntent.ShowPanel(PlayerPanel.SUBTITLES)) }
         )
-        Item("Search Online…", enabled = false, onClick = {})
+        Item("Search Online…", onClick = { send(PlayerIntent.ToggleSubtitleSearch) })
     }
 }
 
@@ -319,8 +341,17 @@ private fun MenuBarScope.ToolsMenu(context: MenuContext) = with(context) {
     Menu("Tools") {
         Item("Command Palette…", shortcut = primaryShortcut(Key.K), onClick = { send(PlayerIntent.ToggleCommandPalette) })
         Item("Open Network Stream…", shortcut = primaryShortcut(Key.N), onClick = actions.onOpenStream)
-        Item("Convert / Transcode Media…", onClick = { send(PlayerIntent.ToggleTranscodeDialog) })
+        Item("Internet Radio & Podcasts…", onClick = { send(PlayerIntent.ToggleRadioPodcast) })
+        Item("Web Remote Control…", onClick = { send(PlayerIntent.ToggleWebRemote) })
         Item("Wi-Fi File Sharing…", onClick = { send(PlayerIntent.ToggleWifiSharing) })
+        Item("Convert / Transcode Media…", onClick = { send(PlayerIntent.ToggleTranscodeDialog) })
+        Item("User Scripts Folder…", onClick = { send(PlayerIntent.ToggleScripts) })
+        CheckboxItem(
+            "Record Stream to File",
+            checked = state.isRecording,
+            enabled = hasMedia,
+            onCheckedChange = { send(PlayerIntent.ToggleRecording) },
+        )
         Separator()
         Item("Media Information…", enabled = hasMedia, onClick = { run(DesktopPlayerCommand.MEDIA_INFO) })
     }

@@ -43,12 +43,15 @@ internal object LaunchPlanner {
      * The window layout for files handed over at launch, from their extensions alone (no I/O), so the player
      * window can show in the first frame while the full [plan] (folder listing, resume position) is prepared.
      */
-    fun initialPresentation(files: List<File>): PlayerPresentation? =
-        when (files.map(DesktopMediaTypes::familyOf).firstOrNull { it != MediaFamily.SUBTITLE }) {
+    fun initialPresentation(files: List<File>): PlayerPresentation? {
+        val first = files.firstOrNull()
+        if (first != null && first.isDirectory) return PlayerPresentation.VIDEO
+        return when (files.map(DesktopMediaTypes::familyOf).firstOrNull { it != MediaFamily.SUBTITLE }) {
             MediaFamily.AUDIO, MediaFamily.PLAYLIST -> PlayerPresentation.AUDIO
             MediaFamily.VIDEO -> PlayerPresentation.VIDEO
             else -> null
         }
+    }
 
     /** The opened file plus every playable file of the same kind beside it, in natural order. */
     fun withSiblings(file: File): Pair<List<MediaItem>, Int> {
@@ -62,6 +65,17 @@ internal object LaunchPlanner {
     }
 
     private fun expand(file: File): List<MediaItem> = when {
+        file.isDirectory -> {
+            if (dev.vimivo.desktop.platform.DesktopDiscMedia.isDiscFolder(file)) {
+                listOfNotNull(dev.vimivo.desktop.platform.DesktopDiscMedia.resolveDiscMedia(file))
+            } else {
+                file.listFiles()
+                    ?.filter { it.isFile && !it.isHidden && DesktopMediaTypes.familyOf(it) in setOf(MediaFamily.VIDEO, MediaFamily.AUDIO) }
+                    ?.sortedWith(compareBy(dev.vimivo.core.util.NaturalOrder, File::getName))
+                    ?.map(::mediaItemFor)
+                    .orEmpty()
+            }
+        }
         !file.isFile -> emptyList()
         file.extension.lowercase() in PlaylistFormats.PARSED_EXTENSIONS -> playlistEntries(file)
         else -> listOf(mediaItemFor(file))

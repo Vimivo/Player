@@ -21,6 +21,7 @@ rmvb	application/vnd.rn-realmedia-vbr	video	RealMedia video
 asf	video/x-ms-asf	video	Advanced Systems Format video	
 f4v	video/x-f4v	video	Flash MP4 video	
 hevc	video/hevc	video	HEVC video stream	
+iso	application/x-iso9660-image	video	Optical disc image	
 mp3	audio/mpeg	audio	MP3 audio	public.mp3
 m4a	audio/mp4	audio	MPEG-4 audio	com.apple.m4a-audio
 aac	audio/aac	audio	AAC audio	public.aac-audio

@@ -52,6 +52,36 @@ internal fun VideoTab(
     SliderRow("Pan vertical", adjustments.panY, PAN_RANGE, "%+.2f".format(adjustments.panY), reset = 0f) {
         adjust("Pan", adjustments.copy(panY = it))
     }
+    PanelRow("360° Pan") {
+        PanelButton("◀ Left", Modifier.weight(1f)) {
+            adjust("Pan Left", adjustments.copy(panX = (adjustments.panX - 0.1f).coerceIn(-1f, 1f)))
+        }
+        Spacer(Modifier.width(4.dp))
+        PanelButton("▲ Up", Modifier.weight(1f)) {
+            adjust("Pan Up", adjustments.copy(panY = (adjustments.panY - 0.1f).coerceIn(-1f, 1f)))
+        }
+        Spacer(Modifier.width(4.dp))
+        PanelButton("▼ Down", Modifier.weight(1f)) {
+            adjust("Pan Down", adjustments.copy(panY = (adjustments.panY + 0.1f).coerceIn(-1f, 1f)))
+        }
+        Spacer(Modifier.width(4.dp))
+        PanelButton("Right ▶", Modifier.weight(1f)) {
+            adjust("Pan Right", adjustments.copy(panX = (adjustments.panX + 0.1f).coerceIn(-1f, 1f)))
+        }
+        Spacer(Modifier.width(4.dp))
+        PanelButton("↺ Reset", Modifier.weight(1f)) {
+            adjust("Reset Pan", adjustments.copy(panX = 0f, panY = 0f, zoom = 0f))
+        }
+    }
+    PanelRow("Rotate") {
+        PanelButton("↺ 90° CCW", Modifier.weight(1f)) {
+            adjust("Rotate CCW", adjustments.copy(rotationDegrees = (adjustments.rotationDegrees - 90 + 360) % 360))
+        }
+        Spacer(Modifier.width(6.dp))
+        PanelButton("↻ 90° CW", Modifier.weight(1f)) {
+            adjust("Rotate CW", adjustments.copy(rotationDegrees = (adjustments.rotationDegrees + 90) % 360))
+        }
+    }
     PanelSection("Colour")
     ColourSlider("Brightness", adjustments.brightness) { adjust("Brightness", adjustments.copy(brightness = it)) }
     ColourSlider("Contrast", adjustments.contrast) { adjust("Contrast", adjustments.copy(contrast = it)) }

@@ -643,6 +643,35 @@ private fun PlayerWindow(
                         onDismiss = { viewModel.dispatch(PlayerIntent.ToggleTranscodeDialog) },
                     )
                 }
+                if (playerState.subtitleSearchVisible) {
+                    dev.vimivo.desktop.subtitles.DesktopSubtitleSearchDialog(
+                        media = playerState.playback.media,
+                        onApplySubtitle = { file ->
+                            dev.vimivo.desktop.playback.MpvSubtitleFiles.forFile(file)?.let(engine::addExternalSubtitle)
+                        },
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleSubtitleSearch) },
+                    )
+                }
+                if (playerState.radioPodcastVisible) {
+                    dev.vimivo.desktop.radio.DesktopRadioPodcastDialog(
+                        onPlayMedia = { media ->
+                            viewModel.dispatch(PlayerIntent.PlayLibraryItem(media))
+                        },
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleRadioPodcast) },
+                    )
+                }
+                if (playerState.webRemoteVisible) {
+                    dev.vimivo.desktop.remote.DesktopWebRemoteDialog(
+                        stateProvider = { playerState },
+                        onIntent = viewModel::dispatch,
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleWebRemote) },
+                    )
+                }
+                if (playerState.scriptsVisible) {
+                    dev.vimivo.desktop.scripts.DesktopScriptsDialog(
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleScripts) },
+                    )
+                }
                 if (visible && playerState.fullscreen && playerState.presentation == PlayerPresentation.VIDEO) {
                     FullscreenController(playerState, window, videoCanvas, viewModel::dispatch, preview)
                     playerState.panel?.let { panel ->

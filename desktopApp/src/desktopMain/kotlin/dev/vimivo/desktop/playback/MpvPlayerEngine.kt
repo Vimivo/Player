@@ -461,6 +461,21 @@ class MpvPlayerEngine : PlayerEngine {
         command("screenshot-to-file", destinationFilePath, if (options.includeSubtitles) "subtitles" else "video")
     }
 
+    fun toggleStreamRecording(destinationFilePath: String? = null): Result<Boolean> = runCatching {
+        val current = stringProperty("stream-record")
+        if (!current.isNullOrBlank()) {
+            setProperty("stream-record", "")
+            false
+        } else {
+            val path = destinationFilePath ?: File(
+                System.getProperty("user.home"),
+                "Vimivo_Recording_${System.currentTimeMillis()}.ts"
+            ).absolutePath
+            setProperty("stream-record", path)
+            true
+        }
+    }
+
     override fun getAudioOutputDevices(): List<AudioOutputDevice> = synchronized(nativeLock) {
         if (context == null || closed) return emptyList()
         val count = stringProperty("audio-device-list/count")?.toIntOrNull() ?: return emptyList()

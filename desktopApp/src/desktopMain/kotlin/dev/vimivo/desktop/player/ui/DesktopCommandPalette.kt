@@ -36,6 +36,10 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Subtitles
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.FiberManualRecord
+import androidx.compose.material.icons.outlined.PhoneIphone
+import androidx.compose.material.icons.outlined.Radio
 import androidx.compose.material.icons.outlined.Transform
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.AlertDialog
@@ -141,8 +145,23 @@ internal fun DesktopCommandPalette(
             PaletteAction("Wi-Fi File Sharing", "Tools", null, Icons.Outlined.Share) {
                 onIntent(PlayerIntent.ToggleWifiSharing)
             },
-            PaletteAction("Convert / Transcode Media", "Tools", "Cmd+Shift+S", Icons.Outlined.Transform) {
+            PaletteAction("Convert / Transcode Media", "Tools", null, Icons.Outlined.Transform) {
                 onIntent(PlayerIntent.ToggleTranscodeDialog)
+            },
+            PaletteAction("Search Subtitles Online", "Subtitles", null, Icons.Outlined.Subtitles) {
+                onIntent(PlayerIntent.ToggleSubtitleSearch)
+            },
+            PaletteAction("Internet Radio & Podcasts", "Tools", null, Icons.Outlined.Radio) {
+                onIntent(PlayerIntent.ToggleRadioPodcast)
+            },
+            PaletteAction("Web Remote Control", "Tools", null, Icons.Outlined.PhoneIphone) {
+                onIntent(PlayerIntent.ToggleWebRemote)
+            },
+            PaletteAction("User Scripts Folder", "Tools", null, Icons.Outlined.Code) {
+                onIntent(PlayerIntent.ToggleScripts)
+            },
+            PaletteAction(if (state.isRecording) "Stop Recording Stream" else "Record Stream to File", "Tools", null, Icons.Outlined.FiberManualRecord) {
+                onIntent(PlayerIntent.ToggleRecording)
             },
             PaletteAction("Show Media Library", "Navigation", "L", Icons.AutoMirrored.Outlined.QueueMusic) {
                 onIntent(PlayerIntent.ShowLibrary)

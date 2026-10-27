@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.Audiotrack
+import androidx.compose.material.icons.outlined.FiberManualRecord
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.FullscreenExit
 import androidx.compose.material.icons.outlined.GraphicEq
@@ -325,6 +326,13 @@ private fun PlayerControlBar(
             selected = state.miniPlayer,
         ) {
             onIntent(PlayerIntent.ToggleMiniPlayer)
+        }
+        PlayerIconButton(
+            Icons.Outlined.FiberManualRecord,
+            if (state.isRecording) "Recording Stream… (Click to Stop)" else "Record Stream to File",
+            selected = state.isRecording,
+        ) {
+            onIntent(PlayerIntent.ToggleRecording)
         }
         PlayerIconButton(
             Icons.Outlined.Settings,

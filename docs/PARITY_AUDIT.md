@@ -37,26 +37,26 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 ### ❌ Missing (25)
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 2b | Blu-ray (folder/ISO/drive) | ❌ | libbluray |
-| 10 | 360° video | ❌ | |
+| 2b | Blu-ray (folder/ISO/drive) | 🔨 built (untested) | DesktopDiscMedia + LaunchPlanner (BDMV / index.bdmv / STREAM primary m2ts resolution + .iso image support) |
+| 10 | 360° video | 🔨 built (untested) | 360° spherical pan directional pad + CCW/CW rotation in VideoPanel & VideoMenu |
 | 20 | compressor/spatializer/stereo widener | 🔨 built (untested) | Dynamic range compressor (acompressor), spatializer (surround), stereo widener (extrastereo), mono downmix in Equalizer & DesktopAudioEffects |
 | 25 | visualizations (spectrum/scope) | 🔨 built (untested) | Spectrum analyzer and waveform oscilloscope in DesktopAudioVisualizer |
 | 26 | S/PDIF/HDMI passthrough | ❌ | *(decided: not built until hardware test)* |
-| 32 | OpenSubtitles (opt-in) | ❌ | |
+| 32 | OpenSubtitles (opt-in) | 🔨 built (untested) | DesktopSubtitleSearchDialog (search by title/keyword/language, auto-download & apply) |
 | 34 | SMB/FTP/SFTP/NFS/DLNA browsing | ❌ | |
 | 35 | stream to network | ❌ | |
-| 37 | internet radio + podcasts (opt-in) | ❌ | |
+| 37 | internet radio + podcasts (opt-in) | 🔨 built (untested) | DesktopRadioPodcastDialog (curated high-res community radio + Radio Browser API search + podcast RSS episode stream) |
 | 38 | Chromecast/DLNA casting | ❌ | |
 | 39 | convert/transcode | 🔨 built (untested) | DesktopTranscodeDialog (lossless audio extraction & media conversion) |
-| 40 | record | ❌ | |
+| 40 | record | 🔨 built (untested) | Real-time stream recording / dump to file via mpv stream-record in MpvPlayerEngine, control bar & Tools menu |
 | 41 | screen capture | ❌ | |
 | 42 | webcam/capture card | ❌ | |
 | 48 | themes | ❌ | |
 | 49 | customizable toolbar | ❌ | |
 | 51 | mouse gestures | 🔨 built (untested) | Mouse wheel volume/seek and middle-click play/pause gestures in Main.kt |
 | 52 | mini/compact player + tray/menu-bar | 🔨 built (untested) | DesktopMiniPlayerView with seek bar & tray icon with playback controls |
-| 53 | scripts folder | ❌ | |
-| 54 | web remote | ❌ | |
+| 53 | scripts folder | 🔨 built (untested) | DesktopScriptManager & DesktopScriptsDialog for loading user Lua/JS scripts from app support scripts directory |
+| 54 | web remote | 🔨 built (untested) | DesktopWebRemoteServer embedded HTTP server (port 8085) with mobile glassmorphism web UI & live controls |
 | 56 | command palette | 🔨 built (untested) | DesktopCommandPalette with Cmd+K / Ctrl+K search and quick actions |
 | 61 | Wi-Fi file sharing | 🔨 built (untested) | DesktopWifiTransfer local HTTP server and dialog |
 | 62 | PiP window | 🔨 built (untested) | DesktopPipOverlay floating compact player mode |
