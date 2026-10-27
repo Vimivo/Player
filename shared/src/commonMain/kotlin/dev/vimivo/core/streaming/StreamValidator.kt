@@ -67,17 +67,17 @@ object StreamValidator {
         }
 
         val scheme = schemeCandidate
-        if (scheme in setOf("file", "content", "javascript", "data", "about", "ftp", "sftp")) {
+        if (scheme in setOf("file", "content", "javascript", "data", "about")) {
             return StreamValidationResult.Invalid(
                 reason = StreamFailureReason.UNSUPPORTED_PROTOCOL,
                 message = "Protocol '$scheme' cannot be opened as a network media stream.",
             )
         }
 
-        if (scheme !in setOf("http", "https", "rtsp", "rtsps", "rtp", "udp", "mms", "mmsh", "mmst")) {
+        if (scheme !in setOf("http", "https", "rtsp", "rtsps", "rtp", "udp", "mms", "mmsh", "mmst", "smb", "sftp", "ftp", "nfs", "avfoundation", "dshow", "v4l2", "lavfi")) {
             return StreamValidationResult.Invalid(
                 reason = StreamFailureReason.UNSUPPORTED_PROTOCOL,
-                message = "Protocol '$scheme' is not supported. Supported protocols: http, https, rtsp, rtsps, rtp, udp, mms.",
+                message = "Protocol '$scheme' is not supported. Supported protocols: http, https, rtsp, rtsps, rtp, udp, mms, smb, sftp, ftp, nfs.",
             )
         }
 
@@ -98,7 +98,7 @@ object StreamValidator {
             )
         }
 
-        if (hostPart.contains('@')) {
+        if (hostPart.contains('@') && scheme !in setOf("smb", "sftp", "ftp", "nfs")) {
             return StreamValidationResult.Invalid(
                 reason = StreamFailureReason.INVALID_URL,
                 message = "URLs containing embedded credentials are not permitted for security reasons.",
@@ -147,6 +147,11 @@ object StreamValidator {
         if (scheme == "rtp") return StreamProtocol.RTP
         if (scheme == "udp") return StreamProtocol.UDP
         if (scheme == "mms" || scheme == "mmsh" || scheme == "mmst") return StreamProtocol.MMS
+        if (scheme == "smb") return StreamProtocol.SMB
+        if (scheme == "sftp") return StreamProtocol.SFTP
+        if (scheme == "ftp") return StreamProtocol.FTP
+        if (scheme == "nfs") return StreamProtocol.NFS
+        if (scheme in setOf("avfoundation", "dshow", "v4l2", "lavfi")) return StreamProtocol.CAPTURE
 
         val lowerPath = path.lowercase()
         return when {
@@ -246,7 +251,8 @@ object StreamValidator {
         StreamProtocol.RTSP, StreamProtocol.RTP, StreamProtocol.UDP, StreamProtocol.MMS ->
             StreamSource.RtspStream(valid.normalizedUrl)
         StreamProtocol.INTERNET_RADIO -> StreamSource.InternetRadio(valid.normalizedUrl, valid.displayTitle)
-        StreamProtocol.HTTP_PROGRESSIVE, StreamProtocol.HTTPS_PROGRESSIVE ->
+        StreamProtocol.HTTP_PROGRESSIVE, StreamProtocol.HTTPS_PROGRESSIVE,
+        StreamProtocol.SMB, StreamProtocol.SFTP, StreamProtocol.FTP, StreamProtocol.NFS, StreamProtocol.CAPTURE ->
             StreamSource.DirectHttpMedia(valid.normalizedUrl, valid.protocol)
         StreamProtocol.UNKNOWN -> StreamSource.DirectHttpMedia(valid.normalizedUrl, valid.protocol)
     }

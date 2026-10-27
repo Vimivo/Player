@@ -81,6 +81,16 @@ internal data class PlayerState(
     val scriptsVisible: Boolean = false,
     /** Real-time stream recording status. */
     val isRecording: Boolean = false,
+    /** Screen capture and webcam device dialog. */
+    val captureDeviceVisible: Boolean = false,
+    /** Network share (SMB/FTP/SFTP/NFS) dialog. */
+    val networkShareVisible: Boolean = false,
+    /** Chromecast & DLNA casting dialog. */
+    val castingVisible: Boolean = false,
+    /** Customizable toolbar modal dialog. */
+    val toolbarCustomizeVisible: Boolean = false,
+    /** Visibility configuration for control bar action buttons. */
+    val toolbarConfig: dev.vimivo.desktop.player.ui.DesktopToolbarConfig = dev.vimivo.desktop.player.ui.DesktopToolbarConfig(),
 )
 
 /** Every user action the player understands; the UI never calls the engine or queue directly for these. */
@@ -149,6 +159,11 @@ internal sealed interface PlayerIntent {
     data object ToggleWebRemote : PlayerIntent
     data object ToggleScripts : PlayerIntent
     data object ToggleRecording : PlayerIntent
+    data object ToggleCaptureDevice : PlayerIntent
+    data object ToggleNetworkShare : PlayerIntent
+    data object ToggleCasting : PlayerIntent
+    data object ToggleToolbarCustomize : PlayerIntent
+    data class SetToolbarConfig(val config: dev.vimivo.desktop.player.ui.DesktopToolbarConfig) : PlayerIntent
 }
 
 /**

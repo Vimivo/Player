@@ -304,7 +304,7 @@ private fun PlayerControlBar(
         ) {
             onIntent(PlayerIntent.ToggleCommandPalette)
         }
-        if (state.presentation == PlayerPresentation.VIDEO) {
+        if (state.toolbarConfig.showAudioOnly && state.presentation == PlayerPresentation.VIDEO) {
             PlayerIconButton(
                 Icons.Outlined.Audiotrack,
                 if (state.audioOnlyMode) "Disable Audio-only Mode" else "Audio-only Mode",
@@ -313,38 +313,48 @@ private fun PlayerControlBar(
                 onIntent(PlayerIntent.ToggleAudioOnlyMode)
             }
         }
-        PlayerIconButton(
-            Icons.Outlined.PictureInPicture,
-            "Picture-in-Picture",
-            selected = state.pipMode,
-        ) {
-            onIntent(PlayerIntent.TogglePipMode)
+        if (state.toolbarConfig.showPip) {
+            PlayerIconButton(
+                Icons.Outlined.PictureInPicture,
+                "Picture-in-Picture",
+                selected = state.pipMode,
+            ) {
+                onIntent(PlayerIntent.TogglePipMode)
+            }
         }
-        PlayerIconButton(
-            Icons.Outlined.Headphones,
-            "Mini Player (M)",
-            selected = state.miniPlayer,
-        ) {
-            onIntent(PlayerIntent.ToggleMiniPlayer)
+        if (state.toolbarConfig.showMiniPlayer) {
+            PlayerIconButton(
+                Icons.Outlined.Headphones,
+                "Mini Player (M)",
+                selected = state.miniPlayer,
+            ) {
+                onIntent(PlayerIntent.ToggleMiniPlayer)
+            }
         }
-        PlayerIconButton(
-            Icons.Outlined.FiberManualRecord,
-            if (state.isRecording) "Recording Stream… (Click to Stop)" else "Record Stream to File",
-            selected = state.isRecording,
-        ) {
-            onIntent(PlayerIntent.ToggleRecording)
+        if (state.toolbarConfig.showRecord) {
+            PlayerIconButton(
+                Icons.Outlined.FiberManualRecord,
+                if (state.isRecording) "Recording Stream… (Click to Stop)" else "Record Stream to File",
+                selected = state.isRecording,
+            ) {
+                onIntent(PlayerIntent.ToggleRecording)
+            }
         }
-        PlayerIconButton(
-            Icons.Outlined.Settings,
-            stringResource(Res.string.player_panel),
-            selected = state.panel != null,
-        ) {
-            onIntent(PlayerIntent.ShowPanel(if (state.panel == null) PlayerPanel.VIDEO else null))
+        if (state.toolbarConfig.showSettings) {
+            PlayerIconButton(
+                Icons.Outlined.Settings,
+                stringResource(Res.string.player_panel),
+                selected = state.panel != null,
+            ) {
+                onIntent(PlayerIntent.ShowPanel(if (state.panel == null) PlayerPanel.VIDEO else null))
+            }
         }
-        PlayerIconButton(
-            if (state.fullscreen) Icons.Outlined.FullscreenExit else Icons.Outlined.Fullscreen,
-            stringResource(if (state.fullscreen) Res.string.player_exit_fullscreen else Res.string.player_fullscreen),
-        ) { onIntent(PlayerIntent.SetFullscreen(!state.fullscreen)) }
+        if (state.toolbarConfig.showFullscreen) {
+            PlayerIconButton(
+                if (state.fullscreen) Icons.Outlined.FullscreenExit else Icons.Outlined.Fullscreen,
+                stringResource(if (state.fullscreen) Res.string.player_exit_fullscreen else Res.string.player_fullscreen),
+            ) { onIntent(PlayerIntent.SetFullscreen(!state.fullscreen)) }
+        }
     }
 }
 

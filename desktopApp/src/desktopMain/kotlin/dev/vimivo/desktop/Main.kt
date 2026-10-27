@@ -307,6 +307,9 @@ private fun desktopApplication(
             libraryOpen = true
         },
         onShowLibrary = { viewModel.dispatch(PlayerIntent.ShowLibrary) },
+        onSetTheme = { mode ->
+            koin.get<DesktopLibraryController>().setThemeMode(mode)
+        },
     )
     val mediaInfoVisible by viewModel.commands.mediaInfoVisible.collectAsState()
     if (mediaInfoVisible) {
@@ -336,6 +339,9 @@ private fun desktopApplication(
         )
     }
 
+    val library = remember { koin.get<DesktopLibraryController>() }
+    val libraryState by library.state.collectAsState()
+
     PlayerWindow(
         viewModel = viewModel,
         engine = engine,
@@ -343,6 +349,7 @@ private fun desktopApplication(
         videoCanvas = videoCanvas,
         visible = playerVisible,
         icon = windowIcon,
+        themeMode = libraryState.themeMode,
         menu = { VimivoMenuBar(playerState, viewModel, engine, recentEntries, menuActions) },
         openStreamRequested = openStreamRequested && playerVisible,
         onOpenStreamHandled = { openStreamRequested = false },
@@ -476,6 +483,7 @@ private fun PlayerWindow(
     videoCanvas: Canvas,
     visible: Boolean,
     icon: BitmapPainter?,
+    themeMode: ThemeMode,
     menu: @Composable FrameWindowScope.() -> Unit,
     openStreamRequested: Boolean,
     onOpenStreamHandled: () -> Unit,
@@ -603,7 +611,7 @@ private fun PlayerWindow(
             }
         }
         menu()
-        VimivoTheme(mode = ThemeMode.DARK) {
+        VimivoTheme(mode = themeMode) {
             CompositionLocalProvider(LocalSeekController provides viewModel.seek) {
                 CompositionLocalProvider(LocalHostWindow provides window) {
                     PlayerWindowContent(
@@ -670,6 +678,37 @@ private fun PlayerWindow(
                 if (playerState.scriptsVisible) {
                     dev.vimivo.desktop.scripts.DesktopScriptsDialog(
                         onDismiss = { viewModel.dispatch(PlayerIntent.ToggleScripts) },
+                    )
+                }
+                if (playerState.captureDeviceVisible) {
+                    dev.vimivo.desktop.capture.DesktopCaptureDeviceDialog(
+                        onOpenCapture = { uri, _ ->
+                            viewModel.dispatch(PlayerIntent.OpenLink(uri))
+                        },
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleCaptureDevice) },
+                    )
+                }
+                if (playerState.networkShareVisible) {
+                    dev.vimivo.desktop.network.DesktopNetworkShareDialog(
+                        onOpenUrl = { uri, _ ->
+                            viewModel.dispatch(PlayerIntent.OpenLink(uri))
+                        },
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleNetworkShare) },
+                    )
+                }
+                if (playerState.castingVisible) {
+                    dev.vimivo.desktop.casting.DesktopCastingDialog(
+                        currentMedia = playerState.playback.media,
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleCasting) },
+                    )
+                }
+                if (playerState.toolbarCustomizeVisible) {
+                    dev.vimivo.desktop.player.ui.DesktopToolbarCustomizationDialog(
+                        currentConfig = playerState.toolbarConfig,
+                        onSave = { config ->
+                            viewModel.dispatch(PlayerIntent.SetToolbarConfig(config))
+                        },
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleToolbarCustomize) },
                     )
                 }
                 if (visible && playerState.fullscreen && playerState.presentation == PlayerPresentation.VIDEO) {

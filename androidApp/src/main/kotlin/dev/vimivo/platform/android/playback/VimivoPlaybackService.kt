@@ -182,6 +182,49 @@ class VimivoPlaybackService : MediaLibraryService() {
     }
 
     private inner class LibraryCallback : MediaLibrarySession.Callback {
+        private var headsetClickCount = 0
+        private var lastHeadsetClickTime = 0L
+        private var headsetJob: kotlinx.coroutines.Job? = null
+
+        override fun onMediaButtonEvent(
+            session: MediaSession,
+            controllerInfo: MediaSession.ControllerInfo,
+            intent: Intent,
+        ): Boolean {
+            @Suppress("DEPRECATION")
+            val keyEvent = intent.getParcelableExtra<android.view.KeyEvent>(Intent.EXTRA_KEY_EVENT)
+            if (keyEvent != null && keyEvent.action == android.view.KeyEvent.ACTION_UP) {
+                val code = keyEvent.keyCode
+                if (code == android.view.KeyEvent.KEYCODE_HEADSETHOOK || code == android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
+                    val now = SystemClock.uptimeMillis()
+                    if (now - lastHeadsetClickTime > 400L) {
+                        headsetClickCount = 0
+                    }
+                    lastHeadsetClickTime = now
+                    headsetClickCount++
+
+                    headsetJob?.cancel()
+                    headsetJob = serviceScope.launch {
+                        kotlinx.coroutines.delay(350L)
+                        when (headsetClickCount) {
+                            1 -> {
+                                if (sessionPlayer.playWhenReady) sessionPlayer.pause() else sessionPlayer.play()
+                            }
+                            2 -> {
+                                sessionPlayer.seekToNextMediaItem()
+                            }
+                            3 -> {
+                                sessionPlayer.seekToPreviousMediaItem()
+                            }
+                        }
+                        headsetClickCount = 0
+                    }
+                    return true
+                }
+            }
+            return super.onMediaButtonEvent(session, controllerInfo, intent)
+        }
+
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,

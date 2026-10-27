@@ -127,6 +127,11 @@ internal class PlayerViewModel(
             webRemoteVisible = localState.webRemoteVisible,
             scriptsVisible = localState.scriptsVisible,
             isRecording = localState.isRecording,
+            captureDeviceVisible = localState.captureDeviceVisible,
+            networkShareVisible = localState.networkShareVisible,
+            castingVisible = localState.castingVisible,
+            toolbarCustomizeVisible = localState.toolbarCustomizeVisible,
+            toolbarConfig = localState.toolbarConfig,
         )
     }.stateIn(scope, SharingStarted.Eagerly, PlayerState(maxVolume = engine.capabilities.maxVolume))
 
@@ -283,6 +288,11 @@ internal class PlayerViewModel(
                 val next = engine.toggleStreamRecording().getOrDefault(!local.value.isRecording)
                 local.update { it.copy(isRecording = next) }
             }
+            PlayerIntent.ToggleCaptureDevice -> local.update { it.copy(captureDeviceVisible = !it.captureDeviceVisible) }
+            PlayerIntent.ToggleNetworkShare -> local.update { it.copy(networkShareVisible = !it.networkShareVisible) }
+            PlayerIntent.ToggleCasting -> local.update { it.copy(castingVisible = !it.castingVisible) }
+            PlayerIntent.ToggleToolbarCustomize -> local.update { it.copy(toolbarCustomizeVisible = !it.toolbarCustomizeVisible) }
+            is PlayerIntent.SetToolbarConfig -> local.update { it.copy(toolbarConfig = intent.config) }
             else -> dispatchBookmark(intent)
         }
     }
@@ -616,6 +626,11 @@ internal class PlayerViewModel(
         val webRemoteVisible: Boolean = false,
         val scriptsVisible: Boolean = false,
         val isRecording: Boolean = false,
+        val captureDeviceVisible: Boolean = false,
+        val networkShareVisible: Boolean = false,
+        val castingVisible: Boolean = false,
+        val toolbarCustomizeVisible: Boolean = false,
+        val toolbarConfig: dev.vimivo.desktop.player.ui.DesktopToolbarConfig = dev.vimivo.desktop.player.ui.DesktopToolbarConfig(),
     )
 
     internal companion object {

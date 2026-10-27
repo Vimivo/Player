@@ -13,4 +13,5 @@ internal class AppMenuActions(
     val onClearRecent: () -> Unit,
     val onNavigate: (DesktopDestination) -> Unit,
     val onShowLibrary: () -> Unit,
+    val onSetTheme: (dev.vimivo.settings.ThemeMode) -> Unit = {},
 )

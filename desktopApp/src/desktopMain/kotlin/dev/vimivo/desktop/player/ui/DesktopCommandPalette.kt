@@ -42,6 +42,9 @@ import androidx.compose.material.icons.outlined.PhoneIphone
 import androidx.compose.material.icons.outlined.Radio
 import androidx.compose.material.icons.outlined.Transform
 import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.material.icons.outlined.Cast
+import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.DashboardCustomize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -162,6 +165,18 @@ internal fun DesktopCommandPalette(
             },
             PaletteAction(if (state.isRecording) "Stop Recording Stream" else "Record Stream to File", "Tools", null, Icons.Outlined.FiberManualRecord) {
                 onIntent(PlayerIntent.ToggleRecording)
+            },
+            PaletteAction("Open Capture Device (Webcam / Screen)", "Tools", null, Icons.Outlined.CameraAlt) {
+                onIntent(PlayerIntent.ToggleCaptureDevice)
+            },
+            PaletteAction("Connect to Network Share (SMB / SFTP / FTP)", "Tools", null, Icons.Outlined.Dns) {
+                onIntent(PlayerIntent.ToggleNetworkShare)
+            },
+            PaletteAction("Cast to Screen / DLNA", "Tools", null, Icons.Outlined.Cast) {
+                onIntent(PlayerIntent.ToggleCasting)
+            },
+            PaletteAction("Customize Control Bar", "View", null, Icons.Outlined.DashboardCustomize) {
+                onIntent(PlayerIntent.ToggleToolbarCustomize)
             },
             PaletteAction("Show Media Library", "Navigation", "L", Icons.AutoMirrored.Outlined.QueueMusic) {
                 onIntent(PlayerIntent.ShowLibrary)

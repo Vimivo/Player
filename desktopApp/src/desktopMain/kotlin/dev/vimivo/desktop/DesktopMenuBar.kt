@@ -71,6 +71,8 @@ private fun MenuBarScope.FileMenu(context: MenuContext) = with(context) {
     Menu("File") {
         Item("Open File…", shortcut = primaryShortcut(Key.O), onClick = { actions.onOpenFiles(chooseMediaFiles()) })
         Item("Open Network Stream…", shortcut = primaryShortcut(Key.U), onClick = actions.onOpenStream)
+        Item("Open Capture Device…", onClick = { send(PlayerIntent.ToggleCaptureDevice) })
+        Item("Connect to Network Share…", onClick = { send(PlayerIntent.ToggleNetworkShare) })
         Item("Open Disc…", enabled = false, onClick = {})
         Item("Add Folder…", shortcut = primaryShortcut(Key.O, shift = true), onClick = actions.onAddFolder)
         Item("Import Playlist…", onClick = { choosePlaylistFile()?.let(actions.onImportPlaylist) })
@@ -167,6 +169,13 @@ private fun MenuBarScope.ViewMenu(context: MenuContext) = with(context) {
                     selected = dev.vimivo.desktop.playback.DesktopPlayerShortcuts.preset == p,
                     onClick = { dev.vimivo.desktop.playback.DesktopPlayerShortcuts.preset = p },
                 )
+            }
+        }
+        Separator()
+        Item("Customize Controls…", onClick = { send(PlayerIntent.ToggleToolbarCustomize) })
+        Menu("Theme") {
+            dev.vimivo.settings.ThemeMode.entries.forEach { mode ->
+                Item(mode.name.lowercase().replaceFirstChar { it.uppercase() }, onClick = { actions.onSetTheme(mode) })
             }
         }
     }
@@ -341,6 +350,7 @@ private fun MenuBarScope.ToolsMenu(context: MenuContext) = with(context) {
     Menu("Tools") {
         Item("Command Palette…", shortcut = primaryShortcut(Key.K), onClick = { send(PlayerIntent.ToggleCommandPalette) })
         Item("Open Network Stream…", shortcut = primaryShortcut(Key.N), onClick = actions.onOpenStream)
+        Item("Cast to Screen / DLNA…", onClick = { send(PlayerIntent.ToggleCasting) })
         Item("Internet Radio & Podcasts…", onClick = { send(PlayerIntent.ToggleRadioPodcast) })
         Item("Web Remote Control…", onClick = { send(PlayerIntent.ToggleWebRemote) })
         Item("Wi-Fi File Sharing…", onClick = { send(PlayerIntent.ToggleWifiSharing) })

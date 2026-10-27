@@ -16,6 +16,11 @@ enum class StreamProtocol(val displayName: String, val isAdaptive: Boolean) {
     RTP("Real-time Transport Protocol (RTP)", false),
     UDP("User Datagram Protocol (UDP)", false),
     MMS("Microsoft Media Server (MMS)", false),
+    SMB("Server Message Block (SMB)", false),
+    SFTP("SSH File Transfer (SFTP)", false),
+    FTP("File Transfer Protocol (FTP)", false),
+    NFS("Network File System (NFS)", false),
+    CAPTURE("Capture Device", false),
     INTERNET_RADIO("Internet Radio Stream", false),
     UNKNOWN("Unknown Network Protocol", false),
 }
