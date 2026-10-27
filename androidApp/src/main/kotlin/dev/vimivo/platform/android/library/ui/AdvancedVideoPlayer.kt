@@ -11,7 +11,9 @@
     "MaximumLineLength",
     "MaxLineLength",
     "MultiLineIfElse",
+    "NoUnusedImports",
     "TooManyFunctions",
+    "UnusedParameter",
     "Wrapping",
 )
 

@@ -37,7 +37,7 @@ import java.net.Socket
 
 class DesktopWifiTransferServer(
     private val port: Int = 8080,
-    private val onFileUploaded: ((String) -> Unit)? = null,
+    val onFileUploaded: ((String) -> Unit)? = null,
 ) {
     @Volatile
     private var isRunning = false

@@ -78,8 +78,10 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
 
 tasks.matching { it.name == "run" }.configureEach {
     dependsOn(macosMpvBridge)
+    val exec = this as JavaExec
     // The Compose plugin replaces the run task's jvmArgs, so the bridge path must be a system property.
-    (this as JavaExec).systemProperty("java.library.path", layout.buildDirectory.dir("native").get().asFile.absolutePath)
+    exec.systemProperty("java.library.path", layout.buildDirectory.dir("native").get().asFile.absolutePath)
+    exec.environment(System.getenv())
 }
 
 kotlin {

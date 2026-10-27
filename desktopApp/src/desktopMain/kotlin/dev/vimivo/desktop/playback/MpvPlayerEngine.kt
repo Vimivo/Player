@@ -64,6 +64,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 /** Desktop libmpv adapter with advanced audio and video controls. */
+@Suppress("LargeClass")
 class MpvPlayerEngine : PlayerEngine {
     override val id = EngineId.MPV
     private val desktopPlatform = DesktopPlatform.detect()

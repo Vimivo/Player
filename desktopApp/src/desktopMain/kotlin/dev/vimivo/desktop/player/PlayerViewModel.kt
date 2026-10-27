@@ -243,6 +243,7 @@ internal class PlayerViewModel(
     }
 
     /** Side panel, time display and fullscreen controller position; the last two are remembered. */
+    @Suppress("CyclomaticComplexMethod")
     private fun dispatchPlayerUi(intent: PlayerIntent) {
         when (intent) {
             is PlayerIntent.ShowPanel -> local.update { it.copy(panel = intent.panel) }
@@ -375,7 +376,14 @@ internal class PlayerViewModel(
         probePicture: () -> VideoPixelSample? = { null },
         isAlwaysOnTop: () -> Boolean? = { null },
     ): Boolean {
-        val play: suspend (MediaItem) -> Result<Unit> = { media -> queue.play(listOf(media)) }
+        val play: suspend (MediaItem) -> Result<Unit> = { media ->
+            local.update {
+                it.copy(
+                    presentation = if (media.kind == MediaKind.VIDEO) PlayerPresentation.VIDEO else PlayerPresentation.AUDIO,
+                )
+            }
+            queue.play(listOf(media))
+        }
         val results = DesktopSmokeTest.run(files, engine.state, ::mediaItemFor, play, probePicture = probePicture)
         // The picture must survive fullscreen and resize too; replay the first video for each window change.
         val video = files.firstOrNull { mediaItemFor(it).kind == MediaKind.VIDEO }

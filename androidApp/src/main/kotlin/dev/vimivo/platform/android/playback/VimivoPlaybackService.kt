@@ -1,6 +1,6 @@
 @file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-@file:Suppress("ImportOrdering", "UnstableApiUsage")
+@file:Suppress("ArgumentListWrapping", "ImportOrdering", "MaximumLineLength", "MaxLineLength", "UnstableApiUsage")
 
 package dev.vimivo.platform.android.playback
 

@@ -169,11 +169,22 @@ object TimelineGeometry {
         return if (rightToLeft) 1f - fraction else fraction
     }
 
-    fun millisAt(x: Float, trackStartPx: Float, trackWidthPx: Float, durationMillis: Long, rightToLeft: Boolean = false): Long =
-        (fractionAt(x, trackStartPx, trackWidthPx, rightToLeft).toDouble() * durationMillis).toLong()
+    fun millisAt(
+        x: Float,
+        trackStartPx: Float,
+        trackWidthPx: Float,
+        durationMillis: Long,
+        rightToLeft: Boolean = false,
+    ): Long = (fractionAt(x, trackStartPx, trackWidthPx, rightToLeft).toDouble() * durationMillis).toLong()
 
     /** The inverse: where [positionMillis] is drawn. */
-    fun xAt(positionMillis: Double, trackStartPx: Float, trackWidthPx: Float, durationMillis: Long, rightToLeft: Boolean = false): Float {
+    fun xAt(
+        positionMillis: Double,
+        trackStartPx: Float,
+        trackWidthPx: Float,
+        durationMillis: Long,
+        rightToLeft: Boolean = false,
+    ): Float {
         if (durationMillis <= 0) return trackStartPx
         val fraction = (positionMillis / durationMillis).coerceIn(0.0, 1.0).toFloat()
         return trackStartPx + trackWidthPx * (if (rightToLeft) 1f - fraction else fraction)

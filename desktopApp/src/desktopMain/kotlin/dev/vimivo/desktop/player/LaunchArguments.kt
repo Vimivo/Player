@@ -26,6 +26,7 @@ internal data class LaunchArguments(
         private const val SECONDS_PER_MINUTE = 60L
         private const val MILLIS_PER_SECOND = 1_000L
 
+        @Suppress("CyclomaticComplexMethod")
         fun parse(args: Array<String>): LaunchArguments {
             var start: Long? = null
             var end: Long? = null

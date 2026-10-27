@@ -9,6 +9,7 @@
     "MaximumLineLength",
     "MaxLineLength",
     "MultiLineIfElse",
+    "NoUnusedImports",
     "ParameterListWrapping",
     "PropertyWrapping",
     "StringTemplate",

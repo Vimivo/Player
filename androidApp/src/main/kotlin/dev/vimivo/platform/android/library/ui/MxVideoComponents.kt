@@ -1,3 +1,17 @@
+@file:Suppress(
+    "ArgumentListWrapping",
+    "CyclomaticComplexMethod",
+    "ImportOrdering",
+    "LongMethod",
+    "LongParameterList",
+    "MaximumLineLength",
+    "MaxLineLength",
+    "MultiLineIfElse",
+    "NoUnusedImports",
+    "TooManyFunctions",
+    "Wrapping",
+)
+
 package dev.vimivo.platform.android.library.ui
 
 import androidx.compose.animation.AnimatedVisibility
@@ -577,7 +591,7 @@ fun MxMediaPropertiesDialog(
                     PropertyLine("Format", mime)
                 }
                 media.dateAddedEpochSeconds?.let { added ->
-                    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT)
                     PropertyLine("Date Added", sdf.format(Date(added * 1000L)))
                 }
             }

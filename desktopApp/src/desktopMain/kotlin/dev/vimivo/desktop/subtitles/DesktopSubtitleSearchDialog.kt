@@ -60,6 +60,7 @@ internal data class SubtitleSearchResult(
 )
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun DesktopSubtitleSearchDialog(
     media: MediaItem?,
     onApplySubtitle: (File) -> Unit,

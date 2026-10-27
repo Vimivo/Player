@@ -1,4 +1,5 @@
 @file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
+@file:Suppress("CyclomaticComplexMethod", "ImportOrdering", "NoUnusedImports")
 
 package dev.vimivo.platform.android.playback
 

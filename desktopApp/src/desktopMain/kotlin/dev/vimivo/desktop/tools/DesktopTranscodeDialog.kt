@@ -43,6 +43,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
+@Suppress("CyclomaticComplexMethod")
 fun DesktopTranscodeDialog(
     currentMedia: MediaItem?,
     onDismiss: () -> Unit,

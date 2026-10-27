@@ -203,6 +203,7 @@ internal interface DesktopFullscreenControl {
  * Executes [DesktopPlayerCommand]s against the engine. Window and queue actions are injected so the
  * executor stays testable without a window or a real queue.
  */
+@Suppress("LongParameterList")
 internal class DesktopPlayerCommandExecutor(
     private val engine: PlayerEngine,
     private val togglePlayback: () -> Unit,

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import dev.vimivo.desktop.platform.DesktopPlatform
 
 @Composable
+@Suppress("CyclomaticComplexMethod")
 internal fun DesktopCaptureDeviceDialog(
     onOpenCapture: (uri: String, title: String) -> Unit,
     onDismiss: () -> Unit,

@@ -36,7 +36,8 @@ class SeekControllerTest {
     fun aClampedSeekStopsHoldingAfterTheTimeout() {
         controller.seekTo(DURATION, nowMillis = 0)
         assertFalse(controller.onEngineReport(95_000, DURATION, true, false, nowMillis = 1_000))
-        assertTrue(controller.onEngineReport(95_000, DURATION, true, false, nowMillis = SeekController.CONFIRM_TIMEOUT_MILLIS))
+        val timeout = SeekController.CONFIRM_TIMEOUT_MILLIS
+        assertTrue(controller.onEngineReport(95_000, DURATION, true, false, nowMillis = timeout))
     }
 
     @Test

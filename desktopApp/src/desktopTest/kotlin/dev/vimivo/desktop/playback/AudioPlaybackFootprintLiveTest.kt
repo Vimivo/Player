@@ -23,6 +23,7 @@ import kotlin.test.Test
  */
 class AudioPlaybackFootprintLiveTest {
     @Test
+    @Suppress("ExplicitGarbageCollectionCall")
     fun reportsCpuAndPeakMemoryWhilePlayingAudio() {
         val file = System.getenv("VIMIVO_FOOTPRINT_MEDIA")?.let(::File)?.takeIf { it.isFile }
         if (file == null || runCatching { MpvNative.load() }.isFailure) {

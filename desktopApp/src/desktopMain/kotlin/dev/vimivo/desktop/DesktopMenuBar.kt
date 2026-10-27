@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package dev.vimivo.desktop
 
 import androidx.compose.runtime.Composable

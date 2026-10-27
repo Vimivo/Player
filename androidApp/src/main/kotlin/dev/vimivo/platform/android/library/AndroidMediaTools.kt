@@ -1,3 +1,13 @@
+@file:Suppress(
+    "ArgumentListWrapping",
+    "CyclomaticComplexMethod",
+    "ImplicitDefaultLocale",
+    "MaximumLineLength",
+    "MaxLineLength",
+    "NoUnusedImports",
+    "TooGenericExceptionCaught",
+)
+
 package dev.vimivo.platform.android.library
 
 import android.content.Context
@@ -78,7 +88,15 @@ object AndroidMediaConverter {
                     break
                 }
                 bufferInfo.presentationTimeUs = extractor.sampleTime
-                bufferInfo.flags = extractor.sampleFlags
+                val sampleFlags = extractor.sampleFlags
+                var bufferFlags = 0
+                if ((sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC) != 0) {
+                    bufferFlags = bufferFlags or MediaCodec.BUFFER_FLAG_KEY_FRAME
+                }
+                if ((sampleFlags and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME) != 0) {
+                    bufferFlags = bufferFlags or MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
+                }
+                bufferInfo.flags = bufferFlags
                 muxer.writeSampleData(muxerTrackIndex, buffer, bufferInfo)
                 extractor.advance()
             }

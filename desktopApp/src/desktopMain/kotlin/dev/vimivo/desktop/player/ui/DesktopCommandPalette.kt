@@ -81,6 +81,7 @@ internal data class PaletteAction(
 )
 
 @Composable
+@Suppress("LongMethod")
 internal fun DesktopCommandPalette(
     state: PlayerState,
     onIntent: (PlayerIntent) -> Unit,

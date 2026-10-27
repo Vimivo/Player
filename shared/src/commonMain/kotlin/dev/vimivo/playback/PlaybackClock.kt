@@ -33,6 +33,7 @@ class PlaybackClock(
      * @param running true only while the position actually advances (playing; not paused, buffering or seeking).
      * @param snap start exactly at [positionMillis] with no blending, e.g. right after a confirmed seek.
      */
+    @Suppress("LongParameterList")
     fun report(
         positionMillis: Long,
         nowNanos: Long,

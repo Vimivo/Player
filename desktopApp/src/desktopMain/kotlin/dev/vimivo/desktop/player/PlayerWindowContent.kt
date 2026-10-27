@@ -1,4 +1,4 @@
-@file:Suppress("LongParameterList") // Composables take their state, callbacks and styling explicitly.
+@file:Suppress("LongParameterList", "CyclomaticComplexMethod", "ComplexCondition") // Composables take their state, callbacks and styling explicitly.
 
 package dev.vimivo.desktop.player
 

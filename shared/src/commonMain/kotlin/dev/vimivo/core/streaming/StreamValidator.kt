@@ -206,7 +206,9 @@ object StreamValidator {
         if (protocol == StreamProtocol.RTSP || protocol == StreamProtocol.RTP ||
             protocol == StreamProtocol.UDP || protocol == StreamProtocol.MMS ||
             protocol == StreamProtocol.INTERNET_RADIO
-        ) return true
+        ) {
+            return true
+        }
         val lower = path.lowercase()
         return lower.contains("/live") || lower.contains("live.m3u8") || lower.contains("live.mpd")
     }

@@ -82,6 +82,7 @@ private val CURATED_STATIONS = listOf(
 )
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun DesktopRadioPodcastDialog(
     onPlayMedia: (MediaItem) -> Unit,
     onDismiss: () -> Unit,

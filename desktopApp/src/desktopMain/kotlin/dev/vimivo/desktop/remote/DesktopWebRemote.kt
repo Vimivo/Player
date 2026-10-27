@@ -39,7 +39,6 @@ import dev.vimivo.desktop.player.PlayerState
 import dev.vimivo.playback.PlaybackStatus
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
-import java.io.OutputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface

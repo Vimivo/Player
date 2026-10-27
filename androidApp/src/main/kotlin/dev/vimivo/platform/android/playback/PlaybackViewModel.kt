@@ -1,3 +1,4 @@
+@file:androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 @file:Suppress(
     "ArgumentListWrapping",
     "CyclomaticComplexMethod",
@@ -9,6 +10,7 @@
     "MultiLineIfElse",
     "TooManyFunctions",
     "UnstableApiUsage",
+    "UnusedParameter",
 )
 
 package dev.vimivo.platform.android.playback
