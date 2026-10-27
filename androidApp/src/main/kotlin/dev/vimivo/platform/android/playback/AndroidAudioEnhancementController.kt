@@ -89,8 +89,8 @@ internal class AndroidAudioEnhancementController(context: Context) : AutoCloseab
             tags.trackPeak,
             tags.albumPeak,
         )
-        processor.configure(boost * preamp * replayGain, bands)
-        val active = requested.enabled || boost > 1f || requested.replayGainMode != ReplayGainMode.OFF
+        processor.configure(boost * preamp * replayGain, bands, requested.monoDownmix)
+        val active = requested.enabled || boost > 1f || requested.replayGainMode != ReplayGainMode.OFF || requested.monoDownmix
         mutableState.value = AudioEnhancementState(
             capabilities = CAPABILITIES,
             settings = requested,

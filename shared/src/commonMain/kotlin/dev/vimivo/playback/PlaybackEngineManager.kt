@@ -110,19 +110,28 @@ class PlaybackEngineManager(
         )
     }
 
-    private fun candidatesFor(media: MediaItem): List<EngineId> =
-        factories.entries
+    private fun candidatesFor(media: MediaItem): List<EngineId> {
+        val preferredMode = InMemoryDecoderPreferenceStore.shared.getDecoderForMedia(media.uri)
+        return factories.entries
             .filter { (id, factory) ->
                 id !in attemptedEngines && factory.supportFor(media) != SupportLevel.UNSUPPORTED
             }
-            .sortedBy { (_, factory) ->
-                when (factory.supportFor(media)) {
-                    SupportLevel.PREFERRED -> 0
-                    SupportLevel.FALLBACK -> 1
-                    SupportLevel.UNSUPPORTED -> 2
+            .sortedBy { (id, factory) ->
+                if (preferredMode != null) {
+                    when (preferredMode) {
+                        MobileDecoderMode.HW -> if (id == EngineId.MEDIA3) 0 else 1
+                        MobileDecoderMode.HW_PLUS, MobileDecoderMode.SW -> if (id == EngineId.MPV) 0 else 1
+                    }
+                } else {
+                    when (factory.supportFor(media)) {
+                        SupportLevel.PREFERRED -> 0
+                        SupportLevel.FALLBACK -> 1
+                        SupportLevel.UNSUPPORTED -> 2
+                    }
                 }
             }
             .map { it.key }
+    }
 
     private suspend fun switchTo(engineId: EngineId, queue: QueueContext, positionMillis: Long, session: Long): Result<Unit> {
         attemptedEngines += engineId
@@ -207,7 +216,11 @@ class PlaybackEngineManager(
             return@withLock
         }
         val result = switchTo(next, queue, positionMillis, session)
-        if (result.isSuccess && desiredPlayback) mutableActiveEngine.value?.play()
+        if (result.isSuccess) {
+            val fallbackMode = if (next == EngineId.MPV) MobileDecoderMode.HW_PLUS else MobileDecoderMode.HW
+            InMemoryDecoderPreferenceStore.shared.recordFallback(queue.current.uri, fallbackMode)
+            if (desiredPlayback) mutableActiveEngine.value?.play()
+        }
     }
 
     private fun releaseCurrent() {

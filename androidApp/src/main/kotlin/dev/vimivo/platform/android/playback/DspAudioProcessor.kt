@@ -22,16 +22,19 @@ internal class DspAudioProcessor : BaseAudioProcessor() {
 
     @Volatile private var requestedBandsDb: List<Float> = emptyList()
 
+    @Volatile private var requestedMonoDownmix = false
+
     @Volatile private var changed = true
 
     private var chain: AudioDspChain? = null
     private var scratch = FloatArray(0)
     private var float = false
 
-    /** Sets the linear gain (boost × ReplayGain × preamp) and the ten equalizer band gains in dB. */
-    fun configure(gain: Float, bandsDb: List<Float>) {
+    /** Sets the linear gain (boost × ReplayGain × preamp), the ten equalizer band gains in dB, and mono downmix. */
+    fun configure(gain: Float, bandsDb: List<Float>, monoDownmix: Boolean = false) {
         requestedGain = gain
         requestedBandsDb = bandsDb
+        requestedMonoDownmix = monoDownmix
         changed = true
     }
 
@@ -81,6 +84,7 @@ internal class DspAudioProcessor : BaseAudioProcessor() {
     private fun apply(dsp: AudioDspChain) {
         changed = false
         dsp.gain = requestedGain
+        dsp.monoDownmix = requestedMonoDownmix
         dsp.setEqualizerGainsDb(requestedBandsDb)
     }
 

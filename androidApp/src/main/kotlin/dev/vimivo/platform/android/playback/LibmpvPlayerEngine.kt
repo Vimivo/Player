@@ -117,8 +117,16 @@ class LibmpvPlayerEngine(
             positionMillis = startPositionMillis,
             metadata = PlaybackMetadata(media.title, media.artist, media.album, media.artworkUri),
         )
-        val decoder = settingsRepository.settings.first().decoderPreference
-        setProperty("hwdec", hwdecFor(decoder))
+        val mode = dev.vimivo.playback.InMemoryDecoderPreferenceStore.shared.getDecoderForMedia(media.uri)
+        val hwdecValue = when (mode) {
+            dev.vimivo.playback.MobileDecoderMode.SW -> "no"
+            dev.vimivo.playback.MobileDecoderMode.HW_PLUS, dev.vimivo.playback.MobileDecoderMode.HW -> "mediacodec-copy"
+            null -> {
+                val decoder = settingsRepository.settings.first().decoderPreference
+                hwdecFor(decoder)
+            }
+        }
+        setProperty("hwdec", hwdecValue)
         setProperty("pause", "yes")
         setProperty("start", if (startPositionMillis > 0) seconds(startPositionMillis) else "none")
         command("loadfile", target, "replace")

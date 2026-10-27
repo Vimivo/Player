@@ -57,6 +57,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -78,6 +79,8 @@ import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.Audiotrack
 import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.BrightnessLow
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.ChildCare
 import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -85,6 +88,7 @@ import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Nightlight
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -95,6 +99,7 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.ZoomIn
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -170,7 +175,7 @@ private enum class VideoAspect(val label: String) {
 }
 
 /** Which part of the video options sheet is shown; quick actions open a focused panel. */
-private enum class PlayerPanel { ALL, SPEED, AUDIO, SUBTITLES, QUEUE }
+private enum class PlayerPanel { ALL, SPEED, AUDIO, SUBTITLES, QUEUE, TOOLS, DECODER }
 
 private enum class DragMode { NONE, SEEK, BRIGHTNESS, VOLUME, ZOOM }
 
@@ -224,6 +229,13 @@ fun AdvancedVideoPlayer(
     val orientation = LocalConfiguration.current.orientation
     var controlsVisible by remember { mutableStateOf(true) }
     var locked by remember { mutableStateOf(false) }
+    var kidsLocked by remember { mutableStateOf(false) }
+    val kidParticles = remember { androidx.compose.runtime.mutableStateListOf<Offset>() }
+    var nightModeDim by remember { mutableFloatStateOf(settings.nightModeDimFraction) }
+    var seekThumbnailBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var seekThumbnailTime by remember { mutableLongStateOf(0L) }
+    var currentTimeString by remember { mutableStateOf("") }
+    var batteryPercent by remember { mutableIntStateOf(100) }
     var lockHintVisible by remember { mutableStateOf(false) }
     var orientationLocked by remember { mutableStateOf(false) }
     var panel by remember { mutableStateOf<PlayerPanel?>(null) }
@@ -243,6 +255,22 @@ fun AdvancedVideoPlayer(
     var autoExternalAppliedFor by remember { mutableStateOf<String?>(null) }
     val media = player.current?.toDomain()
     val latestPlayer by rememberUpdatedState(player)
+
+    LaunchedEffect(Unit) {
+        val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        val bm = context.getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+        while (true) {
+            currentTimeString = sdf.format(java.util.Date())
+            batteryPercent = bm?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100
+            delay(30_000L)
+        }
+    }
+
+    LaunchedEffect(seekThumbnailTime) {
+        if (seekThumbnailTime > 0) {
+            seekThumbnailBitmap = thumbnails.loadFrameAt(media?.uri.orEmpty(), seekThumbnailTime)
+        }
+    }
 
     LaunchedEffect(media?.id?.value) {
         if (media != null) viewModel.setSpeed(settings.defaultVideoSpeed)
@@ -344,7 +372,11 @@ fun AdvancedVideoPlayer(
         }
     }
     BackHandler {
-        if (locked) lockHintVisible = true else onDismiss()
+        when {
+            kidsLocked -> Unit
+            locked -> lockHintVisible = true
+            else -> onDismiss()
+        }
     }
 
     fun showMessage(icon: ImageVector?, text: String) {
@@ -355,8 +387,12 @@ fun AdvancedVideoPlayer(
         Box(
             Modifier.fillMaxSize()
                 .clipToBounds()
-                .pointerInput(locked) {
-                    if (locked) {
+                .pointerInput(locked, kidsLocked) {
+                    if (kidsLocked) {
+                        detectTapGestures(onTap = { offset ->
+                            kidParticles.add(offset)
+                        })
+                    } else if (locked) {
                         detectTapGestures(onTap = { lockHintVisible = !lockHintVisible })
                     } else detectTapGestures(
                         onTap = { controlsVisible = !controlsVisible },
@@ -398,8 +434,8 @@ fun AdvancedVideoPlayer(
                         },
                     )
                 }
-                .pointerInput(locked, settings.videoGestureSensitivity) {
-                    if (locked) return@pointerInput
+                .pointerInput(locked, kidsLocked, settings.videoGestureSensitivity) {
+                    if (locked || kidsLocked) return@pointerInput
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val edgeGuard = 24.dp.toPx()
@@ -454,6 +490,7 @@ fun AdvancedVideoPlayer(
                                         // A full-width swipe covers 90 seconds or a third of the video, whichever is longer.
                                         val span = maxOf(90_000L, duration / 3) * settings.videoGestureSensitivity
                                         seekTarget = (seekTarget + (delta.x / size.width * span).toLong()).coerceIn(0, duration)
+                                        seekThumbnailTime = seekTarget
                                         feedback = GestureFeedback.Seek(seekTarget, seekTarget - seekStart, duration)
                                     }
                                     DragMode.BRIGHTNESS -> {
@@ -540,7 +577,33 @@ fun AdvancedVideoPlayer(
             if (doubleTapSide != 0) DoubleTapSeekIndicator(doubleTapSide, doubleTapTotalSeconds)
             feedback?.let { GestureFeedbackHud(it, Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 72.dp)) }
 
-            if (inPictureInPicture) {
+            if (nightModeDim > 0f) {
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = nightModeDim)))
+            }
+
+            if (kidsLocked) {
+                Box(Modifier.fillMaxSize()) {
+                    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                        kidParticles.forEach { pt ->
+                            drawCircle(Color(0xFFFFD54F), radius = 28f, center = pt)
+                            drawCircle(Color(0xFFFF5252), radius = 14f, center = pt)
+                        }
+                    }
+                    Surface(
+                        onClick = { kidsLocked = false; controlsVisible = true },
+                        modifier = Modifier.align(Alignment.TopStart).safeDrawingPadding().padding(24.dp),
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.25f),
+                        contentColor = Color.White,
+                    ) {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.LockOpen, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Kids Lock (Tap to unlock)", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+            } else if (inPictureInPicture) {
                 // Picture-in-picture shows only the video; the system provides its own controls.
             } else if (locked) {
                 AnimatedVisibility(lockHintVisible, Modifier.align(Alignment.CenterStart), enter = fadeIn(), exit = fadeOut()) {
@@ -568,6 +631,9 @@ fun AdvancedVideoPlayer(
                         orientationLocked = orientationLocked,
                         supportsPictureInPicture = supportsPictureInPicture,
                         hasSubtitles = player.subtitleTracks.isNotEmpty() || player.capabilities?.externalSubtitles == true,
+                        currentTimeString = currentTimeString,
+                        batteryPercent = batteryPercent,
+                        seekThumbnailBitmap = seekThumbnailBitmap,
                         onClose = onDismiss,
                         onToggle = viewModel::togglePlayback,
                         onPrevious = viewModel::previous,
@@ -580,6 +646,10 @@ fun AdvancedVideoPlayer(
                             locked = true
                             controlsVisible = false
                             lockHintVisible = true
+                        },
+                        onKidsLock = {
+                            kidsLocked = true
+                            controlsVisible = false
                         },
                         onOrientationLock = {
                             orientationLocked = !orientationLocked
@@ -598,6 +668,12 @@ fun AdvancedVideoPlayer(
                             showMessage(Icons.Rounded.AspectRatio, aspect.label)
                         },
                         onPip = onEnterPictureInPicture,
+                        onPopup = {
+                            activity?.let { act ->
+                                dev.vimivo.platform.android.playback.AndroidFloatingPlayerService.start(act)
+                            }
+                            onDismiss()
+                        },
                         onPanel = { panel = it },
                     )
                 }
@@ -614,6 +690,12 @@ fun AdvancedVideoPlayer(
             media,
             aspect,
             settings,
+            nightModeDim = nightModeDim,
+            onNightModeDimChange = { nightModeDim = it },
+            onKidsLock = {
+                kidsLocked = true
+                panel = null
+            },
             onAspect = { aspect = it; zoom = 1f },
             onSensitivity = onGestureSensitivity,
             onPreferredSubtitleLanguage = onPreferredSubtitleLanguage,
@@ -648,6 +730,9 @@ private fun VideoControls(
     orientationLocked: Boolean,
     supportsPictureInPicture: Boolean,
     hasSubtitles: Boolean,
+    currentTimeString: String,
+    batteryPercent: Int,
+    seekThumbnailBitmap: android.graphics.Bitmap?,
     onClose: () -> Unit,
     onToggle: () -> Unit,
     onPrevious: () -> Unit,
@@ -657,9 +742,11 @@ private fun VideoControls(
     onSkip: (Int) -> Unit,
     onToggleRemaining: () -> Unit,
     onLock: () -> Unit,
+    onKidsLock: () -> Unit,
     onOrientationLock: () -> Unit,
     onAspect: () -> Unit,
     onPip: () -> Unit,
+    onPopup: () -> Unit,
     onPanel: (PlayerPanel) -> Unit,
 ) {
     val hasQueue = player.queue.size > 1
@@ -671,20 +758,49 @@ private fun VideoControls(
             ) {
                 PlayerIconButton(Icons.AutoMirrored.Rounded.ArrowBack, "Close video", onClick = onClose)
                 Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
-                    Text(
-                        media?.title.orEmpty(),
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            media?.title.orEmpty(),
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "$currentTimeString · $batteryPercent%",
+                            color = Color.White.copy(alpha = 0.65f),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
                     videoSubtitle(player, media)?.let {
                         Text(it, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
                     }
                 }
+                val modeLabel = when (player.decoderMode) {
+                    dev.vimivo.playback.MobileDecoderMode.HW -> "HW"
+                    dev.vimivo.playback.MobileDecoderMode.HW_PLUS -> "HW+"
+                    dev.vimivo.playback.MobileDecoderMode.SW -> "SW"
+                }
+                Surface(
+                    onClick = { onPanel(PlayerPanel.DECODER) },
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color.White.copy(alpha = 0.16f),
+                    contentColor = Color.White,
+                    modifier = Modifier.padding(end = 4.dp),
+                ) {
+                    Text(
+                        modeLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
                 if (hasQueue) PlayerIconButton(Icons.AutoMirrored.Rounded.QueueMusic, "Next up") { onPanel(PlayerPanel.QUEUE) }
                 if (player.audioTracks.size > 1) PlayerIconButton(Icons.Rounded.Audiotrack, "Audio track") { onPanel(PlayerPanel.AUDIO) }
                 if (hasSubtitles) PlayerIconButton(Icons.Rounded.ClosedCaption, "Subtitles") { onPanel(PlayerPanel.SUBTITLES) }
+                PlayerIconButton(Icons.Rounded.Build, "Tools") { onPanel(PlayerPanel.TOOLS) }
                 if (supportsPictureInPicture) PlayerIconButton(Icons.Rounded.PictureInPictureAlt, "Picture in picture", onClick = onPip)
                 PlayerIconButton(Icons.Rounded.MoreVert, "Video options") { onPanel(PlayerPanel.ALL) }
             }
@@ -718,17 +834,35 @@ private fun VideoControls(
         }
 
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(BottomScrim)) {
-            Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 4.dp)) {
+            Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)) {
+                seekThumbnailBitmap?.let { bmp ->
+                    Surface(
+                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                        shadowElevation = 8.dp,
+                    ) {
+                        Image(
+                            bitmap = bmp.asImageBitmap(),
+                            contentDescription = "Seek preview",
+                            modifier = Modifier.size(width = 120.dp, height = 68.dp),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        )
+                    }
+                }
                 SettingsHandle { onPanel(PlayerPanel.ALL) }
                 VideoSeekBar(player, showRemaining, seekController, onToggleRemaining)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     PlayerIconButton(Icons.Rounded.Lock, "Lock screen controls", onClick = onLock)
+                    PlayerIconButton(Icons.Rounded.ChildCare, "Kids lock", onClick = onKidsLock)
                     PlayerIconButton(
                         if (orientationLocked) Icons.Rounded.ScreenLockRotation else Icons.Rounded.ScreenRotation,
                         if (orientationLocked) "Unlock orientation" else "Lock orientation",
                         onClick = onOrientationLock,
                     )
                     Spacer(Modifier.weight(1f))
+                    PlayerIconButton(Icons.Outlined.FitScreen, "Floating popup player", onClick = onPopup)
+                    Spacer(Modifier.width(4.dp))
                     PlayerPill(Icons.Rounded.Speed, formatSpeed(player.speed), "Playback speed ${formatSpeed(player.speed)}") { onPanel(PlayerPanel.SPEED) }
                     Spacer(Modifier.width(8.dp))
                     PlayerPill(Icons.Rounded.AspectRatio, aspect.shortLabel, "Aspect ratio ${aspect.label}", onAspect)
@@ -938,6 +1072,9 @@ private fun VideoSettingsSheet(
     media: MediaItem?,
     aspect: VideoAspect,
     settings: AppSettings,
+    nightModeDim: Float,
+    onNightModeDimChange: (Float) -> Unit,
+    onKidsLock: () -> Unit,
     onAspect: (VideoAspect) -> Unit,
     onSensitivity: (Float) -> Unit,
     onPreferredSubtitleLanguage: (String) -> Unit,
@@ -958,6 +1095,22 @@ private fun VideoSettingsSheet(
             NextUpList(player, viewModel, thumbnails, onDismiss)
             return@BottomSheet
         }
+        if (panel == PlayerPanel.DECODER) {
+            DecoderSection(player, viewModel, onDismiss)
+            return@BottomSheet
+        }
+        if (panel == PlayerPanel.TOOLS) {
+            ToolsSection(
+                player = player,
+                nightModeDim = nightModeDim,
+                onNightModeDimChange = onNightModeDimChange,
+                onKidsLock = onKidsLock,
+                onPanelRequest = onPanelRequest,
+                onDismiss = onDismiss,
+                viewModel = viewModel,
+            )
+            return@BottomSheet
+        }
         Text(
             when (panel) {
                 PlayerPanel.ALL -> "Playback settings"
@@ -975,6 +1128,109 @@ private fun VideoSettingsSheet(
             player, settings, onPreferredSubtitleLanguage, onSubtitlesEnabled, onSubtitleDelay, onSubtitleAppearance, onOpenSubtitle, viewModel,
         )
         if (all) GeneralSection(player, media, aspect, settings, onAspect, onSensitivity, viewModel)
+    }
+}
+
+@Composable
+private fun DecoderSection(
+    player: PlaybackUiState,
+    viewModel: PlaybackViewModel,
+    onDismiss: () -> Unit,
+) {
+    Text(
+        "Decoder Mode",
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+    )
+    SettingsRow(
+        icon = Icons.Outlined.Info,
+        title = "Hardware (HW)",
+        detail = "Standard Android hardware decoder (MediaCodec). Best battery and performance.",
+        checked = player.decoderMode == dev.vimivo.playback.MobileDecoderMode.HW,
+        onClick = {
+            viewModel.setDecoderMode(dev.vimivo.playback.MobileDecoderMode.HW)
+            onDismiss()
+        },
+    )
+    SettingsRow(
+        icon = Icons.Outlined.Info,
+        title = "Hardware+ (HW+)",
+        detail = "libmpv with hardware acceleration. Wider container and subtitle support.",
+        checked = player.decoderMode == dev.vimivo.playback.MobileDecoderMode.HW_PLUS,
+        onClick = {
+            viewModel.setDecoderMode(dev.vimivo.playback.MobileDecoderMode.HW_PLUS)
+            onDismiss()
+        },
+    )
+    SettingsRow(
+        icon = Icons.Outlined.Info,
+        title = "Software (SW)",
+        detail = "libmpv software decoding. Maximum compatibility for complex formats.",
+        checked = player.decoderMode == dev.vimivo.playback.MobileDecoderMode.SW,
+        onClick = {
+            viewModel.setDecoderMode(dev.vimivo.playback.MobileDecoderMode.SW)
+            onDismiss()
+        },
+    )
+}
+
+@Composable
+private fun ToolsSection(
+    player: PlaybackUiState,
+    nightModeDim: Float,
+    onNightModeDimChange: (Float) -> Unit,
+    onKidsLock: () -> Unit,
+    onPanelRequest: (PlayerPanel) -> Unit,
+    onDismiss: () -> Unit,
+    viewModel: PlaybackViewModel,
+) {
+    Text(
+        "Tools & Effects",
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+    )
+    MenuHeading(Icons.Rounded.Nightlight, "Night Mode")
+    Text("Dim screen filter: ${(nightModeDim * 100).roundToInt()}%", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.bodySmall)
+    Slider(
+        value = nightModeDim,
+        onValueChange = onNightModeDimChange,
+        valueRange = 0f..0.8f,
+        modifier = Modifier.padding(horizontal = 20.dp),
+    )
+    SettingsRow(
+        icon = Icons.Rounded.ChildCare,
+        title = "Kids Lock",
+        detail = "Locks touches and shows fun tap bubbles",
+        onClick = onKidsLock,
+    )
+    SettingsRow(
+        icon = Icons.Outlined.Speed,
+        title = "Playback Speed",
+        detail = formatSpeed(player.speed),
+        onClick = { onPanelRequest(PlayerPanel.SPEED) },
+    )
+    SettingsRow(
+        icon = Icons.AutoMirrored.Outlined.VolumeUp,
+        title = "Audio Tracks & Sync",
+        detail = "Select track, delay, and effects",
+        onClick = { onPanelRequest(PlayerPanel.AUDIO) },
+    )
+    SettingsRow(
+        icon = Icons.Outlined.Subtitles,
+        title = "Subtitles",
+        detail = "Tracks, sync, appearance, external files",
+        onClick = { onPanelRequest(PlayerPanel.SUBTITLES) },
+    )
+    if (player.capabilities?.screenshots == true) {
+        SettingsRow(
+            icon = Icons.Outlined.Info,
+            title = "Take Screenshot",
+            detail = "Save frame to Pictures/Vimivo",
+            onClick = {
+                viewModel.saveSnapshot()
+                onDismiss()
+            },
+        )
     }
 }
 

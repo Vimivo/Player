@@ -94,8 +94,11 @@ struct PlayerGestureSurface: UIViewRepresentable {
         }
 
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            if model.kidsLocked {
+                return gestureRecognizer === singleTap
+            }
             // While locked only the single tap (which reveals the unlock button) is active.
-            !model.locked || gestureRecognizer === singleTap
+            return !model.locked || gestureRecognizer === singleTap
         }
 
         func gestureRecognizer(
@@ -108,6 +111,10 @@ struct PlayerGestureSurface: UIViewRepresentable {
         @objc func handleSingleTap(_ recognizer: UITapGestureRecognizer) {
             guard let view = recognizer.view else { return }
             let point = recognizer.location(in: view)
+            if model.kidsLocked {
+                model.addKidParticle(at: point)
+                return
+            }
             model.handleSingleTap(x: point.x, width: view.bounds.width)
         }
 
@@ -192,6 +199,7 @@ struct PlayerGestureSurface: UIViewRepresentable {
                 let span = Double(max(90_000, duration / 3))
                 let step = Int64(Double(delta.x / max(size.width, 1)) * span)
                 seekTarget = min(max(seekTarget + step, 0), duration)
+                model.loadSeekThumbnail(at: seekTarget)
                 model.feedback = .seek(target: seekTarget, delta: seekTarget - seekStart, duration: duration)
             case .brightness:
                 level = min(max(level - delta.y / max(size.height, 1) * sensitivity, 0.01), 1)

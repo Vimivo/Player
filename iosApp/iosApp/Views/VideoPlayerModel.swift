@@ -1,6 +1,7 @@
 import SwiftUI
 import AVKit
 import UIKit
+import VimivoShared
 
 enum VideoAspect: CaseIterable, Identifiable {
     case fit, crop, stretch, ratio16x9, ratio4x3
@@ -46,8 +47,15 @@ enum VideoAspect: CaseIterable, Identifiable {
 }
 
 enum PlayerSheet: String, Identifiable {
-    case speed, audio, subtitles, options, queue
+    case speed, audio, subtitles, options, queue, tools, decoder
     var id: String { rawValue }
+}
+
+struct KidParticle: Identifiable {
+    let id = UUID()
+    let point: CGPoint
+    let color: Color
+    let symbol: String
 }
 
 enum GestureFeedback: Equatable {
@@ -69,6 +77,8 @@ final class VideoPlayerModel: ObservableObject {
 
     @Published var controlsVisible = true
     @Published var locked = false
+    @Published var kidsLocked = false
+    @Published var kidParticles: [KidParticle] = []
     @Published var lockHintVisible = false
     @Published var rotationLocked = false
     @Published var aspect: VideoAspect = .fit
@@ -86,6 +96,15 @@ final class VideoPlayerModel: ObservableObject {
     @Published private(set) var selectedSubtitle: AVMediaSelectionOption?
     /// Current subtitle cue, rendered by the player view so styling matches Android.
     @Published private(set) var subtitleText: String?
+    @Published var nightModeDim: Double = 0.0
+    @Published var audioDelayMillis: Int64 = 0
+    @Published var decoderMode: MobileDecoderMode = .hw
+    @Published var seekThumbnail: UIImage?
+    @Published var seekThumbnailTime: Int64?
+    @Published var subtitleBottomMargin: CGFloat = 32
+    @Published var subtitleFontSize: CGFloat = 18
+    @Published var currentTimeString: String = ""
+    @Published var batteryPercent: Int = 100
 
     /// Set by the player layer when picture in picture is supported on this device.
     var pipController: AVPictureInPictureController?
@@ -113,6 +132,60 @@ final class VideoPlayerModel: ObservableObject {
     /// Restarts the auto-hide countdown after any control interaction.
     func touch() {
         interactionTick &+= 1
+    }
+
+    func setDecoderMode(_ mode: MobileDecoderMode) {
+        self.decoderMode = mode
+        if let uri = engine.state.currentItem?.uri {
+            InMemoryDecoderPreferenceStore.companion.shared.setDecoderForMedia(uri: uri, mode: mode)
+        }
+    }
+
+    func setAudioDelay(_ millis: Int64) {
+        self.audioDelayMillis = millis
+    }
+
+    func addKidParticle(at point: CGPoint) {
+        let colors: [Color] = [.yellow, .pink, .cyan, .green, .orange, .purple]
+        let symbols = ["star.fill", "sparkles", "heart.fill", "circle.fill"]
+        let particle = KidParticle(point: point, color: colors.randomElement() ?? .yellow, symbol: symbols.randomElement() ?? "star.fill")
+        kidParticles.append(particle)
+        Task {
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            kidParticles.removeAll { $0.id == particle.id }
+        }
+    }
+
+    func loadSeekThumbnail(at millis: Int64) {
+        seekThumbnailTime = millis
+        guard let item = engine.state.currentItem else { return }
+        let urlString = item.uri
+        let url: URL? = urlString.hasPrefix("/") ? URL(fileURLWithPath: urlString) : URL(string: urlString)
+        guard let targetUrl = url else { return }
+        Task.detached(priority: .userInitiated) {
+            let asset = AVURLAsset(url: targetUrl)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 240, height: 135)
+            let cmTime = CMTime(seconds: Double(millis) / 1000.0, preferredTimescale: 600)
+            if let cgImage = try? await generator.image(at: cmTime).image {
+                let uiImage = UIImage(cgImage: cgImage)
+                await MainActor.run {
+                    if self.seekThumbnailTime == millis {
+                        self.seekThumbnail = uiImage
+                    }
+                }
+            }
+        }
+    }
+
+    func updateSystemStatus() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        currentTimeString = formatter.string(from: Date())
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let level = UIDevice.current.batteryLevel
+        batteryPercent = level >= 0 ? Int(level * 100) : 100
     }
 
     // MARK: Taps

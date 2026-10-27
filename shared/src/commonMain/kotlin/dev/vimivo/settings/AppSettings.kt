@@ -70,6 +70,14 @@ data class AppSettings(
     val hiddenMediaBehavior: HiddenMediaBehavior = HiddenMediaBehavior.HIDE,
     val autoReconnectStreams: Boolean = true,
     val homeSections: List<HomeSection> = HomeSection.entries,
+    val gestureSeekEnabled: Boolean = true,
+    val gestureVolumeEnabled: Boolean = true,
+    val gestureBrightnessEnabled: Boolean = true,
+    val gestureZoomEnabled: Boolean = true,
+    val swapVolumeBrightnessSides: Boolean = false,
+    val nightModeDimFraction: Float = 0f,
+    val pauseOnHeadsetUnplug: Boolean = true,
+    val resumeOnHeadsetReconnect: Boolean = false,
 )
 
 interface SettingsRepository {

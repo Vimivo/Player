@@ -51,7 +51,14 @@ public struct VideoPlayerView: View {
                 DoubleTapSeekIndicator(side: model.doubleTapSide, seconds: model.doubleTapSeconds)
                     .allowsHitTesting(false)
             }
-            if model.locked {
+            if model.nightModeDim > 0 {
+                Color.black.opacity(model.nightModeDim)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+            if model.kidsLocked {
+                kidsLockOverlay
+            } else if model.locked {
                 lockOverlay
             } else if model.controlsVisible {
                 VideoControls(engine: engine, model: model, onClose: close)
@@ -151,6 +158,39 @@ public struct VideoPlayerView: View {
         }
     }
 
+    private var kidsLockOverlay: some View {
+        ZStack {
+            ForEach(model.kidParticles) { particle in
+                Image(systemName: particle.symbol)
+                    .font(.system(size: 36))
+                    .foregroundColor(particle.color)
+                    .position(particle.point)
+            }
+            VStack {
+                HStack {
+                    Button {
+                        model.kidsLocked = false
+                        model.controlsVisible = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "lock.shield.fill")
+                            Text("Kids Lock (Tap to unlock)")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.25), in: Capsule())
+                        .foregroundColor(.white)
+                    }
+                    Spacer()
+                }
+                .padding(.top, 48)
+                .padding(.leading, 24)
+                Spacer()
+            }
+        }
+    }
+
     private var lockOverlay: some View {
         HStack {
             if model.lockHintVisible {
@@ -227,16 +267,36 @@ private struct VideoControls: View {
                     .font(.headline)
                     .foregroundColor(.white)
                     .lineLimit(1)
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundColor(.white.opacity(0.7))
-                        .lineLimit(1)
+                HStack(spacing: 6) {
+                    if let subtitle = subtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundColor(.white.opacity(0.7))
+                            .lineLimit(1)
+                    }
+                    Text(model.currentTimeString)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundColor(.white.opacity(0.6))
+                    Image(systemName: "battery.100")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+
+            Button {
+                open(.decoder)
+            } label: {
+                Text(model.decoderMode.chipLabel)
+                    .font(.caption2.weight(.bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.accentColor.opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
+                    .foregroundColor(.white)
+            }
+
             if engine.queue.count > 1 {
                 PlayerIconButton(systemName: "list.bullet", label: "Next up") { open(.queue) }
             }
@@ -247,6 +307,7 @@ private struct VideoControls: View {
                     model.togglePictureInPicture()
                 }
             }
+            PlayerIconButton(systemName: "square.grid.2x2", label: "Tools") { open(.tools) }
             PlayerIconButton(systemName: "ellipsis", label: "Video options") { open(.options) }
         }
         .padding(.horizontal, 4)
@@ -372,6 +433,22 @@ private struct VideoSeekBar: View {
                         .fill(Color.white)
                         .frame(width: scrubFraction == nil ? 14 : 20, height: scrubFraction == nil ? 14 : 20)
                         .offset(x: width * played - (scrubFraction == nil ? 7 : 10))
+                    if let thumb = model.seekThumbnail, scrubFraction != nil {
+                        VStack(spacing: 4) {
+                            Image(uiImage: thumb)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 140, height: 80)
+                                .cornerRadius(6)
+                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                            Text(MediaFormatting.clock(millis: position))
+                                .font(.caption2.monospacedDigit())
+                                .foregroundColor(.white)
+                        }
+                        .padding(4)
+                        .background(Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 8))
+                        .offset(x: min(max(width * played - 70, 0), max(width - 140, 0)), y: -65)
+                    }
                 }
                 .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())
@@ -380,7 +457,9 @@ private struct VideoSeekBar: View {
                         .onChanged { value in
                             guard duration > 0 else { return }
                             model.touch()
-                            scrubFraction = min(max(Double(value.location.x / width), 0), 1)
+                            let fraction = min(max(Double(value.location.x / width), 0), 1)
+                            scrubFraction = fraction
+                            model.loadSeekThumbnail(at: Int64(fraction * Double(duration)))
                         }
                         .onEnded { _ in
                             if let fraction = scrubFraction {

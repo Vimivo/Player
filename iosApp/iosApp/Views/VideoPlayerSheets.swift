@@ -23,6 +23,8 @@ struct PlayerSheetView: View {
                 case .subtitles: subtitleContent
                 case .options: optionsContent
                 case .queue: nextUpContent
+                case .tools: toolsContent
+                case .decoder: decoderContent
                 }
             }
             .navigationTitle(title)
@@ -42,6 +44,8 @@ struct PlayerSheetView: View {
         case .subtitles: return "Subtitles"
         case .options: return "Playback settings"
         case .queue: return "Next up"
+        case .tools: return "Tools"
+        case .decoder: return "Decoder"
         }
     }
 
@@ -134,20 +138,36 @@ struct PlayerSheetView: View {
 
     @ViewBuilder
     private var audioContent: some View {
-        if model.audioOptions.isEmpty {
-            EmptySheetMessage(icon: "waveform", text: "This video reports a single audio track.")
-        } else {
-            List(model.audioOptions, id: \.self) { option in
-                SelectableRow(
-                    title: option.displayName,
-                    detail: option.extendedLanguageTag,
-                    selected: option == model.selectedAudio
-                ) {
-                    model.selectAudio(option)
+        List {
+            Section(header: Text("Tracks")) {
+                if model.audioOptions.isEmpty {
+                    Text("Single embedded audio track").foregroundColor(.secondary)
+                } else {
+                    ForEach(model.audioOptions, id: \.self) { option in
+                        SelectableRow(
+                            title: option.displayName,
+                            detail: option.extendedLanguageTag,
+                            selected: option == model.selectedAudio
+                        ) {
+                            model.selectAudio(option)
+                        }
+                    }
                 }
             }
-            .listStyle(.insetGrouped)
+
+            Section(header: Text("Audio Synchronization")) {
+                HStack {
+                    Text("Audio Delay")
+                    Spacer()
+                    Text("\(model.audioDelayMillis) ms")
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                    Stepper("", value: $model.audioDelayMillis, in: -5000...5000, step: 50)
+                        .labelsHidden()
+                }
+            }
         }
+        .listStyle(.insetGrouped)
     }
 
     // MARK: Subtitles
@@ -337,6 +357,155 @@ struct PlayerSheetView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    // MARK: Tools Grid
+
+    private var toolsContent: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 14)], spacing: 14) {
+                ToolButton(icon: "cpu", title: "Decoder", subtitle: model.decoderMode.chipLabel) {
+                    model.sheet = .decoder
+                }
+                ToolButton(icon: "waveform", title: "Audio", subtitle: model.selectedAudio?.displayName ?? "Default") {
+                    model.sheet = .audio
+                }
+                ToolButton(icon: "captions.bubble", title: "Subtitles", subtitle: model.selectedSubtitle?.displayName ?? "Off") {
+                    model.sheet = .subtitles
+                }
+                ToolButton(icon: "speedometer", title: "Speed", subtitle: MediaFormatting.speed(engine.state.playbackRate)) {
+                    model.sheet = .speed
+                }
+                ToolButton(icon: "moon.fill", title: "Night Mode", subtitle: model.nightModeDim > 0 ? "\(Int(model.nightModeDim * 100))%" : "Off") {
+                    model.nightModeDim = model.nightModeDim > 0 ? 0 : 0.4
+                }
+                ToolButton(icon: "aspectratio", title: "Aspect", subtitle: model.aspect.shortLabel) {
+                    let all = VideoAspect.allCases
+                    let next = all[(all.firstIndex(of: model.aspect)! + 1) % all.count]
+                    model.aspect = next
+                }
+                ToolButton(icon: "repeat.1", title: "A–B Loop", subtitle: engine.abRepeat != nil ? "Active" : "Off") {
+                    advanceABRepeat()
+                }
+                ToolButton(icon: "lock.shield", title: "Kids Lock", subtitle: model.kidsLocked ? "On" : "Off") {
+                    model.kidsLocked = true
+                    dismiss()
+                }
+                ToolButton(icon: "lock.fill", title: "Lock", subtitle: "Screen") {
+                    model.locked = true
+                    model.controlsVisible = false
+                    model.lockHintVisible = true
+                    dismiss()
+                }
+            }
+            .padding(20)
+
+            if model.nightModeDim > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Night Mode Dimming: \(Int(model.nightModeDim * 100))%")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Slider(value: $model.nightModeDim, in: 0.1...0.8, step: 0.05)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    // MARK: Decoder Selection
+
+    private var decoderContent: some View {
+        List {
+            Section(footer: Text("Vimivo selects the optimal decoding path for each media file, automatically falling back when needed.")) {
+                Button {
+                    model.setDecoderMode(.hw)
+                    dismiss()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Hardware Decoder (HW)")
+                                .foregroundColor(.primary)
+                            Text("Uses Apple VideoToolbox hardware acceleration.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if model.decoderMode == .hw {
+                            Image(systemName: "checkmark").foregroundColor(.accentColor)
+                        }
+                    }
+                }
+
+                Button {
+                    model.setDecoderMode(.hwPlus)
+                    dismiss()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Hardware+ Decoder (HW+)")
+                                .foregroundColor(.primary)
+                            Text("Advanced hardware acceleration pipeline.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if model.decoderMode == .hwPlus {
+                            Image(systemName: "checkmark").foregroundColor(.accentColor)
+                        }
+                    }
+                }
+
+                Button {
+                    model.setDecoderMode(.sw)
+                    dismiss()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Software Decoder (SW)")
+                                .foregroundColor(.primary)
+                            Text("Pure CPU decoding for maximum compatibility.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if model.decoderMode == .sw {
+                            Image(systemName: "checkmark").foregroundColor(.accentColor)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+}
+
+private struct ToolButton: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 24))
+                    .foregroundColor(.accentColor)
+                    .frame(height: 32)
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, minHeight: 92)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
     }
 }
 

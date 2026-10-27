@@ -59,7 +59,9 @@ class AudioDspChain(sampleRate: Int, private val channels: Int) {
             field = value
         }
 
-    val isNeutral: Boolean get() = gain == 1f && equalizer.isFlat
+    var monoDownmix: Boolean = false
+
+    val isNeutral: Boolean get() = gain == 1f && equalizer.isFlat && !monoDownmix
 
     fun setEqualizerGainsDb(gains: List<Float>) {
         equalizer.setGainsDb(gains)
@@ -70,6 +72,15 @@ class AudioDspChain(sampleRate: Int, private val channels: Int) {
         if (isNeutral) return
         val count = frames * channels
         if (gain != 1f) for (index in 0 until count) samples[index] *= gain
+        if (monoDownmix && channels >= 2) {
+            for (frame in 0 until frames) {
+                val start = frame * channels
+                var sum = 0f
+                for (ch in 0 until channels) sum += samples[start + ch]
+                val mono = sum / channels
+                for (ch in 0 until channels) samples[start + ch] = mono
+            }
+        }
         equalizer.process(samples, frames)
         if (gain > 1f || equalizerRaisesLevel) limiter.process(samples, frames)
     }

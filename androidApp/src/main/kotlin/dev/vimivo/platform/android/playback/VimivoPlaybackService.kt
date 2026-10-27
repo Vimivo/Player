@@ -55,9 +55,31 @@ class VimivoPlaybackService : MediaLibraryService() {
     private lateinit var sessionPlayer: SessionPlayerAdapter
     private lateinit var mediaSession: MediaLibrarySession
 
+    private var pausedByUnplug = false
+
+    private val audioDeviceCallback = object : android.media.AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) {
+            serviceScope.launch {
+                val settings = settingsRepository.settings.first()
+                if (pausedByUnplug && settings.resumeOnHeadsetReconnect) {
+                    pausedByUnplug = false
+                    sessionPlayer.play()
+                }
+            }
+        }
+    }
+
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) sessionPlayer.pause()
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                serviceScope.launch {
+                    val settings = settingsRepository.settings.first()
+                    if (settings.pauseOnHeadsetUnplug) {
+                        pausedByUnplug = true
+                        sessionPlayer.pause()
+                    }
+                }
+            }
         }
     }
 
@@ -79,6 +101,8 @@ class VimivoPlaybackService : MediaLibraryService() {
         }
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, LibraryCallback()).build()
         registerNoisyReceiver()
+        val audioManager = getSystemService(AudioManager::class.java)
+        audioManager?.registerAudioDeviceCallback(audioDeviceCallback, android.os.Handler(android.os.Looper.getMainLooper()))
         serviceScope.launch {
             val settings = settingsRepository.settings.first()
             if (settings.restoreQueue) sessionPlayer.restoreWithoutPlaying()
@@ -137,6 +161,8 @@ class VimivoPlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        val audioManager = getSystemService(AudioManager::class.java)
+        audioManager?.unregisterAudioDeviceCallback(audioDeviceCallback)
         unregisterReceiver(noisyReceiver)
         mediaSession.release()
         sessionPlayer.release()

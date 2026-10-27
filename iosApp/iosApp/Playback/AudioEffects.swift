@@ -15,11 +15,15 @@ public struct AudioEffectSettings: Equatable {
     public var replayGain: ReplayGainMode = .off
     /// 1 leaves the level alone, 2 is 200 %.
     public var boost: Float = 1
+    public var monoDownmix = false
+    public var bassBoost: Float = 0
+    public var virtualizer: Float = 0
+    public var reverbPreset = "OFF"
 
     public init() {}
 
     /// True when nothing would change the sound.
-    public var isNeutral: Bool { !equalizerOn && replayGain == .off && boost == 1 }
+    public var isNeutral: Bool { !equalizerOn && replayGain == .off && boost == 1 && !monoDownmix }
 
     /// The linear gain and the ten band gains the shared chain should run with, for a file with these ReplayGain tags.
     func chain(tags: ReplayGainTagValues) -> (gain: Float, bandsDb: [Float]) {
@@ -31,7 +35,8 @@ public struct AudioEffectSettings: Equatable {
                 enabled: true, preset: preset,
                 bands: zip(centres, customGains).map { EqualizerBand(centerFrequencyHz: $0.0.int32Value, gainDb: $0.1) },
                 bassStrength: bass, trebleGainDb: treble, preampDb: min(0, preampDb), replayGainMode: replayGain,
-                balance: 0, volumeNormalization: false, customPresetName: nil, customPresets: []
+                balance: 0, volumeNormalization: false, customPresetName: nil, customPresets: [],
+                monoDownmix: monoDownmix, bassBoostStrength: bassBoost, virtualizerStrength: virtualizer, reverbPreset: reverbPreset
             )
             bands = EqualizerPresets.shared.resolved(settings: shared).map(\.floatValue)
             preamp = AudioDspChain.companion.linear(gainDb: min(0, preampDb))

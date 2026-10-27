@@ -78,6 +78,7 @@ data class PlaybackUiState(
     val abRepeatEndMillis: Long? = null,
     val videoCrop: VideoCrop? = null,
     val videoColour: VideoAdjustments = VideoAdjustments(),
+    val decoderMode: dev.vimivo.playback.MobileDecoderMode = dev.vimivo.playback.MobileDecoderMode.HW,
 )
 
 class PlaybackViewModel(
@@ -150,8 +151,29 @@ class PlaybackViewModel(
                     audioTracks = engineState.audioTracks,
                     videoTracks = engineState.videoTracks,
                     subtitleTracks = engineState.subtitleTracks,
+                    decoderMode = resolveDecoderMode(engineState.engine, currentMediaId),
                 )
             }
+        }
+    }
+
+    private fun resolveDecoderMode(engine: EngineId?, uri: String?): dev.vimivo.playback.MobileDecoderMode {
+        if (uri != null) {
+            dev.vimivo.playback.InMemoryDecoderPreferenceStore.shared.getDecoderForMedia(uri)?.let { return it }
+        }
+        return if (engine == EngineId.MPV) dev.vimivo.playback.MobileDecoderMode.HW_PLUS else dev.vimivo.playback.MobileDecoderMode.HW
+    }
+
+    fun setDecoderMode(mode: dev.vimivo.playback.MobileDecoderMode) {
+        val currentUri = state.value.current?.mediaId ?: return
+        dev.vimivo.playback.InMemoryDecoderPreferenceStore.shared.setDecoderForMedia(currentUri, mode)
+        mutableState.update { it.copy(decoderMode = mode) }
+        val currentPos = state.value.positionMillis
+        val wasPlaying = state.value.isPlaying
+        viewModelScope.launch {
+            val p = player ?: return@launch
+            p.seekTo(currentPos)
+            if (wasPlaying) p.play()
         }
     }
 

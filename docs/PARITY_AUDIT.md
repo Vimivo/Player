@@ -72,43 +72,43 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | Area | MX Player feature | Android | iOS |
 |---|---|---|---|
 | **Decoding** | All common formats | ✅ | ⚠️ (no MKV until libmpv fallback) |
-| | HW / HW+ / SW decoder switch, per-file memory | ❌ | ❌ |
-| | Auto engine fallback that remembers per file | ⚠️ | ❌ |
+| | HW / HW+ / SW decoder switch, per-file memory | 🔨 built (untested) | 🔨 built (untested) |
+| | Auto engine fallback that remembers per file | 🔨 built (untested) | 🔨 built (untested) |
 | **Playback** | Resume | ✅ | ⚠️ |
 | | Auto-play next / loop / shuffle | ❓ | ✅ |
 | | Speed 0.25–4× | ✅ | ✅ |
 | | A–B repeat | ✅ | ✅ |
 | | Sleep timer (shared) | ✅ | ✅ |
 | | Background play / play video as audio | ✅ | ❓ |
-| | Popup floating player | ❌ | — (PiP) |
-| | Picture-in-picture | ❓ | ❓ |
+| | Popup floating player | 🔨 built (untested) | — (PiP) |
+| | Picture-in-picture | 🔨 built (untested) | 🔨 built (untested) |
 | | Network stream URL | ⚠️ | ⚠️ |
 | | Chromecast / AirPlay | ❌ | ❌ |
 | | Bookmarks with thumbnails | ❓ | ❓ |
-| **Gestures** | Brightness / volume swipe | ❓ *src* | ❓ *src* |
-| | Seek swipe with preview | ❓ *src* | ❓ *src* |
-| | Double-tap ±N s (configurable, accumulating) | ❓ *src* | ❓ *src* |
-| | Long-press 2× | ❓ *src* | ❓ *src* |
-| | Pinch zoom + pan | ❓ *src* | ❓ *src* |
-| | Subtitle gestures (move, size, line skip) | ❌ | ❌ |
-| | Gesture toggles + sensitivity | ⚠️ | ❌ |
-| **Locks** | Screen lock | ❓ *src* | ❓ *src* |
-| | Kids lock | ❌ | ❌ |
-| **Display** | Aspect modes (Fit, Crop, Stretch, 100%, 16:9, 4:3) | ⚠️ | ✅ |
-| | Orientation modes + rotation lock | ❓ *src* | ❓ |
-| | Night mode / dim filter | ❌ | ❌ |
-| | Status-bar clock/battery overlay | ❌ | ❌ |
+| **Gestures** | Brightness / volume swipe | 🔨 built (untested) | 🔨 built (untested) |
+| | Seek swipe with preview | 🔨 built (untested) | 🔨 built (untested) |
+| | Double-tap ±N s (configurable, accumulating) | 🔨 built (untested) | 🔨 built (untested) |
+| | Long-press 2× | 🔨 built (untested) | 🔨 built (untested) |
+| | Pinch zoom + pan | 🔨 built (untested) | 🔨 built (untested) |
+| | Subtitle gestures (move, size, line skip) | 🔨 built (untested) | 🔨 built (untested) |
+| | Gesture toggles + sensitivity | 🔨 built (untested) | 🔨 built (untested) |
+| **Locks** | Screen lock | 🔨 built (untested) | 🔨 built (untested) |
+| | Kids lock | 🔨 built (untested) | 🔨 built (untested) |
+| **Display** | Aspect modes (Fit, Crop, Stretch, 100%, 16:9, 4:3) | 🔨 built (untested) | ✅ |
+| | Orientation modes + rotation lock | 🔨 built (untested) | 🔨 built (untested) |
+| | Night mode / dim filter | 🔨 built (untested) | 🔨 built (untested) |
+| | Status-bar clock/battery overlay | 🔨 built (untested) | 🔨 built (untested) |
 | | Screenshot | ✅ | ✅ |
-| | Seek thumbnail preview | ❌ | ❌ |
+| | Seek thumbnail preview | 🔨 built (untested) | 🔨 built (untested) |
 | | Colour controls | ⚠️ (debug only) | ✅ |
 | **Audio** | Audio track switch | ✅ | ✅ |
-| | Audio delay | ❓ | ❌ |
+| | Audio delay | 🔨 built (untested) | 🔨 built (untested) |
 | | Volume boost 200% | ✅ | ✅ |
 | | 10-band EQ + presets | ✅ | ✅ |
-| | Bass boost / virtualizer / reverb | ❌ | ❌ |
-| | Stereo / mono / downmix | ❌ | ❌ |
+| | Bass boost / virtualizer / reverb | 🔨 built (untested) | 🔨 built (untested) |
+| | Stereo / mono / downmix | 🔨 built (untested) | 🔨 built (untested) |
 | | Headset single/double/triple press mapping | ❌ | ❌ |
-| | Pause on unplug / resume on reconnect | ❓ | ❓ |
+| | Pause on unplug / resume on reconnect | 🔨 built (untested) | 🔨 built (untested) |
 | **Subtitles** | Auto-load | ✅ | ❌ |
 | | Load from file | ❓ | ❌ |
 | | Secondary subtitle | ❌ | ❌ |
