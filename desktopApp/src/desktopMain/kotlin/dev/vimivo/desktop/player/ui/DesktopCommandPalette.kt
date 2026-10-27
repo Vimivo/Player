@@ -174,8 +174,12 @@ internal fun DesktopCommandPalette(
             PaletteAction("User Scripts Folder", "Tools", null, Icons.Outlined.Code) {
                 onIntent(PlayerIntent.ToggleScripts)
             },
-            val recordTitle = if (state.isRecording) "Stop Recording Stream" else "Record Stream to File"
-            PaletteAction(recordTitle, "Tools", null, Icons.Outlined.FiberManualRecord) {
+            PaletteAction(
+                title = if (state.isRecording) "Stop Recording Stream" else "Record Stream to File",
+                category = "Tools",
+                shortcut = null,
+                icon = Icons.Outlined.FiberManualRecord,
+            ) {
                 onIntent(PlayerIntent.ToggleRecording)
             },
             PaletteAction("Open Capture Device (Webcam / Screen)", "Tools", null, Icons.Outlined.CameraAlt) {

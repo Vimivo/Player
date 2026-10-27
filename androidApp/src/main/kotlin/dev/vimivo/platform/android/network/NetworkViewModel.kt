@@ -304,8 +304,17 @@ class NetworkViewModel(
 }
 
 internal fun validateNetworkStreamUrl(input: String): Result<String> = runCatching {
+    val scheme = input.trim().substringBefore("://").substringBefore(":").lowercase()
+    require(scheme in setOf("http", "https", "rtsp", "rtsps")) {
+        "Direct stream playback only supports http, https, rtsp, and rtsps protocols."
+    }
     when (val validation = dev.vimivo.core.streaming.StreamValidator.validate(input)) {
-        is dev.vimivo.core.streaming.StreamValidationResult.Valid -> validation.normalizedUrl
+        is dev.vimivo.core.streaming.StreamValidationResult.Valid -> {
+            require(!validation.normalizedUrl.substringBefore('?').substringBefore('#').contains('@')) {
+                "URLs containing embedded credentials are not permitted for security reasons."
+            }
+            validation.normalizedUrl
+        }
         is dev.vimivo.core.streaming.StreamValidationResult.Invalid -> throw IllegalArgumentException(validation.message)
     }
 }
