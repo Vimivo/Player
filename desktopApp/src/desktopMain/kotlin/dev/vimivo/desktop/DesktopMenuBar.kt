@@ -262,6 +262,13 @@ private fun MenuBarScope.AudioMenu(context: MenuContext) = with(context) {
             DesktopPlayerCommand.AUDIO_DELAY_DOWN to "Shift+G"
         )
         Item("Audio Settings…", enabled = hasMedia, onClick = { send(PlayerIntent.ShowPanel(PlayerPanel.AUDIO)) })
+        CheckboxItem(
+            "S/PDIF / HDMI Bitstream Passthrough",
+            checked = state.audioPassthrough,
+            enabled = hasMedia,
+            onCheckedChange = { send(PlayerIntent.ToggleAudioPassthrough) },
+        )
+        Item("Sleep Timer…", onClick = { send(PlayerIntent.ToggleSleepTimer) })
     }
 }
 

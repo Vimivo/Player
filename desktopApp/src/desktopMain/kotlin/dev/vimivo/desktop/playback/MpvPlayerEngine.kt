@@ -491,6 +491,10 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("audio-device", deviceId)
     }
 
+    fun setAudioPassthrough(enabled: Boolean): Result<Unit> = action {
+        setProperty("audio-spdif", if (enabled) "ac3,dts,eac3,truehd,dts-hd" else "")
+    }
+
     override fun setHardwareAccelerationMode(mode: HardwareAccelerationMode): Result<Unit> = action {
         hwdecMode = mode
         setProperty("hwdec", hwdecValue(mode))

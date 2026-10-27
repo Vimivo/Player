@@ -350,6 +350,7 @@ private fun desktopApplication(
         visible = playerVisible,
         icon = windowIcon,
         themeMode = libraryState.themeMode,
+        sleepTimer = remember { koin.get<PlaybackSleepTimer>() },
         menu = { VimivoMenuBar(playerState, viewModel, engine, recentEntries, menuActions) },
         openStreamRequested = openStreamRequested && playerVisible,
         onOpenStreamHandled = { openStreamRequested = false },
@@ -484,6 +485,7 @@ private fun PlayerWindow(
     visible: Boolean,
     icon: BitmapPainter?,
     themeMode: ThemeMode,
+    sleepTimer: PlaybackSleepTimer,
     menu: @Composable FrameWindowScope.() -> Unit,
     openStreamRequested: Boolean,
     onOpenStreamHandled: () -> Unit,
@@ -709,6 +711,12 @@ private fun PlayerWindow(
                             viewModel.dispatch(PlayerIntent.SetToolbarConfig(config))
                         },
                         onDismiss = { viewModel.dispatch(PlayerIntent.ToggleToolbarCustomize) },
+                    )
+                }
+                if (playerState.sleepTimerVisible) {
+                    dev.vimivo.desktop.playback.DesktopSleepTimerDialog(
+                        sleepTimer = sleepTimer,
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleSleepTimer) },
                     )
                 }
                 if (visible && playerState.fullscreen && playerState.presentation == PlayerPresentation.VIDEO) {

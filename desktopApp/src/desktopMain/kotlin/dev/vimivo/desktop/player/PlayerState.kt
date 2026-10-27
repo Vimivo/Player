@@ -91,6 +91,10 @@ internal data class PlayerState(
     val toolbarCustomizeVisible: Boolean = false,
     /** Visibility configuration for control bar action buttons. */
     val toolbarConfig: dev.vimivo.desktop.player.ui.DesktopToolbarConfig = dev.vimivo.desktop.player.ui.DesktopToolbarConfig(),
+    /** S/PDIF and HDMI audio bitstream passthrough. */
+    val audioPassthrough: Boolean = false,
+    /** Sleep timer picker dialog. */
+    val sleepTimerVisible: Boolean = false,
 )
 
 /** Every user action the player understands; the UI never calls the engine or queue directly for these. */
@@ -164,6 +168,8 @@ internal sealed interface PlayerIntent {
     data object ToggleCasting : PlayerIntent
     data object ToggleToolbarCustomize : PlayerIntent
     data class SetToolbarConfig(val config: dev.vimivo.desktop.player.ui.DesktopToolbarConfig) : PlayerIntent
+    data object ToggleAudioPassthrough : PlayerIntent
+    data object ToggleSleepTimer : PlayerIntent
 }
 
 /**

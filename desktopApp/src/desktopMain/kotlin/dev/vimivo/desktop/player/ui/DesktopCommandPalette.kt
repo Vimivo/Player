@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.DashboardCustomize
+import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -177,6 +178,12 @@ internal fun DesktopCommandPalette(
             },
             PaletteAction("Customize Control Bar", "View", null, Icons.Outlined.DashboardCustomize) {
                 onIntent(PlayerIntent.ToggleToolbarCustomize)
+            },
+            PaletteAction("S/PDIF / HDMI Bitstream Passthrough", "Audio", null, Icons.Outlined.Equalizer) {
+                onIntent(PlayerIntent.ToggleAudioPassthrough)
+            },
+            PaletteAction("Sleep Timer", "Playback", null, Icons.Outlined.Bedtime) {
+                onIntent(PlayerIntent.ToggleSleepTimer)
             },
             PaletteAction("Show Media Library", "Navigation", "L", Icons.AutoMirrored.Outlined.QueueMusic) {
                 onIntent(PlayerIntent.ShowLibrary)

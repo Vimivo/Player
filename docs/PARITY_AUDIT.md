@@ -27,6 +27,7 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | 17 | Always-on-top / fullscreen / wallpaper | 🔨 built (untested) | wallpaper mode built in Window / menu bar / state |
 | 20 | compressor/spatializer/stereo widener | 🔨 built (untested) | Dynamic range compressor (acompressor), spatializer (surround), stereo widener (extrastereo), mono downmix in Equalizer & DesktopAudioEffects |
 | 25 | visualizations (spectrum/scope) | 🔨 built (untested) | Spectrum analyzer and waveform oscilloscope in DesktopAudioVisualizer |
+| 26 | S/PDIF/HDMI passthrough | 🔨 built (untested) | `setAudioPassthrough` (`audio-spdif=ac3,dts,eac3,truehd,dts-hd`) bitstream mode in engine, Audio menu, & Command Palette |
 | 27 | Subtitle formats | 🔨 built (untested) | PGS/DVB/CEA-608 + Bangla/Arabic/CJK rendering options enabled in engine |
 | 30 | Subtitle style | 🔨 built (untested) | font, outline, shadow, background, secondary subtitle, ASS override, encoding options in Subtitles panel |
 | 31 | Sync panel | 🔨 built (untested) | secondary-sub delay, sub speed, sub FPS, duration factor, "Sync to now" in Sync panel |
@@ -56,10 +57,10 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | 61 | Wi-Fi file sharing | 🔨 built (untested) | `DesktopWifiTransfer` local HTTP server and dialog |
 | 62 | PiP window | 🔨 built (untested) | `DesktopPipOverlay` floating compact player mode |
 | 63 | audio-only mode for video | 🔨 built (untested) | Audio-only toggle in player control bar & video track disabling with visualizer/artwork stage |
+| 64 | sleep timer dialog | 🔨 built (untested) | `DesktopSleepTimerDialog` with presets, custom duration, live countdown & end-of-track stopping |
 | 65 | network share browsing | 🔨 built (untested) | `DesktopNetworkShareDialog` connected with SMB, SFTP, FTP, NFS protocol streaming |
 
 ⛔ Excluded by decision:
-- 26: S/PDIF/HDMI passthrough (deferred to dedicated multi-channel receiver hardware test)
 - Encrypted commercial DVD/Blu-ray, YouTube proprietary extraction, telnet.
 
 ---
