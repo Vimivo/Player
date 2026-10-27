@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,7 @@ import dev.vimivo.desktop.player.PlayerIntent
 import dev.vimivo.desktop.player.PlayerPanel
 import dev.vimivo.desktop.player.PlayerState
 import dev.vimivo.playback.ABRepeatRange
+import dev.vimivo.playback.EqualizerPreset
 import dev.vimivo.playback.PlaybackControlPolicy
 import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.PlaybackState
@@ -130,6 +132,65 @@ private fun AudioTab(playback: PlaybackState, engine: MpvPlayerEngine, commands:
     }
     PanelRow("Fine") {
         SpeedStepper(playback.speed) { speed -> commands.perform("Speed") { engine.setPlaybackSpeed(speed) } }
+    }
+
+    val audioState by engine.audioEnhancementState.collectAsState()
+    val audioSettings = audioState.settings
+
+    PanelSection("Equalizer & Presets")
+    PanelRow("Preset") {
+        PanelDropdown(
+            options = EqualizerPreset.entries,
+            selected = audioSettings.preset,
+            label = { it.name.lowercase().replaceFirstChar(Char::uppercase) },
+            placeholder = "Flat",
+            onSelect = { preset ->
+                val next = audioSettings.copy(enabled = true, preset = preset)
+                engine.applyAudioEnhancements(next)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    PanelSection("DSP Enhancements")
+    SliderRow(
+        "Bass Boost",
+        audioSettings.bassBoostStrength,
+        0f..1f,
+        "${(audioSettings.bassBoostStrength * 100).roundToInt()}%",
+        reset = 0f,
+    ) { strength ->
+        engine.applyAudioEnhancements(audioSettings.copy(bassBoostStrength = strength))
+    }
+
+    SliderRow(
+        "Virtualizer",
+        audioSettings.virtualizerStrength,
+        0f..1f,
+        "${(audioSettings.virtualizerStrength * 100).roundToInt()}%",
+        reset = 0f,
+    ) { strength ->
+        engine.applyAudioEnhancements(audioSettings.copy(virtualizerStrength = strength))
+    }
+
+    PanelRow("Clarity") {
+        PanelButton(
+            if (audioSettings.dialogueClarityEnabled) "Dialogue Clarity (On)" else "Dialogue Clarity (Off)",
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            val next = !audioSettings.dialogueClarityEnabled
+            engine.applyAudioEnhancements(audioSettings.copy(dialogueClarityEnabled = next))
+        }
+    }
+
+    PanelRow("Norm.") {
+        PanelButton(
+            if (audioSettings.volumeNormalization) "Volume Normalization (On)" else "Volume Normalization (Off)",
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            val next = !audioSettings.volumeNormalization
+            engine.applyAudioEnhancements(audioSettings.copy(volumeNormalization = next))
+        }
     }
 }
 

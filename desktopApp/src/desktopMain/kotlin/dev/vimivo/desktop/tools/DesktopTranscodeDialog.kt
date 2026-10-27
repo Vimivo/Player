@@ -48,8 +48,12 @@ fun DesktopTranscodeDialog(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var inputPath by remember {
-        mutableStateOf(currentMedia?.uri?.removePrefix("file://") ?: "")
+    var inputPath by remember(currentMedia?.uri) {
+        val path = currentMedia?.uri?.let { uri ->
+            runCatching { java.io.File(java.net.URI(uri)).absolutePath }.getOrNull()
+                ?: uri.removePrefix("file://").removePrefix("file:")
+        } ?: ""
+        mutableStateOf(path)
     }
     var targetFormat by remember { mutableStateOf("M4A (AAC)") }
     var isConverting by remember { mutableStateOf(false) }

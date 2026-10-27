@@ -47,8 +47,11 @@ internal fun DesktopStatsOverlay(
 
     LaunchedEffect(Unit) {
         while (true) {
-            stats = engine.playbackStats()
-            delay(500L)
+            val update = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                engine.playbackStats()
+            }
+            stats = update
+            delay(1000L)
         }
     }
 
@@ -100,8 +103,9 @@ internal fun DesktopStatsOverlay(
             Spacer(Modifier.height(4.dp))
 
             StatRow("Resolution", "${stats.width ?: 0} × ${stats.height ?: 0}")
-            val fpsText = "${"%.2f".format(stats.fps ?: 0.0)} fps (Render: ${"%.1f".format(stats.outputFps ?: 0.0)} fps)"
-            StatRow("Framerate", fpsText)
+            val fpsVal = "%.2f".format(stats.fps ?: 0.0)
+            val renderVal = "%.1f".format(stats.outputFps ?: 0.0)
+            StatRow("Framerate", "$fpsVal fps (Render: $renderVal fps)")
             StatRow("Video Codec", stats.videoCodec?.uppercase() ?: "Unknown")
             StatRow("Hardware Decoder", stats.hwdec?.takeIf { it != "no" } ?: "Software Decoding")
             StatRow("Video Bitrate", "${stats.videoBitrateKbps ?: 0} kbps")

@@ -48,6 +48,7 @@ import androidx.compose.material.icons.outlined.DashboardCustomize
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.RecordVoiceOver
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -85,6 +86,7 @@ internal fun DesktopCommandPalette(
     onIntent: (PlayerIntent) -> Unit,
     onDismiss: () -> Unit,
     onOpenStream: () -> Unit,
+    onOpenDisc: () -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
 
@@ -93,6 +95,9 @@ internal fun DesktopCommandPalette(
             // Playback
             PaletteAction("Play / Pause", "Playback", "Space", Icons.Outlined.PlayArrow) {
                 onIntent(PlayerIntent.TogglePlayback)
+            },
+            PaletteAction("Jump to Time", "Playback", "⌘T", Icons.Outlined.Timer) {
+                onIntent(PlayerIntent.ToggleJumpToTime)
             },
             PaletteAction("Seek Forward 10s", "Playback", "→", Icons.Outlined.FastForward) {
                 onIntent(PlayerIntent.Seek(state.playback.positionMillis + 10_000L))
@@ -148,6 +153,9 @@ internal fun DesktopCommandPalette(
             PaletteAction("Open Network Stream", "Tools", "Cmd+N", Icons.Outlined.Link) {
                 onOpenStream()
             },
+            PaletteAction("Open Optical Disc / ISO", "Tools", "Cmd+D", Icons.Outlined.Dns) {
+                onOpenDisc()
+            },
             PaletteAction("Wi-Fi File Sharing", "Tools", null, Icons.Outlined.Share) {
                 onIntent(PlayerIntent.ToggleWifiSharing)
             },
@@ -166,7 +174,8 @@ internal fun DesktopCommandPalette(
             PaletteAction("User Scripts Folder", "Tools", null, Icons.Outlined.Code) {
                 onIntent(PlayerIntent.ToggleScripts)
             },
-            PaletteAction(if (state.isRecording) "Stop Recording Stream" else "Record Stream to File", "Tools", null, Icons.Outlined.FiberManualRecord) {
+            val recordTitle = if (state.isRecording) "Stop Recording Stream" else "Record Stream to File"
+            PaletteAction(recordTitle, "Tools", null, Icons.Outlined.FiberManualRecord) {
                 onIntent(PlayerIntent.ToggleRecording)
             },
             PaletteAction("Open Capture Device (Webcam / Screen)", "Tools", null, Icons.Outlined.CameraAlt) {

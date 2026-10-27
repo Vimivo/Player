@@ -73,7 +73,7 @@ private fun MenuBarScope.FileMenu(context: MenuContext) = with(context) {
         Item("Open Network Stream…", shortcut = primaryShortcut(Key.U), onClick = actions.onOpenStream)
         Item("Open Capture Device…", onClick = { send(PlayerIntent.ToggleCaptureDevice) })
         Item("Connect to Network Share…", onClick = { send(PlayerIntent.ToggleNetworkShare) })
-        Item("Open Disc…", enabled = false, onClick = {})
+        Item("Open Disc…", shortcut = primaryShortcut(Key.D), onClick = actions.onOpenDisc)
         Item("Add Folder…", shortcut = primaryShortcut(Key.O, shift = true), onClick = actions.onAddFolder)
         Item("Import Playlist…", onClick = { choosePlaylistFile()?.let(actions.onImportPlaylist) })
         Menu("Open Recent") {
@@ -204,7 +204,12 @@ private fun MenuBarScope.PlaybackMenu(context: MenuContext) = with(context) {
             DesktopPlayerCommand.SEEK_FORWARD_MEDIUM to "L",
             DesktopPlayerCommand.SEEK_BACK_MEDIUM to "J"
         )
-        Item("Jump to Time…", enabled = false, onClick = {})
+        Item(
+            "Jump to Time…",
+            enabled = hasMedia,
+            shortcut = primaryShortcut(Key.T),
+            onClick = { send(PlayerIntent.ToggleJumpToTime) },
+        )
         Item("Skip Intro (+85s)", enabled = hasMedia, onClick = { send(PlayerIntent.SkipIntro) })
         Separator()
         Menu("Speed") {

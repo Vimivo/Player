@@ -21,6 +21,7 @@ import dev.vimivo.desktop.integration.mpris.MprisService
 import dev.vimivo.desktop.library.DesktopPlaybackStore
 import dev.vimivo.desktop.library.DesktopRecentMediaRepository
 import dev.vimivo.desktop.platform.DesktopDirectories
+import dev.vimivo.desktop.player.ui.DesktopToolbarConfig
 import dev.vimivo.desktop.playback.DesktopFullscreenControl
 import dev.vimivo.desktop.playback.DesktopPlayerCommandExecutor
 import dev.vimivo.desktop.playback.MpvPlayerEngine
@@ -136,6 +137,7 @@ internal class PlayerViewModel(
             sleepTimerVisible = localState.sleepTimerVisible,
             statsHudVisible = localState.statsHudVisible,
             dialogueClarity = localState.dialogueClarity,
+            jumpToTimeVisible = localState.jumpToTimeVisible,
         )
     }.stateIn(scope, SharingStarted.Eagerly, PlayerState(maxVolume = engine.capabilities.maxVolume))
 
@@ -314,6 +316,7 @@ internal class PlayerViewModel(
                 val current = engine.state.value.positionMillis
                 dispatch(PlayerIntent.Seek(current + 85_000L))
             }
+            PlayerIntent.ToggleJumpToTime -> local.update { it.copy(jumpToTimeVisible = !it.jumpToTimeVisible) }
             else -> dispatchBookmark(intent)
         }
     }
@@ -474,8 +477,12 @@ internal class PlayerViewModel(
 
     private suspend fun openLink(text: String) {
         val link = text.trim()
-        val local = File(link).takeIf { it.isAbsolute && it.isFile }
-        if (local != null) return openFiles(PlayerIntent.OpenFiles(listOf(local)))
+        val local = if (link.startsWith("file:", ignoreCase = true)) {
+            runCatching { File(java.net.URI(link)) }.getOrNull()?.takeIf { it.exists() && it.isFile }
+        } else {
+            File(link).takeIf { it.isAbsolute && it.isFile }
+        }
+        if (local != null) return openFiles(PlayerIntent.OpenFiles(listOf(local), fromRunningInstance = true))
         when (val result = StreamValidator.validate(link)) {
             is StreamValidationResult.Valid -> {
                 val item = MediaItem(
@@ -489,7 +496,8 @@ internal class PlayerViewModel(
                         presentation = PlayerPresentation.VIDEO,
                         loadingTitle = item.title,
                         loadingUri = item.uri,
-                        resumePrompt = null
+                        resumePrompt = null,
+                        focusRequest = it.focusRequest + 1,
                     )
                 }
                 commands.report(HudMessage.StreamOpened)
@@ -651,11 +659,12 @@ internal class PlayerViewModel(
         val networkShareVisible: Boolean = false,
         val castingVisible: Boolean = false,
         val toolbarCustomizeVisible: Boolean = false,
-        val toolbarConfig: dev.vimivo.desktop.player.ui.DesktopToolbarConfig = dev.vimivo.desktop.player.ui.DesktopToolbarConfig(),
+        val toolbarConfig: DesktopToolbarConfig = DesktopToolbarConfig(),
         val audioPassthrough: Boolean = false,
         val sleepTimerVisible: Boolean = false,
         val statsHudVisible: Boolean = false,
         val dialogueClarity: Boolean = false,
+        val jumpToTimeVisible: Boolean = false,
     )
 
     internal companion object {

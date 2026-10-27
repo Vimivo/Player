@@ -9,6 +9,7 @@ import dev.vimivo.playback.ABRepeatRange
 import dev.vimivo.playback.PlaybackQueueState
 import dev.vimivo.playback.PlaybackState
 import dev.vimivo.playback.SnapshotOptions
+import dev.vimivo.desktop.player.ui.DesktopToolbarConfig
 import java.io.File
 
 /** How files sent to an already running Vimivo are handled. */
@@ -90,7 +91,7 @@ internal data class PlayerState(
     /** Customizable toolbar modal dialog. */
     val toolbarCustomizeVisible: Boolean = false,
     /** Visibility configuration for control bar action buttons. */
-    val toolbarConfig: dev.vimivo.desktop.player.ui.DesktopToolbarConfig = dev.vimivo.desktop.player.ui.DesktopToolbarConfig(),
+    val toolbarConfig: DesktopToolbarConfig = DesktopToolbarConfig(),
     /** S/PDIF and HDMI audio bitstream passthrough. */
     val audioPassthrough: Boolean = false,
     /** Sleep timer picker dialog. */
@@ -99,6 +100,8 @@ internal data class PlayerState(
     val statsHudVisible: Boolean = false,
     /** Dialogue and speech clarity filter toggle. */
     val dialogueClarity: Boolean = false,
+    /** Jump to time modal dialog. */
+    val jumpToTimeVisible: Boolean = false,
 )
 
 /** Every user action the player understands; the UI never calls the engine or queue directly for these. */
@@ -177,6 +180,7 @@ internal sealed interface PlayerIntent {
     data object ToggleStatsHud : PlayerIntent
     data object ToggleDialogueClarity : PlayerIntent
     data object SkipIntro : PlayerIntent
+    data object ToggleJumpToTime : PlayerIntent
 }
 
 /**

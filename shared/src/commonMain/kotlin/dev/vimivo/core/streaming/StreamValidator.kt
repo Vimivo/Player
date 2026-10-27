@@ -74,10 +74,38 @@ object StreamValidator {
             )
         }
 
-        if (scheme !in setOf("http", "https", "rtsp", "rtsps", "rtp", "udp", "mms", "mmsh", "mmst", "smb", "sftp", "ftp", "nfs", "avfoundation", "dshow", "v4l2", "lavfi")) {
+        val deviceAndDiscSchemes = setOf(
+            "avfoundation", "dshow", "v4l2", "lavfi", "gdigrab", "dvd", "bd", "cdda"
+        )
+        if (scheme !in setOf(
+                "http", "https", "rtsp", "rtsps", "rtp", "udp", "mms", "mmsh", "mmst",
+                "smb", "sftp", "ftp", "nfs",
+            ) + deviceAndDiscSchemes
+        ) {
             return StreamValidationResult.Invalid(
                 reason = StreamFailureReason.UNSUPPORTED_PROTOCOL,
                 message = "Protocol '$scheme' is not supported. Supported protocols: http, https, rtsp, rtsps, rtp, udp, mms, smb, sftp, ftp, nfs.",
+            )
+        }
+
+        if (scheme in deviceAndDiscSchemes) {
+            val title = when (scheme) {
+                "avfoundation" -> if (trimmed.contains("default")) "Screen Capture" else "Camera Capture"
+                "dshow" -> "DirectShow Video Capture"
+                "v4l2" -> "V4L2 Video Device"
+                "gdigrab", "lavfi" -> "Screen Capture (Display)"
+                "dvd" -> "DVD Optical Disc"
+                "bd" -> "Blu-ray Disc"
+                "cdda" -> "Audio CD"
+                else -> "Capture Device ($scheme)"
+            }
+            val isLive = !setOf("dvd", "bd", "cdda").contains(scheme)
+            return StreamValidationResult.Valid(
+                protocol = StreamProtocol.CAPTURE,
+                type = if (isLive) StreamType.LIVE else StreamType.VOD,
+                normalizedUrl = trimmed,
+                isLive = isLive,
+                displayTitle = title,
             )
         }
 

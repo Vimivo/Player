@@ -310,6 +310,10 @@ private fun desktopApplication(
         onSetTheme = { mode ->
             koin.get<DesktopLibraryController>().setThemeMode(mode)
         },
+        onOpenDisc = {
+            chooseDiscOrIsoFile()?.let { openFileHandler.submit(listOf(it)) }
+                ?: viewModel.dispatch(PlayerIntent.OpenLink("dvd://"))
+        },
     )
     val mediaInfoVisible by viewModel.commands.mediaInfoVisible.collectAsState()
     if (mediaInfoVisible) {
@@ -628,8 +632,16 @@ private fun PlayerWindow(
                         videoComponent = videoCanvas,
                     )
                 }
-                if (openStreamRequested) {
-                    OpenStreamDialog(queue, engine, onDismiss = onOpenStreamHandled)
+                var streamDialogOpen by remember { mutableStateOf(false) }
+                if (openStreamRequested || streamDialogOpen) {
+                    OpenStreamDialog(
+                        queue,
+                        engine,
+                        onDismiss = {
+                            onOpenStreamHandled()
+                            streamDialogOpen = false
+                        },
+                    )
                 }
                 if (playerState.commandPaletteVisible) {
                     DesktopCommandPalette(
@@ -638,8 +650,21 @@ private fun PlayerWindow(
                         onDismiss = { viewModel.dispatch(PlayerIntent.ToggleCommandPalette) },
                         onOpenStream = {
                             viewModel.dispatch(PlayerIntent.ToggleCommandPalette)
-                            // open stream dialog
+                            streamDialogOpen = true
                         },
+                        onOpenDisc = {
+                            viewModel.dispatch(PlayerIntent.ToggleCommandPalette)
+                            chooseDiscOrIsoFile()?.let { onOpenFiles(listOf(it)) }
+                                ?: viewModel.dispatch(PlayerIntent.OpenLink("dvd://"))
+                        },
+                    )
+                }
+                if (playerState.jumpToTimeVisible) {
+                    dev.vimivo.desktop.player.ui.DesktopJumpToTimeDialog(
+                        currentPositionMillis = playerState.playback.positionMillis,
+                        durationMillis = playerState.playback.durationMillis,
+                        onJump = { target -> viewModel.dispatch(PlayerIntent.Seek(target)) },
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleJumpToTime) },
                     )
                 }
                 if (playerState.wifiSharingVisible) {
@@ -1749,6 +1774,15 @@ internal fun clipboardText(): String? = runCatching {
 internal fun choosePlaylistFile(): File? {
     val dialog = FileDialog(null as Frame?, "Import Playlist (M3U, XSPF)", FileDialog.LOAD)
     dialog.setFilenameFilter { _, name -> name.endsWith(".m3u", true) || name.endsWith(".m3u8", true) || name.endsWith(".xspf", true) }
+    dialog.isVisible = true
+    return dialog.files?.firstOrNull() ?: dialog.file?.let { File(dialog.directory, it) }
+}
+
+internal fun chooseDiscOrIsoFile(): File? {
+    val dialog = FileDialog(null as Frame?, "Open Optical Disc / ISO (.iso)", FileDialog.LOAD)
+    dialog.setFilenameFilter { _, name ->
+        name.endsWith(".iso", true) || name.endsWith(".img", true) || name.endsWith(".vob", true)
+    }
     dialog.isVisible = true
     return dialog.files?.firstOrNull() ?: dialog.file?.let { File(dialog.directory, it) }
 }
