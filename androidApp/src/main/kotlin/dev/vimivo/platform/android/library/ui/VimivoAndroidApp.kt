@@ -63,6 +63,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
+import android.net.Uri
+import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
@@ -657,25 +659,171 @@ private fun VideoScreen(
     openPlayer: () -> Unit,
     viewModel: LibraryViewModel = koinViewModel(),
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val state by viewModel.state.collectAsState()
     LaunchedEffect(Unit) { viewModel.selectKind(MediaKind.VIDEO) }
-    LibraryChrome(state, viewModel, permissions, MediaKind.VIDEO) {
-        FilterChipRow(
-            listOf(
-                "All videos" to { viewModel.selectKind(MediaKind.VIDEO) },
-                "Folders" to { viewModel.showCategories(LibraryCategoryField.FOLDER) },
-                "Continue watching" to viewModel::continueWatching,
-                "Recently watched" to viewModel::recentlyWatched,
-                "Recently added" to viewModel::recentlyAdded,
-                "Favorites" to viewModel::favoriteVideos,
-            ),
-        )
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
-            LibraryViewToggle(state.viewMode, viewModel::setViewMode)
+
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(setOf<dev.vimivo.core.model.MediaId>()) }
+    var showSortSheet by remember { mutableStateOf(false) }
+    var propertiesMedia by remember { mutableStateOf<MediaItem?>(null) }
+    var showPrivateFolderDialog by remember { mutableStateOf(false) }
+    var currentSort by remember { mutableStateOf(LibrarySort.TITLE) }
+    var isAscending by remember { mutableStateOf(true) }
+
+    val lastPlayedItem = remember(state.items) {
+        state.items.filter { (it.lastPlayedAtEpochMillis ?: 0L) > 0L }
+            .maxByOrNull { it.lastPlayedAtEpochMillis ?: 0L }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        LibraryChrome(state, viewModel, permissions, MediaKind.VIDEO) {
+            FilterChipRow(
+                listOf(
+                    "All videos" to { viewModel.selectKind(MediaKind.VIDEO) },
+                    "Folders" to { viewModel.showCategories(LibraryCategoryField.FOLDER) },
+                    "Continue watching" to viewModel::continueWatching,
+                    "Recently watched" to viewModel::recentlyWatched,
+                    "Recently added" to viewModel::recentlyAdded,
+                    "Favorites" to viewModel::favoriteVideos,
+                    "Private Vault" to { showPrivateFolderDialog = true },
+                ),
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { showSortSheet = true }) {
+                    Icon(Icons.Rounded.Sort, "Sort videos")
+                }
+                LibraryViewToggle(state.viewMode, viewModel::setViewMode)
+            }
+            if (state.categories != null) {
+                LazyColumn(contentPadding = aboveBottomChrome()) {
+                    items(state.categories!!, key = { it.name }) { category ->
+                        MxFolderRow(
+                            name = category.name,
+                            videoCount = category.itemCount,
+                            newCount = category.newCount,
+                            onClick = { viewModel.selectCategory(category) },
+                            onHide = { /* Hide folder */ },
+                        )
+                    }
+                }
+            } else if (state.viewMode == LibraryViewMode.GRID) {
+                VideoGrid(
+                    state = state,
+                    thumbnails = thumbnails,
+                    playback = playback,
+                    viewModel = viewModel,
+                    isSelectionMode = selectionMode,
+                    selectedIds = selectedIds,
+                    onToggleSelect = { id ->
+                        selectedIds = if (selectedIds.contains(id)) selectedIds - id else selectedIds + id
+                        if (selectedIds.isEmpty()) selectionMode = false
+                    },
+                    onStartSelection = { id ->
+                        selectionMode = true
+                        selectedIds = setOf(id)
+                    },
+                    openPlayer = openPlayer,
+                )
+            } else {
+                VideoList(
+                    state = state,
+                    thumbnails = thumbnails,
+                    playback = playback,
+                    viewModel = viewModel,
+                    isSelectionMode = selectionMode,
+                    selectedIds = selectedIds,
+                    lastPlayedId = lastPlayedItem?.id,
+                    onToggleSelect = { id ->
+                        selectedIds = if (selectedIds.contains(id)) selectedIds - id else selectedIds + id
+                        if (selectedIds.isEmpty()) selectionMode = false
+                    },
+                    onStartSelection = { id ->
+                        selectionMode = true
+                        selectedIds = setOf(id)
+                    },
+                    onProperties = { propertiesMedia = it },
+                    openPlayer = openPlayer,
+                )
+            }
         }
-        if (state.categories != null) CategoryOrMediaList(state, viewModel, thumbnails, playback)
-        else if (state.viewMode == LibraryViewMode.GRID) VideoGrid(state, thumbnails, playback, viewModel, openPlayer)
-        else VideoList(state, thumbnails, playback, viewModel, openPlayer)
+
+        // Play Last Floating Button
+        if (lastPlayedItem != null && !selectionMode && state.categories == null) {
+            MxPlayLastFab(
+                lastPlayedItem = lastPlayedItem,
+                onClick = {
+                    playback.play(lastPlayedItem)
+                    openPlayer()
+                },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp),
+            )
+        }
+
+        // Multi-select bottom action bar
+        if (selectionMode) {
+            MxMultiSelectBottomBar(
+                selectedCount = selectedIds.size,
+                onClose = {
+                    selectionMode = false
+                    selectedIds = emptySet()
+                },
+                onShare = {
+                    val selectedMedia = state.items.filter { selectedIds.contains(it.id) }
+                    val sendIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                        type = "video/*"
+                        val uris = ArrayList(selectedMedia.map { Uri.parse(it.uri) })
+                        putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                    }
+                    context.startActivity(Intent.createChooser(sendIntent, "Share videos"))
+                },
+                onDelete = {
+                    selectionMode = false
+                    selectedIds = emptySet()
+                },
+                onRename = {
+                    selectionMode = false
+                },
+                onAddToPlaylist = {
+                    selectionMode = false
+                },
+                onProperties = {
+                    val item = state.items.firstOrNull { selectedIds.contains(it.id) }
+                    propertiesMedia = item
+                },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp),
+            )
+        }
+    }
+
+    if (showSortSheet) {
+        MxSortSheet(
+            currentSort = currentSort,
+            isAscending = isAscending,
+            onSelectSort = { sort, asc ->
+                currentSort = sort
+                isAscending = asc
+                viewModel.sort(sort, descending = !asc)
+            },
+            onDismiss = { showSortSheet = false },
+        )
+    }
+
+    propertiesMedia?.let { media ->
+        MxMediaPropertiesDialog(media = media, onDismiss = { propertiesMedia = null })
+    }
+
+    if (showPrivateFolderDialog) {
+        MxPrivateFolderDialog(
+            hasPinSet = false,
+            onUnlock = { true },
+            onSetPin = { /* Save vault PIN */ },
+            onDismiss = { showPrivateFolderDialog = false },
+        )
     }
 }
 
@@ -869,6 +1017,12 @@ private fun VideoList(
     thumbnails: AndroidThumbnailRepository,
     playback: PlaybackController,
     viewModel: LibraryViewModel,
+    isSelectionMode: Boolean,
+    selectedIds: Set<dev.vimivo.core.model.MediaId>,
+    lastPlayedId: dev.vimivo.core.model.MediaId?,
+    onToggleSelect: (dev.vimivo.core.model.MediaId) -> Unit,
+    onStartSelection: (dev.vimivo.core.model.MediaId) -> Unit,
+    onProperties: (MediaItem) -> Unit,
     openPlayer: () -> Unit,
 ) {
     when {
@@ -876,18 +1030,29 @@ private fun VideoList(
         state.items.isEmpty() -> EmptyState(Icons.Outlined.VideoLibrary, "No videos found", "Add a folder, open a video, or grant library access.", "Rescan", viewModel::rescan)
         else -> LazyColumn(contentPadding = aboveBottomChrome(PaddingValues(vertical = 8.dp))) {
             items(state.items, key = { it.id.value }) { item ->
-                SongRow(
+                MxVideoRow(
                     media = item,
                     thumbnails = thumbnails,
+                    isSelectionMode = isSelectionMode,
+                    isSelected = selectedIds.contains(item.id),
+                    isLastPlayed = item.id == lastPlayedId,
                     onClick = {
-                        viewModel.resolveCurrentItems { videos ->
-                            playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
-                            openPlayer()
+                        if (isSelectionMode) {
+                            onToggleSelect(item.id)
+                        } else {
+                            viewModel.resolveCurrentItems { videos ->
+                                playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
+                                openPlayer()
+                            }
                         }
                     },
-                    onFavorite = { viewModel.toggleFavorite(item) },
+                    onLongClick = {
+                        if (!isSelectionMode) onStartSelection(item.id)
+                        else onToggleSelect(item.id)
+                    },
+                    onMore = { onProperties(item) },
                 )
-                HorizontalDivider(Modifier.padding(start = 128.dp))
+                HorizontalDivider(Modifier.padding(start = 140.dp))
             }
             if (state.hasMore) item { OutlinedButton(viewModel::loadMore, Modifier.fillMaxWidth().padding(16.dp)) { Text("Load more") } }
         }
@@ -900,23 +1065,41 @@ private fun VideoGrid(
     thumbnails: AndroidThumbnailRepository,
     playback: PlaybackController,
     viewModel: LibraryViewModel,
+    isSelectionMode: Boolean,
+    selectedIds: Set<dev.vimivo.core.model.MediaId>,
+    onToggleSelect: (dev.vimivo.core.model.MediaId) -> Unit,
+    onStartSelection: (dev.vimivo.core.model.MediaId) -> Unit,
     openPlayer: () -> Unit,
 ) {
     when {
         state.isLoading && state.items.isEmpty() -> LoadingIndicator("Loading videos")
         state.items.isEmpty() -> EmptyState(Icons.Outlined.VideoLibrary, "No videos found", "Add a folder, open a video, or grant library access.", "Rescan", viewModel::rescan)
-        else -> LazyVerticalGrid(GridCells.Adaptive(240.dp), contentPadding = aboveBottomChrome(PaddingValues(16.dp)), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        else -> LazyVerticalGrid(
+            columns = GridCells.Adaptive(200.dp),
+            contentPadding = aboveBottomChrome(PaddingValues(16.dp)),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             items(state.items, key = { it.id.value }) { item ->
-                VideoCard(
-                    item,
-                    thumbnails,
+                MxVideoCard(
+                    media = item,
+                    thumbnails = thumbnails,
+                    isSelectionMode = isSelectionMode,
+                    isSelected = selectedIds.contains(item.id),
                     onClick = {
-                        viewModel.resolveCurrentItems { videos ->
-                            playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
-                            openPlayer()
+                        if (isSelectionMode) {
+                            onToggleSelect(item.id)
+                        } else {
+                            viewModel.resolveCurrentItems { videos ->
+                                playback.playQueue(videos, videos.indexOfFirst { it.id == item.id }.coerceAtLeast(0))
+                                openPlayer()
+                            }
                         }
                     },
-                    onFavorite = { viewModel.toggleFavorite(item) },
+                    onLongClick = {
+                        if (!isSelectionMode) onStartSelection(item.id)
+                        else onToggleSelect(item.id)
+                    },
                 )
             }
         }

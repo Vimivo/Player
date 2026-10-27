@@ -1,6 +1,7 @@
 import SwiftUI
 import AVKit
 import VimivoShared
+import UniformTypeIdentifiers
 
 /// Focused bottom sheets for the video player: speed, audio, subtitles, and general options.
 struct PlayerSheetView: View {
@@ -11,6 +12,7 @@ struct PlayerSheetView: View {
     @State private var bookmarks: [Bookmark] = []
     @State private var pendingA: Int64?
     @State private var snapshotMessage: String?
+    @State private var showSubtitleFilePicker = false
 
     static let speedPresets = PlaybackPreferences.speedPresets
 
@@ -32,6 +34,15 @@ struct PlayerSheetView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                }
+            }
+            .fileImporter(
+                isPresented: $showSubtitleFilePicker,
+                allowedContentTypes: [.plainText, UTType(filenameExtension: "srt") ?? .plainText, UTType(filenameExtension: "vtt") ?? .plainText, UTType(filenameExtension: "ass") ?? .plainText, UTType(filenameExtension: "ssa") ?? .plainText],
+                allowsMultipleSelection: false
+            ) { result in
+                if case .success(let urls) = result, let url = urls.first {
+                    model.addExternalSubtitleFile(url: url)
                 }
             }
         }
@@ -172,27 +183,147 @@ struct PlayerSheetView: View {
 
     // MARK: Subtitles
 
-    @ViewBuilder
     private var subtitleContent: some View {
-        if model.subtitleOptions.isEmpty {
-            EmptySheetMessage(icon: "captions.bubble", text: "No embedded subtitle tracks in this video.")
-        } else {
-            List {
-                SelectableRow(title: "Off", detail: nil, selected: model.selectedSubtitle == nil) {
+        List {
+            Section("Primary Subtitles") {
+                SelectableRow(
+                    title: "Off",
+                    detail: nil,
+                    selected: model.selectedSubtitle == nil && model.selectedExternalTrack == nil
+                ) {
                     model.selectSubtitle(nil)
+                    model.selectExternalSubtitle(nil)
                 }
+
+                if !model.subtitleOptions.isEmpty {
+                    ForEach(model.subtitleOptions, id: \.self) { option in
+                        SelectableRow(
+                            title: option.displayName,
+                            detail: "Embedded · " + (option.extendedLanguageTag ?? "und"),
+                            selected: option == model.selectedSubtitle && model.selectedExternalTrack == nil
+                        ) {
+                            model.selectSubtitle(option)
+                        }
+                    }
+                }
+
+                if !model.externalTracks.isEmpty {
+                    ForEach(model.externalTracks) { track in
+                        SelectableRow(
+                            title: track.name,
+                            detail: track.isCompanion ? "Auto-loaded companion" : "External file",
+                            selected: track.id == model.selectedExternalTrack?.id
+                        ) {
+                            model.selectExternalSubtitle(track)
+                        }
+                    }
+                }
+
+                Button {
+                    showSubtitleFilePicker = true
+                } label: {
+                    Label("Load subtitle file...", systemImage: "doc.badge.plus")
+                        .foregroundColor(.accentColor)
+                }
+            }
+
+            Section("Secondary Subtitle (Dual Display)") {
+                SelectableRow(
+                    title: "Off",
+                    detail: nil,
+                    selected: model.secondarySubtitleOption == nil && model.selectedSecondaryExternalTrack == nil
+                ) {
+                    model.selectSecondarySubtitle(nil)
+                }
+
                 ForEach(model.subtitleOptions, id: \.self) { option in
                     SelectableRow(
                         title: option.displayName,
-                        detail: option.extendedLanguageTag,
-                        selected: option == model.selectedSubtitle
+                        detail: "Top display · " + (option.extendedLanguageTag ?? ""),
+                        selected: option == model.secondarySubtitleOption
                     ) {
-                        model.selectSubtitle(option)
+                        model.selectSecondarySubtitle(option)
+                    }
+                }
+
+                ForEach(model.externalTracks) { track in
+                    SelectableRow(
+                        title: track.name,
+                        detail: "Top display · External",
+                        selected: track.id == model.selectedSecondaryExternalTrack?.id
+                    ) {
+                        model.selectSecondaryExternalSubtitle(track)
                     }
                 }
             }
-            .listStyle(.insetGrouped)
+
+            Section("Timing & Synchronization") {
+                HStack {
+                    Text("Delay")
+                    Spacer()
+                    Text("\(model.subtitleDelayMillis) ms")
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                    Stepper("", value: $model.subtitleDelayMillis, in: -10000...10000, step: 50)
+                        .labelsHidden()
+                }
+
+                Picker("Speed Multiplier", selection: $model.subtitleSpeedMultiplier) {
+                    Text("0.5x").tag(0.5)
+                    Text("0.75x").tag(0.75)
+                    Text("1.0x (Normal)").tag(1.0)
+                    Text("1.25x").tag(1.25)
+                    Text("1.5x").tag(1.5)
+                }
+            }
+
+            Section("Appearance") {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Font Size")
+                        Spacer()
+                        Text("\(Int(model.subtitleFontSize)) pt")
+                            .foregroundColor(.secondary)
+                    }
+                    Slider(value: $model.subtitleFontSize, in: 12...36, step: 1)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Bottom Margin")
+                        Spacer()
+                        Text("\(Int(model.subtitleBottomMargin)) pt")
+                            .foregroundColor(.secondary)
+                    }
+                    Slider(value: $model.subtitleBottomMargin, in: 16...120, step: 2)
+                }
+
+                Picker("Text Color", selection: $model.subtitleTextColor) {
+                    Text("White").tag(Color.white)
+                    Text("Yellow").tag(Color.yellow)
+                    Text("Cyan").tag(Color.cyan)
+                    Text("Green").tag(Color.green)
+                }
+
+                Picker("Background", selection: $model.subtitleBgOpacity) {
+                    Text("None").tag(0.0)
+                    Text("Subtle (30%)").tag(0.3)
+                    Text("Medium (60%)").tag(0.6)
+                    Text("Solid (100%)").tag(1.0)
+                }
+
+                Toggle("Text Outline & Shadow", isOn: $model.subtitleOutline)
+            }
+
+            Section("Text Encoding") {
+                Picker("Encoding", selection: $model.subtitleEncoding) {
+                    ForEach(SubtitleEncoding.allCases) { enc in
+                        Text(enc.rawValue).tag(enc)
+                    }
+                }
+            }
         }
+        .listStyle(.insetGrouped)
     }
 
     // MARK: Options

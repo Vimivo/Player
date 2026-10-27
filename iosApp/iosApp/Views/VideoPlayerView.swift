@@ -31,18 +31,36 @@ public struct VideoPlayerView: View {
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
             errorCard
+            if let secondary = model.secondarySubtitleText {
+                VStack {
+                    Text(secondary)
+                        .font(.system(size: model.subtitleFontSize * 0.9, weight: .semibold))
+                        .foregroundColor(model.subtitleTextColor)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.black.opacity(model.subtitleBgOpacity), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .shadow(color: model.subtitleOutline ? .black : .clear, radius: 2)
+                        .padding(.horizontal, 24)
+                        .padding(.top, model.controlsVisible && !model.locked ? 80 : 36)
+                    Spacer()
+                }
+                .allowsHitTesting(false)
+                .accessibilityLabel("Secondary subtitle: \(secondary)")
+            }
             if let cue = model.subtitleText {
                 VStack {
                     Spacer()
                     Text(cue)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
+                        .font(.system(size: model.subtitleFontSize, weight: .semibold))
+                        .foregroundColor(model.subtitleTextColor)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .background(Color.black.opacity(model.subtitleBgOpacity), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .shadow(color: model.subtitleOutline ? .black : .clear, radius: 2)
                         .padding(.horizontal, 24)
-                        .padding(.bottom, model.controlsVisible && !model.locked ? 120 : 32)
+                        .padding(.bottom, model.controlsVisible && !model.locked ? 120 : model.subtitleBottomMargin)
                 }
                 .allowsHitTesting(false)
                 .accessibilityLabel("Subtitle: \(cue)")

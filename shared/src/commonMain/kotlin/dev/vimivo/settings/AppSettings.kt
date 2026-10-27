@@ -78,6 +78,12 @@ data class AppSettings(
     val nightModeDimFraction: Float = 0f,
     val pauseOnHeadsetUnplug: Boolean = true,
     val resumeOnHeadsetReconnect: Boolean = false,
+    val sortAscending: Boolean = true,
+    val hiddenFolders: Set<String> = emptySet(),
+    val showHiddenFolders: Boolean = false,
+    val privateFolderPinHash: String? = null,
+    val appLanguage: String = "system",
+    val subtitleEncoding: String = "auto",
 )
 
 interface SettingsRepository {

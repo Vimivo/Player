@@ -5,35 +5,29 @@ public struct SettingsView: View {
     @AppStorage("vimivo_theme") private var theme: String = "system"
     @AppStorage(PlaybackPreferences.resumeVideoKey) private var resumeVideo: Bool = true
     @AppStorage(PlaybackPreferences.resumeSongsKey) private var resumeSongs: Bool = false
+    @AppStorage("vimivo_app_language") private var appLanguage: String = "system"
+    @AppStorage("vimivo_default_decoder") private var defaultDecoder: String = "hw"
+    @AppStorage("vimivo_double_tap_seek") private var doubleTapSeek: Int = 10
+    @AppStorage("vimivo_video_grid") private var defaultGridMode: Bool = false
+    @AppStorage("vimivo_show_hidden") private var showHiddenFolders: Bool = false
+    @AppStorage("vimivo_subtitle_encoding") private var subtitleEncoding: String = "UTF-8"
+    @AppStorage("vimivo_subtitle_size") private var subtitleSize: Double = 18
+    @AppStorage("vimivo_private_vault_pin") private var privateVaultPin: String = ""
     @ObservedObject private var engine = AVPlayerPlaybackEngine.shared
     @State private var cacheSizeFormatted: String = "Calculating..."
     @State private var showCacheAlert = false
+    @State private var showPinSheet = false
 
     public init() {}
 
     public var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Appearance")) {
-                    Picker("Theme", selection: $theme) {
-                        Text("System").tag("system")
-                        Text("Dark").tag("dark")
-                        Text("Light").tag("light")
-                        Text("AMOLED").tag("amoled")
-                    }
-                }
+                // MARK: 1. List / Library
+                Section(header: Text("List & Library")) {
+                    Toggle("Default to Grid View", isOn: $defaultGridMode)
+                    Toggle("Show Hidden Folders & Files", isOn: $showHiddenFolders)
 
-                Section(
-                    header: Text("Playback"),
-                    footer: Text("Videos, audiobooks and other long recordings continue where you left off. Songs start from the beginning unless you turn on Resume Songs.")
-                ) {
-                    Toggle("Resume Videos & Long Audio", isOn: $resumeVideo)
-                    Toggle("Resume Songs", isOn: $resumeSongs)
-                }
-
-                soundSection
-
-                Section(header: Text("Storage & Cache")) {
                     HStack {
                         Text("Cached Artwork & Thumbnails")
                         Spacer()
@@ -46,15 +40,86 @@ public struct SettingsView: View {
                     }
                 }
 
-                Section(header: Text("Design Principles")) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Every Sound. Every Frame.")
-                            .font(.subheadline.weight(.semibold))
-                        Text("Engineered for speed, clarity, and uncompromised audio-video playback fidelity.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                // MARK: 2. Player
+                Section(
+                    header: Text("Player"),
+                    footer: Text("Hardware decoder delivers maximum battery efficiency; software decoder ensures maximum format compatibility.")
+                ) {
+                    Toggle("Resume Videos & Long Audio", isOn: $resumeVideo)
+                    Toggle("Resume Songs", isOn: $resumeSongs)
+
+                    Picker("Default Decoder", selection: $defaultDecoder) {
+                        Text("Hardware (HW)").tag("hw")
+                        Text("Hardware+ (HW+)").tag("hw_plus")
+                        Text("Software (SW)").tag("sw")
                     }
-                    .padding(.vertical, 4)
+
+                    Picker("Double-Tap Seek Interval", selection: $doubleTapSeek) {
+                        Text("5 seconds").tag(5)
+                        Text("10 seconds").tag(10)
+                        Text("15 seconds").tag(15)
+                        Text("30 seconds").tag(30)
+                    }
+                }
+
+                // MARK: 3. Audio
+                soundSection
+
+                // MARK: 4. Subtitles
+                Section(header: Text("Subtitles")) {
+                    Picker("Default Encoding", selection: $subtitleEncoding) {
+                        ForEach(SubtitleEncoding.allCases) { enc in
+                            Text(enc.rawValue).tag(enc.rawValue)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Default Font Size")
+                            Spacer()
+                            Text("\(Int(subtitleSize)) pt").foregroundColor(.secondary)
+                        }
+                        Slider(value: $subtitleSize, in: 12...36, step: 1)
+                    }
+                }
+
+                // MARK: 5. General & Privacy
+                Section(header: Text("General & Privacy")) {
+                    Picker("App Language", selection: $appLanguage) {
+                        Text("System Default").tag("system")
+                        Text("English").tag("en")
+                        Text("বাংলা (Bengali)").tag("bn")
+                    }
+
+                    Picker("Theme", selection: $theme) {
+                        Text("System").tag("system")
+                        Text("Dark").tag("dark")
+                        Text("Light").tag("light")
+                        Text("AMOLED").tag("amoled")
+                    }
+
+                    Button {
+                        showPinSheet = true
+                    } label: {
+                        HStack {
+                            Text(privateVaultPin.isEmpty ? "Set Private Vault PIN" : "Change Private Vault PIN")
+                            Spacer()
+                            Image(systemName: "lock.shield")
+                                .foregroundColor(.accentColor)
+                        }
+                    }
+                }
+
+                Section(
+                    header: Text("Privacy Commitment"),
+                    footer: Text("Vimivo is a free, login-free, ad-free media player. Zero analytics, trackers, or account infrastructure.")
+                ) {
+                    HStack {
+                        Image(systemName: "checkmark.shield.fill")
+                            .foregroundColor(.green)
+                        Text("100% Offline & Private")
+                            .font(.subheadline.weight(.medium))
+                    }
                 }
 
                 Section(header: Text("About")) {
@@ -80,6 +145,11 @@ public struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .sheet(isPresented: $showPinSheet) {
+                PrivateVaultPinSheet {
+                    // PIN updated
+                }
+            }
             .onAppear(perform: calculateCacheSize)
         }
     }

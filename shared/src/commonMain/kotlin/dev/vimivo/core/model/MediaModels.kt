@@ -89,7 +89,7 @@ data class LibraryPage(
     val hasMore: Boolean get() = offset + items.size < totalCount
 }
 
-data class LibraryCategory(val name: String, val itemCount: Int, val artworkUri: String? = null)
+data class LibraryCategory(val name: String, val itemCount: Int, val artworkUri: String? = null, val newCount: Int = 0)
 enum class LibraryCategoryField { ALBUM, ARTIST, ALBUM_ARTIST, GENRE, FOLDER }
 
 enum class MediaPermissionAccess { FULL, PARTIAL, DENIED, NOT_REQUIRED }

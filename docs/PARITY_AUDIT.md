@@ -109,25 +109,25 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | | Stereo / mono / downmix | 🔨 built (untested) | 🔨 built (untested) |
 | | Headset single/double/triple press mapping | ❌ | ❌ |
 | | Pause on unplug / resume on reconnect | 🔨 built (untested) | 🔨 built (untested) |
-| **Subtitles** | Auto-load | ✅ | ❌ |
-| | Load from file | ❓ | ❌ |
-| | Secondary subtitle | ❌ | ❌ |
-| | Delay / speed / FPS | ⚠️ | ❌ |
-| | Full style (font, size, colour, outline, shadow, background, margin) | ⚠️ | ⚠️ |
-| | Encoding detect, Bangla rendering | ❓ | ❓ |
-| **Library** | Folder view / all videos | ❓ | ⚠️ |
-| | List / grid toggle | ❓ *src* | ❓ *src* |
-| | Sort options (name/date/size/duration) | ❌ | ❌ |
-| | Thumbnails + duration chip + progress bar | ❓ *src* | ❓ *src* |
-| | NEW tag + folder NEW count, last-played highlight | ❌ | ❌ |
-| | Multi-select (share, delete, rename, move, playlist, properties) | ❌ | ❌ |
-| | Rename / delete / properties | ⚠️ | ❌ |
-| | Hide folders, show hidden | ❌ | ❌ |
-| | Private folder (PIN/biometric) | ❌ | ❌ |
-| | "Play last" floating button | ❌ | ❌ |
+| **Subtitles** | Auto-load | ✅ | 🔨 built (untested) |
+| | Load from file | 🔨 built (untested) | 🔨 built (untested) |
+| | Secondary subtitle | 🔨 built (untested) | 🔨 built (untested) |
+| | Delay / speed / FPS | 🔨 built (untested) | 🔨 built (untested) |
+| | Full style (font, size, colour, outline, shadow, background, margin) | 🔨 built (untested) | 🔨 built (untested) |
+| | Encoding detect, Bangla rendering | 🔨 built (untested) | 🔨 built (untested) |
+| **Library** | Folder view / all videos | 🔨 built (untested) | 🔨 built (untested) |
+| | List / grid toggle | 🔨 built (untested) | 🔨 built (untested) |
+| | Sort options (name/date/size/duration) | 🔨 built (untested) | 🔨 built (untested) |
+| | Thumbnails + duration chip + progress bar | 🔨 built (untested) | 🔨 built (untested) |
+| | NEW tag + folder NEW count, last-played highlight | 🔨 built (untested) | 🔨 built (untested) |
+| | Multi-select (share, delete, rename, move, playlist, properties) | 🔨 built (untested) | 🔨 built (untested) |
+| | Rename / delete / properties | 🔨 built (untested) | 🔨 built (untested) |
+| | Hide folders, show hidden | 🔨 built (untested) | 🔨 built (untested) |
+| | Private folder (PIN/biometric) | 🔨 built (untested) | 🔨 built (untested) |
+| | "Play last" floating button | 🔨 built (untested) | 🔨 built (untested) |
 | | Search | ✅ | ⚠️ |
 | | History | ❓ | ❓ |
-| | Playlists (video + audio, M3U) | ⚠️ | ⚠️ |
+| | Playlists (video + audio, M3U) | 🔨 built (untested) | 🔨 built (untested) |
 | **Music** | Songs/albums/artists/folders/genres, mini player, Now Playing | ❓ | ❓ |
 | | Lyrics (shared LRC) | ✅ | ✅ |
 | | Queue drag/remove | ❓ | ❓ |
@@ -136,4 +136,4 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | | Set as ringtone | ❌ | — |
 | **Tools** | Wi-Fi file transfer (offline, QR) | ❌ | ❌ |
 | | Video → MP3 converter | ❌ | ❌ |
-| **Settings** | MX-style categories, theme, EN + বাংলা | ⚠️ | ⚠️ |
+| **Settings** | MX-style categories, theme, EN + বাংলা | 🔨 built (untested) | 🔨 built (untested) |
