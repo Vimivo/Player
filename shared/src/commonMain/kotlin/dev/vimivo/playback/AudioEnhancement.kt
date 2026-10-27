@@ -51,6 +51,9 @@ data class AudioEnhancementSettings(
     val bassBoostStrength: Float = 0f,
     val virtualizerStrength: Float = 0f,
     val reverbPreset: String = "OFF",
+    val compressorEnabled: Boolean = false,
+    val stereoWidenerStrength: Float = 0f,
+    val spatializerEnabled: Boolean = false,
 )
 
 data class AudioEnhancementCapabilities(

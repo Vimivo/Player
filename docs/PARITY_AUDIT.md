@@ -39,28 +39,28 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 |---|---|---|---|
 | 2b | Blu-ray (folder/ISO/drive) | ❌ | libbluray |
 | 10 | 360° video | ❌ | |
-| 20 | compressor/spatializer/stereo widener | ❌ | |
-| 25 | visualizations (spectrum/scope) | ❌ | |
+| 20 | compressor/spatializer/stereo widener | 🔨 built (untested) | Dynamic range compressor (acompressor), spatializer (surround), stereo widener (extrastereo), mono downmix in Equalizer & DesktopAudioEffects |
+| 25 | visualizations (spectrum/scope) | 🔨 built (untested) | Spectrum analyzer and waveform oscilloscope in DesktopAudioVisualizer |
 | 26 | S/PDIF/HDMI passthrough | ❌ | *(decided: not built until hardware test)* |
 | 32 | OpenSubtitles (opt-in) | ❌ | |
 | 34 | SMB/FTP/SFTP/NFS/DLNA browsing | ❌ | |
 | 35 | stream to network | ❌ | |
 | 37 | internet radio + podcasts (opt-in) | ❌ | |
 | 38 | Chromecast/DLNA casting | ❌ | |
-| 39 | convert/transcode | ❌ | |
+| 39 | convert/transcode | 🔨 built (untested) | DesktopTranscodeDialog (lossless audio extraction & media conversion) |
 | 40 | record | ❌ | |
 | 41 | screen capture | ❌ | |
 | 42 | webcam/capture card | ❌ | |
 | 48 | themes | ❌ | |
 | 49 | customizable toolbar | ❌ | |
-| 51 | mouse gestures | ❌ | |
-| 52 | mini/compact player + tray/menu-bar | ❌ | |
+| 51 | mouse gestures | 🔨 built (untested) | Mouse wheel volume/seek and middle-click play/pause gestures in Main.kt |
+| 52 | mini/compact player + tray/menu-bar | 🔨 built (untested) | DesktopMiniPlayerView with seek bar & tray icon with playback controls |
 | 53 | scripts folder | ❌ | |
 | 54 | web remote | ❌ | |
-| 56 | command palette | ❌ | |
-| 61 | Wi-Fi file sharing | ❌ | |
-| 62 | PiP window | ❌ | |
-| 63 | audio-only mode for video | ❌ | |
+| 56 | command palette | 🔨 built (untested) | DesktopCommandPalette with Cmd+K / Ctrl+K search and quick actions |
+| 61 | Wi-Fi file sharing | 🔨 built (untested) | DesktopWifiTransfer local HTTP server and dialog |
+| 62 | PiP window | 🔨 built (untested) | DesktopPipOverlay floating compact player mode |
+| 63 | audio-only mode for video | 🔨 built (untested) | Audio-only toggle in player control bar & video track disabling with visualizer/artwork stage |
 | 65 | network share browsing | ❌ | |
 
 ⛔ Excluded by decision: encrypted DVD/Blu-ray, YouTube extraction, telnet, DVD/Audio CD/VCD (licence, deferred).

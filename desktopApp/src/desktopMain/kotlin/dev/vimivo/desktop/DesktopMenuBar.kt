@@ -45,6 +45,7 @@ internal fun FrameWindowScope.VimivoMenuBar(
         AudioMenu(context)
         VideoMenu(context)
         SubtitlesMenu(context)
+        ToolsMenu(context)
         WindowMenu(context)
         HelpMenu(context)
     }
@@ -131,6 +132,22 @@ private fun MenuBarScope.ViewMenu(context: MenuContext) = with(context) {
         CheckboxItem("Show Remaining Time", checked = state.showRemainingTime, onCheckedChange = {
             send(PlayerIntent.ToggleRemainingTime)
         })
+        Item("Command Palette…", shortcut = primaryShortcut(Key.K), onClick = { send(PlayerIntent.ToggleCommandPalette) })
+        CheckboxItem(
+            "Mini Player",
+            checked = state.miniPlayer,
+            onCheckedChange = { send(PlayerIntent.ToggleMiniPlayer) },
+        )
+        CheckboxItem(
+            "Picture-in-Picture",
+            checked = state.pipMode,
+            onCheckedChange = { send(PlayerIntent.TogglePipMode) },
+        )
+        CheckboxItem(
+            "Audio-Only Mode (Hide Video)",
+            checked = state.audioOnlyMode,
+            onCheckedChange = { send(PlayerIntent.ToggleAudioOnlyMode) },
+        )
         Separator()
         Menu("Player Settings") {
             PlayerPanel.entries.forEach { panel ->
@@ -294,6 +311,18 @@ private fun MenuBarScope.SubtitlesMenu(context: MenuContext) = with(context) {
             onClick = { send(PlayerIntent.ShowPanel(PlayerPanel.SUBTITLES)) }
         )
         Item("Search Online…", enabled = false, onClick = {})
+    }
+}
+
+@Composable
+private fun MenuBarScope.ToolsMenu(context: MenuContext) = with(context) {
+    Menu("Tools") {
+        Item("Command Palette…", shortcut = primaryShortcut(Key.K), onClick = { send(PlayerIntent.ToggleCommandPalette) })
+        Item("Open Network Stream…", shortcut = primaryShortcut(Key.N), onClick = actions.onOpenStream)
+        Item("Convert / Transcode Media…", onClick = { send(PlayerIntent.ToggleTranscodeDialog) })
+        Item("Wi-Fi File Sharing…", onClick = { send(PlayerIntent.ToggleWifiSharing) })
+        Separator()
+        Item("Media Information…", enabled = hasMedia, onClick = { run(DesktopPlayerCommand.MEDIA_INFO) })
     }
 }
 

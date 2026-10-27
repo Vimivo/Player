@@ -74,10 +74,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.FrameWindowScope
+import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import dev.vimivo.desktop.player.ui.DesktopCommandPalette
+import dev.vimivo.desktop.sharing.DesktopWifiTransferDialog
+import dev.vimivo.desktop.tools.DesktopTranscodeDialog
 import dev.vimivo.core.model.AlbumItem
 import dev.vimivo.core.model.ArtistItem
 import dev.vimivo.core.model.MediaId
@@ -315,6 +319,23 @@ private fun desktopApplication(
         )
     }
 
+    if (windowIcon != null) {
+        Tray(
+            icon = windowIcon,
+            tooltip = "Vimivo",
+            menu = {
+                Item("Play / Pause", onClick = { viewModel.dispatch(PlayerIntent.TogglePlayback) })
+                Item("Next", onClick = { viewModel.dispatch(PlayerIntent.Next) })
+                Item("Previous", onClick = { viewModel.dispatch(PlayerIntent.Previous) })
+                Separator()
+                Item("Mini Player", onClick = { viewModel.dispatch(PlayerIntent.ToggleMiniPlayer) })
+                Item("Command Palette", onClick = { viewModel.dispatch(PlayerIntent.ToggleCommandPalette) })
+                Separator()
+                Item("Quit Vimivo", onClick = exitApp)
+            },
+        )
+    }
+
     PlayerWindow(
         viewModel = viewModel,
         engine = engine,
@@ -498,11 +519,24 @@ private fun PlayerWindow(
         snapshotFlow { windowState.placement == WindowPlacement.Fullscreen }
             .collect { fullscreen -> viewModel.dispatch(PlayerIntent.SetFullscreen(fullscreen)) }
     }
+    LaunchedEffect(playerState.miniPlayer, playerState.pipMode) {
+        val window = javax.swing.SwingUtilities.getWindowAncestor(videoCanvas)
+        if (playerState.miniPlayer) {
+            windowState.size = DpSize(420.dp, 120.dp)
+            window?.setSize(420, 120)
+        } else if (playerState.pipMode) {
+            windowState.size = DpSize(480.dp, 270.dp)
+            window?.setSize(480, 270)
+        } else if (!playerState.fullscreen) {
+            windowState.size = DpSize(960.dp, 600.dp)
+            window?.setSize(960, 600)
+        }
+    }
     Window(
         onCloseRequest = onCloseRequest,
         state = windowState,
         visible = visible,
-        alwaysOnTop = playerState.alwaysOnTop,
+        alwaysOnTop = playerState.alwaysOnTop || playerState.miniPlayer || playerState.pipMode,
         title = title,
         icon = icon,
         onKeyEvent = { event -> handleWindowKey(event, viewModel) },
@@ -537,15 +571,36 @@ private fun PlayerWindow(
         val preview: (suspend (Long) -> androidx.compose.ui.graphics.ImageBitmap?)? =
             previewPath?.let { path -> { position: Long -> thumbnailer.thumbnail(path, position) } }
         DisposableEffect(videoCanvas) {
-            val doubleClickListener = object : java.awt.event.MouseAdapter() {
+            val mouseAdapter = object : java.awt.event.MouseAdapter() {
                 override fun mouseClicked(event: java.awt.event.MouseEvent) {
-                    if (event.clickCount == 2) {
-                        viewModel.dispatch(PlayerIntent.SetFullscreen(!viewModel.state.value.fullscreen))
+                    when {
+                        event.clickCount == 2 -> {
+                            viewModel.dispatch(PlayerIntent.SetFullscreen(!viewModel.state.value.fullscreen))
+                        }
+                        event.button == java.awt.event.MouseEvent.BUTTON2 -> {
+                            viewModel.dispatch(PlayerIntent.TogglePlayback)
+                        }
                     }
                 }
             }
-            videoCanvas.addMouseListener(doubleClickListener)
-            onDispose { videoCanvas.removeMouseListener(doubleClickListener) }
+            val wheelAdapter = java.awt.event.MouseWheelListener { event ->
+                val rotation = event.wheelRotation
+                if (event.isShiftDown) {
+                    val currentPos = viewModel.state.value.playback.positionMillis
+                    val delta = if (rotation < 0) 5_000L else -5_000L
+                    viewModel.dispatch(PlayerIntent.Seek((currentPos + delta).coerceAtLeast(0L)))
+                } else {
+                    val currentVol = viewModel.state.value.playback.volume
+                    val delta = if (rotation < 0) 0.05f else -0.05f
+                    viewModel.dispatch(PlayerIntent.SetVolume((currentVol + delta).coerceIn(0f, viewModel.state.value.maxVolume)))
+                }
+            }
+            videoCanvas.addMouseListener(mouseAdapter)
+            videoCanvas.addMouseWheelListener(wheelAdapter)
+            onDispose {
+                videoCanvas.removeMouseListener(mouseAdapter)
+                videoCanvas.removeMouseWheelListener(wheelAdapter)
+            }
         }
         menu()
         VimivoTheme(mode = ThemeMode.DARK) {
@@ -565,6 +620,28 @@ private fun PlayerWindow(
                 }
                 if (openStreamRequested) {
                     OpenStreamDialog(queue, engine, onDismiss = onOpenStreamHandled)
+                }
+                if (playerState.commandPaletteVisible) {
+                    DesktopCommandPalette(
+                        state = playerState,
+                        onIntent = viewModel::dispatch,
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleCommandPalette) },
+                        onOpenStream = {
+                            viewModel.dispatch(PlayerIntent.ToggleCommandPalette)
+                            // open stream dialog
+                        },
+                    )
+                }
+                if (playerState.wifiSharingVisible) {
+                    DesktopWifiTransferDialog(
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleWifiSharing) },
+                    )
+                }
+                if (playerState.transcodeVisible) {
+                    DesktopTranscodeDialog(
+                        currentMedia = playerState.playback.media,
+                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleTranscodeDialog) },
+                    )
                 }
                 if (visible && playerState.fullscreen && playerState.presentation == PlayerPresentation.VIDEO) {
                     FullscreenController(playerState, window, videoCanvas, viewModel::dispatch, preview)
@@ -596,6 +673,14 @@ private fun handleWindowKey(event: androidx.compose.ui.input.key.KeyEvent, viewM
     val primary = if (DesktopPlatform.detect() == DesktopPlatform.MACOS) event.isMetaPressed else event.isCtrlPressed
     if (primary && event.key == androidx.compose.ui.input.key.Key.V) {
         clipboardText()?.let { viewModel.dispatch(PlayerIntent.OpenLink(it)) }
+        return true
+    }
+    if (primary && event.key == androidx.compose.ui.input.key.Key.K) {
+        viewModel.dispatch(PlayerIntent.ToggleCommandPalette)
+        return true
+    }
+    if (primary && event.key == androidx.compose.ui.input.key.Key.M) {
+        viewModel.dispatch(PlayerIntent.ToggleMiniPlayer)
         return true
     }
     return DesktopPlayerShortcuts.resolve(

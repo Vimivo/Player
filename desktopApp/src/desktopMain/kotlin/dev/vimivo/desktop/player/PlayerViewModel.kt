@@ -116,6 +116,12 @@ internal class PlayerViewModel(
             wallpaperMode = localState.wallpaperMode,
             autoHideControls = localState.autoHideControls,
             snapshot = localState.snapshot,
+            miniPlayer = localState.miniPlayer,
+            pipMode = localState.pipMode,
+            audioOnlyMode = localState.audioOnlyMode,
+            commandPaletteVisible = localState.commandPaletteVisible,
+            wifiSharingVisible = localState.wifiSharingVisible,
+            transcodeVisible = localState.transcodeVisible,
         )
     }.stateIn(scope, SharingStarted.Eagerly, PlayerState(maxVolume = engine.capabilities.maxVolume))
 
@@ -248,6 +254,22 @@ internal class PlayerViewModel(
                 local.update { it.copy(controllerOffset = intent.offset) }
                 scope.launch { store.setUiSetting(CONTROLLER_OFFSET_KEY, "${intent.offset.x},${intent.offset.y}") }
             }
+            PlayerIntent.ToggleMiniPlayer -> local.update {
+                val next = !it.miniPlayer
+                it.copy(miniPlayer = next, pipMode = false, alwaysOnTop = if (next) true else it.alwaysOnTop)
+            }
+            PlayerIntent.TogglePipMode -> local.update {
+                val next = !it.pipMode
+                it.copy(pipMode = next, miniPlayer = false, alwaysOnTop = if (next) true else it.alwaysOnTop)
+            }
+            PlayerIntent.ToggleAudioOnlyMode -> {
+                val next = !local.value.audioOnlyMode
+                local.update { it.copy(audioOnlyMode = next) }
+                engine.selectVideoTrack(if (next) null else engine.state.value.videoTracks.firstOrNull()?.id)
+            }
+            PlayerIntent.ToggleCommandPalette -> local.update { it.copy(commandPaletteVisible = !it.commandPaletteVisible) }
+            PlayerIntent.ToggleWifiSharing -> local.update { it.copy(wifiSharingVisible = !it.wifiSharingVisible) }
+            PlayerIntent.ToggleTranscodeDialog -> local.update { it.copy(transcodeVisible = !it.transcodeVisible) }
             else -> dispatchBookmark(intent)
         }
     }
@@ -570,6 +592,12 @@ internal class PlayerViewModel(
         val wallpaperMode: Boolean = false,
         val autoHideControls: Boolean = false,
         val snapshot: SnapshotOptions = SnapshotOptions(),
+        val miniPlayer: Boolean = false,
+        val pipMode: Boolean = false,
+        val audioOnlyMode: Boolean = false,
+        val commandPaletteVisible: Boolean = false,
+        val wifiSharingVisible: Boolean = false,
+        val transcodeVisible: Boolean = false,
     )
 
     internal companion object {

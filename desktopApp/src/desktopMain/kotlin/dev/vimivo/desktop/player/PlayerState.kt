@@ -59,6 +59,18 @@ internal data class PlayerState(
     val autoHideControls: Boolean = false,
     /** Snapshot format, subtitles and folder (Video panel ▸ Snapshot); remembered. */
     val snapshot: SnapshotOptions = SnapshotOptions(),
+    /** Compact mini-player layout with essential controls. */
+    val miniPlayer: Boolean = false,
+    /** Picture-in-picture floating video overlay. */
+    val pipMode: Boolean = false,
+    /** Play video file as audio only (saves GPU / allows background listening). */
+    val audioOnlyMode: Boolean = false,
+    /** Command palette quick action launcher modal. */
+    val commandPaletteVisible: Boolean = false,
+    /** Wi-Fi file sharing web server status dialog. */
+    val wifiSharingVisible: Boolean = false,
+    /** Video/audio transcode and converter dialog. */
+    val transcodeVisible: Boolean = false,
 )
 
 /** Every user action the player understands; the UI never calls the engine or queue directly for these. */
@@ -116,6 +128,12 @@ internal sealed interface PlayerIntent {
     data object ToggleAlwaysOnTop : PlayerIntent
     data object ToggleWallpaperMode : PlayerIntent
     data object ToggleAutoHideControls : PlayerIntent
+    data object ToggleMiniPlayer : PlayerIntent
+    data object TogglePipMode : PlayerIntent
+    data object ToggleAudioOnlyMode : PlayerIntent
+    data object ToggleCommandPalette : PlayerIntent
+    data object ToggleWifiSharing : PlayerIntent
+    data object ToggleTranscodeDialog : PlayerIntent
 }
 
 /**

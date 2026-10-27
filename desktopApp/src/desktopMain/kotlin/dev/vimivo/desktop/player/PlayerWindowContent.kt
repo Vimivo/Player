@@ -24,23 +24,36 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.Audiotrack
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.FullscreenExit
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PictureInPicture
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import dev.vimivo.desktop.player.ui.DesktopAudioVisualizer
+import dev.vimivo.desktop.player.ui.DesktopMiniPlayerView
+import dev.vimivo.desktop.player.ui.DesktopPipOverlay
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -103,8 +116,21 @@ internal fun PlayerWindowContent(
     /** The native video component: mouse movement over it brings auto-hidden controls back. */
     videoComponent: Component? = null,
 ) {
+    if (state.miniPlayer) {
+        DesktopMiniPlayerView(state, onIntent)
+        return
+    }
+
+    if (state.pipMode) {
+        Box(Modifier.fillMaxSize()) {
+            videoSurface(Modifier.fillMaxSize())
+            DesktopPipOverlay(state, onIntent)
+        }
+        return
+    }
+
     val media = state.playback.media
-    val showsVideo = state.presentation == PlayerPresentation.VIDEO && state.loadingTitle == null
+    val showsVideo = state.presentation == PlayerPresentation.VIDEO && state.loadingTitle == null && !state.audioOnlyMode
     val barInteraction = remember { MutableInteractionSource() }
     val barHovered by barInteraction.collectIsHoveredAsState()
     val paused = state.playback.status != PlaybackStatus.Playing
@@ -119,7 +145,9 @@ internal fun PlayerWindowContent(
                 Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                     when {
                         state.loadingTitle != null -> PlayerLoadingCard(state.loadingTitle, Modifier.fillMaxSize())
-                        state.presentation == PlayerPresentation.AUDIO && media != null -> AudioStage(media)
+                        (state.presentation == PlayerPresentation.AUDIO || state.audioOnlyMode) && media != null -> {
+                            AudioStage(media, state.playback.status == PlaybackStatus.Playing)
+                        }
                     }
                     videoSurface(
                         if (showsVideo) Modifier.fillMaxSize() else Modifier.size(1.dp).align(Alignment.TopStart),
@@ -136,13 +164,23 @@ internal fun PlayerWindowContent(
 }
 
 @Composable
-private fun AudioStage(media: MediaItem) {
+private fun AudioStage(media: MediaItem, isPlaying: Boolean) {
+    var showVisualizer by remember { mutableStateOf(false) }
+
     Column(
-        Modifier.padding(32.dp),
+        Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.Center,
     ) {
-        DesktopArtwork(uri = media.artworkUri, title = media.title, size = 240.dp)
+        if (showVisualizer) {
+            DesktopAudioVisualizer(
+                isPlaying = isPlaying,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            )
+        } else {
+            DesktopArtwork(uri = media.artworkUri, title = media.title, size = 220.dp)
+        }
+        Spacer(Modifier.height(12.dp))
         Text(
             media.title,
             style = MaterialTheme.typography.headlineSmall,
@@ -158,6 +196,16 @@ private fun AudioStage(media: MediaItem) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { showVisualizer = !showVisualizer }) {
+            Icon(
+                if (showVisualizer) Icons.Outlined.GraphicEq else Icons.AutoMirrored.Outlined.ShowChart,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(if (showVisualizer) "Show Artwork" else "Visualizer")
         }
     }
 }
@@ -250,9 +298,38 @@ private fun PlayerControlBar(
             onToggleMute = { onIntent(PlayerIntent.Command(DesktopPlayerCommand.TOGGLE_MUTE)) },
         )
         PlayerIconButton(
+            Icons.Outlined.Search,
+            "Command Palette (Cmd+K)",
+        ) {
+            onIntent(PlayerIntent.ToggleCommandPalette)
+        }
+        if (state.presentation == PlayerPresentation.VIDEO) {
+            PlayerIconButton(
+                Icons.Outlined.Audiotrack,
+                if (state.audioOnlyMode) "Disable Audio-only Mode" else "Audio-only Mode",
+                selected = state.audioOnlyMode,
+            ) {
+                onIntent(PlayerIntent.ToggleAudioOnlyMode)
+            }
+        }
+        PlayerIconButton(
+            Icons.Outlined.PictureInPicture,
+            "Picture-in-Picture",
+            selected = state.pipMode,
+        ) {
+            onIntent(PlayerIntent.TogglePipMode)
+        }
+        PlayerIconButton(
+            Icons.Outlined.Headphones,
+            "Mini Player (M)",
+            selected = state.miniPlayer,
+        ) {
+            onIntent(PlayerIntent.ToggleMiniPlayer)
+        }
+        PlayerIconButton(
             Icons.Outlined.Settings,
             stringResource(Res.string.player_panel),
-            selected = state.panel != null
+            selected = state.panel != null,
         ) {
             onIntent(PlayerIntent.ShowPanel(if (state.panel == null) PlayerPanel.VIDEO else null))
         }

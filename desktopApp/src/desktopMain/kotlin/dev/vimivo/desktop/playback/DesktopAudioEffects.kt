@@ -13,6 +13,18 @@ internal object DesktopAudioEffects {
     /** dynaudnorm smooths loudness jumps between and within tracks without hard limiting. */
     const val NORMALIZER_FILTER = "dynaudnorm=f=250:g=31:p=0.9"
 
+    /** Dynamic range compressor for dialog clarity and evening listening. */
+    const val COMPRESSOR_FILTER = "acompressor=threshold=0.125:ratio=4:attack=20:release=250"
+
+    /** Virtual surround / spatializer downmix. */
+    const val SPATIALIZER_FILTER = "surround=chl_out=stereo:level_in=1:level_out=1"
+
+    /**
+     * Stereo field widener (extrastereo): expands or narrows stereo image.
+     */
+    fun stereoWidenerStage(strength: Float): String? =
+        if (strength <= 0.05f) null else "extrastereo=m=${(1.0 + (strength * 1.5)).toFloat().clean()}"
+
     /**
      * mpv applies its own `volume` after the filter chain, so a limiter cannot sit in front of it. Boost above 100 %
      * is therefore done here, followed by a limiter that stops the extra gain from clipping.
@@ -24,6 +36,10 @@ internal object DesktopAudioEffects {
         val stages = listOfNotNull(
             equalizerChain(settings).takeIf { settings.enabled },
             NORMALIZER_FILTER.takeIf { settings.volumeNormalization },
+            COMPRESSOR_FILTER.takeIf { settings.compressorEnabled },
+            stereoWidenerStage(settings.stereoWidenerStrength),
+            SPATIALIZER_FILTER.takeIf { settings.spatializerEnabled },
+            "pan=1c|c0=0.5*c0+0.5*c1".takeIf { settings.monoDownmix },
             boostStage(boostGain),
         )
         return if (stages.isEmpty()) null else "lavfi=[${stages.joinToString(",")}]"
