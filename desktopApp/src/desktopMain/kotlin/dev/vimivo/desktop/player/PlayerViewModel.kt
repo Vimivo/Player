@@ -134,6 +134,8 @@ internal class PlayerViewModel(
             toolbarConfig = localState.toolbarConfig,
             audioPassthrough = localState.audioPassthrough,
             sleepTimerVisible = localState.sleepTimerVisible,
+            statsHudVisible = localState.statsHudVisible,
+            dialogueClarity = localState.dialogueClarity,
         )
     }.stateIn(scope, SharingStarted.Eagerly, PlayerState(maxVolume = engine.capabilities.maxVolume))
 
@@ -301,6 +303,17 @@ internal class PlayerViewModel(
                 local.update { it.copy(audioPassthrough = next) }
             }
             PlayerIntent.ToggleSleepTimer -> local.update { it.copy(sleepTimerVisible = !it.sleepTimerVisible) }
+            PlayerIntent.ToggleStatsHud -> local.update { it.copy(statsHudVisible = !it.statsHudVisible) }
+            PlayerIntent.ToggleDialogueClarity -> {
+                val next = !local.value.dialogueClarity
+                val current = engine.audioEnhancementState.value.settings
+                engine.applyAudioEnhancements(current.copy(dialogueClarityEnabled = next))
+                local.update { it.copy(dialogueClarity = next) }
+            }
+            PlayerIntent.SkipIntro -> {
+                val current = engine.state.value.positionMillis
+                dispatch(PlayerIntent.Seek(current + 85_000L))
+            }
             else -> dispatchBookmark(intent)
         }
     }
@@ -641,6 +654,8 @@ internal class PlayerViewModel(
         val toolbarConfig: dev.vimivo.desktop.player.ui.DesktopToolbarConfig = dev.vimivo.desktop.player.ui.DesktopToolbarConfig(),
         val audioPassthrough: Boolean = false,
         val sleepTimerVisible: Boolean = false,
+        val statsHudVisible: Boolean = false,
+        val dialogueClarity: Boolean = false,
     )
 
     internal companion object {

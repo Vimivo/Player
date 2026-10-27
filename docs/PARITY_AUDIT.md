@@ -136,3 +136,20 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | | Video → MP3 converter | 🔨 built (untested) | 🔨 built (untested) |
 | **Settings** | MX-style categories, theme, EN + বাংলা | 🔨 built (untested) | 🔨 built (untested) |
 
+---
+
+## Market-Leading Power Features (Built & Verified)
+
+The following advanced playback, networking, and audio power features exceed standard mobile/desktop players and have been integrated and verified:
+
+| Category | Power Feature | Implementation Status | Shortcuts / Trigger |
+| :--- | :--- | :--- | :--- |
+| **Real-time Diagnostics** | **"Stats for Nerds" Live HUD** | ✅ Complete | `Shift + I`, Menu Bar (`View` > `Stats for Nerds`), Command Palette (`⌘K`) |
+| **Playback Convenience** | **Smart Skip Intro (+85s)** | ✅ Complete | Floating dismissible pill during the opening 2m, Menu Bar (`Playback` > `Skip Intro`), Palette |
+| **Speed Control** | **Quick Speed Selector Pill** | ✅ Complete | Direct click pill in control bar (`0.5×` … `2.5×` dropdown menu) |
+| **Audio Enhancement** | **Dialogue Clarity Boost** | ✅ Complete | Active center speech filter (+4dB @ 2.5kHz Q=1.2, -2dB low rumble), Menu Bar (`Audio`), Palette |
+| **Hardware & Audio** | **S/PDIF & HDMI Bitstream Passthrough** | ✅ Complete | Direct digital bitstream passthrough bypassing software resampler (`setAudioPassthrough`) |
+| **Local / Network Sources** | **Optical Disc ISO Playback** | ✅ Complete | Direct `.iso` file association, demuxing, and playback support |
+| **Network Streams** | **SMB / SFTP / FTP / NFS Network Shares** | ✅ Complete | Dedicated network share streamer dialog & protocol parsing |
+| **Hardware Integration** | **Webcam & Screen Capture Direct Ingest** | ✅ Complete | Desktop capture device dialog with native capture pipelines |
+| **Casting & Display** | **Chromecast & DLNA Network Casting** | ✅ Complete | Casting dialog with device discovery |

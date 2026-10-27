@@ -500,6 +500,39 @@ class MpvPlayerEngine : PlayerEngine {
         setProperty("hwdec", hwdecValue(mode))
     }
 
+    /** Live real-time statistics for the "Stats for Nerds" HUD overlay. */
+    fun playbackStats(): MpvPlaybackStats = synchronized(nativeLock) {
+        if (context == null || closed) return MpvPlaybackStats()
+        val vCodec = stringProperty("video-codec")
+        val aCodec = stringProperty("audio-codec")
+        val w = stringProperty("width")?.toIntOrNull()
+        val h = stringProperty("height")?.toIntOrNull()
+        val fps = stringProperty("container-fps")?.toDoubleOrNull() ?: stringProperty("fps")?.toDoubleOrNull()
+        val outFps = stringProperty("estimated-vf-fps")?.toDoubleOrNull()
+        val hwdec = stringProperty("hwdec-current")
+        val vBitrate = stringProperty("video-bitrate")?.toDoubleOrNull()?.let { (it / 1000).toLong() }
+        val aBitrate = stringProperty("audio-bitrate")?.toDoubleOrNull()?.let { (it / 1000).toLong() }
+        val dropped = stringProperty("drop-frame-count")?.toLongOrNull() ?: 0L
+        val channels = stringProperty("audio-params/channel-count")?.toIntOrNull()
+        val sRate = stringProperty("audio-params/samplerate")?.toIntOrNull()
+        val cache = stringProperty("demuxer-cache-duration")?.toDoubleOrNull() ?: 0.0
+        MpvPlaybackStats(
+            videoCodec = vCodec,
+            audioCodec = aCodec,
+            width = w,
+            height = h,
+            fps = fps,
+            outputFps = outFps,
+            hwdec = hwdec,
+            videoBitrateKbps = vBitrate,
+            audioBitrateKbps = aBitrate,
+            droppedFrames = dropped,
+            audioChannels = channels,
+            audioSampleRate = sRate,
+            cacheDurationSeconds = cache,
+        )
+    }
+
     /** libmpv's value of [name] right now (null when unset or unavailable); for diagnostics and live tests. */
     internal fun readProperty(name: String): String? = stringProperty(name)
 
@@ -913,6 +946,23 @@ data class DesktopContainerInfo(
     val metadata: List<Pair<String, String>>,
     /** The video renderer, e.g. "Software rendering — performance mode on (llvmpipe …)". */
     val rendering: String? = null,
+)
+
+/** Real-time playback metrics for Stats for Nerds HUD overlay. */
+data class MpvPlaybackStats(
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val fps: Double? = null,
+    val outputFps: Double? = null,
+    val hwdec: String? = null,
+    val videoBitrateKbps: Long? = null,
+    val audioBitrateKbps: Long? = null,
+    val droppedFrames: Long = 0L,
+    val audioChannels: Int? = null,
+    val audioSampleRate: Int? = null,
+    val cacheDurationSeconds: Double = 0.0,
 )
 
 /** Embedded tags win over values derived from the file name; missing tags keep what was there. */

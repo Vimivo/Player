@@ -37,7 +37,8 @@ public struct AudioEffectSettings: Equatable {
                 bassStrength: bass, trebleGainDb: treble, preampDb: min(0, preampDb), replayGainMode: replayGain,
                 balance: 0, volumeNormalization: false, customPresetName: nil, customPresets: [],
                 monoDownmix: monoDownmix, bassBoostStrength: bassBoost, virtualizerStrength: virtualizer, reverbPreset: reverbPreset,
-                compressorEnabled: false, stereoWidenerStrength: 0, spatializerEnabled: false
+                compressorEnabled: false, stereoWidenerStrength: 0, spatializerEnabled: false,
+                dialogueClarityEnabled: false
             )
             bands = EqualizerPresets.shared.resolved(settings: shared).map(\.floatValue)
             preamp = AudioDspChain.companion.linear(gainDb: min(0, preampDb))

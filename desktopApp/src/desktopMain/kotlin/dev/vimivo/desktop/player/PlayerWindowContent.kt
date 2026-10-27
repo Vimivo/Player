@@ -40,10 +40,16 @@ import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FastForward
+import kotlin.math.roundToInt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -153,6 +159,57 @@ internal fun PlayerWindowContent(
                     videoSurface(
                         if (showsVideo) Modifier.fillMaxSize() else Modifier.size(1.dp).align(Alignment.TopStart),
                     )
+                    var introDismissed by remember(media?.uri) { mutableStateOf(false) }
+                    if (showsVideo && state.playback.status == PlaybackStatus.Playing &&
+                        state.playback.positionMillis in 1_000L..120_000L && !introDismissed
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.Black.copy(alpha = 0.80f),
+                            shadowElevation = 8.dp,
+                            modifier = Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 20.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clickable { onIntent(PlayerIntent.SkipIntro) }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.FastForward,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "Skip Intro (+85s)",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                IconButton(
+                                    onClick = { introDismissed = true },
+                                    modifier = Modifier.size(18.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Close,
+                                        contentDescription = "Dismiss",
+                                        tint = Color.LightGray,
+                                        modifier = Modifier.size(12.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (state.statsHudVisible) {
+                        dev.vimivo.desktop.player.ui.DesktopStatsOverlay(
+                            engine = engine,
+                            onDismiss = { onIntent(PlayerIntent.ToggleStatsHud) },
+                            modifier = Modifier.align(Alignment.TopStart),
+                        )
+                    }
                 }
                 if (panel != null) PlayerSidePanel(state, panel, engine, commands, onIntent)
             }
@@ -288,6 +345,8 @@ private fun PlayerControlBar(
         )
         Spacer(Modifier.width(8.dp))
         TimeReadout(state, onIntent)
+        Spacer(Modifier.width(6.dp))
+        QuickSpeedPill(playback.speed, onSetSpeed = { onIntent(PlayerIntent.SetSpeed(it)) })
         Spacer(Modifier.width(8.dp))
         PlayerVolumeControl(
             volume = playback.volume,
@@ -385,3 +444,52 @@ internal fun TimeReadout(state: PlayerState, onIntent: (PlayerIntent) -> Unit, m
 
 private val BAR_HEIGHT = 48.dp
 private val TIME_TEXT = TextStyle(fontSize = 12.sp, fontFeatureSettings = "tnum")
+
+@Composable
+private fun QuickSpeedPill(speed: Float, onSetSpeed: (Float) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f)
+
+    Box {
+        val isCustomSpeed = kotlin.math.abs(speed - 1.0f) > 0.01f
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = if (isCustomSpeed) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                Color.White.copy(alpha = 0.12f)
+            },
+            modifier = Modifier
+                .clickable { expanded = true }
+                .padding(horizontal = 2.dp),
+        ) {
+            Text(
+                "${(speed * 100).roundToInt() / 100f}×",
+                color = if (isCustomSpeed) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    Color.White
+                },
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            speeds.forEach { s ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "${s}×",
+                            fontWeight = if (kotlin.math.abs(speed - s) < 0.01f) FontWeight.Bold else FontWeight.Normal,
+                        )
+                    },
+                    onClick = {
+                        onSetSpeed(s)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}

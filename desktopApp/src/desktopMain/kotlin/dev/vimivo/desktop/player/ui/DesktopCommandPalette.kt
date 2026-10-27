@@ -46,6 +46,8 @@ import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.DashboardCustomize
 import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -185,6 +187,15 @@ internal fun DesktopCommandPalette(
             PaletteAction("Sleep Timer", "Playback", null, Icons.Outlined.Bedtime) {
                 onIntent(PlayerIntent.ToggleSleepTimer)
             },
+            PaletteAction("Stats for Nerds (Live Playback HUD)", "View", "Shift+I", Icons.Outlined.Analytics) {
+                onIntent(PlayerIntent.ToggleStatsHud)
+            },
+            PaletteAction("Dialogue & Speech Clarity Boost", "Audio", null, Icons.Outlined.RecordVoiceOver) {
+                onIntent(PlayerIntent.ToggleDialogueClarity)
+            },
+            PaletteAction("Skip Intro (+85s)", "Playback", null, Icons.Outlined.FastForward) {
+                onIntent(PlayerIntent.SkipIntro)
+            },
             PaletteAction("Show Media Library", "Navigation", "L", Icons.AutoMirrored.Outlined.QueueMusic) {
                 onIntent(PlayerIntent.ShowLibrary)
             },
@@ -247,8 +258,16 @@ internal fun DesktopCommandPalette(
                             )
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(item.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                                Text(item.category, style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    item.title,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    item.category,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                             if (item.shortcut != null) {
                                 Surface(
@@ -257,7 +276,10 @@ internal fun DesktopCommandPalette(
                                 ) {
                                     Text(
                                         item.shortcut,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                        ),
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                     )
                                 }

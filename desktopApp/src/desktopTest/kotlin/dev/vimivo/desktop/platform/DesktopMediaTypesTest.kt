@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 class DesktopMediaTypesTest {
     @Test
     fun coversEverySpecifiedExtension() {
-        val video = "mp4 m4v mkv webm avi mov wmv flv ts m2ts mts mpg mpeg vob ogv 3gp 3g2 divx rmvb asf f4v hevc"
+        val video = "mp4 m4v mkv webm avi mov wmv flv ts m2ts mts mpg mpeg vob ogv 3gp 3g2 divx rmvb asf f4v hevc iso"
         val audio = "mp3 m4a aac flac alac wav aiff aif ogg oga opus wma ape wv dsf dff mka ac3 dts amr"
         assertEquals(video.split(' ').toSet(), DesktopMediaTypes.extensions(MediaFamily.VIDEO))
         assertEquals(audio.split(' ').toSet(), DesktopMediaTypes.extensions(MediaFamily.AUDIO))

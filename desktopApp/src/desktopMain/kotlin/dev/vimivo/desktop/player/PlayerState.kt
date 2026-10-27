@@ -95,6 +95,10 @@ internal data class PlayerState(
     val audioPassthrough: Boolean = false,
     /** Sleep timer picker dialog. */
     val sleepTimerVisible: Boolean = false,
+    /** Live Stats for Nerds HUD overlay. */
+    val statsHudVisible: Boolean = false,
+    /** Dialogue and speech clarity filter toggle. */
+    val dialogueClarity: Boolean = false,
 )
 
 /** Every user action the player understands; the UI never calls the engine or queue directly for these. */
@@ -170,6 +174,9 @@ internal sealed interface PlayerIntent {
     data class SetToolbarConfig(val config: dev.vimivo.desktop.player.ui.DesktopToolbarConfig) : PlayerIntent
     data object ToggleAudioPassthrough : PlayerIntent
     data object ToggleSleepTimer : PlayerIntent
+    data object ToggleStatsHud : PlayerIntent
+    data object ToggleDialogueClarity : PlayerIntent
+    data object SkipIntro : PlayerIntent
 }
 
 /**

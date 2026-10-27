@@ -150,6 +150,11 @@ private fun MenuBarScope.ViewMenu(context: MenuContext) = with(context) {
             checked = state.audioOnlyMode,
             onCheckedChange = { send(PlayerIntent.ToggleAudioOnlyMode) },
         )
+        CheckboxItem(
+            "Stats for Nerds (Shift+I)",
+            checked = state.statsHudVisible,
+            onCheckedChange = { send(PlayerIntent.ToggleStatsHud) },
+        )
         Separator()
         Menu("Player Settings") {
             PlayerPanel.entries.forEach { panel ->
@@ -200,6 +205,7 @@ private fun MenuBarScope.PlaybackMenu(context: MenuContext) = with(context) {
             DesktopPlayerCommand.SEEK_BACK_MEDIUM to "J"
         )
         Item("Jump to Time…", enabled = false, onClick = {})
+        Item("Skip Intro (+85s)", enabled = hasMedia, onClick = { send(PlayerIntent.SkipIntro) })
         Separator()
         Menu("Speed") {
             PlaybackSpeeds.PRESETS.forEach { speed ->
@@ -267,6 +273,12 @@ private fun MenuBarScope.AudioMenu(context: MenuContext) = with(context) {
             checked = state.audioPassthrough,
             enabled = hasMedia,
             onCheckedChange = { send(PlayerIntent.ToggleAudioPassthrough) },
+        )
+        CheckboxItem(
+            "Dialogue & Speech Clarity Boost",
+            checked = state.dialogueClarity,
+            enabled = hasMedia,
+            onCheckedChange = { send(PlayerIntent.ToggleDialogueClarity) },
         )
         Item("Sleep Timer…", onClick = { send(PlayerIntent.ToggleSleepTimer) })
     }

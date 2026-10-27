@@ -19,6 +19,9 @@ internal object DesktopAudioEffects {
     /** Virtual surround / spatializer downmix. */
     const val SPATIALIZER_FILTER = "surround=chl_out=stereo:level_in=1:level_out=1"
 
+    /** Dialogue & speech clarity boost for film and TV dialogues. */
+    const val DIALOGUE_CLARITY_FILTER = "equalizer=f=1800:t=q:w=1.2:g=5.0,equalizer=f=3200:t=q:w=1.0:g=3.5"
+
     /**
      * Stereo field widener (extrastereo): expands or narrows stereo image.
      */
@@ -37,6 +40,7 @@ internal object DesktopAudioEffects {
             equalizerChain(settings).takeIf { settings.enabled },
             NORMALIZER_FILTER.takeIf { settings.volumeNormalization },
             COMPRESSOR_FILTER.takeIf { settings.compressorEnabled },
+            DIALOGUE_CLARITY_FILTER.takeIf { settings.dialogueClarityEnabled },
             stereoWidenerStage(settings.stereoWidenerStrength),
             SPATIALIZER_FILTER.takeIf { settings.spatializerEnabled },
             "pan=1c|c0=0.5*c0+0.5*c1".takeIf { settings.monoDownmix },

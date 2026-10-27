@@ -54,6 +54,7 @@ data class AudioEnhancementSettings(
     val compressorEnabled: Boolean = false,
     val stereoWidenerStrength: Float = 0f,
     val spatializerEnabled: Boolean = false,
+    val dialogueClarityEnabled: Boolean = false,
 )
 
 data class AudioEnhancementCapabilities(

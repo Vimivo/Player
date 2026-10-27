@@ -759,6 +759,10 @@ private fun handleWindowKey(event: androidx.compose.ui.input.key.KeyEvent, viewM
         viewModel.dispatch(PlayerIntent.ToggleMiniPlayer)
         return true
     }
+    if (event.isShiftPressed && event.key == androidx.compose.ui.input.key.Key.I) {
+        viewModel.dispatch(PlayerIntent.ToggleStatsHud)
+        return true
+    }
     return DesktopPlayerShortcuts.resolve(
         key = event.key,
         shift = event.isShiftPressed,
