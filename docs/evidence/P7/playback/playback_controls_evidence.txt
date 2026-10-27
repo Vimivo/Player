@@ -1,0 +1,11 @@
+TEST SUITE: dev.vimivo.desktop.playback.MpvControlsLiveTest
+Status: ALL PASSED
+Features Verified:
+  - Playback speed 0.25x - 4x fine steps with audio pitch correction
+  - Frame stepping forward and backward by exactly one frame
+  - Video adjustments (zoom, pan-x, pan-y, rotation, aspect ratio override, colors)
+  - Audio and subtitle sync offsets in milliseconds
+  - S/PDIF and HDMI audio passthrough bitstream property configuration (ac3,dts,eac3,truehd,dts-hd)
+  - Playback position advancement rate under speed changes
+Command: ./gradlew :desktopApp:desktopTest --tests "dev.vimivo.desktop.playback.MpvControlsLiveTest"
+Result: BUILD SUCCESSFUL (0 failures)

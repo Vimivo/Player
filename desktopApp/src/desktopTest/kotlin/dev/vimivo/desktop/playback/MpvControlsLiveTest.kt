@@ -86,6 +86,24 @@ class MpvControlsLiveTest {
         assertEquals(1.5, engine.readProperty("sub-delay")!!.toDouble(), 0.001)
     }
 
+    @Test
+    fun audioPassthroughConfiguresSpdifBitstream() = withVideo { engine ->
+        engine.setAudioPassthrough(true).getOrThrow()
+        assertEquals("ac3,dts,eac3,truehd,dts-hd", engine.readProperty("audio-spdif"))
+        engine.setAudioPassthrough(false).getOrThrow()
+        val cleared = engine.readProperty("audio-spdif").orEmpty()
+        assertTrue(cleared.isEmpty() || cleared == "no")
+    }
+
+    @Test
+    fun playbackSpeedActuallyChangesTimeRate() = withVideo { engine ->
+        engine.setPlaybackSpeed(2.0f).getOrThrow()
+        assertEquals(2.0, engine.readProperty("speed")!!.toDouble(), 0.001)
+        val initial = engine.state.value.positionMillis
+        awaitState(engine) { it.positionMillis >= initial + 400 }
+        assertTrue(engine.state.value.positionMillis >= initial + 400)
+    }
+
     private fun position(engine: MpvPlayerEngine) = engine.readProperty("time-pos")!!.toDouble()
 
     private fun waitUntil(condition: () -> Boolean) = runBlocking {

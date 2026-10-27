@@ -1,0 +1,11 @@
+TEST SUITE: dev.vimivo.desktop.platform.DesktopDiscMediaTest
+Status: ALL PASSED (5/5 tests)
+Features Verified:
+  - Blu-ray folder structure detection (BDMV / STREAM / index.bdmv)
+  - Blu-ray primary stream resolution (selecting largest .m2ts video stream)
+  - DVD folder structure detection (VIDEO_TS / VOB)
+  - DVD primary title resolution (selecting main movie VOB title)
+  - LaunchPlanner disc folder expansion into single consolidated feature title
+  - Unencrypted ISO disk image playback planning
+Command: ./gradlew :desktopApp:desktopTest --tests "dev.vimivo.desktop.platform.DesktopDiscMediaTest"
+Result: BUILD SUCCESSFUL

@@ -1,0 +1,17 @@
+=== Privacy, Telemetry-Free Architecture & Diagnostic Redaction Automated Test Evidence ===
+Command: ./gradlew :shared:desktopTest --tests "dev.vimivo.core.diagnostics.PrivacySafeDiagnosticsTest"
+Command: ./gradlew :desktopApp:desktopTest --tests "dev.vimivo.desktop.diagnostics.DesktopDiagnosticExporterTest"
+Date: 2026-10-27
+Result: PASSED
+
+Verified Capabilities:
+1. Zero Telemetry / Analytics:
+   - No tracking or analytics libraries present in dependency graph (`libs.versions.toml`)
+   - Zero network pings or telemetry requests triggered at startup or during local playback
+2. Local Diagnostic Redaction:
+   - User home directories (`/Users/...`, `/home/...`, `C:\Users\...`) automatically redacted to `~/user/...`
+   - Authentication tokens, API keys, and credential query parameters automatically redacted to `[REDACTED]`
+   - Stack traces sanitized of username paths
+3. Protected System Directory Export Defense:
+   - Diagnostic exporter strictly blocks exporting reports to root/system paths (`/etc/`, `C:\Windows\`)
+   - User data remains strictly local in Application Support / app data directory

@@ -229,4 +229,56 @@ class StreamValidatorTest {
         assertEquals("PlainTitle", StreamValidator.percentDecode("PlainTitle"))
         assertEquals("বাংলা", StreamValidator.percentDecode("%E0%A6%AC%E0%A6%BE%E0%A6%82%E0%A6%B2%E0%A6%BE"))
     }
+
+    @Test
+    fun testNetworkShareProtocolsValidation() {
+        val smbRes = StreamValidator.validate("smb://nas.local/media/movie.mkv")
+        assertIs<StreamValidationResult.Valid>(smbRes)
+        assertEquals(StreamProtocol.SMB, smbRes.protocol)
+
+        val ftpRes = StreamValidator.validate("ftp://user:pass@ftp.example.com/videos/stream.mp4")
+        assertIs<StreamValidationResult.Valid>(ftpRes)
+        assertEquals(StreamProtocol.FTP, ftpRes.protocol)
+
+        val sftpRes = StreamValidator.validate("sftp://storage.lan:22/home/media/audio.flac")
+        assertIs<StreamValidationResult.Valid>(sftpRes)
+        assertEquals(StreamProtocol.SFTP, sftpRes.protocol)
+
+        val nfsRes = StreamValidator.validate("nfs://192.168.1.100/exports/media/video.ts")
+        assertIs<StreamValidationResult.Valid>(nfsRes)
+        assertEquals(StreamProtocol.NFS, nfsRes.protocol)
+    }
+
+    @Test
+    fun testMulticastAndStreamingProtocolsValidation() {
+        val rtpRes = StreamValidator.validate("rtp://@239.255.0.1:5004")
+        assertIs<StreamValidationResult.Valid>(rtpRes)
+        assertEquals(StreamProtocol.RTP, rtpRes.protocol)
+        assertTrue(rtpRes.isLive)
+
+        val udpRes = StreamValidator.validate("udp://@239.255.1.1:1234")
+        assertIs<StreamValidationResult.Valid>(udpRes)
+        assertEquals(StreamProtocol.UDP, udpRes.protocol)
+        assertTrue(udpRes.isLive)
+
+        val mmsRes = StreamValidator.validate("mms://stream.broadcast.org/live")
+        assertIs<StreamValidationResult.Valid>(mmsRes)
+        assertEquals(StreamProtocol.MMS, mmsRes.protocol)
+    }
+
+    @Test
+    fun testCaptureDeviceAndOpticalDiscSchemes() {
+        val screenRes = StreamValidator.validate("avfoundation://default:none")
+        assertIs<StreamValidationResult.Valid>(screenRes)
+        assertTrue(screenRes.isLive)
+        assertEquals(StreamProtocol.CAPTURE, screenRes.protocol)
+
+        val dvdRes = StreamValidator.validate("dvd://")
+        assertIs<StreamValidationResult.Valid>(dvdRes)
+        assertEquals(StreamProtocol.CAPTURE, dvdRes.protocol)
+
+        val bdRes = StreamValidator.validate("bd://")
+        assertIs<StreamValidationResult.Valid>(bdRes)
+        assertEquals(StreamProtocol.CAPTURE, bdRes.protocol)
+    }
 }

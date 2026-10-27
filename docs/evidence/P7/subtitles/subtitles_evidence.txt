@@ -1,0 +1,26 @@
+=== Subtitles (External, Styling, Timing, Secondary, Bangla) Automated Test Evidence ===
+Command: ./gradlew :desktopApp:desktopTest --tests "dev.vimivo.desktop.playback.MpvSubtitleLiveTest"
+Date: 2026-10-27
+Result: PASSED (4 tests completed, 0 failed)
+
+Verified Capabilities:
+1. External Subtitle Loading & Selection:
+   - External subtitle file loaded dynamically via `addExternalSubtitle` (maps to libmpv `sub-add <path> select`)
+   - Selected track reflected in `state.subtitleTracks` and mpv `sid` property
+   - Deselection via `selectSubtitleTrack(null)` sets `sid` to `no`
+   - Re-selection restores `sid`
+2. Subtitle Styling & Shaping:
+   - Font size (`sub-font-size` = 36)
+   - Text color (`sub-color` hex formatting)
+   - Bottom margin percentage mapped to vertical position (`sub-pos` = 85)
+   - Outline border size (`sub-border-size` = 3.0)
+   - Shadow offset (`sub-shadow-offset` = 2.0)
+   - ASS styling override modes (`sub-ass-override` = force)
+   - Text encoding codepage (`sub-codepage` = utf-8)
+3. Timing and Secondary Subtitles:
+   - Primary subtitle delay adjustments (+1250ms, -750ms -> `sub-delay`)
+   - Subtitle playback speed rate (`sub-speed` = 1.25)
+   - Subtitle frame rate compensation (`sub-fps` = 23.976)
+   - Secondary subtitle track sync delay (`secondary-sub-delay` = 2.0s)
+4. International Character Sets & Bangla:
+   - Bangla UTF-8 external subtitle loaded cleanly and indexed in track list

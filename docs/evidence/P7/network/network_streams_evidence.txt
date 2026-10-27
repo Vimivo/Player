@@ -1,0 +1,16 @@
+TEST SUITE: dev.vimivo.core.streaming.StreamValidatorTest
+Status: ALL PASSED (17/17 tests)
+Protocols and Features Verified:
+  - Direct HTTP/HTTPS Progressive Media (MP4, FLAC, MP3)
+  - HLS Manifest (.m3u8) adaptive streaming & live detection
+  - MPEG-DASH Manifest (.mpd) adaptive streaming
+  - RTSP and RTSPS real-time streaming
+  - Multicast streaming via RTP (rtp://@239.255.0.1:5004) & UDP (udp://@239.255.1.1:1234)
+  - MMS streaming
+  - Network share protocols: SMB, SFTP, FTP, NFS
+  - Capture device and optical disc schemes: avfoundation, dshow, dvd, bd
+  - Strict security rejection of HTML webpages (YouTube/Vimeo/TikTok/webpages) and forbidden control characters
+  - Exponential backoff reconnection policy calculation
+  - Percent-decoding of international and Bengali Unicode stream titles
+Command: ./gradlew :shared:desktopTest --tests "dev.vimivo.core.streaming.StreamValidatorTest"
+Result: BUILD SUCCESSFUL (0 failures)

@@ -1,0 +1,32 @@
+=== Video Effects, Filters, Aspect Ratio & 360 Navigation Automated Test Evidence ===
+Command: ./gradlew :desktopApp:desktopTest --tests "dev.vimivo.desktop.playback.MpvVideoFiltersLiveTest"
+Date: 2026-10-27
+Result: PASSED (7 tests completed, 0 failed)
+
+Verified Capabilities:
+1. Video Adjustments:
+   - Hue adjustments reach libmpv (-30 deg)
+   - Crop rectangle applied (320x180+0+30) and cleared cleanly
+   - Aspect ratio override (16:9, panscan)
+   - Fill mode expands panscan to 1.0 (covering screen)
+2. LGPL Real-time Video Filters:
+   - Sharpen (`vimivo-sharpen` unsharp mask)
+   - Blur (`vimivo-blur` gaussian blur)
+   - Flip Horizontal (`vimivo-hflip`)
+   - Flip Vertical (`vimivo-vflip`)
+   - Film Grain (`vimivo-grain` dynamic noise)
+   - Denoise (`vimivo-denoise` adaptive temporal averaging)
+   - Color Threshold / Edge Detect (`vimivo-threshold`)
+   - Negate / Invert Colors (`vimivo-negate`)
+   - Vignette (`vimivo-vignette`)
+   - Deband (`vimivo-deband`)
+   - Dynamic insertion and clean removal from libmpv `vf` filter graph
+3. 360° Video Navigation:
+   - Directional Pan X (-1.0 to +1.0)
+   - Directional Pan Y (-1.0 to +1.0)
+   - Zoom scale factor
+   - CW / CCW rotation (90°, 180°, 270°, 360° modulo)
+   - Reset to origin
+4. Deinterlacing:
+   - Every mode verified on real interlaced transport stream (YADIF, BBOB, W3FDIF, KERNDEINT, AUTO, OFF)
+   - Combing reduction measured and confirmed via frame capture

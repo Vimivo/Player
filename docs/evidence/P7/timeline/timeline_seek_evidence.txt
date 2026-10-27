@@ -1,0 +1,12 @@
+TEST SUITE: dev.vimivo.playback.SeekControllerTest
+Status: ALL PASSED
+Features Verified:
+  - Exact seek per click (click lands within target, holds target)
+  - Thumb snap-back prevention: reports from before the seek landed never pull thumb back
+  - Drag 20% -> 70% previews with throttled keyframe seeks and ends at 70% with exactly one exact seek on release
+  - Rapid click debounce: sequence of fast clicks lands at the last target
+  - Relative seek accumulation: forward and backward jumps start from pending target
+  - Unseekable/live stream protection: seeks ignored when duration unknown or unseekable
+  - Track boundary and RTL geometry mapping
+Command: ./gradlew :shared:desktopTest --tests "dev.vimivo.playback.SeekControllerTest"
+Result: BUILD SUCCESSFUL (0 failures)

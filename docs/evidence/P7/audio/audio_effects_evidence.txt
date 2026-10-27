@@ -1,0 +1,13 @@
+TEST RUN: dev.vimivo.desktop.playback.DesktopAudioEffectsTest
+Status: PASSED
+Features Verified:
+  - 10-band Graphic Equalizer + safety headroom
+  - Volume normalization (dynaudnorm=f=250:g=31:p=0.9)
+  - Dynamic range compressor (acompressor=threshold=0.125:ratio=4:attack=20:release=250)
+  - Dialogue clarity boost (equalizer=f=1800:t=q:w=1.2:g=5.0,equalizer=f=3200:t=q:w=1.0:g=3.5)
+  - Stereo field widener (extrastereo)
+  - Virtual surround spatializer (surround=chl_out=stereo:level_in=1:level_out=1)
+  - Mono downmix (pan=1c|c0=0.5*c0+0.5*c1)
+  - Volume boost 200% with alimiter (limit=0.97:level=0)
+Command: ./gradlew :desktopApp:desktopTest --tests "dev.vimivo.desktop.playback.DesktopAudioEffectsTest"
+Result: BUILD SUCCESSFUL

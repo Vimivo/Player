@@ -1,0 +1,13 @@
+TEST SUITE: dev.vimivo.playback.PlaybackQueueControllerTest
+Status: ALL PASSED
+Features Verified:
+  - Automatic continuous playback progression upon track completion (item 1 -> 2 -> 3)
+  - Repeat modes: REPEAT_OFF, REPEAT_ONE (replay current), REPEAT_ALL (wrap around to start)
+  - Integration with Sleep Timer "Stop after current track" (disarms advance and stays on finished item)
+  - Shuffle mode randomization and unshuffle restoring original queue ordering
+  - Play Next inserting item immediately after currently active index
+  - Add to Queue appending items to end of queue
+  - Queue item reordering via move operations
+  - Dynamic queue removal and index adjustment
+Command: ./gradlew :shared:desktopTest --tests "dev.vimivo.playback.PlaybackQueueControllerTest"
+Result: BUILD SUCCESSFUL (0 failures)

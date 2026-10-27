@@ -1,0 +1,17 @@
+=== Android Library Management Automated Test Evidence ===
+Command: ./gradlew :androidApp:testDebugUnitTest --tests "dev.vimivo.platform.android.library.AndroidLibraryManagementTest"
+Date: 2026-10-27
+Result: PASSED
+
+Verified Capabilities:
+1. NEW Tag Display & Clearance:
+   - Videos added within 7 days display the "NEW" badge if never played
+   - Playing or seeking clears the "NEW" badge once `lastPlayedAtEpochMillis` or `lastPlaybackPositionMillis > 0`
+   - Videos older than 7 days do not display the "NEW" badge
+2. Folder View & Grouping:
+   - Groups items cleanly by parent directory path
+   - Supports subfolder navigation and scoped queries
+3. Multi-Select & Batch Operations:
+   - Toggle selection state per item
+   - Batch selection (Select All)
+   - Selection clearance

@@ -34,6 +34,76 @@ class MpvVideoFiltersLiveTest {
         assertTrue(cleared.isEmpty() || cleared.startsWith("0x0") || cleared == "no", "video-crop is '$cleared'")
     }
 
+    @Test
+    fun lgplVideoFiltersAreAppliedAndCleared() = withClip("video_landscape.mp4") { engine ->
+        engine.applyVideoAdjustments(
+            VideoAdjustments(
+                sharpen = true,
+                blur = true,
+                hflip = true,
+                vflip = true,
+                grain = true,
+                denoise = true,
+                colorThreshold = true,
+                negate = true,
+                vignette = true,
+                deband = true,
+            )
+        ).getOrThrow()
+
+        assertEquals(1, filtersLabelled(engine, "vimivo-sharpen"))
+        assertEquals(1, filtersLabelled(engine, "vimivo-blur"))
+        assertEquals(1, filtersLabelled(engine, "vimivo-hflip"))
+        assertEquals(1, filtersLabelled(engine, "vimivo-vflip"))
+        assertEquals(1, filtersLabelled(engine, "vimivo-grain"))
+        assertEquals(1, filtersLabelled(engine, "vimivo-denoise"))
+        assertEquals(1, filtersLabelled(engine, "vimivo-threshold"))
+        assertEquals(1, filtersLabelled(engine, "vimivo-negate"))
+        assertEquals(1, filtersLabelled(engine, "vimivo-vignette"))
+        assertEquals(1, filtersLabelled(engine, "vimivo-deband"))
+
+        // Clear all filters
+        engine.applyVideoAdjustments(VideoAdjustments()).getOrThrow()
+        assertEquals(0, filtersLabelled(engine, "vimivo-sharpen"))
+        assertEquals(0, filtersLabelled(engine, "vimivo-blur"))
+        assertEquals(0, filtersLabelled(engine, "vimivo-deband"))
+    }
+
+    @Test
+    fun threeSixtyPanZoomRotateReachMpv() = withClip("video_landscape.mp4") { engine ->
+        engine.applyVideoAdjustments(
+            VideoAdjustments(
+                panX = 0.5f,
+                panY = -0.25f,
+                zoom = 0.75f,
+                rotationDegrees = 90,
+            )
+        ).getOrThrow()
+
+        assertEquals(0.5, engine.readProperty("video-pan-x")!!.toDouble(), 0.01)
+        assertEquals(-0.25, engine.readProperty("video-pan-y")!!.toDouble(), 0.01)
+        assertEquals(0.75, engine.readProperty("video-zoom")!!.toDouble(), 0.01)
+        assertEquals(90, engine.readProperty("video-rotate")!!.toInt())
+
+        // Reset
+        engine.applyVideoAdjustments(VideoAdjustments()).getOrThrow()
+        assertEquals(0.0, engine.readProperty("video-pan-x")!!.toDouble(), 0.01)
+        assertEquals(0.0, engine.readProperty("video-pan-y")!!.toDouble(), 0.01)
+        assertEquals(0.0, engine.readProperty("video-zoom")!!.toDouble(), 0.01)
+        assertEquals(0, engine.readProperty("video-rotate")!!.toInt())
+    }
+
+    @Test
+    fun aspectRatioAndFillReachMpv() = withClip("video_landscape.mp4") { engine ->
+        engine.applyVideoAdjustments(VideoAdjustments(aspectRatio = dev.vimivo.playback.VideoAspectRatio.RATIO_16_9)).getOrThrow()
+        assertEquals(16.0 / 9.0, engine.readProperty("video-aspect-override")!!.toDouble(), 0.01)
+        assertEquals("0.000000", engine.readProperty("panscan"))
+
+        engine.applyVideoAdjustments(VideoAdjustments(aspectRatio = dev.vimivo.playback.VideoAspectRatio.FILL)).getOrThrow()
+        assertEquals("1.000000", engine.readProperty("panscan"))
+    }
+
+
     /**
      * Each mode gets its own fresh start of the two-second clip: choose the mode, open the file, and wait for the
      * engine to report playing past 100 ms. Nothing depends on how much of the clip is left, so a slow machine (which

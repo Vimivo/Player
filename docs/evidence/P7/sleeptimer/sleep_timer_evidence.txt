@@ -1,0 +1,13 @@
+TEST SUITE: dev.vimivo.playback.PlaybackSleepTimerTest
+Status: ALL PASSED
+Features Verified:
+  - Preset minutes (15, 30, 45, 60m) and custom duration
+  - Volume fade down before deadline (fadeSeconds=10)
+  - Automatic playback pause when timer fires
+  - Volume restored to original user level after pause
+  - Pause during fade cancels timer cleanly and restores volume
+  - Cancel timer before deadline restores volume
+  - "Stop after current track" mode armed and consumed on track completion
+  - Instant pause on zero fade
+Command: ./gradlew :shared:desktopTest --tests "dev.vimivo.playback.PlaybackSleepTimerTest"
+Result: BUILD SUCCESSFUL (0 failures)

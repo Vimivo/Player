@@ -78,4 +78,58 @@ class DesktopAudioEffectsTest {
         assertEquals(0.0f, clamped.preampDb)
         assertEquals(-1.0f, clamped.balance)
     }
+
+    @Test
+    fun compressorFilterIncludedWhenEnabled() {
+        val filter = DesktopAudioEffects.filter(AudioEnhancementSettings(compressorEnabled = true)).orEmpty()
+        assertTrue(filter.contains(DesktopAudioEffects.COMPRESSOR_FILTER))
+    }
+
+    @Test
+    fun spatializerFilterIncludedWhenEnabled() {
+        val filter = DesktopAudioEffects.filter(AudioEnhancementSettings(spatializerEnabled = true)).orEmpty()
+        assertTrue(filter.contains(DesktopAudioEffects.SPATIALIZER_FILTER))
+    }
+
+    @Test
+    fun dialogueClarityFilterIncludedWhenEnabled() {
+        val filter = DesktopAudioEffects.filter(AudioEnhancementSettings(dialogueClarityEnabled = true)).orEmpty()
+        assertTrue(filter.contains(DesktopAudioEffects.DIALOGUE_CLARITY_FILTER))
+    }
+
+    @Test
+    fun stereoWidenerGeneratesValidFilter() {
+        val filter = DesktopAudioEffects.filter(AudioEnhancementSettings(stereoWidenerStrength = 0.5f)).orEmpty()
+        assertTrue(filter.contains("extrastereo=m=1.8"), "Filter should contain extrastereo=m=1.8, was $filter")
+        assertNull(DesktopAudioEffects.filter(AudioEnhancementSettings(stereoWidenerStrength = 0.02f)))
+    }
+
+    @Test
+    fun monoDownmixGeneratesPanFilter() {
+        val filter = DesktopAudioEffects.filter(AudioEnhancementSettings(monoDownmix = true)).orEmpty()
+        assertTrue(filter.contains("pan=1c|c0=0.5*c0+0.5*c1"))
+    }
+
+    @Test
+    fun allAdvancedDspFiltersCanBeChainedSimultaneously() {
+        val filter = DesktopAudioEffects.filter(
+            AudioEnhancementSettings(
+                volumeNormalization = true,
+                compressorEnabled = true,
+                dialogueClarityEnabled = true,
+                stereoWidenerStrength = 0.8f,
+                spatializerEnabled = true,
+                monoDownmix = true,
+            ),
+            boostGain = 1.25f,
+        ).orEmpty()
+        assertTrue(filter.startsWith("lavfi=["))
+        assertTrue(filter.contains(DesktopAudioEffects.NORMALIZER_FILTER))
+        assertTrue(filter.contains(DesktopAudioEffects.COMPRESSOR_FILTER))
+        assertTrue(filter.contains(DesktopAudioEffects.DIALOGUE_CLARITY_FILTER))
+        assertTrue(filter.contains("extrastereo=m=2.2"))
+        assertTrue(filter.contains(DesktopAudioEffects.SPATIALIZER_FILTER))
+        assertTrue(filter.contains("pan=1c|c0=0.5*c0+0.5*c1"))
+        assertTrue(filter.endsWith("alimiter=limit=0.97:level=0]"))
+    }
 }

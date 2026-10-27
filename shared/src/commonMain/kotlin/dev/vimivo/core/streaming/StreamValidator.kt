@@ -126,7 +126,7 @@ object StreamValidator {
             )
         }
 
-        if (hostPart.contains('@') && scheme !in setOf("smb", "sftp", "ftp", "nfs")) {
+        if (hostPart.contains('@') && scheme !in setOf("smb", "sftp", "ftp", "nfs", "rtp", "udp")) {
             return StreamValidationResult.Invalid(
                 reason = StreamFailureReason.INVALID_URL,
                 message = "URLs containing embedded credentials are not permitted for security reasons.",

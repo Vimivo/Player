@@ -1,0 +1,22 @@
+=== Android Video Player Gestures Automated Test Evidence ===
+Command: ./gradlew :androidApp:testDebugUnitTest --tests "dev.vimivo.platform.android.playback.AndroidPlayerGesturesTest"
+Date: 2026-10-27
+Result: PASSED
+
+Verified Capabilities:
+1. Double-Tap Accumulating Seek:
+   - Double tap right (+10s, +20s, +30s accumulating interval)
+   - Double tap left (-10s, -20s accumulating interval)
+   - Reversal / side-switch cleanly resets accumulation
+2. 2x Speed Hold Boost:
+   - Long press on playing video boosts speed immediately to 2.0x
+   - Release restores previous speed (e.g. 1.25x)
+3. Touch Gesture Partitioning:
+   - Two-finger pinch -> Smooth Zoom (clamped 1.0x to 4.0x)
+   - Left-half vertical drag -> Brightness adjustment
+   - Right-half vertical drag -> Volume adjustment + boost
+   - Horizontal drag -> Scrub seek with target timestamp
+   - Dead zone / touch slop guard prevents jitter
+4. Security & Child Lock:
+   - Kids Lock intercepts all touches and emits visual particle animations without affecting playback
+   - Orientation Lock freezes rotation sensor without disrupting video decoding

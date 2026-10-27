@@ -1,0 +1,19 @@
+=== CLI Arguments Parser Automated Test Evidence ===
+Command: ./gradlew :desktopApp:desktopTest --tests "dev.vimivo.desktop.player.LaunchArgumentsTest"
+Date: 2026-10-27
+Result: PASSED
+
+Verified Flags:
+- Paths / URIs: local files, network streams
+- --fullscreen / -f
+- --pip / --compact
+- --volume <0-200>
+- --speed <0.25-4.0>
+- --start / --end timestamps
+- --sub / --sub-file (external subtitles)
+- --audio-track <id>
+- --loop / --repeat (off, one, all)
+- --enqueue (add to existing playlist/queue)
+- --audio-only
+- --help / -h
+- Bad/unknown argument handling (error state)

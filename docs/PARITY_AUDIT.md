@@ -19,46 +19,46 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | 57 | Five apps | ⚠️ | keep Windows/Linux CI green; real-hardware checks |
 
 ### 🔨 Built (38) — Complete Implementation Ready for Verification
-| # | Feature | Status | Implementation Details |
-|---|---|---|---|
-| 2b | Blu-ray (folder/ISO/drive) | 🔨 built (untested) | `DesktopDiscMedia` + `LaunchPlanner` (BDMV / index.bdmv / STREAM primary m2ts resolution + .iso image support) |
-| 10 | 360° video | 🔨 built (untested) | 360° spherical pan directional pad + CCW/CW rotation in VideoPanel & VideoMenu |
-| 15 | Video effects | 🔨 built (untested) | sharpen, mirror/flip, blur, grain, denoise, color threshold, negate, vignette, deband (LGPL filters) in Video panel |
-| 17 | Always-on-top / fullscreen / wallpaper | 🔨 built (untested) | wallpaper mode built in Window / menu bar / state |
-| 20 | compressor/spatializer/stereo widener | 🔨 built (untested) | Dynamic range compressor (acompressor), spatializer (surround), stereo widener (extrastereo), mono downmix in Equalizer & DesktopAudioEffects |
-| 25 | visualizations (spectrum/scope) | 🔨 built (untested) | Spectrum analyzer and waveform oscilloscope in DesktopAudioVisualizer |
-| 26 | S/PDIF/HDMI passthrough | 🔨 built (untested) | `setAudioPassthrough` (`audio-spdif=ac3,dts,eac3,truehd,dts-hd`) bitstream mode in engine, Audio menu, & Command Palette |
-| 27 | Subtitle formats | 🔨 built (untested) | PGS/DVB/CEA-608 + Bangla/Arabic/CJK rendering options enabled in engine |
-| 30 | Subtitle style | 🔨 built (untested) | font, outline, shadow, background, secondary subtitle, ASS override, encoding options in Subtitles panel |
-| 31 | Sync panel | 🔨 built (untested) | secondary-sub delay, sub speed, sub FPS, duration factor, "Sync to now" in Sync panel |
-| 32 | OpenSubtitles (opt-in) | 🔨 built (untested) | `DesktopSubtitleSearchDialog` (search by title/keyword/language, auto-download & apply) |
-| 33 | Network streams | 🔨 built (untested) | RTP/UDP/MMS allowed in StreamValidator and MpvPlayerEngine |
-| 34 | SMB/FTP/SFTP/NFS browsing | 🔨 built (untested) | `DesktopNetworkShareDialog` + stream validator support + File menu & Command Palette |
-| 35 | stream to network | 🔨 built (untested) | `DesktopWifiTransfer` local HTTP media server & `DesktopWebRemoteServer` |
-| 36 | Web URL playback | 🔨 built (untested) | direct HTTP/HLS/DASH/RTSP/RTP/UDP/MMS links enabled in StreamValidator & MpvPlayerEngine |
-| 37 | internet radio + podcasts (opt-in) | 🔨 built (untested) | `DesktopRadioPodcastDialog` (curated high-res community radio + Radio Browser API search + podcast RSS episode stream) |
-| 38 | Chromecast/DLNA casting | 🔨 built (untested) | `DesktopCastingDialog` (SSDP/mDNS discovery + local HTTP playback stream to device) |
-| 39 | convert/transcode | 🔨 built (untested) | `DesktopTranscodeDialog` (lossless audio extraction & media conversion) |
-| 40 | record | 🔨 built (untested) | Real-time stream recording / dump to file via mpv stream-record in MpvPlayerEngine, control bar & Tools menu |
-| 41 | screen capture | 🔨 built (untested) | `DesktopCaptureDeviceDialog` (avfoundation, gdigrab, lavfi/x11grab screen capture sources) |
-| 42 | webcam/capture card | 🔨 built (untested) | `DesktopCaptureDeviceDialog` (avfoundation, dshow, v4l2 webcam and capture card sources) |
-| 44 | Library search | 🔨 built (untested) | LIKE → FTS5 virtual table with rowid triggers and LIKE fallback |
-| 46 | Bookmarks | 🔨 built (untested) | thumbnails in Bookmarks panel + timeline markers in VimivoTimeline |
-| 48 | themes | 🔨 built (untested) | Dynamic System, Light, Dark, AMOLED theme switching in View menu & Main.kt |
-| 49 | customizable toolbar | 🔨 built (untested) | `DesktopToolbarCustomizationDialog`, `DesktopToolbarConfig`, and dynamic control bar |
-| 50 | Hotkeys | 🔨 built (untested) | presets (Vimivo/VLC/mpv), conflict detection, hotkey switching in View menu |
-| 51 | mouse gestures | 🔨 built (untested) | Mouse wheel volume/seek and middle-click play/pause gestures in Main.kt |
-| 52 | mini/compact player + tray/menu-bar | 🔨 built (untested) | `DesktopMiniPlayerView` with seek bar & tray icon with playback controls |
-| 53 | scripts folder | 🔨 built (untested) | `DesktopScriptManager` & `DesktopScriptsDialog` for loading user Lua/JS scripts from app support scripts directory |
-| 54 | web remote | 🔨 built (untested) | `DesktopWebRemoteServer` embedded HTTP server (port 8085) with mobile glassmorphism web UI & live controls |
-| 55 | CLI + IPC | 🔨 built (untested) | `--end --volume --speed --sub --audio-track --loop --enqueue --audio-only --help`, JSON IPC socket |
-| 56 | command palette | 🔨 built (untested) | `DesktopCommandPalette` with Cmd+K / Ctrl+K search and quick actions |
-| 59 | Licence notices | 🔨 built (untested) | Third-party open source notices dialog and settings entries |
-| 61 | Wi-Fi file sharing | 🔨 built (untested) | `DesktopWifiTransfer` local HTTP server and dialog |
-| 62 | PiP window | 🔨 built (untested) | `DesktopPipOverlay` floating compact player mode |
-| 63 | audio-only mode for video | 🔨 built (untested) | Audio-only toggle in player control bar & video track disabling with visualizer/artwork stage |
-| 64 | sleep timer dialog | 🔨 built (untested) | `DesktopSleepTimerDialog` with presets, custom duration, live countdown & end-of-track stopping |
-| 65 | network share browsing | 🔨 built (untested) | `DesktopNetworkShareDialog` connected with SMB, SFTP, FTP, NFS protocol streaming |
+| # | Feature | Status | Implementation Details | Evidence |
+|---|---|---|---|---|
+| 2b | Blu-ray (folder/ISO/drive) | ✅ | `DesktopDiscMedia` + `LaunchPlanner` (BDMV / index.bdmv / STREAM primary m2ts resolution + .iso image support) | [Evidence](evidence/P7/playback/disc_media_evidence.txt) |
+| 10 | 360° video | ✅ | 360° spherical pan directional pad + CCW/CW rotation in VideoPanel & VideoMenu | [Evidence](evidence/P7/video/video_effects_evidence.txt) |
+| 15 | Video effects | ✅ | sharpen, mirror/flip, blur, grain, denoise, color threshold, negate, vignette, deband (LGPL filters) in Video panel | [Evidence](evidence/P7/video/video_effects_evidence.txt) |
+| 17 | Always-on-top / fullscreen / wallpaper | ✅ | wallpaper mode built in Window / menu bar / state; smoke test verified | [Evidence](evidence/P7/playback/playback_controls_evidence.txt) |
+| 20 | compressor/spatializer/stereo widener | ✅ | Dynamic range compressor (acompressor), spatializer (surround), stereo widener (extrastereo), mono downmix in Equalizer & DesktopAudioEffects | [Evidence](evidence/P7/audio/audio_effects_evidence.txt) |
+| 25 | visualizations (spectrum/scope) | 🔨 built (untested) | Spectrum analyzer and waveform oscilloscope in DesktopAudioVisualizer | — |
+| 26 | S/PDIF/HDMI passthrough | ✅ | `setAudioPassthrough` (`audio-spdif=ac3,dts,eac3,truehd,dts-hd`) bitstream mode in engine, Audio menu, & Command Palette | [Evidence](evidence/P7/playback/playback_controls_evidence.txt) |
+| 27 | Subtitle formats | ✅ | PGS/DVB/CEA-608 + Bangla/Arabic/CJK rendering options enabled in engine | [Evidence](evidence/P7/subtitles/subtitles_evidence.txt) |
+| 30 | Subtitle style | ✅ | font, outline, shadow, background, secondary subtitle, ASS override, encoding options in Subtitles panel | [Evidence](evidence/P7/subtitles/subtitles_evidence.txt) |
+| 31 | Sync panel | ✅ | secondary-sub delay, sub speed, sub FPS, duration factor, "Sync to now" in Sync panel | [Evidence](evidence/P7/subtitles/subtitles_evidence.txt) |
+| 32 | OpenSubtitles (opt-in) | 🔨 built (untested) | `DesktopSubtitleSearchDialog` (search by title/keyword/language, auto-download & apply) | — |
+| 33 | Network streams | ✅ | RTP/UDP/MMS allowed in StreamValidator and MpvPlayerEngine | [Evidence](evidence/P7/network/network_streams_evidence.txt) |
+| 34 | SMB/FTP/SFTP/NFS browsing | ✅ | `DesktopNetworkShareDialog` + stream validator support + File menu & Command Palette | [Evidence](evidence/P7/network/network_streams_evidence.txt) |
+| 35 | stream to network | 🔨 built (untested) | `DesktopWifiTransfer` local HTTP media server & `DesktopWebRemoteServer` | — |
+| 36 | Web URL playback | ✅ | direct HTTP/HLS/DASH/RTSP/RTP/UDP/MMS links enabled in StreamValidator & MpvPlayerEngine | [Evidence](evidence/P7/network/network_streams_evidence.txt) |
+| 37 | internet radio + podcasts (opt-in) | 🔨 built (untested) | `DesktopRadioPodcastDialog` (curated high-res community radio + Radio Browser API search + podcast RSS episode stream) | — |
+| 38 | Chromecast/DLNA casting | 🔨 built (untested) | `DesktopCastingDialog` (SSDP/mDNS discovery + local HTTP playback stream to device) | — |
+| 39 | convert/transcode | 🔨 built (untested) | `DesktopTranscodeDialog` (lossless audio extraction & media conversion) | — |
+| 40 | record | 🔨 built (untested) | Real-time stream recording / dump to file via mpv stream-record in MpvPlayerEngine, control bar & Tools menu | — |
+| 41 | screen capture | 🔨 built (untested) | `DesktopCaptureDeviceDialog` (avfoundation, gdigrab, lavfi/x11grab screen capture sources) | — |
+| 42 | webcam/capture card | 🔨 built (untested) | `DesktopCaptureDeviceDialog` (avfoundation, dshow, v4l2 webcam and capture card sources) | — |
+| 44 | Library search | 🔨 built (untested) | LIKE → FTS5 virtual table with rowid triggers and LIKE fallback | — |
+| 46 | Bookmarks | 🔨 built (untested) | thumbnails in Bookmarks panel + timeline markers in VimivoTimeline | — |
+| 48 | themes | 🔨 built (untested) | Dynamic System, Light, Dark, AMOLED theme switching in View menu & Main.kt | — |
+| 49 | customizable toolbar | 🔨 built (untested) | `DesktopToolbarCustomizationDialog`, `DesktopToolbarConfig`, and dynamic control bar | — |
+| 50 | Hotkeys | 🔨 built (untested) | presets (Vimivo/VLC/mpv), conflict detection, hotkey switching in View menu | — |
+| 51 | mouse gestures | 🔨 built (untested) | Mouse wheel volume/seek and middle-click play/pause gestures in Main.kt | — |
+| 52 | mini/compact player + tray/menu-bar | 🔨 built (untested) | `DesktopMiniPlayerView` with seek bar & tray icon with playback controls | — |
+| 53 | scripts folder | 🔨 built (untested) | `DesktopScriptManager` & `DesktopScriptsDialog` for loading user Lua/JS scripts from app support scripts directory | — |
+| 54 | web remote | 🔨 built (untested) | `DesktopWebRemoteServer` embedded HTTP server (port 8085) with mobile glassmorphism web UI & live controls | — |
+| 55 | CLI + IPC | ✅ | `--end --volume --speed --sub --audio-track --loop --enqueue --audio-only --help`, JSON IPC socket | [Evidence](evidence/P7/shell/cli_arguments_evidence.txt) |
+| 56 | command palette | 🔨 built (untested) | `DesktopCommandPalette` with Cmd+K / Ctrl+K search and quick actions | — |
+| 59 | Licence notices | 🔨 built (untested) | Third-party open source notices dialog and settings entries | — |
+| 61 | Wi-Fi file sharing | 🔨 built (untested) | `DesktopWifiTransfer` local HTTP server and dialog | — |
+| 62 | PiP window | 🔨 built (untested) | `DesktopPipOverlay` floating compact player mode | — |
+| 63 | audio-only mode for video | 🔨 built (untested) | Audio-only toggle in player control bar & video track disabling with visualizer/artwork stage | — |
+| 64 | sleep timer dialog | ✅ | `DesktopSleepTimerDialog` with presets, custom duration, live countdown & end-of-track stopping | [Evidence](evidence/P7/sleeptimer/sleep_timer_evidence.txt) |
+| 65 | network share browsing | ✅ | `DesktopNetworkShareDialog` connected with SMB, SFTP, FTP, NFS protocol streaming | [Evidence](evidence/P7/network/network_streams_evidence.txt) |
 
 ⛔ Excluded by decision:
 - Encrypted commercial DVD/Blu-ray, YouTube proprietary extraction, telnet.

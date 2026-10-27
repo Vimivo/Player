@@ -29,4 +29,31 @@ class LaunchArgumentsTest {
         listOf("", "1::2", "a:30", "-5", "1:2:3:4").forEach { assertNull(LaunchArguments.parseTime(it), it) }
         assertNull(LaunchArguments.parse(arrayOf("--start=soon", "a.mkv")).startPositionMillis)
     }
+
+    @Test
+    fun parsesAllExtendedCliFlagsCorrectly() {
+        val args = arrayOf(
+            "--end=01:30",
+            "--volume=150",
+            "--speed=1.75",
+            "--sub=subs.srt",
+            "--audio-track=2",
+            "--loop",
+            "--enqueue",
+            "--audio-only",
+            "--help",
+            "video.mp4",
+        )
+        val parsed = LaunchArguments.parse(args)
+        assertEquals(90_000L, parsed.endPositionMillis)
+        assertEquals(1.5f, parsed.volume)
+        assertEquals(1.75f, parsed.speed)
+        assertEquals(File("subs.srt"), parsed.subtitleFile)
+        assertEquals("2", parsed.audioTrack)
+        assertEquals(true, parsed.loop)
+        assertEquals(true, parsed.enqueue)
+        assertEquals(true, parsed.audioOnly)
+        assertEquals(true, parsed.showHelp)
+        assertEquals(listOf(File("video.mp4")), parsed.files)
+    }
 }
