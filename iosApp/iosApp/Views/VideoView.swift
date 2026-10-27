@@ -53,6 +53,7 @@ public struct VideoView: View {
     @State private var showDeleteConfirmation = false
     @State private var shareUrls: [URL] = []
     @State private var showShareSheet = false
+    @State private var showWifiTransfer = false
 
     // Private Vault & Hidden Folders
     @AppStorage("vimivo_private_vault_ids") private var privateMediaIdsData: String = ""
@@ -325,6 +326,11 @@ public struct VideoView: View {
                         }
                         .accessibilityLabel("Select videos")
 
+                        Button(action: { showWifiTransfer = true }) {
+                            Image(systemName: "wifi")
+                        }
+                        .accessibilityLabel("Wi-Fi File Sharing")
+
                         Button(action: { showOpenURL = true }) {
                             Image(systemName: "link")
                         }
@@ -370,6 +376,9 @@ public struct VideoView: View {
             }
             .sheet(isPresented: $showShareSheet) {
                 ShareSheet(activityItems: shareUrls)
+            }
+            .sheet(isPresented: $showWifiTransfer) {
+                WifiTransferSheet()
             }
             .alert("Delete Videos", isPresented: $showDeleteConfirmation) {
                 Button("Delete", role: .destructive) {
@@ -483,6 +492,9 @@ public struct VideoView: View {
                     Button(action: { toggleFavorite(video) }) {
                         Label(favorites.contains(video.id) ? "Remove from Favorites" : "Favorite", systemImage: "heart")
                     }
+                    Button(action: { convertVideoToAudio(video) }) {
+                        Label("Extract Audio (M4A)", systemImage: "music.note")
+                    }
                     Divider()
                     Button(role: .destructive, action: { deleteVideo(video) }) {
                         Label("Remove", systemImage: "trash")
@@ -528,6 +540,9 @@ public struct VideoView: View {
                             }
                             Button(action: { toggleFavorite(video) }) {
                                 Label(favorites.contains(video.id) ? "Remove from Favorites" : "Favorite", systemImage: "heart")
+                            }
+                            Button(action: { convertVideoToAudio(video) }) {
+                                Label("Extract Audio (M4A)", systemImage: "music.note")
                             }
                             Button(role: .destructive, action: { deleteVideo(video) }) {
                                 Label("Remove", systemImage: "trash")
@@ -679,6 +694,18 @@ public struct VideoView: View {
         }
         privateMediaIds = set
         loadData()
+    }
+
+    private func convertVideoToAudio(_ video: MediaItem) {
+        guard let url = SecurityScopedMediaManager.shared.resolvedUrl(for: video) ?? URL(string: video.uri) else { return }
+        Task {
+            if let audioUrl = try? await MediaConverter.extractAudio(from: url, outputTitle: video.title) {
+                let newItem = MediaItem(uri: audioUrl.absoluteString, title: video.title, kind: .audio)
+                await MainActor.run {
+                    IOSDatabase.shared.saveMediaItem(newItem)
+                }
+            }
+        }
     }
 
     private func shareSelected() {

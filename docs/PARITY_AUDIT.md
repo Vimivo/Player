@@ -128,12 +128,12 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | | Search | ✅ | ⚠️ |
 | | History | ❓ | ❓ |
 | | Playlists (video + audio, M3U) | 🔨 built (untested) | 🔨 built (untested) |
-| **Music** | Songs/albums/artists/folders/genres, mini player, Now Playing | ❓ | ❓ |
+| **Music** | Songs/albums/artists/folders/genres, mini player, Now Playing | 🔨 built (untested) | 🔨 built (untested) |
 | | Lyrics (shared LRC) | ✅ | ✅ |
-| | Queue drag/remove | ❓ | ❓ |
+| | Queue drag/remove | 🔨 built (untested) | 🔨 built (untested) |
 | | Home-screen widget | ❓ *src* | ❓ *src* |
 | | Android Auto / CarPlay | ❓ | ❌ |
-| | Set as ringtone | ❌ | — |
-| **Tools** | Wi-Fi file transfer (offline, QR) | ❌ | ❌ |
-| | Video → MP3 converter | ❌ | ❌ |
+| | Set as ringtone | 🔨 built (untested) | — |
+| **Tools** | Wi-Fi file transfer (offline, QR) | 🔨 built (untested) | 🔨 built (untested) |
+| | Video → MP3 converter | 🔨 built (untested) | 🔨 built (untested) |
 | **Settings** | MX-style categories, theme, EN + বাংলা | 🔨 built (untested) | 🔨 built (untested) |

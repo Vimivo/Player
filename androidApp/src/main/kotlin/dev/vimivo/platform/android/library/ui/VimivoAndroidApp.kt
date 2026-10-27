@@ -24,7 +24,11 @@ import android.app.ActivityManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.launch
+import dev.vimivo.platform.android.library.AndroidMediaConverter
+import dev.vimivo.platform.android.library.AndroidRingtoneHelper
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -666,10 +670,12 @@ private fun VideoScreen(
     var selectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<dev.vimivo.core.model.MediaId>()) }
     var showSortSheet by remember { mutableStateOf(false) }
+    var showWifiDialog by remember { mutableStateOf(false) }
     var propertiesMedia by remember { mutableStateOf<MediaItem?>(null) }
     var showPrivateFolderDialog by remember { mutableStateOf(false) }
     var currentSort by remember { mutableStateOf(LibrarySort.TITLE) }
     var isAscending by remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope()
 
     val lastPlayedItem = remember(state.items) {
         state.items.filter { (it.lastPlayedAtEpochMillis ?: 0L) > 0L }
@@ -694,8 +700,13 @@ private fun VideoScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { showSortSheet = true }) {
-                    Icon(Icons.Rounded.Sort, "Sort videos")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showSortSheet = true }) {
+                        Icon(Icons.Rounded.Sort, "Sort videos")
+                    }
+                    IconButton(onClick = { showWifiDialog = true }) {
+                        Icon(Icons.Outlined.Share, "Wi-Fi Sharing")
+                    }
                 }
                 LibraryViewToggle(state.viewMode, viewModel::setViewMode)
             }
@@ -795,6 +806,23 @@ private fun VideoScreen(
                     val item = state.items.firstOrNull { selectedIds.contains(it.id) }
                     propertiesMedia = item
                 },
+                onExtractAudio = {
+                    val selectedMedia = state.items.filter { selectedIds.contains(it.id) }
+                    coroutineScope.launch {
+                        for (item in selectedMedia) {
+                            val uri = Uri.parse(item.uri)
+                            val res = AndroidMediaConverter.extractAudio(context, uri, "${item.title}.m4a")
+                            res.onSuccess { file ->
+                                android.widget.Toast.makeText(context, "Extracted ${file.name}", android.widget.Toast.LENGTH_SHORT).show()
+                                viewModel.importFile(Uri.fromFile(file).toString())
+                            }.onFailure { err ->
+                                android.widget.Toast.makeText(context, "Extract error: ${err.message}", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        selectionMode = false
+                        selectedIds = emptySet()
+                    }
+                },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp),
             )
         }
@@ -824,6 +852,10 @@ private fun VideoScreen(
             onSetPin = { /* Save vault PIN */ },
             onDismiss = { showPrivateFolderDialog = false },
         )
+    }
+
+    if (showWifiDialog) {
+        MxWifiTransferDialog(onDismiss = { showWifiDialog = false })
     }
 }
 
@@ -1282,6 +1314,36 @@ private fun MediaActionsSheet(
             }
         }
         SettingsRow(Icons.Outlined.Favorite, if (item.isFavorite) "Remove favorite" else "Add favorite", onClick = { library.toggleFavorite(item); onDismiss() })
+        if (item.kind == MediaKind.AUDIO) {
+            SettingsRow(Icons.Filled.MusicNote, "Set as phone ringtone", onClick = {
+                val uri = android.net.Uri.parse(item.uri)
+                val res = AndroidRingtoneHelper.setAsRingtone(context, uri)
+                res.onSuccess { changed ->
+                    if (changed) {
+                        android.widget.Toast.makeText(context, "Ringtone set successfully", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }.onFailure { err ->
+                    android.widget.Toast.makeText(context, "Could not set ringtone: ${err.message}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                onDismiss()
+            })
+        }
+        if (item.kind == MediaKind.VIDEO) {
+            val sheetScope = rememberCoroutineScope()
+            SettingsRow(Icons.Filled.MusicNote, "Extract audio (M4A)", onClick = {
+                sheetScope.launch {
+                    val uri = android.net.Uri.parse(item.uri)
+                    val res = AndroidMediaConverter.extractAudio(context, uri, "${item.title}.m4a")
+                    res.onSuccess { file ->
+                        android.widget.Toast.makeText(context, "Extracted to: ${file.name}", android.widget.Toast.LENGTH_SHORT).show()
+                        library.importFile(android.net.Uri.fromFile(file).toString())
+                    }.onFailure { err ->
+                        android.widget.Toast.makeText(context, "Extract failed: ${err.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+                onDismiss()
+            })
+        }
         if (item.uri.startsWith("content://") || item.uri.startsWith("http://") || item.uri.startsWith("https://")) {
             SettingsRow(Icons.Outlined.Share, "Share media reference", onClick = {
                 val uri = android.net.Uri.parse(item.uri)

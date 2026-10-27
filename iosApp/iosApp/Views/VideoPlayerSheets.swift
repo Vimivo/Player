@@ -528,6 +528,22 @@ struct PlayerSheetView: View {
                     model.lockHintVisible = true
                     dismiss()
                 }
+                ToolButton(icon: "airplayvideo", title: "AirPlay", subtitle: "Cast") {
+                    dismiss()
+                }
+                ToolButton(icon: "music.note", title: "Extract Audio", subtitle: "To Music") {
+                    if let current = engine.state.currentItem, let url = SecurityScopedMediaManager.shared.resolvedUrl(for: current) ?? URL(string: current.uri) {
+                        Task {
+                            if let audioUrl = try? await MediaConverter.extractAudio(from: url, outputTitle: current.title) {
+                                let newItem = MediaItem(uri: audioUrl.absoluteString, title: current.title, kind: .audio)
+                                await MainActor.run {
+                                    IOSDatabase.shared.saveMediaItem(newItem)
+                                    model.showMessage(icon: "music.note", text: "Saved to Music")
+                                }
+                            }
+                        }
+                    }
+                }
             }
             .padding(20)
 

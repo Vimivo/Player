@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Sort
@@ -49,6 +50,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,7 +59,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import dev.vimivo.platform.android.library.AndroidWifiTransferServer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -501,6 +505,7 @@ fun MxMultiSelectBottomBar(
     onRename: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onProperties: () -> Unit,
+    onExtractAudio: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -526,6 +531,11 @@ fun MxMultiSelectBottomBar(
             }
             IconButton(onClick = onAddToPlaylist) {
                 Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, "Add to Playlist")
+            }
+            if (onExtractAudio != null) {
+                IconButton(onClick = onExtractAudio) {
+                    Icon(Icons.Outlined.MusicNote, "Extract audio")
+                }
             }
             IconButton(onClick = onRename, enabled = selectedCount == 1) {
                 Icon(Icons.Rounded.Edit, "Rename")
@@ -712,4 +722,65 @@ fun MxSortSheet(
             }
         }
     }
+}
+
+/**
+ * Dialog displaying Wi-Fi file transfer status and instructions.
+ */
+@Composable
+fun MxWifiTransferDialog(
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val server = remember { AndroidWifiTransferServer(context) }
+    var serverUrl by remember { mutableStateOf("") }
+
+    DisposableEffect(Unit) {
+        server.start()
+        serverUrl = server.serverUrl
+        onDispose {
+            server.stop()
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Wi-Fi File Sharing", style = MaterialTheme.typography.titleLarge)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Transfer media files between your computer or other devices and Vimivo without a cable or internet connection.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                ) {
+                    Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Open this address in your web browser:", style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            serverUrl,
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Ensure both devices are on the same Wi-Fi network.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+    )
 }

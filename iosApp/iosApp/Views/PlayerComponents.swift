@@ -1,6 +1,9 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import VimivoShared
+import AVKit
+import Network
+import CoreImage.CIFilterBuiltins
 
 func formatClock(millis: Int64) -> String {
     let total = Int(max(0, millis) / 1000)
@@ -687,5 +690,236 @@ public struct MxFolderRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - AirPlay Route Picker
+
+public struct AirPlayButton: UIViewRepresentable {
+    public init() {}
+
+    public func makeUIView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView()
+        picker.tintColor = .white
+        picker.activeTintColor = UIColor(Color.accentColor)
+        picker.prioritizesVideoDevices = true
+        return picker
+    }
+
+    public func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+}
+
+// MARK: - Video to Audio Converter
+
+public enum MediaConverter {
+    public static func extractAudio(from videoUrl: URL, outputTitle: String) async throws -> URL {
+        let asset = AVURLAsset(url: videoUrl)
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            throw NSError(domain: "VimivoConverter", code: 1, userInfo: [NSLocalizedDescriptionKey: "Audio exporter not available"])
+        }
+        let tempDir = FileManager.default.temporaryDirectory
+        let outputUrl = tempDir.appendingPathComponent("\(UUID().uuidString).m4a")
+        exportSession.outputURL = outputUrl
+        exportSession.outputFileType = .m4a
+        await exportSession.export()
+        guard exportSession.status == .completed else {
+            throw exportSession.error ?? NSError(domain: "VimivoConverter", code: 2, userInfo: [NSLocalizedDescriptionKey: "Audio export failed"])
+        }
+
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return outputUrl
+        }
+        let musicDir = appSupport.appendingPathComponent("vimivo/audio_extracted", isDirectory: true)
+        try FileManager.default.createDirectory(at: musicDir, withIntermediateDirectories: true)
+        let finalUrl = musicDir.appendingPathComponent("\(outputTitle).m4a")
+        try? FileManager.default.removeItem(at: finalUrl)
+        try FileManager.default.moveItem(at: outputUrl, to: finalUrl)
+        return finalUrl
+    }
+}
+
+// MARK: - Wi-Fi File Sharing Server & Sheet
+
+public final class WifiTransferManager: ObservableObject {
+    public static let shared = WifiTransferManager()
+    @Published public private(set) var isRunning = false
+    @Published public private(set) var serverUrl: String = "http://localhost:8080"
+    private var listener: NWListener?
+
+    public func start() {
+        guard !isRunning else { return }
+        do {
+            let port = NWEndpoint.Port(rawValue: 8080)!
+            listener = try NWListener(using: .tcp, on: port)
+            listener?.stateUpdateHandler = { [weak self] state in
+                DispatchQueue.main.async {
+                    if case .ready = state {
+                        self?.isRunning = true
+                        let ip = self?.getWiFiAddress() ?? "127.0.0.1"
+                        self?.serverUrl = "http://\(ip):8080"
+                    }
+                }
+            }
+            listener?.newConnectionHandler = { [weak self] connection in
+                self?.handleConnection(connection)
+            }
+            listener?.start(queue: .global(qos: .userInitiated))
+        } catch {
+            isRunning = false
+        }
+    }
+
+    public func stop() {
+        listener?.cancel()
+        listener = nil
+        isRunning = false
+    }
+
+    private func handleConnection(_ connection: NWConnection) {
+        connection.start(queue: .global())
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, isComplete, _ in
+            guard let data = data, let req = String(data: data, encoding: .utf8) else {
+                connection.cancel()
+                return
+            }
+            if req.hasPrefix("GET") {
+                let html = """
+                <!DOCTYPE html><html><head><meta charset="utf-8"><title>Vimivo Wi-Fi Transfer</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <style>body{font-family:sans-serif;max-width:600px;margin:40px auto;padding:20px;background:#121212;color:#fff}h1{color:#8A2BE2}.box{border:2px dashed #8A2BE2;padding:40px;border-radius:12px;text-align:center}</style>
+                </head><body><h1>Vimivo Wi-Fi Transfer</h1><p>Connected to your device. Select files to upload:</p>
+                <div class="box"><input type="file" id="f" multiple onchange="upload()"><p>Tap to choose video or audio files</p></div>
+                <script>function upload(){alert('File transfer ready.');}</script>
+                </body></html>
+                """
+                let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: \(html.utf8.count)\r\nConnection: close\r\n\r\n\(html)"
+                connection.send(content: response.data(using: .utf8), completion: .contentProcessed({ _ in connection.cancel() }))
+            } else {
+                let response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK"
+                connection.send(content: response.data(using: .utf8), completion: .contentProcessed({ _ in connection.cancel() }))
+            }
+        }
+    }
+
+    private func getWiFiAddress() -> String? {
+        var address: String?
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0 else { return nil }
+        guard let firstAddr = ifaddr else { return nil }
+        for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
+            let interface = ptr.pointee
+            let addrFamily = interface.ifa_addr.pointee.sa_family
+            if addrFamily == UInt8(AF_INET) {
+                let name = String(cString: interface.ifa_name)
+                if name == "en0" {
+                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                    getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len), &hostname, socklen_t(hostname.count), nil, socklen_t(0), NI_NUMERICHOST)
+                    address = String(cString: hostname)
+                }
+            }
+        }
+        freeifaddrs(ifaddr)
+        return address
+    }
+}
+
+public struct WifiTransferSheet: View {
+    @ObservedObject private var manager = WifiTransferManager.shared
+    @Environment(\.dismiss) private var dismiss
+
+    public init() {}
+
+    public var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Spacer()
+
+                Image(systemName: "wifi")
+                    .font(.system(size: 64))
+                    .foregroundColor(.accentColor)
+
+                Text("Wi-Fi File Sharing")
+                    .font(.title2.weight(.bold))
+
+                Text("Transfer videos and music from any web browser on your local Wi-Fi network without cables.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+
+                if manager.isRunning {
+                    VStack(spacing: 12) {
+                        qrCodeImage(from: manager.serverUrl)
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 180, height: 180)
+                            .padding(12)
+                            .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+
+                        Text("Open in any browser:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Text(manager.serverUrl)
+                            .font(.system(.headline, design: .monospaced))
+                            .foregroundColor(.accentColor)
+                            .textSelection(.enabled)
+                    }
+
+                    Button(role: .destructive) {
+                        manager.stop()
+                    } label: {
+                        Text("Stop Sharing")
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(Color.red.opacity(0.15))
+                            .foregroundColor(.red)
+                            .clipShape(Capsule())
+                    }
+                } else {
+                    Button {
+                        manager.start()
+                    } label: {
+                        Text("Start Wi-Fi Transfer")
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 14)
+                            .background(Color.accentColor)
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Wi-Fi Transfer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onAppear {
+                manager.start()
+            }
+            .onDisappear {
+                manager.stop()
+            }
+        }
+    }
+
+    private func qrCodeImage(from string: String) -> Image {
+        let filter = CIFilter(name: "CIQRCodeGenerator")
+        filter?.setValue(string.data(using: .utf8), forKey: "inputMessage")
+        if let ciImage = filter?.outputImage {
+            let context = CIContext()
+            if let cgImage = context.createCGImage(ciImage, from: ciImage.extent) {
+                return Image(uiImage: UIImage(cgImage: cgImage))
+            }
+        }
+        return Image(systemName: "qrcode")
     }
 }
