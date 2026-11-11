@@ -2,13 +2,19 @@
 
 Audit date: 2026-10-27. Sources: `docs/VLC_FEATURE_GAP.md` (evidence-based rows, current HEAD) for desktop and mobile rows of the VLC list; a source-code scan of `androidApp/` and `iosApp/` for MX-only features (marked *src* = code exists, not verified on a device).
 
-Status: ✅ verified · ⚠️ partial/broken · ❓ code exists, not verified · ❌ missing · ⛔ excluded by decision · — not applicable · 🔨 built (untested)
+> **Correction 2026-11-12.** An audit of the code behind the "🔨 built" rows found features that looked finished but were
+> not: desktop casting (hard-coded fake devices), desktop transcode (invalid command; reported success after copying the
+> source), the Wi-Fi share on all three apps (an `alert()` and no receive path), the Android private vault (any PIN
+> unlocked it; nothing was hidden) and the iOS vault PIN (stored in plain text). Those rows are corrected below and the code
+> was fixed or removed in the same change. "🔨 built" still means *nobody has run it*, not that it works.
+
+Status: ✅ verified · ⚠️ partial/broken · ❓ code exists, not verified · ❌ missing · ⛔ excluded by decision · — not applicable · 🔨 built (untested) · 🧪 logic covered by automated tests; not exercised on a device / in the UI
 
 ---
 
 ## PART 1 — Desktop vs VLC (macOS / Windows / Linux)
 
-**Totals (66 rows):** ✅ 25 · 🔨 38 · ⚠️ 1 · ⛔ 2
+**Totals (66 rows):** ✅ 25 · 🧪 3 · 🔨 32 · ⚠️ 1 · ❌ 2 · ⛔ 3
 
 ### ✅ Done (25)
 All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch · frame step · A–B loop · resume · HW decoding · HDR · gapless · aspect/crop/black-bar/zoom/pan · deinterlace modes · brightness/contrast/saturation/hue/gamma · snapshot · multiple video tracks · 10-band EQ · volume 200% · audio track switching · audio/subtitle delay · normalization + ReplayGain · subtitle auto-load · drag & drop subtitles · playlists M3U/XSPF/PLS · shuffle/repeat/auto-next · history/recent · folder browsing
@@ -18,7 +24,7 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 |---|---|---|---|
 | 57 | Five apps | ⚠️ | keep Windows/Linux CI green; real-hardware checks |
 
-### 🔨 Built (38) — Complete Implementation Ready for Verification
+### 🔨 Built, not yet verified (32), plus 🧪 (3), ❌ (2) and ⛔ (1) — see each row
 | # | Feature | Status | Implementation Details | Evidence |
 |---|---|---|---|---|
 | 2b | Blu-ray (folder/ISO/drive) | ✅ | `DesktopDiscMedia` + `LaunchPlanner` (BDMV / index.bdmv / STREAM primary m2ts resolution + .iso image support) | [Evidence](evidence/P7/playback/disc_media_evidence.txt) |
@@ -31,17 +37,17 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | 27 | Subtitle formats | ✅ | PGS/DVB/CEA-608 + Bangla/Arabic/CJK rendering options enabled in engine | [Evidence](evidence/P7/subtitles/subtitles_evidence.txt) |
 | 30 | Subtitle style | ✅ | font, outline, shadow, background, secondary subtitle, ASS override, encoding options in Subtitles panel | [Evidence](evidence/P7/subtitles/subtitles_evidence.txt) |
 | 31 | Sync panel | ✅ | secondary-sub delay, sub speed, sub FPS, duration factor, "Sync to now" in Sync panel | [Evidence](evidence/P7/subtitles/subtitles_evidence.txt) |
-| 32 | OpenSubtitles (opt-in) | 🔨 built (untested) | `DesktopSubtitleSearchDialog` (search by title/keyword/language, auto-download & apply) | — |
+| 32 | OpenSubtitles | ⛔ | Removed 2026-11-12: online subtitle search is not wanted (and used the retired `rest.opensubtitles.org` API). Local subtitle files, auto-load and embedded tracks remain | — |
 | 33 | Network streams | ✅ | RTP/UDP/MMS allowed in StreamValidator and MpvPlayerEngine | [Evidence](evidence/P7/network/network_streams_evidence.txt) |
 | 34 | SMB/FTP/SFTP/NFS browsing | ✅ | `DesktopNetworkShareDialog` + stream validator support + File menu & Command Palette | [Evidence](evidence/P7/network/network_streams_evidence.txt) |
-| 35 | stream to network | 🔨 built (untested) | `DesktopWifiTransfer` local HTTP media server & `DesktopWebRemoteServer` | — |
+| 35 | stream to network | 🧪 | Wi-Fi receive only (see 61). Streaming *out* to other devices is not built | [DesktopWifiTransferServerTest](../desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/sharing/DesktopWifiTransferServerTest.kt) |
 | 36 | Web URL playback | ✅ | direct HTTP/HLS/DASH/RTSP/RTP/UDP/MMS links enabled in StreamValidator & MpvPlayerEngine | [Evidence](evidence/P7/network/network_streams_evidence.txt) |
 | 37 | internet radio + podcasts (opt-in) | 🔨 built (untested) | `DesktopRadioPodcastDialog` (curated high-res community radio + Radio Browser API search + podcast RSS episode stream) | — |
-| 38 | Chromecast/DLNA casting | 🔨 built (untested) | `DesktopCastingDialog` (SSDP/mDNS discovery + local HTTP playback stream to device) | — |
-| 39 | convert/transcode | 🔨 built (untested) | `DesktopTranscodeDialog` (lossless audio extraction & media conversion) | — |
+| 38 | Chromecast/DLNA casting | ❌ | Removed from menu and palette 2026-11-12. The dialog listed two hard-coded fake devices; discovery replies were never read and nothing was streamed. Not built | — |
+| 39 | convert/transcode | ❌ | Removed from menu and palette 2026-11-12. It called a system `ffmpeg` with invalid arguments and, when that failed, copied the source and reported success. A real implementation needs an LGPL transcoder in the media package (ADR-004) | — |
 | 40 | record | 🔨 built (untested) | Real-time stream recording / dump to file via mpv stream-record in MpvPlayerEngine, control bar & Tools menu | — |
-| 41 | screen capture | 🔨 built (untested) | `DesktopCaptureDeviceDialog` (avfoundation, gdigrab, lavfi/x11grab screen capture sources) | — |
-| 42 | webcam/capture card | 🔨 built (untested) | `DesktopCaptureDeviceDialog` (avfoundation, dshow, v4l2 webcam and capture card sources) | — |
+| 41 | screen capture | 🔨 | `av://` capture URLs (avfoundation / gdigrab / x11grab) corrected 2026-11-12 and unit-tested; needs a run with camera / screen-recording permission on each OS. Wayland is not covered | [CaptureSourcesTest](../desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/capture/CaptureSourcesTest.kt) |
+| 42 | webcam/capture card | 🔨 | `av://` device URLs corrected and unit-tested (Windows DirectShow needs the device name typed in); needs a hardware run | [CaptureSourcesTest](../desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/capture/CaptureSourcesTest.kt) |
 | 44 | Library search | 🔨 built (untested) | LIKE → FTS5 virtual table with rowid triggers and LIKE fallback | — |
 | 46 | Bookmarks | 🔨 built (untested) | thumbnails in Bookmarks panel + timeline markers in VimivoTimeline | — |
 | 48 | themes | 🔨 built (untested) | Dynamic System, Light, Dark, AMOLED theme switching in View menu & Main.kt | — |
@@ -50,11 +56,11 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | 51 | mouse gestures | 🔨 built (untested) | Mouse wheel volume/seek and middle-click play/pause gestures in Main.kt | — |
 | 52 | mini/compact player + tray/menu-bar | 🔨 built (untested) | `DesktopMiniPlayerView` with seek bar & tray icon with playback controls | — |
 | 53 | scripts folder | 🔨 built (untested) | `DesktopScriptManager` & `DesktopScriptsDialog` for loading user Lua/JS scripts from app support scripts directory | — |
-| 54 | web remote | 🔨 built (untested) | `DesktopWebRemoteServer` embedded HTTP server (port 8085) with mobile glassmorphism web UI & live controls | — |
+| 54 | web remote | 🧪 | Rebuilt 2026-11-12: per-session token, one private LAN address, POST-only validated actions, live state (the old version served a frozen snapshot). Loopback HTTP tests; not tried from a phone | [DesktopWebRemoteServerTest](../desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/remote/DesktopWebRemoteServerTest.kt) |
 | 55 | CLI + IPC | ✅ | `--end --volume --speed --sub --audio-track --loop --enqueue --audio-only --help`, JSON IPC socket | [Evidence](evidence/P7/shell/cli_arguments_evidence.txt) |
 | 56 | command palette | 🔨 built (untested) | `DesktopCommandPalette` with Cmd+K / Ctrl+K search and quick actions | — |
 | 59 | Licence notices | 🔨 built (untested) | Third-party open source notices dialog and settings entries | — |
-| 61 | Wi-Fi file sharing | 🔨 built (untested) | `DesktopWifiTransfer` local HTTP server and dialog | — |
+| 61 | Wi-Fi file sharing | 🧪 | Rebuilt 2026-11-12: it used to show an alert and receive nothing. Now streams token-protected uploads into `~/Downloads/Vimivo` (type allow-list, size cap, sanitised names). Loopback HTTP tests; not tried from a phone | [DesktopWifiTransferServerTest](../desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/sharing/DesktopWifiTransferServerTest.kt) |
 | 62 | PiP window | 🔨 built (untested) | `DesktopPipOverlay` floating compact player mode | — |
 | 63 | audio-only mode for video | 🔨 built (untested) | Audio-only toggle in player control bar & video track disabling with visualizer/artwork stage | — |
 | 64 | sleep timer dialog | ✅ | `DesktopSleepTimerDialog` with presets, custom duration, live countdown & end-of-track stopping | [Evidence](evidence/P7/sleeptimer/sleep_timer_evidence.txt) |
@@ -81,7 +87,7 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | | Popup floating player | 🔨 built (untested) | — (PiP) |
 | | Picture-in-picture | 🔨 built (untested) | 🔨 built (untested) |
 | | Network stream URL | 🔨 built (untested) | 🔨 built (untested) |
-| | Chromecast / AirPlay | 🔨 built (untested) | 🔨 built (untested) |
+| | Chromecast / AirPlay | ❌ no Cast SDK in the app | 🔨 system AirPlay route picker; not tried with a device |
 | | Bookmarks with thumbnails | 🔨 built (untested) | 🔨 built (untested) |
 | **Gestures** | Brightness / volume swipe | 🔨 built (untested) | 🔨 built (untested) |
 | | Seek swipe with preview | 🔨 built (untested) | 🔨 built (untested) |
@@ -120,8 +126,8 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | | NEW tag + folder NEW count, last-played highlight | 🔨 built (untested) | 🔨 built (untested) |
 | | Multi-select (share, delete, rename, move, playlist, properties) | 🔨 built (untested) | 🔨 built (untested) |
 | | Rename / delete / properties | 🔨 built (untested) | 🔨 built (untested) |
-| | Hide folders, show hidden | 🔨 built (untested) | 🔨 built (untested) |
-| | Private folder (PIN/biometric) | 🔨 built (untested) | 🔨 built (untested) |
+| | Hide folders, show hidden | 🧪 hidden folders are excluded from category lists and every library query (SQL-parameter tests) | 🔨 SwiftUI-only logic, no tests |
+| | Private folder (PIN/biometric) | 🧪 real since 2026-11-12 (it accepted any PIN before): PBKDF2 hash, 5-try/30 s limiter, gates hidden folders. No biometric; the vault does not auto-lock when the app is backgrounded | 🧪 PIN is now a salted hash in the Keychain (it was plain text); no biometric; vault UI not tried on a device |
 | | "Play last" floating button | 🔨 built (untested) | 🔨 built (untested) |
 | | Search | ✅ | ⚠️ |
 | | History | 🔨 built (untested) | 🔨 built (untested) |
@@ -130,9 +136,9 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | | Lyrics (shared LRC) | ✅ | ✅ |
 | | Queue drag/remove | 🔨 built (untested) | 🔨 built (untested) |
 | | Home-screen widget | ❓ *src* | ❓ *src* |
-| | Android Auto / CarPlay | 🔨 built (untested) | 🔨 built (untested) |
+| | Android Auto / CarPlay | ⚠️ media browse tree exists; the app is not registered for Android Auto (`automotive_app_desc` missing) | ❌ no CarPlay entitlement; needs Apple approval |
 | | Set as ringtone | 🔨 built (untested) | — |
-| **Tools** | Wi-Fi file transfer (offline, QR) | 🔨 built (untested) | 🔨 built (untested) |
+| **Tools** | Wi-Fi file transfer (offline) | 🧪 real since 2026-11-12 (it showed an alert and received nothing): token-protected, saved via MediaStore to Movies/Vimivo and Music/Vimivo. No QR code yet. Server logic tested; MediaStore write not tried on a device | ❌ removed (fake). Closest native alternatives: Files app, AirDrop, "Open in Vimivo" |
 | | Video → MP3 converter | 🔨 built (untested) | 🔨 built (untested) |
 | **Settings** | MX-style categories, theme, EN + বাংলা | 🔨 built (untested) | 🔨 built (untested) |
 

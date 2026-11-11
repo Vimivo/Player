@@ -5,6 +5,10 @@
 **Git HEAD**: `0d7ecba`  
 **Evaluation Date**: 2026-10-16  
 
+> **Note 2026-11-12.** These verdicts were written on 2026-10-16, before the 2026-10-27 parity work and the 2026-11-12
+> corrections in [PARITY_AUDIT.md](PARITY_AUDIT.md). They have not been re-evaluated against the current code. Treat
+> them as history until the release gates are run again.
+
 ---
 
 ## 1. Decision Criteria & Definitions

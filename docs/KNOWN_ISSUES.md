@@ -38,3 +38,24 @@ This register documents current technical limitations, edge cases, and distribut
 - **Apple AVFoundation Containers**: Native iOS AVPlayer does not decode `.mkv` or `.avi` files natively without remuxing.
 - **DRM Content**: Protected media formats (Widevine, FairPlay) are intentionally not supported. Vimivo plays local and user-authorized non-DRM media.
 - **DVD Menus**: ISO/VOB DVD interactive menus are not supported; raw VOB video streams play sequentially.
+
+## Added 2026-11-12
+
+- **iOS: no Wi-Fi file receive.** The previous sheet was non-functional and was removed. Use the Files app, AirDrop or
+  "Open in Vimivo". Android and desktop have a real, token-protected receive server.
+- **Desktop: no casting, no transcode.** Both were non-functional and were removed from the menu and command palette.
+  Casting needs real SSDP/DLNA discovery and a local media server; transcode needs an LGPL transcoder in the media
+  package (ADR-004).
+- **No online subtitle search.** Removed by decision. Local files, auto-load and embedded tracks work.
+- **Android private vault:** no biometric unlock, and it stays unlocked while the app is in the background until the
+  library screen is recreated. The PIN is four digits with a 5-attempt / 30 s limiter, which stops casual guessing but
+  is not strong protection against someone who can read the device's app data.
+- **iOS private vault:** PIN only (no Face ID); Settings "Change PIN" re-asks the current PIN but cannot yet set a new one.
+- **Android Auto / CarPlay:** Android exposes a browse tree but is not registered for Android Auto; CarPlay needs an
+  Apple entitlement the project does not have.
+- **Android Chromecast:** not implemented (no Cast SDK); iOS AirPlay uses the system route picker.
+- **Desktop capture (webcam / screen):** URL forms fixed and unit-tested only; not run against real devices. Windows needs the
+  DirectShow device name typed in. Wayland screen capture is not supported.
+- **Local development builds** link Homebrew's GPL libmpv. Distributable builds must set `VIMIVO_MPV_PREFIX`; packaging
+  tasks now fail without it.
+
