@@ -80,6 +80,10 @@ internal object LibraryQueryBuilder {
         query.albumArtist?.let { where += "albumArtist = ?"; args += it }
         query.genre?.let { where += "genre = ?"; args += it }
         query.folderPath?.let { where += "folderPath = ?"; args += it }
+        if (query.excludedFolderPaths.isNotEmpty()) {
+            where += "(folderPath IS NULL OR folderPath NOT IN (${query.excludedFolderPaths.joinToString(",") { "?" }}))"
+            args.addAll(query.excludedFolderPaths.sorted())
+        }
         query.minimumDurationMillis?.let { where += "durationMillis >= ?"; args += it }
         query.maximumDurationMillis?.let { where += "durationMillis <= ?"; args += it }
         query.mimeType?.let { where += "mimeType = ?"; args += it }

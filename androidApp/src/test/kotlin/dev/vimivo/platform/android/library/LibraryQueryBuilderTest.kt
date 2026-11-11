@@ -107,6 +107,17 @@ class LibraryQueryBuilderTest {
         assertFalse(sql.sql.contains("Videos/Movies"))
         assertEquals("Videos/Movies", bindings[1])
     }
+    @Test
+    fun excludedFoldersAreParameterizedInPageAndCount() {
+        val query = LibraryQuery(kind = MediaKind.VIDEO, excludedFolderPaths = setOf("Private/", "a'; DROP TABLE media;--"))
+        for (sql in listOf(LibraryQueryBuilder.page(query), LibraryQueryBuilder.count(query))) {
+            assertTrue(sql.sql.contains("folderPath IS NULL OR folderPath NOT IN (?,?)"))
+            assertFalse(sql.sql.contains("DROP TABLE"))
+            val bindings = RecordingProgram().also(sql::bindTo).values.values
+            assertTrue(bindings.contains("Private/"))
+        }
+    }
+
 }
 
 private class RecordingProgram : SupportSQLiteProgram {

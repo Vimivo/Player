@@ -39,6 +39,9 @@ data class LibraryUiState(
     ),
     val errorMessage: String? = null,
     val viewMode: LibraryViewMode = LibraryViewMode.LIST,
+    val hiddenFolders: Set<String> = emptySet(),
+    val hasVaultPin: Boolean = false,
+    val vaultUnlocked: Boolean = false,
 )
 
 class LibraryViewModel(
@@ -48,13 +51,28 @@ class LibraryViewModel(
     private val mutableState = MutableStateFlow(LibraryUiState())
     private var loadJob: Job? = null
     private var defaultSort = LibrarySort.TITLE
+    private val vault = PrivateVault()
+    private val pinLimiter = PinAttemptLimiter()
+    private var pinHash: String? = null
     val state: StateFlow<LibraryUiState> = mutableState.asStateFlow()
 
     init {
         viewModelScope.launch {
             settingsRepository.settings.collect { settings ->
                 defaultSort = settings.defaultLibrarySort
-                mutableState.update { it.copy(viewMode = settings.libraryViewMode) }
+                pinHash = settings.privateFolderPinHash
+                val hiddenChanged = settings.hiddenFolders != state.value.hiddenFolders
+                mutableState.update {
+                    it.copy(
+                        viewMode = settings.libraryViewMode,
+                        hiddenFolders = settings.hiddenFolders,
+                        hasVaultPin = settings.privateFolderPinHash != null,
+                    )
+                }
+                if (hiddenChanged) {
+                    if (state.value.categoryField == LibraryCategoryField.FOLDER) showCategories(LibraryCategoryField.FOLDER)
+                    load(reset = true)
+                }
                 if (state.value.query.sort != defaultSort && state.value.query.text.isBlank()) {
                     mutableState.update { it.copy(query = it.query.copy(sort = defaultSort, offset = 0)) }
                     load(reset = true)
@@ -81,7 +99,10 @@ class LibraryViewModel(
         val kind = state.value.query.kind ?: MediaKind.AUDIO
         mutableState.update { it.copy(isLoading = true, categoryField = field, errorMessage = null) }
         repository.categories(kind, field).fold(
-            onSuccess = { categories -> mutableState.update { it.copy(categories = categories, isLoading = false) } },
+            onSuccess = { categories ->
+                val visible = if (field == LibraryCategoryField.FOLDER) categories.filterNot { it.name in excludedFolders() } else categories
+                mutableState.update { it.copy(categories = visible, isLoading = false) }
+            },
             onFailure = ::showError,
         )
     }
@@ -283,7 +304,7 @@ class LibraryViewModel(
             val current = mutableState.value
             val offset = if (reset) 0 else current.items.size
             mutableState.update { it.copy(isLoading = true, errorMessage = null) }
-            repository.page(current.query.copy(offset = offset)).fold(
+            repository.page(current.query.copy(offset = offset, excludedFolderPaths = excludedFolders())).fold(
                 onSuccess = { page ->
                     mutableState.update {
                         it.copy(
@@ -303,8 +324,55 @@ class LibraryViewModel(
         }
     }
 
+    private fun excludedFolders(): Set<String> =
+        if (state.value.vaultUnlocked) emptySet() else state.value.hiddenFolders
+
+    fun hideFolder(name: String) = viewModelScope.launch {
+        settingsRepository.update { it.copy(hiddenFolders = it.hiddenFolders + name) }
+    }
+
+    fun unhideFolder(name: String) = viewModelScope.launch {
+        settingsRepository.update { it.copy(hiddenFolders = it.hiddenFolders - name) }
+    }
+
+    /** Stores a PIN for the vault; false if [pin] is not exactly four digits. */
+    fun setVaultPin(pin: String): Boolean {
+        if (!vault.isValidPin(pin)) return false
+        val hashed = vault.hash(pin)
+        viewModelScope.launch { settingsRepository.update { it.copy(privateFolderPinHash = hashed) } }
+        return true
+    }
+
+    /** Returns null when unlocked, otherwise the message to show the user. */
+    fun unlockVault(pin: String): String? {
+        val waitMillis = pinLimiter.remainingLockMillis()
+        if (waitMillis > 0) return "Too many attempts. Try again in ${(waitMillis + MILLIS_PER_SECOND - 1) / MILLIS_PER_SECOND} s."
+        if (!vault.verify(pin, pinHash)) {
+            pinLimiter.recordFailure()
+            return "Incorrect PIN"
+        }
+        pinLimiter.recordSuccess()
+        mutableState.update { it.copy(vaultUnlocked = true) }
+        refreshAfterVaultChange()
+        return null
+    }
+
+    fun lockVault() {
+        mutableState.update { it.copy(vaultUnlocked = false) }
+        refreshAfterVaultChange()
+    }
+
+    private fun refreshAfterVaultChange() {
+        if (state.value.categoryField == LibraryCategoryField.FOLDER) showCategories(LibraryCategoryField.FOLDER)
+        load(reset = true)
+    }
+
     private fun showError(error: Throwable) {
         if (error is CancellationException) throw error
         mutableState.update { it.copy(errorMessage = error.message, isLoading = false) }
+    }
+
+    private companion object {
+        const val MILLIS_PER_SECOND = 1000L
     }
 }

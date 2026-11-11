@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -412,8 +413,9 @@ fun MxFolderRow(
     name: String,
     videoCount: Int,
     newCount: Int,
+    isHidden: Boolean,
     onClick: () -> Unit,
-    onHide: () -> Unit,
+    onToggleHidden: () -> Unit,
 ) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
@@ -459,8 +461,11 @@ fun MxFolderRow(
                         )
                     }
                 }
-                IconButton(onClick = onHide) {
-                    Icon(Icons.Rounded.VisibilityOff, contentDescription = "Hide folder")
+                IconButton(onClick = onToggleHidden) {
+                    Icon(
+                        if (isHidden) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+                        contentDescription = if (isHidden) "Unhide folder" else "Hide folder",
+                    )
                 }
             }
         },
@@ -616,8 +621,9 @@ private fun PropertyLine(label: String, value: String) {
 @Composable
 fun MxPrivateFolderDialog(
     hasPinSet: Boolean,
-    onUnlock: (String) -> Boolean,
-    onSetPin: (String) -> Unit,
+    /** Returns null when the vault unlocked, otherwise the error to show. */
+    onUnlock: (String) -> String?,
+    onSetPin: (String) -> Boolean,
     onDismiss: () -> Unit,
 ) {
     var pinText by remember { mutableStateOf("") }
@@ -629,8 +635,8 @@ fun MxPrivateFolderDialog(
         text = {
             Column {
                 Text(
-                    if (hasPinSet) "Enter your 4-digit PIN to access private files."
-                    else "Create a 4-digit PIN to protect your private media folder.",
+                    if (hasPinSet) "Enter your 4-digit PIN to show the folders you hid."
+                    else "Create a 4-digit PIN. Folders you hide stay out of your library until you unlock the vault with it.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(12.dp))
@@ -653,12 +659,17 @@ fun MxPrivateFolderDialog(
                         return@Button
                     }
                     if (hasPinSet) {
-                        val ok = onUnlock(pinText)
-                        if (!ok) errorText = "Incorrect PIN"
-                        else onDismiss()
-                    } else {
-                        onSetPin(pinText)
+                        val error = onUnlock(pinText)
+                        if (error != null) {
+                            errorText = error
+                            pinText = ""
+                        } else {
+                            onDismiss()
+                        }
+                    } else if (onSetPin(pinText)) {
                         onDismiss()
+                    } else {
+                        errorText = "PIN must be 4 digits"
                     }
                 },
             ) {
@@ -746,12 +757,15 @@ fun MxWifiTransferDialog(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val server = remember { AndroidWifiTransferServer(context) }
-    var serverUrl by remember { mutableStateOf("") }
+    var received by remember { mutableStateOf<List<String>>(emptyList()) }
+    val server = remember { AndroidWifiTransferServer(context) { name -> received = listOf(name) + received } }
+    var serverUrl by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(Unit) {
         server.start()
-        serverUrl = server.serverUrl
+        serverUrl = server.url
+        error = server.startError
         onDispose {
             server.stop()
         }
@@ -777,17 +791,21 @@ fun MxWifiTransferDialog(
                         Text("Open this address in your web browser:", style = MaterialTheme.typography.labelMedium)
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            serverUrl,
-                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary,
+                            serverUrl ?: error.orEmpty(),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (serverUrl != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Ensure both devices are on the same Wi-Fi network.",
+                            "Both devices must be on the same Wi-Fi network. The link has a one-time key and stops working when you close this screen. Files appear in your library under Movies/Vimivo and Music/Vimivo.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+                if (received.isNotEmpty()) {
+                    Text("Received", style = MaterialTheme.typography.labelLarge)
+                    received.take(5).forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
                 }
             }
         },

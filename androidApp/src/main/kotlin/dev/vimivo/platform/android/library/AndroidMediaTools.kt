@@ -16,16 +16,9 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
-import android.net.wifi.WifiManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
 import java.io.File
-import java.io.InputStreamReader
-import java.io.OutputStream
-import java.net.InetAddress
-import java.net.ServerSocket
-import java.net.Socket
 import java.nio.ByteBuffer
 import java.util.UUID
 
@@ -110,103 +103,88 @@ object AndroidMediaConverter {
     }
 }
 
-class AndroidWifiTransferServer(
+/** Wi-Fi share for the phone: files sent from a browser on the same network land in the device's media library. */
+class AndroidWifiTransferServer(context: Context, onReceived: (String) -> Unit) {
+    private val server = LanUploadServer(
+        sink = MediaStoreUploadSink(context.applicationContext, onReceived),
+        logWarning = { message, error -> android.util.Log.w("VimivoWifiTransfer", message, error) },
+    )
+
+    /** Address (with the session key) to open in the other device's browser; null while not running. */
+    val url: String? get() = server.url
+    val startError: String? get() = server.startError
+
+    fun start() = server.start()
+    fun stop() = server.stop()
+}
+
+/**
+ * Saves received media through MediaStore (Movies/Vimivo, Music/Vimivo) so it needs no storage permission and
+ * appears in the library on its own. Below Android 10 it falls back to the app's own media folders.
+ */
+internal class MediaStoreUploadSink(
     private val context: Context,
-    private val port: Int = 8080,
-) {
-    @Volatile
-    private var isRunning = false
-    private var serverSocket: ServerSocket? = null
-
-    val serverUrl: String
-        get() = "http://${getLocalIpAddress()}:$port"
-
-    fun start() {
-        if (isRunning) return
-        isRunning = true
-        Thread {
-            runCatching {
-                serverSocket = ServerSocket(port)
-                while (isRunning) {
-                    val socket = serverSocket?.accept() ?: break
-                    Thread { handleClient(socket) }.start()
-                }
-            }
-        }.start()
-    }
-
-    fun stop() {
-        isRunning = false
-        runCatching { serverSocket?.close() }
-        serverSocket = null
-    }
-
-    private fun handleClient(socket: Socket) {
-        runCatching {
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-            val out = socket.getOutputStream()
-            val firstLine = reader.readLine() ?: return
-
-            if (firstLine.startsWith("GET")) {
-                val html = """
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="utf-8">
-                        <title>Vimivo Wi-Fi Drop</title>
-                        <meta name="viewport" content="width=device-width, initial-scale=1">
-                        <style>
-                            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0D1117; color: #E6EDF3; max-width: 650px; margin: 40px auto; padding: 20px; }
-                            h1 { color: #8A2BE2; }
-                            .dropzone { border: 2px dashed #8A2BE2; border-radius: 16px; padding: 48px; text-align: center; margin-top: 24px; background: rgba(138, 43, 226, 0.05); }
-                            .badge { background: #8A2BE2; color: white; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: bold; }
-                        </style>
-                    </head>
-                    <body>
-                        <span class="badge">VIMIVO WIRELESS</span>
-                        <h1>Wi-Fi Media Sharing</h1>
-                        <p>Connected to Vimivo. Choose media files to transfer:</p>
-                        <div class="dropzone">
-                            <input type="file" id="fileInput" multiple style="display:none;" onchange="alert('Upload complete.')" />
-                            <button onclick="document.getElementById('fileInput').click()" style="background:#8A2BE2; color:#fff; border:none; padding:12px 24px; border-radius:8px; font-size:16px; cursor:pointer;">
-                                Choose Media Files
-                            </button>
-                            <p style="color:#8B949E; margin-top:12px; font-size:14px;">Select videos (.mp4, .mkv, .webm) or audio (.mp3, .flac, .m4a)</p>
-                        </div>
-                    </body>
-                    </html>
-                """.trimIndent()
-                sendResponse(out, "200 OK", "text/html", html.toByteArray())
+    private val onReceived: (String) -> Unit,
+) : UploadSink {
+    override fun save(name: String, mimeType: String, length: Long, body: java.io.InputStream): String? {
+        val isVideo = mimeType.startsWith("video/")
+        val saved = try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                saveToMediaStore(name, mimeType, length, isVideo, body)
             } else {
-                sendResponse(out, "200 OK", "text/plain", "OK".toByteArray())
+                saveToAppFolder(name, length, isVideo, body)
             }
-            socket.close()
+        } catch (e: java.io.IOException) {
+            android.util.Log.w("VimivoWifiTransfer", "Could not save received file", e)
+            null
         }
+        if (saved != null) onReceived(saved)
+        return saved
     }
 
-    private fun sendResponse(out: OutputStream, status: String, contentType: String, body: ByteArray) {
-        val header = "HTTP/1.1 $status\r\nContent-Type: $contentType\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n"
-        out.write(header.toByteArray())
-        out.write(body)
-        out.flush()
+    @android.annotation.SuppressLint("InlinedApi")
+    private fun saveToMediaStore(name: String, mimeType: String, length: Long, isVideo: Boolean, body: java.io.InputStream): String? {
+        val resolver = context.contentResolver
+        val collection = if (isVideo) {
+            android.provider.MediaStore.Video.Media.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            android.provider.MediaStore.Audio.Media.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        }
+        val folder = if (isVideo) android.os.Environment.DIRECTORY_MOVIES else android.os.Environment.DIRECTORY_MUSIC
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "$folder/Vimivo")
+            put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(collection, values) ?: return null
+        val complete = try {
+            val out = resolver.openOutputStream(uri) ?: throw java.io.IOException("No output stream")
+            out.use { body.copyTo(it) == length }
+        } catch (e: java.io.IOException) {
+            resolver.delete(uri, null, null)
+            throw e
+        }
+        if (!complete) {
+            resolver.delete(uri, null, null)
+            return null
+        }
+        resolver.update(uri, android.content.ContentValues().apply { put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+        return name
     }
 
-    private fun getLocalIpAddress(): String {
-        return runCatching {
-            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            val ipInt = wifiManager?.connectionInfo?.ipAddress ?: 0
-            if (ipInt != 0) {
-                String.format(
-                    "%d.%d.%d.%d",
-                    ipInt and 0xff,
-                    ipInt shr 8 and 0xff,
-                    ipInt shr 16 and 0xff,
-                    ipInt shr 24 and 0xff,
-                )
-            } else {
-                "127.0.0.1"
-            }
-        }.getOrDefault("127.0.0.1")
+    private fun saveToAppFolder(name: String, length: Long, isVideo: Boolean, body: java.io.InputStream): String? {
+        val type = if (isVideo) android.os.Environment.DIRECTORY_MOVIES else android.os.Environment.DIRECTORY_MUSIC
+        val dir = File(context.getExternalFilesDir(type) ?: context.filesDir, "Vimivo").apply { mkdirs() }
+        var target = File(dir, name)
+        var n = 1
+        while (target.exists()) target = File(dir, "${name.substringBeforeLast('.')} (${n++}).${name.substringAfterLast('.', "")}")
+        val complete = target.outputStream().use { body.copyTo(it) == length }
+        if (!complete) {
+            target.delete()
+            return null
+        }
+        return target.name
     }
 }
 

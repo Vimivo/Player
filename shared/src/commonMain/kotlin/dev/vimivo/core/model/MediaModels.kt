@@ -63,6 +63,8 @@ data class LibraryQuery(
     val albumArtist: String? = null,
     val genre: String? = null,
     val folderPath: String? = null,
+    /** Folders hidden from the result (user-hidden folders while the private vault is locked). */
+    val excludedFolderPaths: Set<String> = emptySet(),
     val favoritesOnly: Boolean = false,
     val recentlyWatchedOnly: Boolean = false,
     val recentlyPlayedOnly: Boolean = false,

@@ -69,7 +69,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
 import android.net.Uri
-import androidx.compose.material.icons.rounded.Sort
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
@@ -693,7 +693,9 @@ private fun VideoScreen(
                     "Recently watched" to viewModel::recentlyWatched,
                     "Recently added" to viewModel::recentlyAdded,
                     "Favorites" to viewModel::favoriteVideos,
-                    "Private Vault" to { showPrivateFolderDialog = true },
+                    (if (state.vaultUnlocked) "Lock Vault" else "Private Vault") to {
+                        if (state.vaultUnlocked) viewModel.lockVault() else showPrivateFolderDialog = true
+                    },
                 ),
             )
             Row(
@@ -703,7 +705,7 @@ private fun VideoScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { showSortSheet = true }) {
-                        Icon(Icons.Rounded.Sort, "Sort videos")
+                        Icon(Icons.AutoMirrored.Rounded.Sort, "Sort videos")
                     }
                     IconButton(onClick = { showWifiDialog = true }) {
                         Icon(Icons.Outlined.Share, "Wi-Fi Sharing")
@@ -718,8 +720,12 @@ private fun VideoScreen(
                             name = category.name,
                             videoCount = category.itemCount,
                             newCount = category.newCount,
+                            isHidden = category.name in state.hiddenFolders,
                             onClick = { viewModel.selectCategory(category) },
-                            onHide = { /* Hide folder */ },
+                            onToggleHidden = {
+                                if (category.name in state.hiddenFolders) viewModel.unhideFolder(category.name)
+                                else viewModel.hideFolder(category.name)
+                            },
                         )
                     }
                 }
@@ -848,9 +854,9 @@ private fun VideoScreen(
 
     if (showPrivateFolderDialog) {
         MxPrivateFolderDialog(
-            hasPinSet = false,
-            onUnlock = { true },
-            onSetPin = { /* Save vault PIN */ },
+            hasPinSet = state.hasVaultPin,
+            onUnlock = viewModel::unlockVault,
+            onSetPin = viewModel::setVaultPin,
             onDismiss = { showPrivateFolderDialog = false },
         )
     }
