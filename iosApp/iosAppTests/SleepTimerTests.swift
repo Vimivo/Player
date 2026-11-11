@@ -85,6 +85,8 @@ final class SleepTimerTests: XCTestCase {
         let stopped = await waitUntil(12) { engine.state.status == .paused }
         XCTAssertTrue(stopped, "playback stops when the track ends")
         XCTAssertEqual(engine.state.currentItem?.id, first.id, "it did not move on to the next song")
-        XCTAssertFalse(engine.sleepTimer.isActive, "the request is used up")
+        // The model publishes timer state through the main queue, so it lands just after the engine pauses.
+        let usedUp = await waitUntil(3) { !engine.sleepTimer.isActive }
+        XCTAssertTrue(usedUp, "the request is used up")
     }
 }

@@ -53,7 +53,6 @@ public struct VideoView: View {
     @State private var showDeleteConfirmation = false
     @State private var shareUrls: [URL] = []
     @State private var showShareSheet = false
-    @State private var showWifiTransfer = false
 
     // Private Vault & Hidden Folders
     @AppStorage("vimivo_private_vault_ids") private var privateMediaIdsData: String = ""
@@ -326,11 +325,6 @@ public struct VideoView: View {
                         }
                         .accessibilityLabel("Select videos")
 
-                        Button(action: { showWifiTransfer = true }) {
-                            Image(systemName: "wifi")
-                        }
-                        .accessibilityLabel("Wi-Fi File Sharing")
-
                         Button(action: { showOpenURL = true }) {
                             Image(systemName: "link")
                         }
@@ -376,9 +370,6 @@ public struct VideoView: View {
             }
             .sheet(isPresented: $showShareSheet) {
                 ShareSheet(activityItems: shareUrls)
-            }
-            .sheet(isPresented: $showWifiTransfer) {
-                WifiTransferSheet()
             }
             .alert("Delete Videos", isPresented: $showDeleteConfirmation) {
                 Button("Delete", role: .destructive) {

@@ -12,7 +12,7 @@ public struct SettingsView: View {
     @AppStorage("vimivo_show_hidden") private var showHiddenFolders: Bool = false
     @AppStorage("vimivo_subtitle_encoding") private var subtitleEncoding: String = "UTF-8"
     @AppStorage("vimivo_subtitle_size") private var subtitleSize: Double = 18
-    @AppStorage("vimivo_private_vault_pin") private var privateVaultPin: String = ""
+    @State private var hasVaultPin = VaultPinStore.shared.hasPin
     @ObservedObject private var engine = AVPlayerPlaybackEngine.shared
     @State private var cacheSizeFormatted: String = "Calculating..."
     @State private var showCacheAlert = false
@@ -102,7 +102,7 @@ public struct SettingsView: View {
                         showPinSheet = true
                     } label: {
                         HStack {
-                            Text(privateVaultPin.isEmpty ? "Set Private Vault PIN" : "Change Private Vault PIN")
+                            Text(hasVaultPin ? "Change Private Vault PIN" : "Set Private Vault PIN")
                             Spacer()
                             Image(systemName: "lock.shield")
                                 .foregroundColor(.accentColor)
@@ -145,10 +145,8 @@ public struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .sheet(isPresented: $showPinSheet) {
-                PrivateVaultPinSheet {
-                    // PIN updated
-                }
+            .sheet(isPresented: $showPinSheet, onDismiss: { hasVaultPin = VaultPinStore.shared.hasPin }) {
+                PrivateVaultPinSheet {}
             }
             .onAppear(perform: calculateCacheSize)
         }
