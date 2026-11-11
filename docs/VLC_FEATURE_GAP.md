@@ -1,5 +1,9 @@
 # VLC feature parity: V0 audit
 
+> **Note 2026-11-12.** This is the V0 audit and is partly out of date. Evidence E6 and rule B10 describe a *development* bundle that
+> used Homebrew's GPL libmpv (x264/x265). Distributable desktop builds use the pinned LGPL package (ADR-004) and packaging now
+> fails without it. Current feature status is in [PARITY_AUDIT.md](PARITY_AUDIT.md).
+
 Audit date: 2026-10-19. Baseline: branch `desktop/d0.5-d1` at `a0262fd` plus the uncommitted working tree (desktop
 startup changes). This replaces the earlier source-only matrix: every ✅ below is backed by an entry in the
 [evidence register](#evidence-register). Feature numbers follow the VLC-parity brief (65 items, phases V1–V8).
