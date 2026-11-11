@@ -123,7 +123,6 @@ internal class PlayerViewModel(
             commandPaletteVisible = localState.commandPaletteVisible,
             wifiSharingVisible = localState.wifiSharingVisible,
             transcodeVisible = localState.transcodeVisible,
-            subtitleSearchVisible = localState.subtitleSearchVisible,
             radioPodcastVisible = localState.radioPodcastVisible,
             webRemoteVisible = localState.webRemoteVisible,
             scriptsVisible = localState.scriptsVisible,
@@ -287,7 +286,6 @@ internal class PlayerViewModel(
             PlayerIntent.ToggleCommandPalette -> local.update { it.copy(commandPaletteVisible = !it.commandPaletteVisible) }
             PlayerIntent.ToggleWifiSharing -> local.update { it.copy(wifiSharingVisible = !it.wifiSharingVisible) }
             PlayerIntent.ToggleTranscodeDialog -> local.update { it.copy(transcodeVisible = !it.transcodeVisible) }
-            PlayerIntent.ToggleSubtitleSearch -> local.update { it.copy(subtitleSearchVisible = !it.subtitleSearchVisible) }
             PlayerIntent.ToggleRadioPodcast -> local.update { it.copy(radioPodcastVisible = !it.radioPodcastVisible) }
             PlayerIntent.ToggleWebRemote -> local.update { it.copy(webRemoteVisible = !it.webRemoteVisible) }
             PlayerIntent.ToggleScripts -> local.update { it.copy(scriptsVisible = !it.scriptsVisible) }
@@ -658,7 +656,6 @@ internal class PlayerViewModel(
         val commandPaletteVisible: Boolean = false,
         val wifiSharingVisible: Boolean = false,
         val transcodeVisible: Boolean = false,
-        val subtitleSearchVisible: Boolean = false,
         val radioPodcastVisible: Boolean = false,
         val webRemoteVisible: Boolean = false,
         val scriptsVisible: Boolean = false,

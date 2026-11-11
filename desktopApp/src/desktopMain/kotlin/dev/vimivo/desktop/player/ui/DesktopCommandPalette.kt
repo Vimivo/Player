@@ -160,9 +160,6 @@ internal fun DesktopCommandPalette(
             PaletteAction("Wi-Fi File Sharing", "Tools", null, Icons.Outlined.Share) {
                 onIntent(PlayerIntent.ToggleWifiSharing)
             },
-            PaletteAction("Search Subtitles Online", "Subtitles", null, Icons.Outlined.Subtitles) {
-                onIntent(PlayerIntent.ToggleSubtitleSearch)
-            },
             PaletteAction("Internet Radio & Podcasts", "Tools", null, Icons.Outlined.Radio) {
                 onIntent(PlayerIntent.ToggleRadioPodcast)
             },

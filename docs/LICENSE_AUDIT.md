@@ -52,13 +52,20 @@ Audit date: 2026-10-15 for arm64 macOS standalone distribution (`Vimivo.app` and
 | mujs | 1.3.10 | ISC License | mpv Javascript engine. |
 | little-cms2 | 2.19.1 | MIT License | ICC color management. |
 | libarchive | 3.8.9 | BSD 2-Clause | Archive format support. |
-| librubberband | 4.0.0 | GPL 2+ | Audio pitch and tempo scaling. |
+| librubberband | 4.0.0 | GPL 2+ | **Local development builds only** (Homebrew libmpv). Not in distributable builds. |
 | JNA (`net.java.dev.jna:jna`) | 5.14.0 | Apache 2.0 / LGPL 2.1 | Native binding layer for libmpv. |
 | SQLite JDBC | 3.45.1.0 | Apache 2.0 / Public Domain | Bundled JDBC native SQLite engine. |
 
-### GPL Compliance Notice for Desktop Distribution
+### Desktop distribution is LGPL-only (ADR-004)
 
-Because the current Homebrew-built `libmpv` and `ffmpeg` link GPL components (such as `librubberband`, `x264`, and `x265`), the distributed desktop application image is subject to GNU GPL v2/v3 source disclosure terms for bundled binaries. Complete source code for Vimivo is maintained at https://github.com/Vimivo/Player. For a pure LGPL desktop distribution, a custom build of libmpv configured with `--enable-lgpl` and without GPL-only filters/codecs should be compiled.
+Distributable desktop builds bundle the pinned LGPL media package produced by `scripts/build_media` (FFmpeg
+`--disable-gpl --disable-nonfree --disable-version3`, mpv `-Dgpl=false`; no x264, x265, rubberband, libdvdnav or
+libcdio), verified by `scripts/build_media/verify.py` and pinned by SHA-256 in `media.lock`.
+
+A developer machine without `VIMIVO_MPV_PREFIX` compiles against Homebrew's libmpv, which **is** GPL (x264, x265,
+rubberband). That is for local development only: packaging tasks (`createDistributable`, `package*`) fail unless
+`VIMIVO_MPV_PREFIX` is set (`requireLgplMediaPackage` in `desktopApp/build.gradle.kts`). Earlier versions of this
+document and of `VLC_FEATURE_GAP.md` (E6) described a Homebrew bundle; that is not what ships.
 
 ## Compatibility conclusion
 

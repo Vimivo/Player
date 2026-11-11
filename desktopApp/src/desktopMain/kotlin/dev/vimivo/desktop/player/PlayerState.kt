@@ -72,8 +72,6 @@ internal data class PlayerState(
     val wifiSharingVisible: Boolean = false,
     /** Video/audio transcode and converter dialog. */
     val transcodeVisible: Boolean = false,
-    /** OpenSubtitles online search and download dialog. */
-    val subtitleSearchVisible: Boolean = false,
     /** Community internet radio and podcast browser dialog. */
     val radioPodcastVisible: Boolean = false,
     /** LAN mobile web remote control dialog. */
@@ -165,7 +163,6 @@ internal sealed interface PlayerIntent {
     data object ToggleCommandPalette : PlayerIntent
     data object ToggleWifiSharing : PlayerIntent
     data object ToggleTranscodeDialog : PlayerIntent
-    data object ToggleSubtitleSearch : PlayerIntent
     data object ToggleRadioPodcast : PlayerIntent
     data object ToggleWebRemote : PlayerIntent
     data object ToggleScripts : PlayerIntent

@@ -338,6 +338,26 @@ val packageVimivoAppImage by tasks.registering(Exec::class) {
     )
 }
 
+// Distributable builds must use the pinned LGPL media package (ADR-004). Without VIMIVO_MPV_PREFIX the build falls back
+// to a local Homebrew libmpv, which links GPL components (x264, x265, rubberband); refuse to package that.
+val requireLgplMediaPackage by tasks.registering {
+    val prefix = providers.environmentVariable("VIMIVO_MPV_PREFIX")
+    doFirst {
+        if (!prefix.isPresent) {
+            throw GradleException(
+                "VIMIVO_MPV_PREFIX is not set. Distributable builds must use the pinned LGPL media package: " +
+                    "run scripts/build_media/fetch_media.py and set VIMIVO_MPV_PREFIX to its directory (ADR-004).",
+            )
+        }
+    }
+}
+
+tasks.matching {
+    it.name == "createDistributable" || it.name == "createReleaseDistributable" || it.name.startsWith("package")
+}.configureEach {
+    dependsOn(requireLgplMediaPackage)
+}
+
 tasks.matching { it.name == "createDistributable" }.configureEach {
     when {
         org.gradle.internal.os.OperatingSystem.current().isMacOsX -> finalizedBy(bundleMacosMpv)

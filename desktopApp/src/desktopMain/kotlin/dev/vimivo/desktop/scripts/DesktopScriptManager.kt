@@ -61,14 +61,16 @@ internal object DesktopScriptManager {
         return baseDir
     }
 
-    fun openScriptsDirectory() {
-        runCatching {
-            val dir = getScriptsDirectory()
-            if (Desktop.isDesktopSupported()) {
-                Desktop.getDesktop().open(dir)
-            } else {
-                ProcessBuilder("open", dir.absolutePath).start()
-            }
+    /** Opens the folder in the platform file manager; false when the platform cannot do that. */
+    fun openScriptsDirectory(): Boolean {
+        val dir = getScriptsDirectory()
+        if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) return false
+        return try {
+            Desktop.getDesktop().open(dir)
+            true
+        } catch (e: java.io.IOException) {
+            System.getLogger("vimivo.scripts").log(System.Logger.Level.WARNING, "Could not open scripts folder", e)
+            false
         }
     }
 

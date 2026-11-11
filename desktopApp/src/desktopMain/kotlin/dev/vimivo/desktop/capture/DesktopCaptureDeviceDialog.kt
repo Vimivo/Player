@@ -39,30 +39,9 @@ internal fun DesktopCaptureDeviceDialog(
     var selectedTab by remember { mutableIntStateOf(0) }
     val platform = remember { DesktopPlatform.detect() }
 
-    var customUri by remember {
-        mutableStateOf(
-            when (platform) {
-                DesktopPlatform.MACOS -> "avfoundation://0"
-                DesktopPlatform.WINDOWS -> "dshow://video=0"
-                DesktopPlatform.LINUX -> "v4l2:///dev/video0"
-                DesktopPlatform.UNKNOWN -> "avfoundation://0"
-            }
-        )
-    }
-
-    val defaultScreenUri = when (platform) {
-        DesktopPlatform.MACOS -> "avfoundation://default"
-        DesktopPlatform.WINDOWS -> "gdigrab://desktop"
-        DesktopPlatform.LINUX -> "lavfi://[x11grab]"
-        DesktopPlatform.UNKNOWN -> "avfoundation://default"
-    }
-
-    val defaultWebcamUri = when (platform) {
-        DesktopPlatform.MACOS -> "avfoundation://0"
-        DesktopPlatform.WINDOWS -> "dshow://video=0"
-        DesktopPlatform.LINUX -> "v4l2:///dev/video0"
-        DesktopPlatform.UNKNOWN -> "avfoundation://0"
-    }
+    val defaultScreenUri = CaptureSources.screen(platform)
+    val defaultWebcamUri = CaptureSources.webcam(platform)
+    var customUri by remember { mutableStateOf(defaultWebcamUri) }
 
     AlertDialog(
         onDismissRequest = onDismiss,

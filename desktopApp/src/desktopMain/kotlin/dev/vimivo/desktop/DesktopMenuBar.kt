@@ -367,7 +367,6 @@ private fun MenuBarScope.SubtitlesMenu(context: MenuContext) = with(context) {
             enabled = hasMedia,
             onClick = { send(PlayerIntent.ShowPanel(PlayerPanel.SUBTITLES)) }
         )
-        Item("Search Online…", onClick = { send(PlayerIntent.ToggleSubtitleSearch) })
     }
 }
 

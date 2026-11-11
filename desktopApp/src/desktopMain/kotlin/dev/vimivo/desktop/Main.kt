@@ -311,7 +311,6 @@ private fun desktopApplication(
         },
         onOpenDisc = {
             chooseDiscOrIsoFile()?.let { openFileHandler.submit(listOf(it)) }
-                ?: viewModel.dispatch(PlayerIntent.OpenLink("dvd://"))
         },
     )
     val mediaInfoVisible by viewModel.commands.mediaInfoVisible.collectAsState()
@@ -602,7 +601,6 @@ private fun PlayerWindow(
                         onOpenDisc = {
                             viewModel.dispatch(PlayerIntent.ToggleCommandPalette)
                             chooseDiscOrIsoFile()?.let { onOpenFiles(listOf(it)) }
-                                ?: viewModel.dispatch(PlayerIntent.OpenLink("dvd://"))
                         },
                     )
                 }
@@ -623,15 +621,6 @@ private fun PlayerWindow(
                     DesktopTranscodeDialog(
                         currentMedia = playerState.playback.media,
                         onDismiss = { viewModel.dispatch(PlayerIntent.ToggleTranscodeDialog) },
-                    )
-                }
-                if (playerState.subtitleSearchVisible) {
-                    dev.vimivo.desktop.subtitles.DesktopSubtitleSearchDialog(
-                        media = playerState.playback.media,
-                        onApplySubtitle = { file ->
-                            dev.vimivo.desktop.playback.MpvSubtitleFiles.forFile(file)?.let(engine::addExternalSubtitle)
-                        },
-                        onDismiss = { viewModel.dispatch(PlayerIntent.ToggleSubtitleSearch) },
                     )
                 }
                 if (playerState.radioPodcastVisible) {
