@@ -160,9 +160,6 @@ internal fun DesktopCommandPalette(
             PaletteAction("Wi-Fi File Sharing", "Tools", null, Icons.Outlined.Share) {
                 onIntent(PlayerIntent.ToggleWifiSharing)
             },
-            PaletteAction("Convert / Transcode Media", "Tools", null, Icons.Outlined.Transform) {
-                onIntent(PlayerIntent.ToggleTranscodeDialog)
-            },
             PaletteAction("Search Subtitles Online", "Subtitles", null, Icons.Outlined.Subtitles) {
                 onIntent(PlayerIntent.ToggleSubtitleSearch)
             },
@@ -188,9 +185,6 @@ internal fun DesktopCommandPalette(
             },
             PaletteAction("Connect to Network Share (SMB / SFTP / FTP)", "Tools", null, Icons.Outlined.Dns) {
                 onIntent(PlayerIntent.ToggleNetworkShare)
-            },
-            PaletteAction("Cast to Screen / DLNA", "Tools", null, Icons.Outlined.Cast) {
-                onIntent(PlayerIntent.ToggleCasting)
             },
             PaletteAction("Customize Control Bar", "View", null, Icons.Outlined.DashboardCustomize) {
                 onIntent(PlayerIntent.ToggleToolbarCustomize)

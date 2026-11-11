@@ -376,11 +376,9 @@ private fun MenuBarScope.ToolsMenu(context: MenuContext) = with(context) {
     Menu("Tools") {
         Item("Command Palette…", shortcut = primaryShortcut(Key.K), onClick = { send(PlayerIntent.ToggleCommandPalette) })
         Item("Open Network Stream…", shortcut = primaryShortcut(Key.N), onClick = actions.onOpenStream)
-        Item("Cast to Screen / DLNA…", onClick = { send(PlayerIntent.ToggleCasting) })
         Item("Internet Radio & Podcasts…", onClick = { send(PlayerIntent.ToggleRadioPodcast) })
         Item("Web Remote Control…", onClick = { send(PlayerIntent.ToggleWebRemote) })
         Item("Wi-Fi File Sharing…", onClick = { send(PlayerIntent.ToggleWifiSharing) })
-        Item("Convert / Transcode Media…", onClick = { send(PlayerIntent.ToggleTranscodeDialog) })
         Item("User Scripts Folder…", onClick = { send(PlayerIntent.ToggleScripts) })
         CheckboxItem(
             "Record Stream to File",
