@@ -121,6 +121,7 @@ internal class PlayerViewModel(
             pipMode = localState.pipMode,
             audioOnlyMode = localState.audioOnlyMode,
             videoRotation = localState.videoRotation,
+            videoQuality = localState.videoQuality,
             commandPaletteVisible = localState.commandPaletteVisible,
             wifiSharingVisible = localState.wifiSharingVisible,
             transcodeVisible = localState.transcodeVisible,
@@ -283,6 +284,10 @@ internal class PlayerViewModel(
                 val next = !local.value.audioOnlyMode
                 local.update { it.copy(audioOnlyMode = next) }
                 engine.selectVideoTrack(if (next) null else engine.state.value.videoTracks.firstOrNull()?.id)
+            }
+            is PlayerIntent.SetVideoQuality -> {
+                local.update { it.copy(videoQuality = intent.settings) }
+                engine.applyVideoQuality(intent.settings)
             }
             PlayerIntent.RotateVideo -> {
                 val next = local.value.videoRotation.next()
@@ -660,6 +665,7 @@ internal class PlayerViewModel(
         val pipMode: Boolean = false,
         val audioOnlyMode: Boolean = false,
         val videoRotation: dev.vimivo.playback.VideoRotation = dev.vimivo.playback.VideoRotation.NONE,
+        val videoQuality: dev.vimivo.playback.VideoQualitySettings = dev.vimivo.playback.VideoQualitySettings(),
         val commandPaletteVisible: Boolean = false,
         val wifiSharingVisible: Boolean = false,
         val transcodeVisible: Boolean = false,

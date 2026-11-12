@@ -286,6 +286,10 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Chapter navigation is not supported"))
     fun applyVideoAdjustments(adjustments: VideoAdjustments): Result<Unit> =
         Result.failure(UnsupportedOperationException("Video adjustments are not supported"))
+    /** Applies scaler, deband, motion smoothing, HDR tone mapping and exclusive-audio options. */
+    fun applyVideoQuality(settings: VideoQualitySettings): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Video quality options are not supported"))
+
     /** Turns the picture itself by a quarter-turn multiple; the window or device is left as it is. */
     fun setVideoRotation(rotation: VideoRotation): Result<Unit> =
         Result.failure(UnsupportedOperationException("Video rotation is not supported"))

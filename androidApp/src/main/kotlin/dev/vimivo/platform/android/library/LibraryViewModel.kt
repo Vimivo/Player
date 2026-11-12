@@ -357,6 +357,13 @@ class LibraryViewModel(
         return null
     }
 
+    /** Called after the platform biometric prompt succeeded; the PIN limiter is not involved. */
+    fun unlockVaultWithBiometric() {
+        pinLimiter.recordSuccess()
+        mutableState.update { it.copy(vaultUnlocked = true) }
+        refreshAfterVaultChange()
+    }
+
     fun lockVault() {
         if (!state.value.vaultUnlocked) return
         mutableState.update { it.copy(vaultUnlocked = false) }

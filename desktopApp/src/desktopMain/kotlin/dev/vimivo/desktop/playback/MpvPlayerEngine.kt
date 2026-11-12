@@ -42,6 +42,7 @@ import dev.vimivo.playback.SubtitleStyle
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.TrackInfo
 import dev.vimivo.playback.VideoAdjustments
+import dev.vimivo.playback.VideoQualitySettings
 import dev.vimivo.playback.VideoRotation
 import dev.vimivo.playback.VideoAspectRatio
 import kotlinx.coroutines.CoroutineScope
@@ -380,6 +381,10 @@ class MpvPlayerEngine : PlayerEngine {
 
     override fun previousChapter(): Result<Unit> = action {
         command("add", "chapter", "-1")
+    }
+
+    override fun applyVideoQuality(settings: VideoQualitySettings): Result<Unit> = action {
+        settings.toMpvOptions().forEach { (name, value) -> setProperty(name, value) }
     }
 
     override fun setVideoRotation(rotation: VideoRotation): Result<Unit> =

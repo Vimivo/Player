@@ -625,6 +625,8 @@ fun MxPrivateFolderDialog(
     onUnlock: (String) -> String?,
     onSetPin: (String) -> Boolean,
     onDismiss: () -> Unit,
+    /** Shown only when fingerprint or face unlock is available and a PIN is already set. */
+    onBiometric: (() -> Unit)? = null,
 ) {
     var pinText by remember { mutableStateOf("") }
     var errorText by remember { mutableStateOf<String?>(null) }
@@ -677,7 +679,12 @@ fun MxPrivateFolderDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            Row {
+                if (hasPinSet && onBiometric != null) {
+                    TextButton(onClick = { onBiometric(); onDismiss() }) { Text("Use fingerprint / face") }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
         },
     )
 }

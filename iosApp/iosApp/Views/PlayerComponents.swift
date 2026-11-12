@@ -1,3 +1,4 @@
+import LocalAuthentication
 import SwiftUI
 import UniformTypeIdentifiers
 import VimivoShared
@@ -511,6 +512,16 @@ public struct PrivateVaultPinSheet: View {
                         .foregroundColor(.red)
                 }
 
+                if hasPin && mode == .unlock && VaultBiometrics.isAvailable {
+                    Button {
+                        VaultBiometrics.authenticate { success in
+                            if success { finish() }
+                        }
+                    } label: {
+                        Label(VaultBiometrics.buttonTitle, systemImage: VaultBiometrics.symbolName)
+                    }
+                }
+
                 Button(action: submitPin) {
                     Text(buttonTitle)
                         .fontWeight(.semibold)
@@ -792,5 +803,30 @@ public enum MediaConverter {
         try? FileManager.default.removeItem(at: finalUrl)
         try FileManager.default.moveItem(at: outputUrl, to: finalUrl)
         return finalUrl
+    }
+}
+
+/// Face ID or Touch ID for the private vault. The PIN always remains available.
+enum VaultBiometrics {
+    static var isAvailable: Bool {
+        var error: NSError?
+        return LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    }
+
+    private static var kind: LABiometryType {
+        let context = LAContext()
+        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+        return context.biometryType
+    }
+
+    static var buttonTitle: String { kind == .faceID ? "Use Face ID" : "Use Touch ID" }
+    static var symbolName: String { kind == .faceID ? "faceid" : "touchid" }
+
+    static func authenticate(completion: @escaping (Bool) -> Void) {
+        let context = LAContext()
+        context.localizedCancelTitle = "Use PIN"
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "Unlock your private vault") { success, _ in
+            DispatchQueue.main.async { completion(success) }
+        }
     }
 }

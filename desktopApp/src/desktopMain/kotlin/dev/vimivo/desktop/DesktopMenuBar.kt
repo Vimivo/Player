@@ -152,6 +152,31 @@ private fun MenuBarScope.ViewMenu(context: MenuContext) = with(context) {
             checked = state.audioOnlyMode,
             onCheckedChange = { send(PlayerIntent.ToggleAudioOnlyMode) },
         )
+        Menu("Video Quality") {
+            val quality = state.videoQuality
+            dev.vimivo.playback.UpscaleQuality.entries.forEach { level ->
+                RadioButtonItem(
+                    "Scaling: ${level.label}",
+                    selected = quality.upscale == level,
+                    onClick = { send(PlayerIntent.SetVideoQuality(quality.copy(upscale = level))) },
+                )
+            }
+            Separator()
+            CheckboxItem("Remove Banding (Deband)", checked = quality.deband,
+                onCheckedChange = { send(PlayerIntent.SetVideoQuality(quality.copy(deband = it))) })
+            CheckboxItem("Smooth Motion", checked = quality.smoothMotion,
+                onCheckedChange = { send(PlayerIntent.SetVideoQuality(quality.copy(smoothMotion = it))) })
+            CheckboxItem("Exclusive Audio Output", checked = quality.exclusiveAudio,
+                onCheckedChange = { send(PlayerIntent.SetVideoQuality(quality.copy(exclusiveAudio = it))) })
+            Separator()
+            dev.vimivo.playback.ToneMapping.entries.forEach { mapping ->
+                RadioButtonItem(
+                    "HDR Tone Mapping: ${mapping.label}",
+                    selected = quality.toneMapping == mapping,
+                    onClick = { send(PlayerIntent.SetVideoQuality(quality.copy(toneMapping = mapping))) },
+                )
+            }
+        }
         Item(
             if (state.videoRotation == dev.vimivo.playback.VideoRotation.NONE) "Rotate Video" else "Rotate Video (${state.videoRotation.label})",
             onClick = { send(PlayerIntent.RotateVideo) },

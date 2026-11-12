@@ -861,6 +861,11 @@ private fun VideoScreen(
             hasPinSet = state.hasVaultPin,
             onUnlock = viewModel::unlockVault,
             onSetPin = viewModel::setVaultPin,
+            onBiometric = (LocalContext.current as? android.app.Activity)
+                ?.takeIf { dev.vimivo.platform.android.library.VaultBiometric.isAvailable(it) }
+                ?.let { activity ->
+                    { dev.vimivo.platform.android.library.VaultBiometric.authenticate(activity, viewModel::unlockVaultWithBiometric) }
+                },
             onDismiss = { showPrivateFolderDialog = false },
         )
     }

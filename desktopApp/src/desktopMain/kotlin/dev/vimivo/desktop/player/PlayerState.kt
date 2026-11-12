@@ -68,6 +68,7 @@ internal data class PlayerState(
     val audioOnlyMode: Boolean = false,
     /** The picture turned in quarter steps (mpv `video-rotate`), independent of the window. */
     val videoRotation: dev.vimivo.playback.VideoRotation = dev.vimivo.playback.VideoRotation.NONE,
+    val videoQuality: dev.vimivo.playback.VideoQualitySettings = dev.vimivo.playback.VideoQualitySettings(),
     /** Command palette quick action launcher modal. */
     val commandPaletteVisible: Boolean = false,
     /** Wi-Fi file sharing web server status dialog. */
@@ -163,6 +164,7 @@ internal sealed interface PlayerIntent {
     data object TogglePipMode : PlayerIntent
     data object ToggleAudioOnlyMode : PlayerIntent
     data object RotateVideo : PlayerIntent
+    data class SetVideoQuality(val settings: dev.vimivo.playback.VideoQualitySettings) : PlayerIntent
     data object ToggleCommandPalette : PlayerIntent
     data object ToggleWifiSharing : PlayerIntent
     data object ToggleTranscodeDialog : PlayerIntent
