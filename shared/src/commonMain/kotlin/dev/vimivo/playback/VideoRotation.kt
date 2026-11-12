@@ -27,8 +27,7 @@ enum class VideoRotation(val degrees: Int) {
      * turned bounding box still fits.
      */
     fun fitScale(containerWidth: Float, containerHeight: Float, videoAspect: Float): Float {
-        if (!isSideways) return 1f
-        if (containerWidth <= 0f || containerHeight <= 0f || videoAspect <= 0f || !videoAspect.isFinite()) return 1f
+        if (!isSideways || !isUsableSize(containerWidth, containerHeight, videoAspect)) return 1f
         val fittedWidth: Float
         val fittedHeight: Float
         if (containerWidth / containerHeight > videoAspect) {
@@ -41,4 +40,7 @@ enum class VideoRotation(val degrees: Int) {
         // After a quarter turn the picture is fittedHeight wide and fittedWidth tall.
         return min(containerWidth / fittedHeight, containerHeight / fittedWidth)
     }
+
+    private fun isUsableSize(width: Float, height: Float, aspect: Float): Boolean =
+        width > 0f && height > 0f && aspect > 0f && aspect.isFinite()
 }

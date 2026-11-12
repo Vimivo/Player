@@ -55,8 +55,12 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.coroutines.test)
         }
+        // Plain-JVM code (sockets) that Android and desktop both use; iOS has its own native stack.
+        val androidMain by getting { kotlin.srcDir("src/jvmCommon/kotlin") }
+        val desktopMain by getting { kotlin.srcDir("src/jvmCommon/kotlin") }
         // The library store is tested over JDBC SQLite on the JVM; iOS tests run it over the real iOS driver.
         val desktopTest by getting {
+            kotlin.srcDir("src/jvmCommonTest/kotlin")
             dependencies { implementation(libs.sqlite.jdbc) }
         }
     }

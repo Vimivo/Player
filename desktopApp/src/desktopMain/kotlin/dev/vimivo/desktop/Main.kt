@@ -445,6 +445,8 @@ private fun PlayerWindow(
     onOpenFiles: (List<File>) -> Unit,
     onCloseRequest: () -> Unit,
 ) {
+    val castSession = remember { dev.vimivo.desktop.casting.CastSession() }
+    DisposableEffect(Unit) { onDispose(castSession::close) }
     val playerState by viewModel.state.collectAsState()
     val media = playerState.playback.media
     val title = remember(media?.uri, media?.title, media?.artist, playerState.loadingTitle) {
@@ -661,7 +663,9 @@ private fun PlayerWindow(
                 }
                 if (playerState.castingVisible) {
                     dev.vimivo.desktop.casting.DesktopCastingDialog(
+                        session = castSession,
                         currentMedia = playerState.playback.media,
+                        onPausePlayback = { if (playerState.playback.status == dev.vimivo.playback.PlaybackStatus.Playing) viewModel.dispatch(PlayerIntent.TogglePlayback) },
                         onDismiss = { viewModel.dispatch(PlayerIntent.ToggleCasting) },
                     )
                 }

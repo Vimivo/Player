@@ -167,6 +167,9 @@ internal fun DesktopCommandPalette(
             PaletteAction("Internet Radio & Podcasts", "Tools", null, Icons.Outlined.Radio) {
                 onIntent(PlayerIntent.ToggleRadioPodcast)
             },
+            PaletteAction("Cast to TV or Speaker", "Tools", null, Icons.Outlined.Cast) {
+                onIntent(PlayerIntent.ToggleCasting)
+            },
             PaletteAction("Web Remote Control", "Tools", null, Icons.Outlined.PhoneIphone) {
                 onIntent(PlayerIntent.ToggleWebRemote)
             },
