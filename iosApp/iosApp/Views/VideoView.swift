@@ -57,6 +57,7 @@ public struct VideoView: View {
     // Private Vault & Hidden Folders
     @AppStorage("vimivo_private_vault_ids") private var privateMediaIdsData: String = ""
     @State private var privateVaultUnlocked = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showPinSheet = false
     @AppStorage("vimivo_hidden_folders") private var hiddenFoldersData: String = ""
     @AppStorage("vimivo_show_hidden") private var showHiddenFolders: Bool = false
@@ -366,6 +367,13 @@ public struct VideoView: View {
                 PrivateVaultPinSheet {
                     privateVaultUnlocked = true
                     currentFolder = "Private Vault"
+                }
+            }
+            .onChange(of: scenePhase) { phase in
+                // The private vault never stays open while the app is out of sight.
+                if phase != .active, privateVaultUnlocked {
+                    privateVaultUnlocked = false
+                    if currentFolder == "Private Vault" { currentFolder = nil }
                 }
             }
             .sheet(isPresented: $showShareSheet) {

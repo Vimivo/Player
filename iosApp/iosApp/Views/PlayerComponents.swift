@@ -430,14 +430,47 @@ public struct MediaPropertiesSheet: View {
 // MARK: - Private Vault PIN Sheet
 
 public struct PrivateVaultPinSheet: View {
+    /// What the sheet is for. `unlock` opens the vault; `change` verifies the current PIN, then sets a new one.
+    public enum Mode { case unlock, change }
+
+    private enum Stage { case current, newPin, confirmNew }
+
     public let onUnlock: () -> Void
+    private let mode: Mode
     @Environment(\.dismiss) private var dismiss
     @State private var hasPin = VaultPinStore.shared.hasPin
+    @State private var stage: Stage = .current
+    @State private var firstNewPin = ""
     @State private var enteredPin = ""
     @State private var errorText: String?
 
-    public init(onUnlock: @escaping () -> Void) {
+    public init(mode: Mode = .unlock, onUnlock: @escaping () -> Void) {
+        self.mode = mode
         self.onUnlock = onUnlock
+    }
+
+    private var title: String {
+        if !hasPin { return "Set Up Private Vault PIN" }
+        switch (mode, stage) {
+        case (.unlock, _), (.change, .current): return "Enter Private Vault PIN"
+        case (.change, .newPin): return "Choose a New PIN"
+        case (.change, .confirmNew): return "Confirm the New PIN"
+        }
+    }
+
+    private var subtitle: String {
+        if !hasPin { return "Choose a 4-digit PIN to secure your private videos." }
+        switch (mode, stage) {
+        case (.unlock, _): return "Enter your 4-digit PIN to access private media."
+        case (.change, .current): return "Enter your current PIN to change it."
+        case (.change, .newPin): return "Choose a new 4-digit PIN."
+        case (.change, .confirmNew): return "Enter the new PIN again to confirm."
+        }
+    }
+
+    private var buttonTitle: String {
+        if !hasPin { return "Set PIN" }
+        return mode == .unlock || stage == .current ? "Unlock" : "Continue"
     }
 
     public var body: some View {
@@ -449,10 +482,10 @@ public struct PrivateVaultPinSheet: View {
                     .font(.system(size: 64))
                     .foregroundColor(.accentColor)
 
-                Text(hasPin ? "Enter Private Vault PIN" : "Set Up Private Vault PIN")
+                Text(title)
                     .font(.title2.weight(.bold))
 
-                Text(hasPin ? "Enter your 4-digit PIN to access private media." : "Choose a 4-digit PIN to secure your private videos.")
+                Text(subtitle)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -467,7 +500,7 @@ public struct PrivateVaultPinSheet: View {
                     .padding(12)
                     .background(Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 12))
                     .onChange(of: enteredPin) { newValue in
-                        if newValue.count == 4 {
+                        if newValue.count == VaultPinStore.pinLength {
                             submitPin()
                         }
                     }
@@ -479,15 +512,15 @@ public struct PrivateVaultPinSheet: View {
                 }
 
                 Button(action: submitPin) {
-                    Text(hasPin ? "Unlock" : "Set PIN")
+                    Text(buttonTitle)
                         .fontWeight(.semibold)
                         .frame(maxWidth: 200)
                         .padding(.vertical, 12)
-                        .background(enteredPin.count == 4 ? Color.accentColor : Color.secondary.opacity(0.3))
+                        .background(enteredPin.count == VaultPinStore.pinLength ? Color.accentColor : Color.secondary.opacity(0.3))
                         .foregroundColor(.white)
                         .clipShape(Capsule())
                 }
-                .disabled(enteredPin.count != 4)
+                .disabled(enteredPin.count != VaultPinStore.pinLength)
 
                 Spacer()
             }
@@ -500,29 +533,45 @@ public struct PrivateVaultPinSheet: View {
         }
     }
 
+    private func finish() {
+        onUnlock()
+        dismiss()
+    }
+
+    private func fail(_ message: String) {
+        errorText = message
+        enteredPin = ""
+    }
+
     private func submitPin() {
         let store = VaultPinStore.shared
-        if !hasPin {
-            guard store.setPin(enteredPin) else {
-                errorText = "Could not save the PIN. Try again."
-                enteredPin = ""
-                return
-            }
-            hasPin = true
-            onUnlock()
-            dismiss()
+        guard hasPin else {
+            if store.setPin(enteredPin) { hasPin = true; finish() } else { fail("Could not save the PIN. Try again.") }
             return
         }
-        switch store.verify(enteredPin) {
-        case .unlocked:
-            onUnlock()
-            dismiss()
-        case .wrongPin:
-            errorText = "Incorrect PIN. Try again."
+        switch (mode, stage) {
+        case (.unlock, _), (.change, .current):
+            switch store.verify(enteredPin) {
+            case .unlocked:
+                if mode == .unlock { finish() } else { stage = .newPin; errorText = nil; enteredPin = "" }
+            case .wrongPin: fail("Incorrect PIN. Try again.")
+            case .locked(let seconds): fail("Too many attempts. Try again in \(seconds) s.")
+            }
+        case (.change, .newPin):
+            firstNewPin = enteredPin
+            stage = .confirmNew
+            errorText = nil
             enteredPin = ""
-        case .locked(let seconds):
-            errorText = "Too many attempts. Try again in \(seconds) s."
-            enteredPin = ""
+        case (.change, .confirmNew):
+            if enteredPin != firstNewPin {
+                stage = .newPin
+                firstNewPin = ""
+                fail("The PINs did not match. Choose a new PIN again.")
+            } else if store.setPin(enteredPin) {
+                finish()
+            } else {
+                fail("Could not save the PIN. Try again.")
+            }
         }
     }
 }

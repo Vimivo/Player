@@ -146,7 +146,7 @@ public struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .sheet(isPresented: $showPinSheet, onDismiss: { hasVaultPin = VaultPinStore.shared.hasPin }) {
-                PrivateVaultPinSheet {}
+                PrivateVaultPinSheet(mode: .change) {}
             }
             .onAppear(perform: calculateCacheSize)
         }
