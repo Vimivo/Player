@@ -23,6 +23,8 @@ composeUi = "1.11.1"
 jna = "5.19.1"
 sqliteJdbc = "3.53.4.0"
 zxing = "3.5.4"
+smbj = "0.15.0"
+sshj = "0.41.2"
 jaudiotagger = "3.0.1"
 haze = "1.7.1"
 
@@ -71,6 +73,8 @@ jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+smbj = { module = "com.hierynomus:smbj", version.ref = "smbj" }
+sshj = { module = "com.hierynomus:sshj", version.ref = "sshj" }
 jaudiotagger = { module = "net.jthink:jaudiotagger", version.ref = "jaudiotagger" }
 
 [plugins]

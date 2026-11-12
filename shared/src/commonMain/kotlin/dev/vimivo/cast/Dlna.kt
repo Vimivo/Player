@@ -147,4 +147,7 @@ object CastMime {
 
     fun forName(name: String): String =
         byExtension[name.substringAfterLast('.', "").lowercase()] ?: "video/mp4"
+
+    /** True for file names the player can open as audio or video. */
+    fun isMedia(name: String): Boolean = name.substringAfterLast('.', "").lowercase() in byExtension
 }

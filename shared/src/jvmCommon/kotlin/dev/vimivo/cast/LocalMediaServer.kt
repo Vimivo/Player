@@ -18,21 +18,42 @@ import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 
 /**
- * Serves ONE local file to a cast target, with byte ranges so the TV can seek. Only the chosen renderer
- * ([allowedClient]) may fetch it, on a random-token path, on a private LAN address; stop it when casting ends.
+ * Serves media with byte ranges so a player can seek. Only [allowedClient] may fetch, on a random-token path, on one
+ * address. Two uses: one local file to a cast target (private LAN address), or any file of a remote share to this
+ * device's own player (loopback), where [resolve] maps a relative path to its source. Stop it when done.
  */
 class LocalMediaServer(
-    private val source: CastSource,
-    private val mimeType: String,
+    private val resolve: (relativePath: String) -> CastSource?,
+    private val mimeOf: (name: String) -> String,
     private val allowedClient: InetAddress?,
     private val bindAddress: InetAddress? = localPrivateIpv4Addresses().firstOrNull(),
 ) {
+    /** Set when serving exactly one source; [start] then returns that source's URL. */
+    private var single: CastSource? = null
+
+    constructor(
+        source: CastSource,
+        mimeType: String,
+        allowedClient: InetAddress?,
+        bindAddress: InetAddress? = localPrivateIpv4Addresses().firstOrNull(),
+    ) : this({ if (it == source.name) source else null }, { mimeType }, allowedClient, bindAddress) {
+        single = source
+    }
+
     constructor(
         file: File,
         mimeType: String,
         allowedClient: InetAddress?,
         bindAddress: InetAddress? = localPrivateIpv4Addresses().firstOrNull(),
     ) : this(FileCastSource(file), mimeType, allowedClient, bindAddress)
+
+    /** The link for [relativePath] (slash separated, not encoded); null while the server is not running. */
+    fun urlFor(relativePath: String): String? = baseUrl?.let { base ->
+        base + relativePath.split('/').joinToString("/") { URLEncoder.encode(it, Charsets.UTF_8).replace("+", "%20") }
+    }
+
+    @Volatile
+    private var baseUrl: String? = null
 
     private val token = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(TOKEN_BYTES).also(SecureRandom()::nextBytes))
     private var server: ServerSocket? = null
@@ -46,14 +67,15 @@ class LocalMediaServer(
     fun start(): Result<String> {
         server?.let { return Result.success(checkNotNull(url)) }
         val address = bindAddress ?: return Result.failure(IOException("No local network connection found"))
-        if (!source.isAvailable()) return Result.failure(IOException("The file is not available"))
+        if (single?.isAvailable() == false) return Result.failure(IOException("The file is not available"))
         val socket = try {
             ServerSocket().apply { bind(InetSocketAddress(address, 0)) }
         } catch (e: IOException) {
             return Result.failure(e)
         }
         server = socket
-        url = "http://${address.hostAddress}:${socket.localPort}/m/$token/${URLEncoder.encode(source.name, Charsets.UTF_8).replace("+", "%20")}"
+        baseUrl = "http://${address.hostAddress}:${socket.localPort}/m/$token/"
+        url = single?.let { urlFor(it.name) } ?: baseUrl
         val executor = Executors.newFixedThreadPool(MAX_THREADS) { r -> Thread(r, "vimivo-cast-media").apply { isDaemon = true } }
         pool = executor
         executor.execute { acceptLoop(socket, executor) }
@@ -63,6 +85,7 @@ class LocalMediaServer(
     @Synchronized
     fun stop() {
         url = null
+        baseUrl = null
         runCatching { server?.close() }
         server = null
         pool?.shutdownNow()
@@ -95,7 +118,9 @@ class LocalMediaServer(
             val tokenOk = segments.size >= 3 && segments[1] == "m" &&
                 MessageDigest.isEqual(token.toByteArray(), segments[2].toByteArray())
             if (!tokenOk) return respond(out, 404, "Not found")
-            sendFile(out, request)
+            val relative = segments.drop(3).joinToString("/") { decode(it) }
+            val source = resolve(relative) ?: return respond(out, 404, "Not found")
+            sendFile(out, request, source, mimeOf(source.name))
         } catch (_: SocketTimeoutException) {
             // The renderer stalled; drop the connection.
         } catch (_: IOException) {
@@ -103,7 +128,7 @@ class LocalMediaServer(
         }
     }
 
-    private fun sendFile(out: OutputStream, request: Request) {
+    private fun sendFile(out: OutputStream, request: Request, source: CastSource, mimeType: String) {
         val length = source.length()
         val range = parseRange(request.range, length)
         if (range == null && request.range != null) {
@@ -161,6 +186,9 @@ class LocalMediaServer(
 
     companion object {
         private const val TOKEN_BYTES = 18
+
+        private fun decode(part: String): String =
+            runCatching { java.net.URLDecoder.decode(part.replace("+", "%2B"), Charsets.UTF_8) }.getOrDefault(part)
         private const val MAX_THREADS = 4
         private const val MAX_HEAD_BYTES = 16 * 1024
         private const val READ_TIMEOUT_MILLIS = 30_000

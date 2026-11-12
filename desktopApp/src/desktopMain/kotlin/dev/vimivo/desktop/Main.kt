@@ -447,6 +447,8 @@ private fun PlayerWindow(
 ) {
     val castSession = remember { dev.vimivo.cast.CastSession() }
     DisposableEffect(Unit) { onDispose(castSession::close) }
+    val shareHolder = remember { dev.vimivo.network.ShareSessionHolder() }
+    DisposableEffect(Unit) { onDispose(shareHolder::close) }
     val playerState by viewModel.state.collectAsState()
     val media = playerState.playback.media
     val title = remember(media?.uri, media?.title, media?.artist, playerState.loadingTitle) {
@@ -655,6 +657,7 @@ private fun PlayerWindow(
                 }
                 if (playerState.networkShareVisible) {
                     dev.vimivo.desktop.network.DesktopNetworkShareDialog(
+                        holder = shareHolder,
                         onOpenUrl = { uri, _ ->
                             viewModel.dispatch(PlayerIntent.OpenLink(uri))
                         },
