@@ -151,6 +151,41 @@ public struct VideoPlayerView: View {
 
     @ViewBuilder
     private var videoLayer: some View {
+        if engine.usingMpv {
+            mpvLayer
+        } else {
+            systemLayer
+        }
+    }
+
+    /// Matroska, AVI and the rest: libmpv draws the picture and its own subtitles.
+    private var mpvLayer: some View {
+        MpvVideoSurface(backend: engine.mpv)
+            .scaleEffect(model.zoom)
+            .modifier(VideoTurn(rotation: model.videoRotation, videoSize: engine.mpv.videoSize))
+            .ignoresSafeArea()
+            .accessibilityLabel(engine.state.currentItem?.title ?? "Video")
+            .onAppear { applyMpvPicture() }
+            .onChange(of: model.aspect) { _ in applyMpvPicture() }
+            .onChange(of: engine.pictureSettings) { _ in applyMpvPicture() }
+    }
+
+    private func applyMpvPicture() {
+        let mode: MpvAspectMode
+        switch model.aspect {
+        case .fit: mode = .fit
+        case .crop: mode = .crop
+        case .stretch: mode = .stretch
+        case .ratio16x9: mode = .sixteenNine
+        case .ratio4x3: mode = .fourThree
+        }
+        engine.mpv.setAspect(mode)
+        let p = engine.pictureSettings
+        engine.mpv.setPicture(brightness: p.brightness, contrast: p.contrast, saturation: p.saturation, gamma: p.gamma, hue: p.hue)
+    }
+
+    @ViewBuilder
+    private var systemLayer: some View {
         let layer = PlayerLayerView(player: engine.player, gravity: model.aspect.gravity, model: model)
         Group {
             if let ratio = model.aspect.frameRatio {

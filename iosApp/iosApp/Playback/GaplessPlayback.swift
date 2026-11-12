@@ -40,6 +40,11 @@ extension AVPlayerPlaybackEngine {
             return
         }
         let next = queue[index]
+        // A file only libmpv can play (Ogg, Opus, Matroska audio, ...) is loaded when its turn comes, not queued.
+        if let url = resolveURL(for: next), MpvFormats.prefersMpv(url) {
+            clearPrepared()
+            return
+        }
         guard next.kind == .audio, next.id != media.id else {
             clearPrepared()
             return

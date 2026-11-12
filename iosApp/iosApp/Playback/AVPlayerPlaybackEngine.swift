@@ -44,6 +44,10 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     var currentPlayerItem: AVPlayerItem?
     /// True while a video plays as audio only: the picture is switched off and the sound goes on.
     @Published public private(set) var listeningAsAudio = false
+    /// True while libmpv (not AVPlayer) plays the current item: Matroska, AVI, WebM and the other files AVFoundation cannot open.
+    @Published public internal(set) var usingMpv = false
+    let mpv = MpvBackend.shared
+    var mpvSubscriptions: [AnyCancellable] = []
     var preparedNext: PreparedNext?
     var currentItemObservation: NSKeyValueObservation?
     /// How many items were loaded from scratch; a gapless advance does not count (tests read this).
@@ -62,6 +66,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         RemoteCommandController.shared.delegate = self
         RemoteCommandController.shared.configureCommands()
         audioEffects.update(settings: audioSettings)
+        bindMpv()
         setupTimeObserver()
         setupEndObserver()
         observeQueueAdvance()
@@ -171,6 +176,13 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     }
 
     public func resume() {
+        if usingMpv {
+            AudioSessionController.shared.configureSession()
+            mpv.play()
+            state.status = .playing
+            updateNowPlaying()
+            return
+        }
         // A queue restored at launch has no player item yet; load it so resume rules apply.
         if player.currentItem == nil, let item = state.currentItem {
             loadItem(item)
@@ -183,6 +195,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     }
 
     public func pause() {
+        if usingMpv { mpv.pause() }
         player.pause()
         state.status = .paused
         updateNowPlaying()
@@ -199,6 +212,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
 
     public func stop() {
         checkpoint()
+        stopMpvIfActive()
         itemStatusObservation?.invalidate()
         itemStatusObservation = nil
         player.pause()
@@ -219,6 +233,12 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     }
 
     public func seek(toMillis millis: Int64) {
+        if usingMpv {
+            mpv.seek(toSeconds: Double(millis) / 1000.0)
+            state.positionMillis = millis
+            updateNowPlaying()
+            return
+        }
         let seconds = Double(millis) / 1000.0
         let targetTime = CMTime(seconds: seconds, preferredTimescale: 600)
         player.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
@@ -229,6 +249,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
 
     public func setPlaybackRate(_ rate: Float) {
         state.playbackRate = rate
+        if usingMpv { mpv.setSpeed(Double(rate)) }
         // defaultRate makes later play() calls (resume, next item) keep the chosen speed.
         player.defaultRate = rate
         if state.status == .playing {
@@ -245,7 +266,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
 
     /// An unplayable item never stops the queue: it is reported and the next item starts. Once every item
     /// has failed in a row, playback stops instead of looping.
-    private func skipFailedItem(message: String) {
+    func skipFailedItem(message: String) {
         state.status = .error
         state.errorMessage = message
         updateNowPlaying()
@@ -305,6 +326,12 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         IOSDatabase.shared.recordPlayStart(mediaId: item.id)
         lastCheckpointMillis = startMillis
 
+        if MpvBackend.isAvailable && MpvFormats.prefersMpv(playUrl) {
+            startMpv(item: item, url: playUrl, startMillis: startMillis)
+            return
+        }
+        stopMpvIfActive()
+
         let playerItem = AVPlayerItem(url: playUrl)
         // Pitch-corrected and valid for the whole 0.25×–4× range; low-latency algorithms stop at 2×.
         playerItem.audioTimePitchAlgorithm = .timeDomain
@@ -334,6 +361,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     /// Hides or restores the picture of the current video without touching the sound.
     public func setListeningAsAudio(_ listening: Bool) {
         listeningAsAudio = listening
+        if usingMpv { mpv.setVideoEnabled(!listening) }
         applyVideoEnabled(to: player.currentItem)
     }
 
@@ -364,6 +392,12 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
                     }
                 case .failed:
                     self.itemStatusObservation = nil
+                    // AVFoundation could not open it; libmpv opens almost anything, so it gets the file before it is skipped.
+                    if MpvBackend.isAvailable, let current = self.state.currentItem, !self.usingMpv,
+                       let url = self.resolveURL(for: current) {
+                        self.startMpv(item: current, url: url, startMillis: startMillis)
+                        return
+                    }
                     self.skipFailedItem(message: observedItem.error?.localizedDescription ?? "This file could not be played")
                     self.updateNowPlaying()
                 default:
@@ -387,7 +421,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         legibleOutputItem = item
     }
 
-    private func detachLegibleOutput() {
+    func detachLegibleOutput() {
         legibleOutputItem?.remove(legibleOutput)
         legibleOutputItem = nil
     }
@@ -396,7 +430,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             // Paused counts too: a frame step moves the position while nothing plays.
-            guard let self = self, self.state.status == .playing || self.state.status == .paused else { return }
+            guard let self = self, !self.usingMpv,
+                  self.state.status == .playing || self.state.status == .paused else { return }
             let seconds = CMTimeGetSeconds(time)
             if !seconds.isNaN && seconds >= 0 {
                 self.state.positionMillis = Int64(seconds * 1000)
@@ -479,7 +514,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         )
     }
 
-    private func checkpoint() {
+    func checkpoint() {
         guard let item = state.currentItem, state.positionMillis > 0, state.status != .error else { return }
         IOSDatabase.shared.savePosition(mediaId: item.id, positionMillis: state.positionMillis, completed: false)
         lastCheckpointMillis = state.positionMillis
@@ -566,4 +601,103 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     public func remoteNext() { playNext() }
     public func remotePrevious() { playPrevious() }
     public func remoteSeek(to positionSeconds: Double) { seek(toMillis: Int64(positionSeconds * 1000)) }
+}
+
+
+// MARK: - libmpv (Matroska, AVI, WebM, and everything AVFoundation cannot play)
+
+extension AVPlayerPlaybackEngine {
+    /// Mirrors libmpv's position, length and play state into `state` while it is the active player.
+    func bindMpv() {
+        mpv.$positionSeconds.receive(on: DispatchQueue.main).sink { [weak self] seconds in
+            guard let self, self.usingMpv, seconds >= 0 else { return }
+            self.state.positionMillis = Int64(seconds * 1000)
+            if abs(self.state.positionMillis - self.lastCheckpointMillis) >= PlaybackPreferences.checkpointIntervalMillis {
+                self.checkpoint()
+            }
+            self.updateNowPlaying()
+        }.store(in: &mpvSubscriptions)
+        mpv.$durationSeconds.receive(on: DispatchQueue.main).sink { [weak self] seconds in
+            guard let self, self.usingMpv, seconds > 0 else { return }
+            self.state.durationMillis = Int64(seconds * 1000)
+        }.store(in: &mpvSubscriptions)
+        mpv.$isPaused.receive(on: DispatchQueue.main).sink { [weak self] paused in
+            guard let self, self.usingMpv, self.state.status != .buffering, self.state.status != .error else { return }
+            self.state.status = paused ? .paused : .playing
+            self.updateNowPlaying()
+        }.store(in: &mpvSubscriptions)
+        mpv.$isBuffering.receive(on: DispatchQueue.main).sink { [weak self] buffering in
+            guard let self, self.usingMpv else { return }
+            if buffering { self.state.status = .buffering } else if self.state.status == .buffering {
+                self.state.status = self.mpv.isPaused ? .paused : .playing
+            }
+        }.store(in: &mpvSubscriptions)
+        mpv.$videoSize.receive(on: DispatchQueue.main).sink { [weak self] size in
+            guard let self, self.usingMpv, size.width > 0 else { return }
+            self.state.videoWidth = Int(size.width)
+            self.state.videoHeight = Int(size.height)
+        }.store(in: &mpvSubscriptions)
+    }
+
+    /// Hands the current item to libmpv. AVPlayer is emptied so only one engine makes sound.
+    func startMpv(item: MediaItem, url: URL, startMillis: Int64) {
+        player.pause()
+        clearPrepared()
+        player.removeAllItems()
+        currentPlayerItem = nil
+        detachLegibleOutput()
+        usingMpv = true
+        itemLoads += 1
+        AudioSessionController.shared.configureSession()
+        mpv.onLoaded = { [weak self] in
+            guard let self, self.usingMpv else { return }
+            self.mpv.setSpeed(Double(self.state.playbackRate))
+            self.state.status = self.mpv.isPaused ? .paused : .playing
+            self.updateNowPlaying()
+        }
+        mpv.onFinished = { [weak self] failed, message in self?.mpvFinished(failed: failed, message: message) }
+        let wantsVideo = item.kind == .video && !listeningAsAudio
+        guard mpv.load(url, startSeconds: Double(startMillis) / 1000.0, wantsVideo: wantsVideo) else {
+            usingMpv = false
+            skipFailedItem(message: "The media engine could not start")
+            return
+        }
+        state.status = .playing
+        state.positionMillis = startMillis
+        updateNowPlaying()
+    }
+
+    func stopMpvIfActive() {
+        guard usingMpv else { return }
+        mpv.onFinished = nil
+        mpv.stop()
+        usingMpv = false
+    }
+
+    /// libmpv reached the end of the file, or could not play it.
+    func mpvFinished(failed: Bool, message: String?) {
+        guard usingMpv else { return }
+        if failed {
+            usingMpv = false
+            mpv.stop()
+            skipFailedItem(message: message ?? "This file could not be played")
+            return
+        }
+        if let item = state.currentItem {
+            IOSDatabase.shared.savePosition(mediaId: item.id, positionMillis: state.durationMillis, completed: true)
+            lastCheckpointMillis = state.durationMillis
+        }
+        if sleepTimer.consumeStopAfterCurrent() {
+            mpv.pause()
+            state.status = .paused
+            updateNowPlaying()
+            return
+        }
+        if queueModel.repeat == .one {
+            seek(toMillis: 0)
+            resume()
+        } else {
+            playNext()
+        }
+    }
 }

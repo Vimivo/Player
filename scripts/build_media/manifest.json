@@ -191,6 +191,11 @@
         "-Dcoretext=disabled",
         "-Ddirectwrite=disabled",
         "-Drequire-system-font-provider=false"
+      ],
+      "options_ios": [
+        "-Dcoretext=enabled",
+        "-Dfontconfig=disabled",
+        "-Ddirectwrite=disabled"
       ]
     },
     {
@@ -242,6 +247,12 @@
       ],
       "license_files": [
         "COPYING"
+      ],
+      "platforms": [
+        "macos",
+        "windows",
+        "linux",
+        "android"
       ]
     },
     {
@@ -520,6 +531,13 @@
         "--enable-mediacodec",
         "--disable-vulkan",
         "--disable-indev=android_camera"
+      ],
+      "options_ios": [
+        "--enable-videotoolbox",
+        "--enable-audiotoolbox",
+        "--enable-securetransport",
+        "--enable-iconv",
+        "--extra-libs=-liconv"
       ]
     },
     {
@@ -610,6 +628,26 @@
         "-Dspirv-cross=disabled",
         "-Diconv=enabled",
         "-Dlibbluray=disabled"
+      ],
+      "options_ios": [
+        "-Dios-gl=enabled",
+        "-Dgl=enabled",
+        "-Daudiounit=enabled",
+        "-Dcoreaudio=disabled",
+        "-Dcocoa=disabled",
+        "-Dgl-cocoa=disabled",
+        "-Dvideotoolbox-gl=disabled",
+        "-Dswift-build=disabled",
+        "-Dmacos-cocoa-cb=disabled",
+        "-Dmacos-media-player=disabled",
+        "-Dx11=disabled",
+        "-Dwayland=disabled",
+        "-Degl=disabled",
+        "-Dshaderc=disabled",
+        "-Dspirv-cross=disabled",
+        "-Dlibbluray=disabled",
+        "-Dzimg=disabled",
+        "-Diconv=enabled"
       ]
     }
   ],
@@ -622,5 +660,9 @@
       "x86_64"
     ],
     "comment": "NDK r27b (pinned by its Pkg.Revision); libraries carry 16 KB-aligned segments for Android 15+ page sizes. zimg (libtool) links the NDK's libc++_shared.so, which the package then ships."
+  },
+  "ios": {
+    "deployment_target": "16.0",
+    "comment": "iOS links every static library into one dynamic VimivoMedia.framework (XCFramework with device and simulator slices). LGPL relinking: rebuild with these scripts and replace the framework."
   }
 }

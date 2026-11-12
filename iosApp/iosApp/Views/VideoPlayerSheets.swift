@@ -21,8 +21,10 @@ struct PlayerSheetView: View {
             Group {
                 switch sheet {
                 case .speed: speedContent
-                case .audio: audioContent
-                case .subtitles: subtitleContent
+                case .audio:
+                    if engine.usingMpv { MpvAudioSheetContent(engine: engine, backend: engine.mpv) } else { audioContent }
+                case .subtitles:
+                    if engine.usingMpv { MpvSubtitleSheetContent(backend: engine.mpv) } else { subtitleContent }
                 case .options: optionsContent
                 case .queue: nextUpContent
                 case .tools: toolsContent
@@ -681,7 +683,7 @@ private struct ChoiceChip: View {
     }
 }
 
-private struct SelectableRow: View {
+struct SelectableRow: View {
     let title: String
     let detail: String?
     let selected: Bool

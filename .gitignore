@@ -16,3 +16,10 @@ testmedia/pack/
 
 # Android CMake (externalNativeBuild) intermediates
 **/.cxx/
+
+# Local native media build (scripts/build_media)
+build-media/
+.venv-media/
+
+# Native media framework built by scripts/build_media (not committed)
+iosApp/Frameworks/

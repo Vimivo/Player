@@ -95,9 +95,51 @@ def static_report(libdir, ffmpeg_build):
     return report
 
 
+def verify_ios(package, report_path):
+    """iOS ships one dynamic framework per SDK with every library linked in statically, so it is read as a binary:
+    FFmpeg embeds its licence and configure line, and libmpv embeds its build options (ADR-004)."""
+    import re
+    import subprocess
+
+    binaries = sorted(package.glob("VimivoMedia.xcframework/*/VimivoMedia.framework/VimivoMedia"))
+    failures = []
+    report = {"slices": {}}
+    if len(binaries) < 2:
+        failures.append("expected a device slice and a simulator slice")
+    for binary in binaries:
+        slice_name = binary.parents[1].name
+        text = subprocess.run(["strings", "-a", str(binary)], capture_output=True, text=True, check=True).stdout
+        exported = subprocess.run(["nm", "-gU", str(binary)], capture_output=True, text=True, check=True).stdout
+        entry = {"lgpl_2_1": EXPECTED_LICENSE in text, "mpv_exported": "_mpv_create" in exported and "_mpv_render_context_create" in exported}
+        if not entry["lgpl_2_1"]:
+            failures.append(f"{slice_name}: FFmpeg does not report '{EXPECTED_LICENSE}'")
+        for flag in FORBIDDEN_CONFIGURE_FLAGS:
+            if re.search(r"(?<![\w-])" + re.escape(flag) + r"(?![\w-])", text):
+                failures.append(f"{slice_name}: FFmpeg was configured with {flag}")
+        if "-Dgpl=false" not in text:
+            failures.append(f"{slice_name}: libmpv does not embed -Dgpl=false")
+        if not entry["mpv_exported"]:
+            failures.append(f"{slice_name}: the libmpv client and render APIs are not exported")
+        for filter_name in ("yadif", "bwdif", "equalizer", "alimiter", "colorbalance"):
+            if filter_name.encode() not in text.encode():
+                failures.append(f"{slice_name}: required filter {filter_name} is missing")
+        for gpl_name in GPL_ONLY_FILTERS:
+            if re.search(r"(?<![\w])" + re.escape(gpl_name) + r"(?![\w])", text) and gpl_name in ("mcdeint", "kerndeint"):
+                failures.append(f"{slice_name}: GPL-only filter {gpl_name} is present")
+        report["slices"][slice_name] = entry
+    report["result"] = "fail" if failures else "pass"
+    report["failures"] = failures
+    if report_path:
+        report_path.write_text(json.dumps(report, indent=2) + "\n")
+    print(json.dumps({k: report[k] for k in ("result", "failures")}, indent=2))
+    sys.exit(1 if failures else 0)
+
+
 def main():
     package = Path(sys.argv[1]).resolve()
     report_path = Path(sys.argv[sys.argv.index("--report") + 1]) if "--report" in sys.argv else None
+    if (package / "VimivoMedia.xcframework").is_dir():
+        verify_ios(package, report_path)
     libdir = package / ("bin" if (package / "bin").is_dir() else "lib")
     if os.name == "nt":
         os.add_dll_directory(str(libdir))

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		31710 /* MpvBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31712 /* MpvBackend.swift */; };
+		31711 /* MpvSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31713 /* MpvSheets.swift */; };
 		31700 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 31702 /* Localizable.strings */; };
 		1043 /* VideoThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2043 /* VideoThumbnailView.swift */; };
 		1042 /* VideoPlayerSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2042 /* VideoPlayerSheets.swift */; };
@@ -124,6 +126,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		31712 /* MpvBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MpvBackend.swift; sourceTree = "<group>"; };
+		31713 /* MpvSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MpvSheets.swift; sourceTree = "<group>"; };
 		31701 /* bn */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = bn; path = bn.lproj/Localizable.strings; sourceTree = "<group>"; };
 		2043 /* VideoThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoThumbnailView.swift; sourceTree = "<group>"; };
 		2042 /* VideoPlayerSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerSheets.swift; sourceTree = "<group>"; };
@@ -306,6 +310,7 @@
 				2100 /* PlaybackPreferences.swift */,
 				2009 /* RemoteCommandController.swift */,
 				2010 /* AVPlayerPlaybackEngine.swift */,
+				31712 /* MpvBackend.swift */,
 				2031 /* WidgetPlaybackSnapshotStore.swift */,
 				2032 /* WidgetPlaybackIntents.swift */,
 			);
@@ -386,6 +391,7 @@
 				2014 /* NowPlayingView.swift */,
 				2015 /* VideoPlayerView.swift */,
 				2042 /* VideoPlayerSheets.swift */,
+				31713 /* MpvSheets.swift */,
 				2041 /* VideoPlayerGestures.swift */,
 				2040 /* VideoPlayerModel.swift */,
 				2016 /* QueueView.swift */,
@@ -432,6 +438,7 @@
 				7002 /* Sources */,
 				3001 /* Frameworks */,
 				7003 /* Resources */,
+				7010 /* Embed VimivoMedia (libmpv) */,
 				7007 /* Embed App Extensions */,
 			);
 			buildRules = (
@@ -560,6 +567,24 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		7010 /* Embed VimivoMedia */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed VimivoMedia (libmpv)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "slice=\"ios-arm64\"\n[ \"$PLATFORM_NAME\" = \"iphonesimulator\" ] && slice=\"ios-arm64-simulator\"\nFW=\"$SRCROOT/Frameworks/VimivoMedia.xcframework/$slice/VimivoMedia.framework\"\nif [ -d \"$FW\" ]; then\n  DEST=\"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH\"\n  mkdir -p \"$DEST\"\n  rsync -a --delete \"$FW\" \"$DEST/\"\n  if [ -n \"$EXPANDED_CODE_SIGN_IDENTITY\" ]; then codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --preserve-metadata=identifier,entitlements \"$DEST/VimivoMedia.framework\"; fi\nelse\n  echo \"note: VimivoMedia.framework not found; MKV and AVI playback are off (build it with scripts/build_media)\"\nfi\n";
+		};
 		7001 /* Run Kotlin Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -609,6 +634,8 @@
 				1100 /* PlaybackPreferences.swift in Sources */,
 				1009 /* RemoteCommandController.swift in Sources */,
 				1010 /* AVPlayerPlaybackEngine.swift in Sources */,
+				31710 /* MpvBackend.swift in Sources */,
+				31711 /* MpvSheets.swift in Sources */,
 				1011 /* ArtworkThumbnailView.swift in Sources */,
 				1090 /* VimivoTabBar.swift in Sources */,
 				1012 /* MediaRow.swift in Sources */,
@@ -736,6 +763,16 @@
 					"$(inherited)",
 					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/ios-arm64",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/ios-arm64-simulator",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
@@ -769,6 +806,16 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/ios-arm64",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/ios-arm64-simulator",
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",

@@ -41,6 +41,27 @@ jobs:
           name: media-macos-universal
           path: out/
 
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build tools (hash-pinned)
+        run: python3 -m pip install --require-hashes -r scripts/build_media/requirements-build.txt
+      - name: Build the device and simulator slices into VimivoMedia.xcframework
+        run: python3 scripts/build_media/build.py --target ios --work "$RUNNER_TEMP/media" --out out
+      - name: Verify (licence, configuration, exported API)
+        run: |
+          mkdir verify && tar -xJf out/*.tar.xz -C verify
+          python3 scripts/build_media/verify.py verify/* --report out/verify-ios.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: media-ios
+          path: out/
+
   macos-intel-verify:
     needs: macos
     runs-on: macos-15-intel

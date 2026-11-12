@@ -68,9 +68,14 @@ public final class SleepTimerModel: ObservableObject {
 private final class EnginePlayer: NSObject, SleepTimerPlayer {
     weak var engine: AVPlayerPlaybackEngine?
 
-    func volume() -> Float { engine?.player.volume ?? 1 }
+    func volume() -> Float {
+        if engine?.usingMpv == true { return Float((engine?.mpv.volumePercent ?? 100) / 100) }
+        return engine?.player.volume ?? 1
+    }
 
-    func setVolume(volume_ volume: Float) { engine?.player.volume = volume }
+    func setVolume(volume_ volume: Float) {
+        if engine?.usingMpv == true { engine?.mpv.setVolume(percent: Double(volume) * 100) } else { engine?.player.volume = volume }
+    }
 
     func isPlaying() -> Bool { engine?.state.status == .playing }
 

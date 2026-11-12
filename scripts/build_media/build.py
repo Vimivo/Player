@@ -105,7 +105,7 @@ def check_member(archive, member):
         sys.exit(f"{archive.name}: device file {member.name}")
 
 
-DEFAULT_PLATFORMS = ["macos", "windows", "linux", "android"]
+DEFAULT_PLATFORMS = ["macos", "windows", "linux", "android", "ios"]
 # Android ABI -> (clang target triple prefix, FFmpeg --arch, meson cpu_family, meson cpu).
 ANDROID_ABIS = {
     "arm64-v8a": ("aarch64-linux-android", "aarch64", "aarch64", "armv8-a"),
@@ -138,14 +138,27 @@ def android_toolchain_bin():
 class Target:
     """One build: a platform, an architecture and a prefix everything installs into."""
 
-    def __init__(self, system, arch, work):
+    def __init__(self, system, arch, work, sdk=None):
         self.system = system
         self.arch = arch
-        self.name = f"{system}-{arch}"
+        self.sdk = sdk  # iOS only: "iphoneos" (device) or "iphonesimulator"
+        self.name = f"{system}-{sdk}-{arch}" if sdk else f"{system}-{arch}"
         self.work = work / self.name
         self.prefix = self.work / "prefix"
         self.host_arch = platform.machine().replace("aarch64", "arm64").replace("AMD64", "x86_64")
-        self.cross = system in ("windows", "android") or (system == "macos" and arch != self.host_arch)
+        self.cross = system in ("windows", "android", "ios") or (system == "macos" and arch != self.host_arch)
+        # iOS has no loose dylibs: everything is built static and linked into one dynamic framework (see package_ios).
+        self.static = system == "ios"
+
+    def ios_sdk_path(self):
+        return subprocess.check_output(["xcrun", "--sdk", self.sdk, "--show-sdk-path"], text=True).strip()
+
+    def ios_triple(self):
+        suffix = "-simulator" if self.sdk == "iphonesimulator" else ""
+        return f"{self.arch}-apple-ios{MANIFEST['ios']['deployment_target']}{suffix}"
+
+    def ios_flags(self):
+        return ["-target", self.ios_triple(), "-isysroot", self.ios_sdk_path()]
 
     def android_tool(self, name):
         """An NDK LLVM tool, or the API-levelled clang driver for this ABI ("clang", "clang++")."""
@@ -173,6 +186,13 @@ class Target:
             flags += f" -arch {self.arch} -mmacosx-version-min={minimum}"
             ldflags += f" -arch {self.arch} -mmacosx-version-min={minimum} -Wl,-headerpad_max_install_names"
             env["MACOSX_DEPLOYMENT_TARGET"] = minimum
+        if self.system == "ios":
+            device_flags = " ".join(self.ios_flags())
+            flags += f" {device_flags} -fPIC"
+            ldflags += f" {device_flags}"
+            env["CC"] = "clang"
+            env["CXX"] = "clang++"
+            env["IPHONEOS_DEPLOYMENT_TARGET"] = MANIFEST["ios"]["deployment_target"]
         if self.system == "windows":
             ldflags += " -static-libgcc -static-libstdc++"
         if self.system == "android":
@@ -191,6 +211,7 @@ class Target:
         return {
             ("macos", "x86_64"): "x86_64-apple-darwin",
             ("macos", "arm64"): "aarch64-apple-darwin",
+            ("ios", "arm64"): "aarch64-apple-darwin",
             ("windows", "x86_64"): "x86_64-w64-mingw32",
             ("linux", "x86_64"): "x86_64-linux-gnu",
             ("android", "arm64-v8a"): "aarch64-linux-android",
@@ -213,6 +234,20 @@ class Target:
                 f"[built-in options]\nc_args = {arch_args}\ncpp_args = {arch_args}\nobjc_args = {arch_args}\n"
                 f"c_link_args = {link_args}\ncpp_link_args = {link_args}\nobjc_link_args = {link_args}\n"
                 f"[host_machine]\nsystem = 'darwin'\ncpu_family = '{cpu}'\ncpu = '{cpu}'\nendian = 'little'\n"
+            )
+        elif self.system == "ios":
+            device = ", ".join(f"'{flag}'" for flag in self.ios_flags())
+            compile_args = f"[{device}, '-I{self.prefix}/include', '-fPIC']"
+            link_args = f"[{device}, '-L{self.prefix}/lib']"
+            path.write_text(
+                "[binaries]\n"
+                "c = 'clang'\ncpp = 'clang++'\nobjc = 'clang'\nobjcpp = 'clang++'\nar = 'ar'\nstrip = 'strip'\n"
+                "pkg-config = 'pkg-config'\n"
+                f"[built-in options]\nc_args = {compile_args}\ncpp_args = {compile_args}\n"
+                f"objc_args = {compile_args}\nobjcpp_args = {compile_args}\n"
+                f"c_link_args = {link_args}\ncpp_link_args = {link_args}\nobjc_link_args = {link_args}\n"
+                "[properties]\nneeds_exe_wrapper = true\n"
+                f"[host_machine]\nsystem = 'darwin'\ncpu_family = 'aarch64'\ncpu = 'aarch64'\nendian = 'little'\n"
             )
         elif self.system == "android":
             _, _, cpu_family, cpu = ANDROID_ABIS[self.arch]
@@ -242,11 +277,23 @@ class Target:
             )
         return ["--cross-file", path]
 
+    def meson_native_file(self):
+        """Tools that run during the build (code generators) are built for this Mac, not for the iOS target."""
+        if self.system != "ios":
+            return []
+        path = self.work / "meson-native.ini"
+        path.write_text("[binaries]\nc = 'clang'\ncpp = 'clang++'\nobjc = 'clang'\nobjcpp = 'clang++'\nar = 'ar'\nstrip = 'strip'\n"
+                        "pkg-config = 'pkg-config'\n")
+        return ["--native-file", path]
+
     def cmake_args(self):
         args = []
         if self.system == "macos":
             args += [f"-DCMAKE_OSX_ARCHITECTURES={self.arch}",
                      f"-DCMAKE_OSX_DEPLOYMENT_TARGET={MANIFEST['macos_deployment_target']}"]
+        if self.system == "ios":
+            args += ["-DCMAKE_SYSTEM_NAME=iOS", f"-DCMAKE_OSX_SYSROOT={self.sdk}", f"-DCMAKE_OSX_ARCHITECTURES={self.arch}",
+                     f"-DCMAKE_OSX_DEPLOYMENT_TARGET={MANIFEST['ios']['deployment_target']}"]
         if self.system == "windows":
             args += ["-DCMAKE_SYSTEM_NAME=Windows", "-DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc",
                      "-DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++", "-DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres",
@@ -266,8 +313,13 @@ class Target:
 # ---- builders ----------------------------------------------------------------------------------------------------
 def build_meson(target, component, source, env):
     build = source / "_build"
+    if target.system == "ios":
+        # The cross file already carries the iOS flags; the same variables in the environment would also be applied to
+        # the build machine's compiler and make it produce iOS programs that cannot run here.
+        env = {k: v for k, v in env.items() if k not in ("CFLAGS", "CXXFLAGS", "LDFLAGS", "OBJCFLAGS")}
     run(["meson", "setup", build, source, f"--prefix={target.prefix}", "--libdir=lib", "--buildtype=release",
-         "-Ddefault_library=shared", "-Db_ndebug=true", *target.meson_cross_file(), *target.platform_options(component)],
+         f"-Ddefault_library={'static' if target.static else 'shared'}", "-Db_ndebug=true", *target.meson_cross_file(), *target.meson_native_file(),
+         *target.platform_options(component)],
         env=env)
     run(["ninja", "-C", build, "-j", JOBS], env=env)
     run(["ninja", "-C", build, "install"], env=env)
@@ -276,7 +328,7 @@ def build_meson(target, component, source, env):
 def build_cmake(target, component, source, env):
     build = source / "_build"
     run(["cmake", "-S", source, "-B", build, "-G", "Ninja", f"-DCMAKE_INSTALL_PREFIX={target.prefix}",
-         "-DCMAKE_INSTALL_LIBDIR=lib", "-DCMAKE_BUILD_TYPE=Release", "-DBUILD_SHARED_LIBS=ON",
+         "-DCMAKE_INSTALL_LIBDIR=lib", "-DCMAKE_BUILD_TYPE=Release", f"-DBUILD_SHARED_LIBS={'OFF' if target.static else 'ON'}",
          "-DCMAKE_POLICY_VERSION_MINIMUM=3.5", *target.cmake_args(), *target.platform_options(component)], env=env)
     run(["cmake", "--build", build, "-j", JOBS], env=env)
     run(["cmake", "--install", build], env=env)
@@ -286,20 +338,24 @@ def build_autotools(target, component, source, env):
     if component.get("autoreconf"):
         run(["autoreconf", "-fi"], cwd=source, env=env)
     host = [f"--host={target.triplet()}"] if target.cross else []
-    run(["./configure", f"--prefix={target.prefix}", "--libdir=" + str(target.prefix / "lib"), "--enable-shared",
-         "--disable-static", *host, *target.platform_options(component)], cwd=source, env=env)
+    linking = ["--disable-shared", "--enable-static"] if target.static else ["--enable-shared", "--disable-static"]
+    run(["./configure", f"--prefix={target.prefix}", "--libdir=" + str(target.prefix / "lib"), *linking,
+         *host, *target.platform_options(component)], cwd=source, env=env)
     run(["make", "-j", JOBS], cwd=source, env=env)
     run(["make", "install"], cwd=source, env=env)
 
 
 def build_ffmpeg(target, component, source, env):
-    args = [f"--prefix={target.prefix}", "--enable-shared", "--disable-static",
+    linking = ["--disable-shared", "--enable-static"] if target.static else ["--enable-shared", "--disable-static"]
+    args = [f"--prefix={target.prefix}", *linking,
             f"--extra-cflags={env['CFLAGS']}", f"--extra-ldflags={env['LDFLAGS']}",
             "--pkg-config=pkg-config"]
     if target.system == "macos":
         args += ["--install-name-dir=@rpath", "--target-os=darwin", f"--arch={target.arch}", "--cc=clang"]
         if target.cross:
             args += ["--enable-cross-compile"]
+    if target.system == "ios":
+        args += ["--target-os=darwin", f"--arch={target.arch}", "--cc=clang", "--enable-cross-compile"]
     if target.system == "windows":
         args += ["--target-os=mingw32", "--arch=x86_64", "--cross-prefix=x86_64-w64-mingw32-", "--enable-cross-compile"]
     if target.system == "android":
@@ -621,9 +677,74 @@ def package_android(targets, out):
     return staging
 
 
+# ---- iOS -----------------------------------------------------------------------------------------------------------
+IOS_SYSTEM_FRAMEWORKS = ["Foundation", "CoreFoundation", "CoreGraphics", "CoreText", "CoreVideo", "CoreMedia", "CoreAudio",
+                         "AudioToolbox", "VideoToolbox", "QuartzCore", "OpenGLES", "Security", "UIKit"]
+IOS_UMBRELLA_HEADERS = ["client.h", "render.h", "render_gl.h", "stream_cb.h"]
+
+
+def link_ios_framework(target):
+    """Links every static library of one SDK into VimivoMedia.framework, a dynamic framework exporting only mpv's API."""
+    framework = target.work / "framework" / "VimivoMedia.framework"
+    if framework.parent.exists():
+        shutil.rmtree(framework.parent)
+    (framework / "Headers").mkdir(parents=True)
+    (framework / "Modules").mkdir()
+    for header in IOS_UMBRELLA_HEADERS:
+        shutil.copy2(target.prefix / "include" / "mpv" / header, framework / "Headers" / header)
+    (framework / "Headers" / "VimivoMedia.h").write_text(
+        "\n".join(f'#include "{h}"' for h in IOS_UMBRELLA_HEADERS) + "\n")
+    (framework / "Modules" / "module.modulemap").write_text(
+        'framework module VimivoMedia {\n    umbrella header "VimivoMedia.h"\n    export *\n    module * { export * }\n}\n')
+    minimum = MANIFEST["ios"]["deployment_target"]
+    platform_name = "iPhoneSimulator" if target.sdk == "iphonesimulator" else "iPhoneOS"
+    (framework / "Info.plist").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+        '<plist version="1.0"><dict>\n'
+        '<key>CFBundleExecutable</key><string>VimivoMedia</string>\n'
+        '<key>CFBundleIdentifier</key><string>dev.vimivo.media</string>\n'
+        '<key>CFBundleName</key><string>VimivoMedia</string>\n'
+        '<key>CFBundlePackageType</key><string>FMWK</string>\n'
+        f'<key>CFBundleShortVersionString</key><string>{MANIFEST["release"]}</string>\n'
+        f'<key>CFBundleVersion</key><string>{MANIFEST["release"]}</string>\n'
+        f'<key>MinimumOSVersion</key><string>{minimum}</string>\n'
+        f'<key>CFBundleSupportedPlatforms</key><array><string>{platform_name}</string></array>\n'
+        '</dict></plist>\n')
+    exports = target.work / "exports.txt"
+    exports.write_text("_mpv_*\n")
+    libraries = sorted((target.prefix / "lib").glob("*.a"))
+    mpv = target.prefix / "lib" / "libmpv.a"
+    if not mpv.is_file():
+        sys.exit(f"{mpv} is missing: mpv did not build as a static library")
+    command = ["clang", "-dynamiclib", *target.ios_flags(), "-install_name", "@rpath/VimivoMedia.framework/VimivoMedia",
+               "-Wl,-exported_symbols_list," + str(exports), "-Wl,-dead_strip", "-Wl,-x",
+               "-o", framework / "VimivoMedia", f"-Wl,-force_load,{mpv}",
+               *[lib for lib in libraries if lib != mpv], "-lc++", "-liconv", "-lz", "-lbz2"]
+    for name in IOS_SYSTEM_FRAMEWORKS:
+        command += ["-framework", name]
+    run(command)
+    return framework
+
+
+def package_ios(targets, out):
+    frameworks = [link_ios_framework(t) for t in targets]
+    staging = out / f"vimivo-media-{MANIFEST['release']}-ios"
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True)
+    xcframework = staging / "VimivoMedia.xcframework"
+    command = ["xcodebuild", "-create-xcframework", "-output", xcframework]
+    for framework in frameworks:
+        command += ["-framework", framework]
+    run(command)
+    shutil.copytree(targets[0].prefix / "licenses", staging / "licenses")
+    return finish_package(staging, "ios", "ios", out)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--target", choices=["macos", "linux", "windows", "android"], required=True)
+    parser.add_argument("--target", choices=["macos", "linux", "windows", "android", "ios"], required=True)
     parser.add_argument("--abi", action="append", choices=list(ANDROID_ABIS),
                         help="android only: build just these ABIs (default: all from manifest.json)")
     parser.add_argument("--work", type=Path, default=Path("build-media"))
@@ -640,6 +761,11 @@ def main():
         universal = work / "macos-universal"
         universal_macos(slices, universal)
         package(universal, "macos-universal", out)
+    elif args.target == "ios":
+        targets = [Target("ios", "arm64", work, sdk) for sdk in ("iphoneos", "iphonesimulator")]
+        for target in targets:
+            build_target(target, tools_bin)
+        package_ios(targets, out)
     elif args.target == "android":
         targets = [Target("android", abi, work) for abi in (args.abi or MANIFEST["android"]["abis"])]
         for target in targets:
