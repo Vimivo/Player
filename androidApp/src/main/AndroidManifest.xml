@@ -24,6 +24,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Vimivo">
+        <!-- Lists the app in Android Auto as a media app; the browse tree comes from VimivoPlaybackService. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize"

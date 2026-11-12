@@ -319,6 +319,10 @@ fun DesktopWifiTransferDialog(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = if (serverUrl != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
+                        serverUrl?.let {
+                            Spacer(Modifier.height(8.dp))
+                            dev.vimivo.desktop.ui.QrCode(it)
+                        }
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "Files are saved to $destination. The link has a one-time key and stops working when you close this window.",

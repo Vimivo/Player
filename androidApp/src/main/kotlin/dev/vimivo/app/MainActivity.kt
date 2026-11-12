@@ -25,12 +25,15 @@ import dev.vimivo.platform.android.library.AndroidThumbnailRepository
 import dev.vimivo.platform.android.library.MediaPermissionPolicy
 import dev.vimivo.platform.android.library.ui.VimivoAndroidApp
 import dev.vimivo.platform.android.playback.PlaybackController
+import dev.vimivo.platform.android.library.LibraryViewModel
 import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
     private val playbackController: PlaybackController by inject()
     private val thumbnailRepository: AndroidThumbnailRepository by inject()
     private val permissionPolicy: MediaPermissionPolicy by inject()
+    private val libraryViewModel: LibraryViewModel by viewModel()
     private val folderSiblings by lazy { AndroidFolderSiblings(applicationContext) }
     private var videoPlayerActive = false
     private var videoPlaying = false
@@ -54,6 +57,12 @@ class MainActivity : ComponentActivity() {
         }
         // A recreated activity must not replay the file it was originally launched with.
         if (savedInstanceState == null) openExternalMedia(intent)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // The private vault never stays open while the app is out of sight.
+        libraryViewModel.lockVault()
     }
 
     override fun onNewIntent(intent: Intent) {

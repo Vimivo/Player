@@ -305,6 +305,10 @@ internal fun DesktopWebRemoteDialog(
                             },
                             color = if (serverUrl != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
+                        serverUrl?.let {
+                            Spacer(Modifier.height(8.dp))
+                            dev.vimivo.desktop.ui.QrCode(it)
+                        }
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
                             enabled = serverUrl != null,

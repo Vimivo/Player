@@ -795,6 +795,10 @@ fun MxWifiTransferDialog(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = if (serverUrl != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
+                        serverUrl?.let {
+                            Spacer(Modifier.height(8.dp))
+                            dev.vimivo.platform.android.ui.QrCode(it)
+                        }
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "Both devices must be on the same Wi-Fi network. The link has a one-time key and stops working when you close this screen. Files appear in your library under Movies/Vimivo and Music/Vimivo.",

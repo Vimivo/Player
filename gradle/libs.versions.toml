@@ -22,6 +22,7 @@ documentfile = "1.1.0"
 composeUi = "1.11.1"
 jna = "5.19.1"
 sqliteJdbc = "3.53.4.0"
+zxing = "3.5.4"
 jaudiotagger = "3.0.1"
 haze = "1.7.1"
 
@@ -69,6 +70,7 @@ androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-mani
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 jaudiotagger = { module = "net.jthink:jaudiotagger", version.ref = "jaudiotagger" }
 
 [plugins]

@@ -358,6 +358,7 @@ class LibraryViewModel(
     }
 
     fun lockVault() {
+        if (!state.value.vaultUnlocked) return
         mutableState.update { it.copy(vaultUnlocked = false) }
         refreshAfterVaultChange()
     }

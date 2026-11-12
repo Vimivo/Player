@@ -101,6 +101,7 @@ kotlin {
                 // Win32 registry access for per-user file associations (same project and license as JNA).
                 implementation(libs.jna.platform)
                 implementation(libs.sqlite.jdbc)
+                implementation(libs.zxing.core)
                 implementation(libs.jaudiotagger)
                 implementation(libs.coil.compose)
                 implementation(compose.components.resources)
