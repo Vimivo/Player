@@ -79,3 +79,22 @@ This register documents current technical limitations, edge cases, and distribut
   proxy are needed), iOS MKV/AVI (needs libmpv for iOS), poster and metadata library, Android TV / tvOS, Dolby Vision profile
   handling, crossfade, Android colour Plan B.
 
+## Added 2026-11-12 (third round: network shares, convert, desktop)
+
+- **Network shares (SMB, SFTP, WebDAV)** are read by pure-Java clients (smbj, sshj) and handed to the player through a
+  private `127.0.0.1` link, so the LGPL libmpv needs no `smb://` or `sftp://` support. Desktop has all three with a
+  folder browser. Android has SMB and WebDAV(https); Android SFTP is off until a first-use server-key confirmation
+  screen exists. **iOS has none of them.** Nothing was run against a real server. Digest authentication for WebDAV is not
+  supported (Basic only). On Android, smbj and sshj bring BouncyCastle, which may clash with the platform copy at runtime:
+  check on a device before relying on it.
+- **Convert Media (desktop)** uses libmpv's encoder path: AAC, FLAC, WAV, MP3 audio and MKV/MP4 stream-copy. The LGPL
+  media package has no x264/x265, so there is no video re-encode, and MP3 only works if the bundled FFmpeg includes the
+  LAME encoder (the dialog shows libmpv's own error if not). Not run.
+- **Desktop preferences** (toolbar buttons, video quality) are saved in `preferences.properties` in the app data folder.
+  The hotkey preset is still not saved.
+- **Desktop memory:** the packaged app now starts with the serial collector, a shrinking heap (768 MB cap), and capped
+  metaspace and code cache. Not measured; check real memory use on each OS.
+- **iOS MKV/AVI is not done.** It needs LGPL libmpv/FFmpeg frameworks built for iOS from `scripts/build_media`
+  (ADR-004, open item) and a second playback surface in the SwiftUI player. That cannot be produced without building and
+  trying it on a device, so it was not attempted blind.
+

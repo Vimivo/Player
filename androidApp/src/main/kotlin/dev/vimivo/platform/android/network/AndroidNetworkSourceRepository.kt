@@ -63,10 +63,46 @@ class AndroidNetworkSourceRepository(
     override suspend fun browse(location: NetworkLocation, path: String): NetworkBrowseResult = when (location.protocol) {
         NetworkProtocol.WEBDAV -> browseWebDav(location, path)
         NetworkProtocol.RTSP -> NetworkBrowseResult.Failure("RTSP is a playback URL, not a browsable file service", recoverable = false)
-        NetworkProtocol.SMB -> NetworkBrowseResult.Failure("SMB browsing requires the optional SMB transport, which is not packaged in this build")
+        NetworkProtocol.SMB -> browseSmb(location, path)
         NetworkProtocol.UPNP, NetworkProtocol.DLNA -> NetworkBrowseResult.Failure("Select a discovered media server before browsing its ContentDirectory")
         NetworkProtocol.FTP -> NetworkBrowseResult.Failure("FTP is intentionally not enabled; use SFTP, WebDAV, or SMB2/3")
-        NetworkProtocol.SFTP -> NetworkBrowseResult.Failure("SFTP is unavailable until strict host-key trust UX is completed")
+        NetworkProtocol.SFTP -> NetworkBrowseResult.Failure("SFTP needs a first-use server key confirmation screen, which Android does not have yet")
+    }
+
+    /** Open SMB connections, one per location and share, kept so folders open without logging in again. */
+    private val smbSessions = java.util.concurrent.ConcurrentHashMap<String, dev.vimivo.network.ShareSession>()
+
+    /** [path] is `smb://host/share[/folder]`. Each media file's link goes through the private local player proxy. */
+    private suspend fun browseSmb(location: NetworkLocation, path: String): NetworkBrowseResult = withContext(Dispatchers.IO) {
+        runCatching {
+            val uri = URI(path)
+            val host = requireNotNull(uri.host) { "The SMB address needs a server name" }
+            val segments = uri.path.trim('/').split('/').filter { it.isNotEmpty() }
+            val share = segments.firstOrNull() ?: throw IllegalArgumentException("Add the share name: smb://$host/ShareName")
+            val folder = segments.drop(1).joinToString("/")
+            val session = smbSessions[location.id + "|" + share] ?: connectSmb(location, host, share)
+            session.fs.list(folder).map { entry ->
+                val entryUri = "smb://$host/$share/${entry.path}"
+                val media = if (entry.isDirectory || !dev.vimivo.cast.CastMime.isMedia(entry.name)) {
+                    null
+                } else {
+                    MediaItem(MediaId(entryUri), session.playUrl(entry.path).getOrThrow(), entry.name, MediaKind.STREAM, source = MediaSource.NETWORK)
+                }
+                RemoteDirectoryEntry(entry.name, entryUri, entry.isDirectory, entry.sizeBytes, media = media)
+            }
+        }.fold(
+            onSuccess = { NetworkBrowseResult.Success(it) },
+            onFailure = { NetworkBrowseResult.Failure(it.message ?: "Could not browse this SMB share") },
+        )
+    }
+
+    private fun connectSmb(location: NetworkLocation, host: String, share: String): dev.vimivo.network.ShareSession {
+        val password = if (location.username.isNullOrBlank()) CharArray(0) else {
+            credentials.password(location.id) ?: throw SecurityException("Credentials have expired or are unavailable; update this location")
+        }
+        val session = dev.vimivo.network.ShareSession.smb(host, share, location.username.orEmpty(), password).getOrThrow()
+        smbSessions[location.id + "|" + share] = session
+        return session
     }
 
     private suspend fun browseWebDav(location: NetworkLocation, path: String): NetworkBrowseResult = withContext(Dispatchers.IO) {
