@@ -12,6 +12,13 @@ import java.util.Properties
 /** The main window's last size and, when known, position. */
 internal data class SavedWindow(val width: Int, val height: Int, val x: Int?, val y: Int?)
 
+internal val SUPPORTED_LANGUAGES = setOf("system", "en", "bn")
+
+/** Makes the app use the language chosen in Settings; "system" leaves the computer's language alone. Call before any UI. */
+internal fun applyLanguage(code: String) {
+    if (code != "system") java.util.Locale.setDefault(java.util.Locale.forLanguageTag(code))
+}
+
 internal const val MIN_WINDOW_WIDTH = 800
 internal const val MIN_WINDOW_HEIGHT = 520
 
@@ -63,6 +70,11 @@ internal class DesktopPreferences(private val file: File) {
         put("quality.tone", settings.toneMapping.name)
         put("quality.exclusive", settings.exclusiveAudio.toString())
     }
+
+    /** "system", or a language code the app has translations for ("en", "bn"). */
+    fun loadLanguage(): String = values.getProperty("ui.language")?.takeIf { it in SUPPORTED_LANGUAGES } ?: "system"
+
+    fun saveLanguage(code: String) = update { put("ui.language", if (code in SUPPORTED_LANGUAGES) code else "system") }
 
     fun loadHotkeyPreset(): HotkeyPreset = enumValue("hotkeys.preset", HotkeyPreset.VIMIVO)
 

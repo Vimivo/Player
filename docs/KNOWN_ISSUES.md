@@ -98,3 +98,17 @@ This register documents current technical limitations, edge cases, and distribut
   (ADR-004, open item) and a second playback surface in the SwiftUI player. That cannot be produced without building and
   trying it on a device, so it was not attempted blind.
 
+## Added 2026-11-12 (fourth round: desktop layout and usability)
+
+- **Fixed in code, not looked at on screen:** queue rows (title ellipsis, icon buttons, drag to reorder), Network page header,
+  page header in a narrow window, the duplicate Search box, a minimum window size of 800x520, and the window's size and
+  position being remembered. These come from the 27 Oct screenshots; nobody has re-run the app to confirm they now look right.
+- **Open Folder** plays a whole folder (natural order, not including subfolders). **Skip Intro** now uses chapters (intro, opening,
+  recap, or a short first chapter) and otherwise jumps 85 s. **Hotkey preset** and **language** are saved.
+- **Language:** Settings offers System / English / বাংলা. Only the strings that live in resource files are translated (HUD
+  messages, queue, file-opening dialogs, player labels). About 360 menu and panel labels are still English literals, so
+  Bangla is a mixed screen until those move into resources. A language change needs a restart.
+- **Player icons** show a name on hover. **Settings** gained a Video quality and Keyboard card (it already had themes,
+  playback profile, equalizer, ReplayGain, sleep timer, accessibility switches, diagnostics).
+- **Correction to the audit:** XSPF import already existed, and Settings is much fuller than first reported.
+

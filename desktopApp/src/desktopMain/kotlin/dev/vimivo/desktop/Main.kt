@@ -166,6 +166,11 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 
 fun main(args: Array<String>) {
     StartupTrace.mark("main")
+    // The language must be set before the first window; a failure to read preferences just keeps the system language.
+    runCatching {
+        val prefs = dev.vimivo.desktop.platform.DesktopPreferences(dev.vimivo.desktop.platform.DesktopDirectories.resolve().data.resolve("preferences.properties").toFile())
+        dev.vimivo.desktop.platform.applyLanguage(prefs.loadLanguage())
+    }
     val launch = LaunchArguments.parse(args)
     if (launch.showHelp) {
         println(LaunchArguments.helpMessage())
@@ -538,7 +543,7 @@ private fun PlayerWindow(
                 .debounce(WINDOW_SAVE_DELAY_MILLIS)
                 .collect { (size, position, placement) ->
                     val shown = viewModel.state.value
-                    if (placement == WindowPlacement.Floating && !shown.miniPlayer && !shown.pipMode && size.isSpecified) {
+                    if (shouldRememberWindow(placement, shown, size)) {
                         val absolute = position as? WindowPosition.Absolute
                         preferences.saveWindow(
                             dev.vimivo.desktop.platform.SavedWindow(
@@ -990,7 +995,6 @@ private fun DesktopPlayer(
                     onCancelScan = library::cancelScan,
                     onRemoveRoot = library::removeRoot,
                     onRefreshAvailability = library::refreshAvailability,
-                    onSearch = library::setSearch,
                     onPlay = playFrom,
                     onPlayNext = { queue.playNext(listOf(it)) },
                     onAddToQueue = { queue.addToQueue(listOf(it)) },
@@ -1186,6 +1190,8 @@ private fun DesktopPlayer(
                     state = libraryState,
                     videoQuality = playerState.videoQuality,
                     onVideoQualityChanged = { viewModel.dispatch(PlayerIntent.SetVideoQuality(it)) },
+                    language = playerState.language,
+                    onLanguageSelected = { viewModel.dispatch(PlayerIntent.SetLanguage(it)) },
                     hotkeyPreset = playerState.hotkeyPreset,
                     onHotkeyPresetSelected = { viewModel.dispatch(PlayerIntent.SetHotkeyPreset(it)) },
                     onThemeSelected = library::setThemeMode,
@@ -1468,7 +1474,6 @@ private fun DesktopLibraryPanel(
     onCancelScan: (String) -> Unit,
     onRemoveRoot: (String) -> Unit,
     onRefreshAvailability: () -> Unit,
-    onSearch: (String) -> Unit,
     onPlay: (List<MediaItem>, Int) -> Unit,
     onPlayNext: (MediaItem) -> Unit,
     onAddToQueue: (MediaItem) -> Unit,
@@ -1826,3 +1831,9 @@ private fun dev.vimivo.desktop.platform.SavedWindow.isOnScreen(): Boolean {
 }
 
 private const val MIN_VISIBLE_PIXELS = 120
+
+/** Only a normal, floating window is worth remembering: not fullscreen, and not the small mini-player or PiP window. */
+private fun shouldRememberWindow(placement: WindowPlacement, shown: dev.vimivo.desktop.player.PlayerState, size: DpSize): Boolean {
+    val normal = !shown.miniPlayer && !shown.pipMode
+    return placement == WindowPlacement.Floating && normal && size.isSpecified
+}

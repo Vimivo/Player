@@ -85,6 +85,8 @@ internal fun DesktopSettingsPanel(
     onVideoQualityChanged: ((VideoQualitySettings) -> Unit)? = null,
     hotkeyPreset: HotkeyPreset? = null,
     onHotkeyPresetSelected: ((HotkeyPreset) -> Unit)? = null,
+    language: String? = null,
+    onLanguageSelected: ((String) -> Unit)? = null,
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -150,6 +152,8 @@ internal fun DesktopSettingsPanel(
                 }
             }
         }
+
+        if (language != null && onLanguageSelected != null) item { LanguageCard(language, onLanguageSelected) }
 
         // Picture quality and keyboard: these used to live only in the menu bar, where few people look.
         if (videoQuality != null && onVideoQualityChanged != null) item {
@@ -695,6 +699,28 @@ private fun <T> ChoiceRow(label: String, options: List<T>, selected: T, name: (T
                     label = { Text(name(option)) },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun LanguageCard(selected: String, onSelect: (String) -> Unit) {
+    var changed by remember { mutableStateOf(false) }
+    val choices = listOf("system" to "Same as computer", "en" to "English", "bn" to "বাংলা")
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Language settings" },
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            VimivoSettingsSectionHeader(
+                title = "Language",
+                subtitle = "Playback messages, queue and file-opening text are translated. Some menus and panels are still English.",
+            )
+            ChoiceRow("Language", choices, choices.first { it.first == selected }, { it.second }) {
+                changed = it.first != selected
+                onSelect(it.first)
+            }
+            if (changed) Text("Restart Vimivo to use the new language.", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

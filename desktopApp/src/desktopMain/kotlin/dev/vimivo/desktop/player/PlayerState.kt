@@ -70,6 +70,8 @@ internal data class PlayerState(
     val videoRotation: dev.vimivo.playback.VideoRotation = dev.vimivo.playback.VideoRotation.NONE,
     val videoQuality: dev.vimivo.playback.VideoQualitySettings = dev.vimivo.playback.VideoQualitySettings(),
     val hotkeyPreset: dev.vimivo.desktop.playback.HotkeyPreset = dev.vimivo.desktop.playback.HotkeyPreset.VIMIVO,
+    /** The language chosen in Settings ("system", "en", "bn"); a change takes effect after a restart. */
+    val language: String = "system",
     /** Command palette quick action launcher modal. */
     val commandPaletteVisible: Boolean = false,
     /** Wi-Fi file sharing web server status dialog. */
@@ -165,6 +167,7 @@ internal sealed interface PlayerIntent {
     data object TogglePipMode : PlayerIntent
     data object ToggleAudioOnlyMode : PlayerIntent
     data object RotateVideo : PlayerIntent
+    data class SetLanguage(val code: String) : PlayerIntent
     data class SetHotkeyPreset(val preset: dev.vimivo.desktop.playback.HotkeyPreset) : PlayerIntent
     data class SetVideoQuality(val settings: dev.vimivo.playback.VideoQualitySettings) : PlayerIntent
     data object ToggleCommandPalette : PlayerIntent

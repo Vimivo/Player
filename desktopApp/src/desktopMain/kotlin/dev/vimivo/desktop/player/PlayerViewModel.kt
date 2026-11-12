@@ -70,6 +70,7 @@ internal class PlayerViewModel(
             toolbarConfig = preferences.loadToolbar(),
             videoQuality = preferences.loadVideoQuality(),
             hotkeyPreset = preferences.loadHotkeyPreset(),
+            language = preferences.loadLanguage(),
         ),
     )
 
@@ -136,6 +137,7 @@ internal class PlayerViewModel(
             videoRotation = localState.videoRotation,
             videoQuality = localState.videoQuality,
             hotkeyPreset = localState.hotkeyPreset,
+            language = localState.language,
             commandPaletteVisible = localState.commandPaletteVisible,
             wifiSharingVisible = localState.wifiSharingVisible,
             transcodeVisible = localState.transcodeVisible,
@@ -303,6 +305,10 @@ internal class PlayerViewModel(
                 local.update { it.copy(videoQuality = intent.settings) }
                 engine.applyVideoQuality(intent.settings)
                 preferences.saveVideoQuality(intent.settings)
+            }
+            is PlayerIntent.SetLanguage -> {
+                local.update { it.copy(language = intent.code) }
+                preferences.saveLanguage(intent.code)
             }
             is PlayerIntent.SetHotkeyPreset -> {
                 dev.vimivo.desktop.playback.DesktopPlayerShortcuts.preset = intent.preset
@@ -690,6 +696,7 @@ internal class PlayerViewModel(
         val videoRotation: dev.vimivo.playback.VideoRotation = dev.vimivo.playback.VideoRotation.NONE,
         val videoQuality: dev.vimivo.playback.VideoQualitySettings = dev.vimivo.playback.VideoQualitySettings(),
         val hotkeyPreset: dev.vimivo.desktop.playback.HotkeyPreset = dev.vimivo.desktop.playback.HotkeyPreset.VIMIVO,
+        val language: String = "system",
         val commandPaletteVisible: Boolean = false,
         val wifiSharingVisible: Boolean = false,
         val transcodeVisible: Boolean = false,
