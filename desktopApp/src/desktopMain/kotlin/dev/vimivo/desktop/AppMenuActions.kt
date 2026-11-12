@@ -15,4 +15,5 @@ internal class AppMenuActions(
     val onShowLibrary: () -> Unit,
     val onSetTheme: (dev.vimivo.settings.ThemeMode) -> Unit = {},
     val onOpenDisc: () -> Unit = {},
+    val onOpenFolder: () -> Unit = {},
 )

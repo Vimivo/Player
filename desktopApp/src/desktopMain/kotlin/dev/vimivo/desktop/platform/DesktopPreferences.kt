@@ -1,5 +1,6 @@
 package dev.vimivo.desktop.platform
 
+import dev.vimivo.desktop.playback.HotkeyPreset
 import dev.vimivo.desktop.player.ui.DesktopToolbarConfig
 import dev.vimivo.playback.ToneMapping
 import dev.vimivo.playback.UpscaleQuality
@@ -7,6 +8,12 @@ import dev.vimivo.playback.VideoQualitySettings
 import java.io.File
 import java.io.IOException
 import java.util.Properties
+
+/** The main window's last size and, when known, position. */
+internal data class SavedWindow(val width: Int, val height: Int, val x: Int?, val y: Int?)
+
+internal const val MIN_WINDOW_WIDTH = 800
+internal const val MIN_WINDOW_HEIGHT = 520
 
 /**
  * The few desktop choices that are not library data (toolbar buttons, video quality), kept in one small text file in the
@@ -55,6 +62,27 @@ internal class DesktopPreferences(private val file: File) {
         put("quality.smooth", settings.smoothMotion.toString())
         put("quality.tone", settings.toneMapping.name)
         put("quality.exclusive", settings.exclusiveAudio.toString())
+    }
+
+    fun loadHotkeyPreset(): HotkeyPreset = enumValue("hotkeys.preset", HotkeyPreset.VIMIVO)
+
+    fun saveHotkeyPreset(preset: HotkeyPreset) = update { put("hotkeys.preset", preset.name) }
+
+    /** Where the main window was last left, in pixels, or null when never saved or no longer on any screen. */
+    fun loadWindow(): SavedWindow? {
+        val width = values.getProperty("window.width")?.toIntOrNull() ?: return null
+        val height = values.getProperty("window.height")?.toIntOrNull() ?: return null
+        if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT) return null
+        val x = values.getProperty("window.x")?.toIntOrNull()
+        val y = values.getProperty("window.y")?.toIntOrNull()
+        return SavedWindow(width, height, x, y)
+    }
+
+    fun saveWindow(window: SavedWindow) = update {
+        put("window.width", window.width.toString())
+        put("window.height", window.height.toString())
+        window.x?.let { put("window.x", it.toString()) }
+        window.y?.let { put("window.y", it.toString()) }
     }
 
     private fun flag(key: String, default: Boolean): Boolean = values.getProperty(key)?.toBooleanStrictOrNull() ?: default

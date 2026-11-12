@@ -40,6 +40,23 @@ import dev.vimivo.core.model.Playlist
 import dev.vimivo.desktop.library.DesktopHistoryItem
 import dev.vimivo.desktop.library.DesktopLibraryUiState
 import dev.vimivo.playback.PlaybackQueueState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.text.style.TextOverflow
+import kotlin.math.roundToInt
 
 @Composable
 internal fun DesktopPlaylistsPanel(
@@ -264,60 +281,97 @@ internal fun DesktopQueuePanel(
 ) {
     if (state.items.isEmpty()) return
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column {
-            Text("Queue · ${state.items.size} item(s)", style = MaterialTheme.typography.titleMedium)
-            state.sourceLabel?.let { Text("Source: $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
-        }
-        OutlinedButton(onClick = onClear) { Text("Clear queue") }
-    }
-    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 240.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        items(state.items.size, key = { state.items[it].queueId }) { index ->
-            val item = state.items[index]
-            val isCurrent = index == state.currentIndex
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    DesktopArtwork(item.media.artworkUri, item.media.title, 36.dp)
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            (if (isCurrent) "▶ " else "") + item.media.title,
-                            style = if (isCurrent) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            listOfNotNull(item.media.artist, item.media.durationMillis?.let(::formatPersonalTime)).joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    if (onPlayAt != null && !isCurrent) {
-                        OutlinedButton(onClick = { onPlayAt(index) }) { Text("Play") }
-                    }
-                    OutlinedButton(
-                        onClick = { onMove(index, index - 1) },
-                        enabled = index > 0,
-                        modifier = Modifier.semantics { contentDescription = "Move ${item.media.title} up in queue" },
-                    ) { Text("↑") }
-                    OutlinedButton(
-                        onClick = { onMove(index, index + 1) },
-                        enabled = index < state.items.lastIndex,
-                        modifier = Modifier.semantics { contentDescription = "Move ${item.media.title} down in queue" },
-                    ) { Text("↓") }
-                    OutlinedButton(
-                        onClick = { onRemove(index) },
-                        enabled = !isCurrent,
-                        modifier = Modifier.semantics { contentDescription = "Remove ${item.media.title} from queue" },
-                    ) { Text("Remove") }
-                }
+        Column(Modifier.weight(1f)) {
+            Text("Queue · ${state.items.size} item(s)", style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            state.sourceLabel?.let {
+                Text("Source: $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+        TextButton(onClick = onClear) { Text("Clear") }
+    }
+    Text(
+        "Press and hold a song, then drag it to reorder.",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        items(state.items.size, key = { state.items[it].queueId }) { index ->
+            QueueRow(state, index, onRemove, onMove, onPlayAt)
+        }
+    }
+}
+
+/** One queue entry: the title takes the free width and shrinks with an ellipsis, so a narrow panel never breaks it letter by letter. */
+@Composable
+private fun QueueRow(
+    state: PlaybackQueueState,
+    index: Int,
+    onRemove: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
+    onPlayAt: ((Int) -> Unit)?,
+) {
+    val item = state.items[index]
+    val isCurrent = index == state.currentIndex
+    var dragOffset by remember { mutableStateOf(0f) }
+    var rowHeight by remember { mutableStateOf(1f) }
+    val dragging = dragOffset != 0f
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        modifier = Modifier.fillMaxWidth()
+            .onGloballyPositioned { rowHeight = it.size.height.toFloat().coerceAtLeast(1f) }
+            .graphicsLayer { translationY = dragOffset; shadowElevation = if (dragging) 12f else 0f }
+            .pointerInput(index, state.items.size) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { dragOffset = 0.01f },
+                    onDrag = { change, amount -> change.consume(); dragOffset += amount.y },
+                    onDragEnd = {
+                        val target = (index + (dragOffset / rowHeight).roundToInt()).coerceIn(0, state.items.lastIndex)
+                        dragOffset = 0f
+                        if (target != index) onMove(index, target)
+                    },
+                    onDragCancel = { dragOffset = 0f },
+                )
+            },
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DesktopArtwork(item.media.artworkUri, item.media.title, 36.dp)
+            Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                Text(
+                    item.media.title,
+                    style = if (isCurrent) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    listOfNotNull(item.media.artist, item.media.durationMillis?.let(::formatPersonalTime)).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (isCurrent) {
+                Icon(Icons.Outlined.GraphicEq, contentDescription = "Playing now", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            } else if (onPlayAt != null) {
+                QueueIconButton(Icons.Outlined.PlayArrow, "Play ${item.media.title}") { onPlayAt(index) }
+            }
+            QueueIconButton(Icons.Outlined.ArrowUpward, "Move ${item.media.title} up in queue", enabled = index > 0) { onMove(index, index - 1) }
+            QueueIconButton(Icons.Outlined.ArrowDownward, "Move ${item.media.title} down in queue", enabled = index < state.items.lastIndex) { onMove(index, index + 1) }
+            QueueIconButton(Icons.Outlined.Close, "Remove ${item.media.title} from queue", enabled = !isCurrent) { onRemove(index) }
+        }
+    }
+}
+
+@Composable
+private fun QueueIconButton(icon: ImageVector, description: String, enabled: Boolean = true, onClick: () -> Unit) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(32.dp)) {
+        Icon(icon, contentDescription = description, modifier = Modifier.size(18.dp))
     }
 }
 

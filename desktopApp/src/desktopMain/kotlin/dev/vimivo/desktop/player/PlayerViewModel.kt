@@ -66,12 +66,17 @@ internal class PlayerViewModel(
     private val preferences: dev.vimivo.desktop.platform.DesktopPreferences,
 ) : AutoCloseable {
     private val local = MutableStateFlow(
-        LocalState(toolbarConfig = preferences.loadToolbar(), videoQuality = preferences.loadVideoQuality()),
+        LocalState(
+            toolbarConfig = preferences.loadToolbar(),
+            videoQuality = preferences.loadVideoQuality(),
+            hotkeyPreset = preferences.loadHotkeyPreset(),
+        ),
     )
 
     init {
         // The renderer starts at its defaults; bring it to the choices saved last time.
         engine.applyVideoQuality(local.value.videoQuality)
+        dev.vimivo.desktop.playback.DesktopPlayerShortcuts.preset = local.value.hotkeyPreset
     }
     private var mediaControls: MprisService? = null
 
@@ -130,6 +135,7 @@ internal class PlayerViewModel(
             audioOnlyMode = localState.audioOnlyMode,
             videoRotation = localState.videoRotation,
             videoQuality = localState.videoQuality,
+            hotkeyPreset = localState.hotkeyPreset,
             commandPaletteVisible = localState.commandPaletteVisible,
             wifiSharingVisible = localState.wifiSharingVisible,
             transcodeVisible = localState.transcodeVisible,
@@ -298,6 +304,11 @@ internal class PlayerViewModel(
                 engine.applyVideoQuality(intent.settings)
                 preferences.saveVideoQuality(intent.settings)
             }
+            is PlayerIntent.SetHotkeyPreset -> {
+                dev.vimivo.desktop.playback.DesktopPlayerShortcuts.preset = intent.preset
+                local.update { it.copy(hotkeyPreset = intent.preset) }
+                preferences.saveHotkeyPreset(intent.preset)
+            }
             PlayerIntent.RotateVideo -> {
                 val next = local.value.videoRotation.next()
                 local.update { it.copy(videoRotation = next) }
@@ -335,8 +346,8 @@ internal class PlayerViewModel(
                 local.update { it.copy(dialogueClarity = next) }
             }
             PlayerIntent.SkipIntro -> {
-                val current = engine.state.value.positionMillis
-                dispatch(PlayerIntent.Seek(current + 85_000L))
+                val playback = engine.state.value
+                dispatch(PlayerIntent.Seek(dev.vimivo.playback.IntroSkip.target(playback.positionMillis, engine.getChapters(), playback.durationMillis)))
             }
             PlayerIntent.ToggleJumpToTime -> local.update { it.copy(jumpToTimeVisible = !it.jumpToTimeVisible) }
             else -> dispatchBookmark(intent)
@@ -678,6 +689,7 @@ internal class PlayerViewModel(
         val audioOnlyMode: Boolean = false,
         val videoRotation: dev.vimivo.playback.VideoRotation = dev.vimivo.playback.VideoRotation.NONE,
         val videoQuality: dev.vimivo.playback.VideoQualitySettings = dev.vimivo.playback.VideoQualitySettings(),
+        val hotkeyPreset: dev.vimivo.desktop.playback.HotkeyPreset = dev.vimivo.desktop.playback.HotkeyPreset.VIMIVO,
         val commandPaletteVisible: Boolean = false,
         val wifiSharingVisible: Boolean = false,
         val transcodeVisible: Boolean = false,

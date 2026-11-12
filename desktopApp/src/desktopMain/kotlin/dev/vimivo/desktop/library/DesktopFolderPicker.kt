@@ -7,14 +7,14 @@ import javax.swing.SwingUtilities
 
 /** JVM-native directory chooser for direct macOS distribution; sandbox bookmarks are intentionally not claimed. */
 internal object DesktopFolderPicker {
-    fun chooseDirectory(): Result<File?> = runCatching {
+    fun chooseDirectory(title: String = "Add Vimivo Library Folder"): Result<File?> = runCatching {
         require(!GraphicsEnvironment.isHeadless()) { "A graphical folder picker is unavailable in this environment" }
         var result: File? = null
         val chooser: () -> Unit = {
             JFileChooser().apply {
                 fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
                 isMultiSelectionEnabled = false
-                dialogTitle = "Add Vimivo Library Folder"
+                dialogTitle = title
                 if (showOpenDialog(null) == JFileChooser.APPROVE_OPTION) result = selectedFile
             }
         }

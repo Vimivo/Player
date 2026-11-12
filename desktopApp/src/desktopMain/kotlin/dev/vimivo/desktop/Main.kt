@@ -73,10 +73,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalWindowInfo
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import dev.vimivo.desktop.player.ui.DesktopCommandPalette
@@ -312,6 +316,10 @@ private fun desktopApplication(
         onOpenDisc = {
             chooseDiscOrIsoFile()?.let { openFileHandler.submit(listOf(it)) }
         },
+        onOpenFolder = {
+            dev.vimivo.desktop.library.DesktopFolderPicker.chooseDirectory("Open a folder to play").getOrNull()
+                ?.let { openFileHandler.submit(listOf(it)) }
+        },
     )
     val mediaInfoVisible by viewModel.commands.mediaInfoVisible.collectAsState()
     if (mediaInfoVisible) {
@@ -357,6 +365,7 @@ private fun desktopApplication(
         openStreamRequested = openStreamRequested && playerVisible,
         onOpenStreamHandled = { openStreamRequested = false },
         onOpenFiles = openFileHandler::submit,
+        preferences = remember { koin.get<dev.vimivo.desktop.platform.DesktopPreferences>() },
         onCloseRequest = {
             viewModel.dispatch(PlayerIntent.ClosePlayer)
             closeWindow(libraryOpen)
@@ -429,6 +438,7 @@ private fun desktopApplication(
 }
 
 /** Opening a file, URL or drop: the player window only. Always composed so its native video surface survives. */
+@OptIn(kotlinx.coroutines.FlowPreview::class)
 @Composable
 private fun PlayerWindow(
     viewModel: PlayerViewModel,
@@ -443,6 +453,7 @@ private fun PlayerWindow(
     openStreamRequested: Boolean,
     onOpenStreamHandled: () -> Unit,
     onOpenFiles: (List<File>) -> Unit,
+    preferences: dev.vimivo.desktop.platform.DesktopPreferences,
     onCloseRequest: () -> Unit,
 ) {
     val castSession = remember { dev.vimivo.cast.CastSession() }
@@ -462,7 +473,14 @@ private fun PlayerWindow(
             else -> "$name — ${media.artist} — Vimivo"
         }
     }
-    val windowState = rememberWindowState(size = DpSize(960.dp, 600.dp))
+    // Open where and how big the window was left, as long as that is still on a screen; a first run gets a roomy default.
+    val savedWindow = remember { preferences.loadWindow()?.takeIf { it.isOnScreen() } }
+    val restoredSize = remember { savedWindow?.let { DpSize(it.width.dp, it.height.dp) } ?: DpSize(DEFAULT_WINDOW_WIDTH.dp, DEFAULT_WINDOW_HEIGHT.dp) }
+    val windowState = rememberWindowState(
+        size = restoredSize,
+        position = savedWindow?.takeIf { it.x != null && it.y != null }?.let { WindowPosition(it.x!!.dp, it.y!!.dp) }
+            ?: WindowPosition.PlatformDefault,
+    )
     // The ViewModel owns the fullscreen decision; the window follows it and reports OS-initiated changes back.
     // One transition at a time: macOS ignores a fullscreen toggle issued while the previous one is still animating,
     // and cancels one when the window's content changes under it. The next request therefore waits until the system's
@@ -492,8 +510,8 @@ private fun PlayerWindow(
             windowState.size = DpSize(480.dp, 270.dp)
             window?.setSize(480, 270)
         } else if (!playerState.fullscreen) {
-            windowState.size = DpSize(960.dp, 600.dp)
-            window?.setSize(960, 600)
+            windowState.size = restoredSize
+            window?.setSize(restoredSize.width.value.toInt(), restoredSize.height.value.toInt())
         }
     }
     Window(
@@ -506,6 +524,31 @@ private fun PlayerWindow(
         onKeyEvent = { event -> handleWindowKey(event, viewModel) },
     ) {
         LaunchedEffect(visible) { if (visible) StartupTrace.mark("window") }
+        // Below this the library and queue cannot lay themselves out; the small mini-player and PiP modes are exempt.
+        LaunchedEffect(window, playerState.miniPlayer, playerState.pipMode) {
+            val compact = playerState.miniPlayer || playerState.pipMode
+            window.minimumSize = if (compact) java.awt.Dimension(1, 1) else java.awt.Dimension(
+                dev.vimivo.desktop.platform.MIN_WINDOW_WIDTH,
+                dev.vimivo.desktop.platform.MIN_WINDOW_HEIGHT,
+            )
+        }
+        // Remember the window once it has stopped moving or resizing, but not while it is a mini or PiP window.
+        LaunchedEffect(windowState) {
+            snapshotFlow { Triple(windowState.size, windowState.position, windowState.placement) }
+                .debounce(WINDOW_SAVE_DELAY_MILLIS)
+                .collect { (size, position, placement) ->
+                    val shown = viewModel.state.value
+                    if (placement == WindowPlacement.Floating && !shown.miniPlayer && !shown.pipMode && size.isSpecified) {
+                        val absolute = position as? WindowPosition.Absolute
+                        preferences.saveWindow(
+                            dev.vimivo.desktop.platform.SavedWindow(
+                                size.width.value.toInt(), size.height.value.toInt(),
+                                absolute?.x?.value?.toInt(), absolute?.y?.value?.toInt(),
+                            ),
+                        )
+                    }
+                }
+        }
         LaunchedEffect(window, visible) { if (visible) DesktopWindowChrome.applyDark(window) }
         LaunchedEffect(media?.uri) {
             val localFile = media?.uri?.takeIf { it.startsWith("file:") }?.let { runCatching { File(java.net.URI(it)) }.getOrNull() }
@@ -1270,8 +1313,9 @@ private fun DesktopPlayer(
 
                         // Right: Slide-out Queue Drawer
                         if (queuePanelVisible) {
+                            val narrowWindow = LocalWindowInfo.current.containerSize.width < NARROW_WINDOW_PX
                             Surface(
-                                modifier = Modifier.width(320.dp).fillMaxHeight(),
+                                modifier = Modifier.width(if (narrowWindow) 260.dp else 320.dp).fillMaxHeight(),
                                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
                             ) {
@@ -1479,13 +1523,8 @@ private fun DesktopLibraryPanel(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            OutlinedTextField(
-                value = state.search,
-                onValueChange = onSearch,
-                label = { Text("Search library") },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-            )
+            // The search box lives once, in the page header; a second copy here only confused people.
+            Spacer(Modifier.weight(1f))
             if (media.isNotEmpty()) {
                 if (state.selectedMediaIds.isEmpty()) {
                     OutlinedButton(onClick = { onSelectAll(media) }) {
@@ -1763,3 +1802,23 @@ private fun DesktopLyricsCard(lyricsDoc: dev.vimivo.core.lyrics.LyricsDocument?,
         }
     }
 }
+
+private const val DEFAULT_WINDOW_WIDTH = 1040
+private const val DEFAULT_WINDOW_HEIGHT = 680
+private const val WINDOW_SAVE_DELAY_MILLIS = 600L
+private const val NARROW_WINDOW_PX = 1100
+
+private val DpSize.isSpecified: Boolean get() = width.value > 0f && height.value > 0f
+
+/** True if at least a usable corner of this window would be on a connected screen (a monitor may have been unplugged). */
+private fun dev.vimivo.desktop.platform.SavedWindow.isOnScreen(): Boolean {
+    val x = x ?: return true
+    val y = y ?: return true
+    val bounds = java.awt.Rectangle(x, y, width, height)
+    return java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.any { device ->
+        val visible = device.defaultConfiguration.bounds.intersection(bounds)
+        visible.width >= MIN_VISIBLE_PIXELS && visible.height >= MIN_VISIBLE_PIXELS
+    }
+}
+
+private const val MIN_VISIBLE_PIXELS = 120

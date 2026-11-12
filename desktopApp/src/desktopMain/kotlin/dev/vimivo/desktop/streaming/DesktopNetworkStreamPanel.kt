@@ -57,6 +57,7 @@ import dev.vimivo.core.model.MediaItem
 import dev.vimivo.core.streaming.StreamValidationResult
 import dev.vimivo.core.streaming.StreamValidator
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun DesktopNetworkStreamPanel(
     onOpenStreamDialog: () -> Unit,
@@ -83,12 +84,9 @@ fun DesktopNetworkStreamPanel(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
+                // Stacked, not side by side: in a narrow window a button beside the text left the title a few letters wide.
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Column {
                         Text(
                             text = "Direct Network Audio & Video Playback",
                             style = MaterialTheme.typography.titleLarge,
@@ -103,7 +101,7 @@ fun DesktopNetworkStreamPanel(
                     }
                     Button(
                         onClick = onOpenStreamDialog,
-                        modifier = Modifier.semantics { contentDescription = "Open network stream dialog" },
+                        modifier = Modifier.padding(top = 12.dp).semantics { contentDescription = "Open network stream dialog" },
                     ) {
                         Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
@@ -111,9 +109,10 @@ fun DesktopNetworkStreamPanel(
                     }
                 }
 
-                Row(
+                androidx.compose.foundation.layout.FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     ProtocolChip("HTTP/HTTPS Audio")
                     ProtocolChip("HTTP/HTTPS Video")

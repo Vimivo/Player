@@ -75,8 +75,9 @@ private fun MenuBarScope.FileMenu(context: MenuContext) = with(context) {
         Item("Open Network Stream…", shortcut = primaryShortcut(Key.U), onClick = actions.onOpenStream)
         Item("Open Capture Device…", onClick = { send(PlayerIntent.ToggleCaptureDevice) })
         Item("Connect to Network Share…", onClick = { send(PlayerIntent.ToggleNetworkShare) })
-        Item("Open Disc…", shortcut = primaryShortcut(Key.D), onClick = actions.onOpenDisc)
-        Item("Add Folder…", shortcut = primaryShortcut(Key.O, shift = true), onClick = actions.onAddFolder)
+        Item("Open Folder…", onClick = actions.onOpenFolder)
+        Item("Open Blu-ray / Disc Image…", shortcut = primaryShortcut(Key.D), onClick = actions.onOpenDisc)
+        Item("Add Folder to Library…", shortcut = primaryShortcut(Key.O, shift = true), onClick = actions.onAddFolder)
         Item("Import Playlist…", onClick = { choosePlaylistFile()?.let(actions.onImportPlaylist) })
         Menu("Open Recent") {
             if (recentEntries.isEmpty()) Item("No Recent Media", enabled = false, onClick = {})
@@ -202,8 +203,8 @@ private fun MenuBarScope.ViewMenu(context: MenuContext) = with(context) {
             dev.vimivo.desktop.playback.HotkeyPreset.entries.forEach { p ->
                 RadioButtonItem(
                     p.displayName,
-                    selected = dev.vimivo.desktop.playback.DesktopPlayerShortcuts.preset == p,
-                    onClick = { dev.vimivo.desktop.playback.DesktopPlayerShortcuts.preset = p },
+                    selected = state.hotkeyPreset == p,
+                    onClick = { send(PlayerIntent.SetHotkeyPreset(p)) },
                 )
             }
         }
@@ -241,7 +242,7 @@ private fun MenuBarScope.PlaybackMenu(context: MenuContext) = with(context) {
             shortcut = primaryShortcut(Key.T),
             onClick = { send(PlayerIntent.ToggleJumpToTime) },
         )
-        Item("Skip Intro (+85s)", enabled = hasMedia, onClick = { send(PlayerIntent.SkipIntro) })
+        Item("Skip Intro", enabled = hasMedia, onClick = { send(PlayerIntent.SkipIntro) })
         Separator()
         Menu("Speed") {
             PlaybackSpeeds.PRESETS.forEach { speed ->

@@ -77,6 +77,9 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material.icons.outlined.VolumeMute
 import androidx.compose.material.icons.outlined.VolumeUp
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -422,6 +425,7 @@ internal fun DesktopTopHeaderView(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f, fill = false),
             ) {
                 IconButton(
                     onClick = onToggleSidebar,
@@ -439,11 +443,15 @@ internal fun DesktopTopHeaderView(
                         text = destination.title,
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = colors.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = destination.subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = colors.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -474,7 +482,7 @@ internal fun DesktopTopHeaderView(
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.width(220.dp).height(44.dp),
+                        modifier = Modifier.widthIn(min = 120.dp, max = 220.dp).weight(1f, fill = false).height(44.dp),
                     )
 
                     IconButton(
@@ -508,6 +516,7 @@ internal fun DesktopTopHeaderView(
                         }
                     },
                 ) {
+                    val compactHeader = LocalWindowInfo.current.containerSize.width < COMPACT_HEADER_PX
                     Button(
                         onClick = onToggleQueue,
                         shape = RoundedCornerShape(8.dp),
@@ -517,15 +526,19 @@ internal fun DesktopTopHeaderView(
                             ButtonDefaults.outlinedButtonColors()
                         },
                         border = if (!queueVisible) BorderStroke(1.dp, colors.outline.copy(alpha = 0.5f)) else null,
-                        modifier = Modifier.height(36.dp),
+                        contentPadding = if (compactHeader) PaddingValues(horizontal = 10.dp) else ButtonDefaults.ContentPadding,
+                        modifier = Modifier.height(36.dp)
+                            .semantics { contentDescription = if (queueVisible) "Hide the play queue" else "Show the play queue" },
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.QueueMusic,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                         )
-                        Spacer(Modifier.width(6.dp))
-                        Text(if (queueVisible) "Hide Queue" else "Queue", style = MaterialTheme.typography.labelSmall)
+                        if (!compactHeader) {
+                            Spacer(Modifier.width(6.dp))
+                            Text(if (queueVisible) "Hide Queue" else "Queue", style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
             }
@@ -1484,3 +1497,5 @@ private fun scanLabel(scan: LibraryScanState): String = when (scan) {
     is LibraryScanState.Completed -> "Indexed ${scan.result.indexed} files"
     is LibraryScanState.Failed -> "Failed: ${scan.message}"
 }
+
+private const val COMPACT_HEADER_PX = 1000
