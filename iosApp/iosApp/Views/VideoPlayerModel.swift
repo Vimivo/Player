@@ -48,7 +48,7 @@ enum VideoAspect: CaseIterable, Identifiable {
 }
 
 enum PlayerSheet: String, Identifiable {
-    case speed, audio, subtitles, options, queue, tools, decoder
+    case speed, audio, subtitles, options, queue, tools, decoder, sleep
     var id: String { rawValue }
 }
 
@@ -83,6 +83,8 @@ final class VideoPlayerModel: ObservableObject {
     @Published var lockHintVisible = false
     @Published var rotationLocked = false
     @Published var aspect: VideoAspect = .fit
+    /// The picture turned in quarter steps, whatever way the phone is held (shared maths, V1 rotate).
+    @Published private(set) var videoRotation: VideoRotation = VideoRotation.none
     @Published private(set) var zoom: CGFloat = 1
     @Published var showRemaining = false
     @Published var feedback: GestureFeedback?
@@ -333,6 +335,11 @@ final class VideoPlayerModel: ObservableObject {
     }
 
     // MARK: Controls
+
+    func rotateVideo() {
+        videoRotation = videoRotation.next()
+        showMessage(icon: "rotate.right", text: "Video \(videoRotation.label)")
+    }
 
     func cycleAspect() {
         let all = VideoAspect.allCases

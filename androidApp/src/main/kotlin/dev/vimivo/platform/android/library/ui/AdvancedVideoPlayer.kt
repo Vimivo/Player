@@ -97,6 +97,9 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.ScreenLockRotation
 import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.ScreenRotationAlt
+import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Speed
@@ -116,6 +119,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -171,6 +175,7 @@ import dev.vimivo.playback.CropPreset
 import dev.vimivo.playback.PlaybackSpeeds
 import dev.vimivo.playback.VideoAdjustments
 import dev.vimivo.playback.VideoCropMath
+import dev.vimivo.playback.VideoRotation
 
 private enum class VideoAspect(val label: String) {
     FIT("Fit to screen"), FILL("Stretch"), ORIGINAL("Original size"), RATIO_16_9("16:9"), RATIO_4_3("4:3"), CROP("Crop")
@@ -209,6 +214,7 @@ fun AdvancedVideoPlayer(
     onSubtitleAppearance: (SubtitleAppearance) -> Unit,
     onPlayerState: (Boolean, Boolean) -> Unit,
     onEnterPictureInPicture: () -> Unit,
+    onListenAsAudio: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -245,6 +251,25 @@ fun AdvancedVideoPlayer(
         mutableStateOf(runCatching { VideoAspect.valueOf(settings.videoAspectPreference.name) }.getOrDefault(VideoAspect.FIT))
     }
     var zoom by remember { mutableFloatStateOf(1f) }
+    var videoRotation by rememberSaveable { mutableStateOf(VideoRotation.NONE) }
+    var sleepSheetVisible by remember { mutableStateOf(false) }
+    var videoAspect by remember { mutableFloatStateOf(0f) }
+    // Coming back from "listen as audio" must bring the picture back.
+    LaunchedEffect(Unit) { viewModel.setVideoEnabled(true) }
+    DisposableEffect(controller) {
+        val active = controller
+        fun update(size: androidx.media3.common.VideoSize) {
+            if (size.width > 0 && size.height > 0) videoAspect = size.width * size.pixelWidthHeightRatio / size.height
+        }
+        val listener = object : Player.Listener {
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = update(videoSize)
+        }
+        if (active != null) {
+            update(active.videoSize)
+            active.addListener(listener)
+        }
+        onDispose { active?.removeListener(listener) }
+    }
     var showRemaining by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<GestureFeedback?>(null) }
     var gestureActive by remember { mutableStateOf(false) }
@@ -549,14 +574,16 @@ fun AdvancedVideoPlayer(
                     it.subtitleView?.applySubtitleAppearance(settings.subtitleAppearance)
                 },
                 modifier = videoModifier.graphicsLayer {
-                    scaleX = zoom
-                    scaleY = zoom
+                    rotationZ = videoRotation.degrees.toFloat()
+                    val turnFit = videoRotation.fitScale(size.width, size.height, videoAspect.takeIf { it > 0f } ?: DEFAULT_VIDEO_ASPECT)
+                    scaleX = zoom * turnFit
+                    scaleY = zoom * turnFit
                     val crop = player.videoCrop
                     val rect = crop?.rect
                     if (rect != null && aspect == VideoAspect.FIT) {
                         val fit = VideoCropMath.transform(size.width, size.height, crop.sourceWidth, crop.sourceHeight, rect)
-                        scaleX = zoom * fit.scale
-                        scaleY = zoom * fit.scale
+                        scaleX = zoom * fit.scale * turnFit
+                        scaleY = zoom * fit.scale * turnFit
                         translationX = fit.translateX * zoom
                         translationY = fit.translateY * zoom
                     }
@@ -664,6 +691,16 @@ fun AdvancedVideoPlayer(
                                 if (orientationLocked) "Rotation locked" else "Auto-rotate",
                             )
                         },
+                        videoRotation = videoRotation,
+                        onRotateVideo = {
+                            videoRotation = videoRotation.next()
+                            showMessage(Icons.Rounded.ScreenRotationAlt, "Video ${videoRotation.label}")
+                        },
+                        onSleepTimer = { sleepSheetVisible = true },
+                        onListenAsAudio = {
+                            viewModel.setVideoEnabled(false)
+                            onListenAsAudio()
+                        },
                         onAspect = {
                             aspect = VideoAspect.entries[(aspect.ordinal + 1) % VideoAspect.entries.size]
                             zoom = 1f
@@ -683,6 +720,11 @@ fun AdvancedVideoPlayer(
                     if (controlsVisible) controls()
                 } else AnimatedVisibility(controlsVisible, enter = fadeIn(), exit = fadeOut()) { controls() }
             }
+        }
+    }
+    if (sleepSheetVisible) {
+        dev.vimivo.platform.android.ui.components.BottomSheet({ sleepSheetVisible = false }) {
+            SleepTimerContent(viewModel) { sleepSheetVisible = false }
         }
     }
     panel?.let { selected ->
@@ -722,6 +764,7 @@ fun AdvancedVideoPlayer(
 private val TopScrim = Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.72f), Color.Transparent))
 private val BottomScrim = Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f)))
 private const val TABULAR_FIGURES = "tnum"
+private const val DEFAULT_VIDEO_ASPECT = 16f / 9f
 
 @Composable
 private fun VideoControls(
@@ -746,6 +789,10 @@ private fun VideoControls(
     onLock: () -> Unit,
     onKidsLock: () -> Unit,
     onOrientationLock: () -> Unit,
+    videoRotation: VideoRotation,
+    onRotateVideo: () -> Unit,
+    onSleepTimer: () -> Unit,
+    onListenAsAudio: () -> Unit,
     onAspect: () -> Unit,
     onPip: () -> Unit,
     onPopup: () -> Unit,
@@ -862,6 +909,13 @@ private fun VideoControls(
                         if (orientationLocked) "Unlock orientation" else "Lock orientation",
                         onClick = onOrientationLock,
                     )
+                    PlayerIconButton(
+                        Icons.Rounded.ScreenRotationAlt,
+                        if (videoRotation == VideoRotation.NONE) "Rotate video" else "Rotate video, now ${videoRotation.label}",
+                        onClick = onRotateVideo,
+                    )
+                    PlayerIconButton(Icons.Outlined.Bedtime, "Sleep timer", onClick = onSleepTimer)
+                    PlayerIconButton(Icons.Outlined.Headphones, "Listen as audio", onClick = onListenAsAudio)
                     Spacer(Modifier.weight(1f))
                     PlayerIconButton(Icons.Outlined.FitScreen, "Floating popup player", onClick = onPopup)
                     Spacer(Modifier.width(4.dp))

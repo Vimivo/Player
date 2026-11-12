@@ -120,6 +120,7 @@ internal class PlayerViewModel(
             miniPlayer = localState.miniPlayer,
             pipMode = localState.pipMode,
             audioOnlyMode = localState.audioOnlyMode,
+            videoRotation = localState.videoRotation,
             commandPaletteVisible = localState.commandPaletteVisible,
             wifiSharingVisible = localState.wifiSharingVisible,
             transcodeVisible = localState.transcodeVisible,
@@ -282,6 +283,11 @@ internal class PlayerViewModel(
                 val next = !local.value.audioOnlyMode
                 local.update { it.copy(audioOnlyMode = next) }
                 engine.selectVideoTrack(if (next) null else engine.state.value.videoTracks.firstOrNull()?.id)
+            }
+            PlayerIntent.RotateVideo -> {
+                val next = local.value.videoRotation.next()
+                local.update { it.copy(videoRotation = next) }
+                engine.setVideoRotation(next)
             }
             PlayerIntent.ToggleCommandPalette -> local.update { it.copy(commandPaletteVisible = !it.commandPaletteVisible) }
             PlayerIntent.ToggleWifiSharing -> local.update { it.copy(wifiSharingVisible = !it.wifiSharingVisible) }
@@ -653,6 +659,7 @@ internal class PlayerViewModel(
         val miniPlayer: Boolean = false,
         val pipMode: Boolean = false,
         val audioOnlyMode: Boolean = false,
+        val videoRotation: dev.vimivo.playback.VideoRotation = dev.vimivo.playback.VideoRotation.NONE,
         val commandPaletteVisible: Boolean = false,
         val wifiSharingVisible: Boolean = false,
         val transcodeVisible: Boolean = false,

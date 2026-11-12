@@ -432,25 +432,7 @@ private fun PlayerSheetContent(
 }
 
 @Composable
-private fun SleepSheet(viewModel: PlaybackViewModel, onDismiss: () -> Unit) {
-    val sleepTimer by viewModel.sleepTimerState.collectAsState()
-    Column {
-        Text("Sleep timer", Modifier.padding(20.dp), style = MaterialTheme.typography.headlineSmall)
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SleepTimerOptions.MINUTES.forEach { minutes ->
-                AssistChip({ viewModel.startSleepTimer(minutes); onDismiss() }, { Text("$minutes min") })
-            }
-        }
-        SettingsRow(Icons.Outlined.MusicNote, "Stop after current track", onClick = { viewModel.stopAfterCurrent(); onDismiss() })
-        if (sleepTimer.deadlineEpochMillis != null || sleepTimer.stopAfterCurrent) {
-            SettingsRow(
-                Icons.Outlined.Close, "Cancel sleep timer",
-                detail = sleepTimer.remainingMillis?.let(::formatClock) ?: "After current track",
-                onClick = { viewModel.cancelSleepTimer(); onDismiss() },
-            )
-        }
-    }
-}
+private fun SleepSheet(viewModel: PlaybackViewModel, onDismiss: () -> Unit) = SleepTimerContent(viewModel, onDismiss)
 
 @Composable
 private fun OptionsSheet(player: PlaybackUiState, viewModel: PlaybackViewModel, onDismiss: () -> Unit) {

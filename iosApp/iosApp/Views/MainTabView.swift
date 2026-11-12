@@ -25,10 +25,13 @@ public struct MainTabView: View {
             NowPlayingView(engine: engine)
         }
         .fullScreenCover(isPresented: $showVideoPlayer) {
-            VideoPlayerView(engine: engine) {
+            VideoPlayerView(engine: engine, onDismiss: {
                 showVideoPlayer = false
                 engine.pause()
-            }
+            }, onListenAsAudio: {
+                showVideoPlayer = false
+                showNowPlayingModal = true
+            })
         }
         .onChange(of: router.playerRequest) { _ in expandNowPlaying() }
         .overlay(alignment: .top) {
@@ -55,7 +58,7 @@ public struct MainTabView: View {
     }
 
     private func expandNowPlaying() {
-        if engine.state.currentItem?.kind == .video {
+        if engine.state.currentItem?.kind == .video && !engine.listeningAsAudio {
             showVideoPlayer = true
         } else {
             showNowPlayingModal = true

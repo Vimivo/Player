@@ -247,6 +247,13 @@ interface PlayerEngine : AutoCloseable {
     fun setVolume(volume: Float): Result<Unit>
     fun selectAudioTrack(trackId: String?): Result<Unit>
     fun selectVideoTrack(trackId: String?): Result<Unit>
+
+    /**
+     * Turns the picture off or on while the sound keeps playing, so a video can be listened to as audio. Switching it
+     * back on restores the automatic video track.
+     */
+    fun setVideoEnabled(enabled: Boolean): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Listening to video as audio is not supported"))
     fun selectSubtitleTrack(trackId: String?): Result<Unit>
     fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> =
         Result.failure(UnsupportedOperationException("External subtitles are not supported"))
@@ -279,6 +286,9 @@ interface PlayerEngine : AutoCloseable {
         Result.failure(UnsupportedOperationException("Chapter navigation is not supported"))
     fun applyVideoAdjustments(adjustments: VideoAdjustments): Result<Unit> =
         Result.failure(UnsupportedOperationException("Video adjustments are not supported"))
+    /** Turns the picture itself by a quarter-turn multiple; the window or device is left as it is. */
+    fun setVideoRotation(rotation: VideoRotation): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Video rotation is not supported"))
     fun applySubtitleStyle(style: SubtitleStyle): Result<Unit> =
         Result.failure(UnsupportedOperationException("Subtitle styling is not supported"))
     fun takeScreenshot(destinationFilePath: String): Result<Unit> =

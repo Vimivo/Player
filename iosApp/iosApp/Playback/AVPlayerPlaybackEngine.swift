@@ -42,6 +42,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     var abBoundaryToken: Any?
     /// The item `player` is playing for `state.currentItem`, and the item queued behind it for a gapless start.
     var currentPlayerItem: AVPlayerItem?
+    /// True while a video plays as audio only: the picture is switched off and the sound goes on.
+    @Published public private(set) var listeningAsAudio = false
     var preparedNext: PreparedNext?
     var currentItemObservation: NSKeyValueObservation?
     /// How many items were loaded from scratch; a gapless advance does not count (tests read this).
@@ -329,6 +331,19 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         updateNowPlaying()
     }
 
+    /// Hides or restores the picture of the current video without touching the sound.
+    public func setListeningAsAudio(_ listening: Bool) {
+        listeningAsAudio = listening
+        applyVideoEnabled(to: player.currentItem)
+    }
+
+    private func applyVideoEnabled(to item: AVPlayerItem?) {
+        guard let item else { return }
+        for track in item.tracks where track.assetTrack?.mediaType == .video {
+            track.isEnabled = !listeningAsAudio
+        }
+    }
+
     private func observeReadiness(of playerItem: AVPlayerItem, startMillis: Int64) {
         itemStatusObservation = playerItem.observe(\.status, options: [.initial, .new]) { [weak self] observedItem, _ in
             DispatchQueue.main.async {
@@ -337,6 +352,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
                 case .readyToPlay:
                     self.itemStatusObservation = nil
                     self.consecutiveFailures = 0
+                    self.applyVideoEnabled(to: observedItem)
                     self.prepareFollowingItem()
                     guard startMillis > 0 else { return }
                     let target = CMTime(seconds: Double(startMillis) / 1000.0, preferredTimescale: 600)

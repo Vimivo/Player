@@ -43,6 +43,10 @@ class PlaybackDiagnostics {
         ?.selectAudioTrack(id)
         ?: Result.failure(IllegalStateException("Playback service is unavailable"))
 
+    fun setVideoEnabled(enabled: Boolean): Result<Unit> = manager
+        ?.setVideoEnabled(enabled)
+        ?: Result.failure(IllegalStateException("Playback service is unavailable"))
+
     fun selectSubtitleTrack(id: String?): Result<Unit> = manager
         ?.selectSubtitleTrack(id)
         ?: Result.failure(IllegalStateException("Playback service is unavailable"))

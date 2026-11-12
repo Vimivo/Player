@@ -133,6 +133,10 @@ internal fun DesktopCommandPalette(
                 onIntent(PlayerIntent.ToggleAudioOnlyMode)
             },
 
+            PaletteAction("Rotate Video 90°", "View", null, Icons.Outlined.Audiotrack) {
+                onIntent(PlayerIntent.RotateVideo)
+            },
+
             // Panels
             PaletteAction("Audio Equalizer & DSP Effects", "Panels", null, Icons.Outlined.Equalizer) {
                 onIntent(PlayerIntent.ShowPanel(PlayerPanel.AUDIO))

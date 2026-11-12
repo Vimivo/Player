@@ -27,6 +27,7 @@ struct PlayerSheetView: View {
                 case .queue: nextUpContent
                 case .tools: toolsContent
                 case .decoder: decoderContent
+                case .sleep: SleepTimerContent(timer: engine.sleepTimer, onDone: { dismiss() })
                 }
             }
             .navigationTitle(title)
@@ -57,6 +58,7 @@ struct PlayerSheetView: View {
         case .queue: return "Next up"
         case .tools: return "Tools"
         case .decoder: return "Decoder"
+        case .sleep: return "Sleep timer"
         }
     }
 

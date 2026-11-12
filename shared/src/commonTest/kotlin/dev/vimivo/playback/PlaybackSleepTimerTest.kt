@@ -28,7 +28,7 @@ class PlaybackSleepTimerTest {
 
     @Test
     fun theOptionsAreTheSameEverywhere() {
-        assertEquals(listOf(15, 30, 45, 60), SleepTimerOptions.MINUTES)
+        assertEquals(listOf(5, 10, 15, 30, 45, 60, 90, 120), SleepTimerOptions.MINUTES)
         assertEquals(10, SleepTimerOptions.FADE_SECONDS)
     }
 

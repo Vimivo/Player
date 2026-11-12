@@ -72,6 +72,7 @@ class PlaybackEngineManager(
     fun setVolume(volume: Float): Result<Unit> = activeOrFailure().flatMap { it.setVolume(volume) }
     fun selectAudioTrack(id: String?): Result<Unit> = activeOrFailure().flatMap { it.selectAudioTrack(id) }
     fun selectVideoTrack(id: String?): Result<Unit> = activeOrFailure().flatMap { it.selectVideoTrack(id) }
+    fun setVideoEnabled(enabled: Boolean): Result<Unit> = activeOrFailure().flatMap { it.setVideoEnabled(enabled) }
     fun selectSubtitleTrack(id: String?): Result<Unit> = activeOrFailure().flatMap { it.selectSubtitleTrack(id) }
     fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> =
         activeOrFailure().flatMap { engine ->

@@ -265,6 +265,9 @@ class PlaybackViewModel(
     }
     fun selectAudioTrack(id: String?) { diagnostics.selectAudioTrack(id) }
     fun selectSubtitleTrack(id: String?) { diagnostics.selectSubtitleTrack(id) }
+
+    /** Hides or restores the picture; with it hidden the video plays on as audio. */
+    fun setVideoEnabled(enabled: Boolean) = reportTrackResult(diagnostics.setVideoEnabled(enabled))
     fun setSubtitleDelay(delayMillis: Long) = reportTrackResult(diagnostics.setSubtitleDelay(delayMillis))
     fun setAudioDelay(delayMillis: Long) = reportTrackResult(diagnostics.setAudioDelay(delayMillis))
     fun loadExternalSubtitle(uri: android.net.Uri) {

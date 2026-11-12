@@ -18,6 +18,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.vimivo.playback.PlaybackSleepTimer
+import dev.vimivo.playback.SleepTimerOptions
 
 @Composable
 internal fun DesktopSleepTimerDialog(
@@ -40,8 +43,12 @@ internal fun DesktopSleepTimerDialog(
 ) {
     val state by sleepTimer.state.collectAsState()
     var customMinutes by remember { mutableIntStateOf(30) }
+    var customHours by remember { mutableStateOf("") }
+    var customMinutesText by remember { mutableStateOf("") }
+    var customAttempted by remember { mutableStateOf(false) }
+    val customValue = SleepTimerOptions.customMinutes(customHours, customMinutesText)
 
-    val presets = listOf(15, 30, 45, 60, 90, 120)
+    val presets = SleepTimerOptions.MINUTES
 
     val isActive = state.deadlineEpochMillis != null || state.stopAfterCurrent
 
@@ -108,7 +115,7 @@ internal fun DesktopSleepTimerDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        presets.take(3).forEach { mins ->
+                        presets.take(4).forEach { mins ->
                             FilterChip(
                                 selected = customMinutes == mins,
                                 onClick = {
@@ -123,7 +130,7 @@ internal fun DesktopSleepTimerDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        presets.drop(3).forEach { mins ->
+                        presets.drop(4).forEach { mins ->
                             FilterChip(
                                 selected = customMinutes == mins,
                                 onClick = {
@@ -133,6 +140,35 @@ internal fun DesktopSleepTimerDialog(
                                 label = { Text("${mins}m") },
                             )
                         }
+                    }
+                    Text("Custom time", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        OutlinedTextField(
+                            value = customHours,
+                            onValueChange = { customHours = it.filter(Char::isDigit).take(2); customAttempted = false },
+                            label = { Text("Hours") },
+                            singleLine = true,
+                            modifier = Modifier.width(88.dp),
+                        )
+                        OutlinedTextField(
+                            value = customMinutesText,
+                            onValueChange = { customMinutesText = it.filter(Char::isDigit).take(4); customAttempted = false },
+                            label = { Text("Minutes") },
+                            singleLine = true,
+                            isError = customAttempted && customValue == null,
+                            supportingText = if (customAttempted && customValue == null) {
+                                { Text("1 minute to 24 hours") }
+                            } else null,
+                            modifier = Modifier.width(112.dp),
+                        )
+                        Button(
+                            onClick = { if (customValue != null) sleepTimer.start(customValue) else customAttempted = true },
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) { Text("Start") }
                     }
                     Spacer(Modifier.height(4.dp))
                     OutlinedButton(

@@ -307,6 +307,13 @@ class Media3PlayerEngine(
 
     override fun selectAudioTrack(trackId: String?): Result<Unit> = selectTrack(C.TRACK_TYPE_AUDIO, trackId)
     override fun selectVideoTrack(trackId: String?): Result<Unit> = selectTrack(C.TRACK_TYPE_VIDEO, trackId)
+
+    override fun setVideoEnabled(enabled: Boolean): Result<Unit> = command {
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, !enabled)
+            .build()
+    }
     override fun selectSubtitleTrack(trackId: String?): Result<Unit> = selectTrack(C.TRACK_TYPE_TEXT, trackId)
 
     override fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> = command {

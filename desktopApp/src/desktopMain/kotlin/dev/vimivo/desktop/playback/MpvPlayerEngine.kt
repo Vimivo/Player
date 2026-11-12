@@ -42,6 +42,7 @@ import dev.vimivo.playback.SubtitleStyle
 import dev.vimivo.playback.SupportLevel
 import dev.vimivo.playback.TrackInfo
 import dev.vimivo.playback.VideoAdjustments
+import dev.vimivo.playback.VideoRotation
 import dev.vimivo.playback.VideoAspectRatio
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -273,6 +274,7 @@ class MpvPlayerEngine : PlayerEngine {
         mutableState.update { it.copy(volume = volume) }
     }
     override fun selectAudioTrack(trackId: String?) = trackAction { setProperty("aid", trackId ?: "no") }
+    override fun setVideoEnabled(enabled: Boolean) = trackAction { setProperty("vid", if (enabled) "auto" else "no") }
     override fun selectVideoTrack(trackId: String?) = trackAction { setProperty("vid", trackId ?: "no") }
     override fun selectSubtitleTrack(trackId: String?) = trackAction { setProperty("sid", trackId ?: "no") }
     override fun addExternalSubtitle(subtitle: ExternalSubtitle) = trackAction {
@@ -379,6 +381,9 @@ class MpvPlayerEngine : PlayerEngine {
     override fun previousChapter(): Result<Unit> = action {
         command("add", "chapter", "-1")
     }
+
+    override fun setVideoRotation(rotation: VideoRotation): Result<Unit> =
+        action { setProperty("video-rotate", rotation.degrees.toString()) }
 
     override fun applyVideoAdjustments(adjustments: VideoAdjustments): Result<Unit> = action {
         setProperty("brightness", adjustments.brightness.toString())

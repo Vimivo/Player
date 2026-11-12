@@ -186,6 +186,7 @@ class LibmpvPlayerEngine(
 
     override fun selectAudioTrack(trackId: String?): Result<Unit> = selectTrack("aid", trackId)
     override fun selectVideoTrack(trackId: String?): Result<Unit> = selectTrack("vid", trackId)
+    override fun setVideoEnabled(enabled: Boolean): Result<Unit> = selectTrack("vid", if (enabled) "auto" else null)
     override fun selectSubtitleTrack(trackId: String?): Result<Unit> = selectTrack("sid", trackId)
 
     override fun addExternalSubtitle(subtitle: ExternalSubtitle): Result<Unit> = runCatching {

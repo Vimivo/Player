@@ -152,6 +152,10 @@ private fun MenuBarScope.ViewMenu(context: MenuContext) = with(context) {
             checked = state.audioOnlyMode,
             onCheckedChange = { send(PlayerIntent.ToggleAudioOnlyMode) },
         )
+        Item(
+            if (state.videoRotation == dev.vimivo.playback.VideoRotation.NONE) "Rotate Video" else "Rotate Video (${state.videoRotation.label})",
+            onClick = { send(PlayerIntent.RotateVideo) },
+        )
         CheckboxItem(
             "Stats for Nerds (Shift+I)",
             checked = state.statsHudVisible,

@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import VimivoShared
 
 /// Full-screen custom video player with MX-style gestures, matching the Android player.
 public struct VideoPlayerView: View {
@@ -7,10 +8,12 @@ public struct VideoPlayerView: View {
     @StateObject private var model: VideoPlayerModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let onDismiss: () -> Void
+    private let onListenAsAudio: () -> Void
 
-    public init(engine: AVPlayerPlaybackEngine, onDismiss: @escaping () -> Void) {
+    public init(engine: AVPlayerPlaybackEngine, onDismiss: @escaping () -> Void, onListenAsAudio: @escaping () -> Void = {}) {
         self.engine = engine
         self.onDismiss = onDismiss
+        self.onListenAsAudio = onListenAsAudio
         _model = StateObject(wrappedValue: VideoPlayerModel(engine: engine))
     }
 
@@ -79,7 +82,7 @@ public struct VideoPlayerView: View {
             } else if model.locked {
                 lockOverlay
             } else if model.controlsVisible {
-                VideoControls(engine: engine, model: model, onClose: close)
+                VideoControls(engine: engine, model: model, onClose: close, onListenAsAudio: listenAsAudio)
                     .transition(.opacity)
             }
             if let feedback = model.feedback {
@@ -128,6 +131,10 @@ public struct VideoPlayerView: View {
         .onChange(of: model.isPlaying) { playing in
             UIApplication.shared.isIdleTimerDisabled = playing
         }
+        .onAppear {
+            // Coming back from "listen as audio" brings the picture back.
+            engine.setListeningAsAudio(false)
+        }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             model.tearDown()
@@ -151,6 +158,7 @@ public struct VideoPlayerView: View {
             }
         }
         .scaleEffect(model.zoom)
+        .modifier(VideoTurn(rotation: model.videoRotation, videoSize: engine.player.currentItem?.presentationSize ?? .zero))
         .ignoresSafeArea()
         .accessibilityLabel(engine.state.currentItem?.title ?? "Video")
     }
@@ -232,6 +240,12 @@ public struct VideoPlayerView: View {
         model.tearDown()
         onDismiss()
     }
+
+    private func listenAsAudio() {
+        engine.setListeningAsAudio(true)
+        model.tearDown()
+        onListenAsAudio()
+    }
 }
 
 // MARK: - Controls
@@ -240,6 +254,7 @@ private struct VideoControls: View {
     @ObservedObject var engine: AVPlayerPlaybackEngine
     @ObservedObject var model: VideoPlayerModel
     let onClose: () -> Void
+    let onListenAsAudio: () -> Void
 
     private var hasPrevious: Bool { engine.queue.count > 1 && engine.currentIndex > 0 }
     private var hasNext: Bool { engine.queue.count > 1 && engine.currentIndex < engine.queue.count - 1 }
@@ -377,6 +392,17 @@ private struct VideoControls: View {
                 ) {
                     model.touch()
                     model.toggleRotationLock(scene: activeScene)
+                }
+                PlayerIconButton(systemName: "rotate.right.fill", label: "Rotate video, now \(model.videoRotation.label)") {
+                    model.touch()
+                    model.rotateVideo()
+                }
+                PlayerIconButton(systemName: "moon.zzz.fill", label: "Sleep timer") {
+                    open(.sleep)
+                }
+                PlayerIconButton(systemName: "headphones", label: "Listen as audio") {
+                    model.touch()
+                    onListenAsAudio()
                 }
                 Spacer()
                 PlayerPill(
@@ -662,5 +688,23 @@ private struct UnevenCapsule: Shape {
         }
         path.closeSubpath()
         return path
+    }
+}
+
+/// Turns the picture by the chosen quarter turns and scales it so the whole turned picture stays on screen.
+private struct VideoTurn: ViewModifier {
+    let rotation: VideoRotation
+    let videoSize: CGSize
+
+    func body(content: Content) -> some View {
+        GeometryReader { proxy in
+            let aspect: Float = videoSize.width > 0 && videoSize.height > 0 ? Float(videoSize.width / videoSize.height) : 16.0 / 9.0
+            let scale = CGFloat(rotation.fitScale(containerWidth: Float(proxy.size.width), containerHeight: Float(proxy.size.height), videoAspect: aspect))
+            content
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .scaleEffect(scale)
+                .rotationEffect(.degrees(Double(rotation.degrees)))
+                .animation(.easeInOut(duration: 0.25), value: rotation.degrees)
+        }
     }
 }

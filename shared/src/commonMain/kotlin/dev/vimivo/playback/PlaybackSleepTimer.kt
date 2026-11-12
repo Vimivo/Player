@@ -8,7 +8,34 @@ import kotlinx.coroutines.launch
 
 /** The sleep timer's choices and fade, the same on every platform. */
 object SleepTimerOptions {
-    val MINUTES: List<Int> = listOf(15, 30, 45, 60)
+    val MINUTES: List<Int> = listOf(5, 10, 15, 30, 45, 60, 90, 120)
+
+    /** The longest custom timer: 24 hours. */
+    const val MAX_MINUTES: Int = 24 * 60
+
+    /**
+     * Turns what the user typed into a timer length in minutes, or null if it is not a usable time.
+     * Blank fields count as zero, so "2" hours and "" minutes is 120. The result is 1..[MAX_MINUTES].
+     */
+    fun customMinutes(hours: String, minutes: String): Int? {
+        fun field(text: String): Int? {
+            val trimmed = text.trim()
+            if (trimmed.isEmpty()) return 0
+            if (trimmed.length > 4 || !trimmed.all { it in '0'..'9' }) return null
+            return trimmed.toInt()
+        }
+        val h = field(hours) ?: return null
+        val m = field(minutes) ?: return null
+        val total = h * 60 + m
+        return total.takeIf { it in 1..MAX_MINUTES }
+    }
+
+    /** "45 min", "1 h", "1 h 30 min". */
+    fun label(minutes: Int): String = when {
+        minutes < 60 -> "$minutes min"
+        minutes % 60 == 0 -> "${minutes / 60} h"
+        else -> "${minutes / 60} h ${minutes % 60} min"
+    }
 
     /** The fade-out before a timed stop. "After the current track" needs none: the track has already ended. */
     const val FADE_SECONDS: Int = 10

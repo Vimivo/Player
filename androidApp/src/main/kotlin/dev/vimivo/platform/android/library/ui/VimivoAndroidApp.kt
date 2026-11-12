@@ -473,6 +473,10 @@ private fun AppShell(
         onSubtitleAppearance = settingsViewModel::setSubtitleAppearance,
         onPlayerState = onVideoPlayerState,
         onEnterPictureInPicture = enterPictureInPicture,
+        onListenAsAudio = {
+            videoPlayerVisible = false
+            nowPlayingVisible = true
+        },
         onDismiss = { videoPlayerVisible = false },
     )
 }
