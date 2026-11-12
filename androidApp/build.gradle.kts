@@ -60,6 +60,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     packaging.resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+    // BouncyCastle (via smbj and sshj) ships the same licence files in three jars; keep one copy of each.
+    packaging.resources.pickFirsts += listOf("META-INF/LICENSE.md", "META-INF/NOTICE.md", "META-INF/LICENSE", "META-INF/NOTICE")
+    packaging.resources.excludes += listOf("META-INF/versions/**/OSGI-INF/MANIFEST.MF", "META-INF/DEPENDENCIES", "META-INF/INDEX.LIST")
 
     val releaseStoreFile = providers.gradleProperty("vimivo.signing.storeFile").orNull
     val releaseStorePassword = providers.gradleProperty("vimivo.signing.storePassword").orNull
@@ -144,3 +147,9 @@ detekt {
 
 tasks.named("preBuild") { dependsOn(fetchAndroidMedia) }
 
+// One BouncyCastle release for every module (see libs.versions.toml): mixed releases duplicate classes.
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.bouncycastle") useVersion(libs.versions.bouncycastle.get())
+    }
+}

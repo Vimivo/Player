@@ -449,3 +449,10 @@ tasks.withType<Test>().configureEach {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
 }
+
+// One BouncyCastle release for every module (see libs.versions.toml): mixed releases duplicate classes.
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.bouncycastle") useVersion(libs.versions.bouncycastle.get())
+    }
+}

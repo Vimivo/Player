@@ -24,6 +24,8 @@ jna = "5.19.1"
 sqliteJdbc = "3.53.4.0"
 zxing = "3.5.4"
 smbj = "0.15.0"
+# smbj and sshj pull different BouncyCastle releases; mixed versions duplicate classes, so all modules are pinned together.
+bouncycastle = "1.87"
 sshj = "0.41.2"
 jaudiotagger = "3.0.1"
 haze = "1.7.1"
