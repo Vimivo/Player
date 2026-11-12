@@ -408,8 +408,8 @@ private fun formatPersonalTime(milliseconds: Long): String {
 }
 
 private fun chooseM3uFile(): java.io.File? {
-    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Import Playlist (M3U, XSPF)", java.awt.FileDialog.LOAD)
-    dialog.setFilenameFilter { _, name -> name.endsWith(".m3u", true) || name.endsWith(".m3u8", true) || name.endsWith(".xspf", true) }
+    val dialog = java.awt.FileDialog(null as java.awt.Frame?, "Import Playlist (M3U, PLS, XSPF)", java.awt.FileDialog.LOAD)
+    dialog.setFilenameFilter { _, name -> listOf(".m3u", ".m3u8", ".pls", ".xspf").any { name.endsWith(it, ignoreCase = true) } }
     dialog.isVisible = true
     return dialog.files?.firstOrNull() ?: dialog.file?.let { java.io.File(dialog.directory, it) }
 }

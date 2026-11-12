@@ -110,5 +110,10 @@ This register documents current technical limitations, edge cases, and distribut
   Bangla is a mixed screen until those move into resources. A language change needs a restart.
 - **Player icons** show a name on hover. **Settings** gained a Video quality and Keyboard card (it already had themes,
   playback profile, equalizer, ReplayGain, sleep timer, accessibility switches, diagnostics).
-- **Correction to the audit:** XSPF import already existed, and Settings is much fuller than first reported.
+- **Correction to the audit:** XSPF and PLS import already existed (the file pickers just did not list `.pls`; fixed), and
+  Settings is much fuller than first reported.
+- **Error messages:** library, network share, convert and cast failures now say what happened and what to try
+  (`FriendlyError`). Other screens still show the raw message.
+- **Android build:** it was broken from the network-share work until `assembleDebug` was run (duplicate BouncyCastle classes
+  and licence files); fixed by pinning BouncyCastle 1.87. Whether smbj/sshj actually work on a device is still unknown.
 

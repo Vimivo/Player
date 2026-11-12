@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.vimivo.cast.CastMime
 import dev.vimivo.desktop.platform.DesktopDirectories
+import dev.vimivo.desktop.platform.FriendlyError
 import dev.vimivo.network.KnownHosts
 import dev.vimivo.network.RemoteEntry
 import dev.vimivo.network.RemotePaths
@@ -103,7 +104,7 @@ private class ShareDialogState(
         scope.launch {
             withContext(Dispatchers.IO) { runCatching { session.fs.list(path) } }.fold(
                 onSuccess = { folder = FolderView(path, it) },
-                onFailure = { error = it.message ?: "Could not open the folder"; folder = FolderView(path) },
+                onFailure = { error = FriendlyError.describe(it, "Could not open the folder"); folder = FolderView(path) },
             )
         }
     }
@@ -119,7 +120,7 @@ private class ShareDialogState(
             busy = false
             result?.fold(
                 onSuccess = { holder.replace(it); error = null; browse("") },
-                onFailure = { error = it.message ?: "Could not connect" },
+                onFailure = { error = FriendlyError.describe(it, "Could not connect") },
             )
         }
     }
@@ -153,7 +154,7 @@ private class ShareDialogState(
         scope.launch {
             withContext(Dispatchers.IO) { session.playUrl(entry.path) }.fold(
                 onSuccess = { onOpenUrl(it, entry.name); onDismiss() },
-                onFailure = { error = it.message ?: "Could not start playback" },
+                onFailure = { error = FriendlyError.describe(it, "Could not start playback") },
             )
         }
     }

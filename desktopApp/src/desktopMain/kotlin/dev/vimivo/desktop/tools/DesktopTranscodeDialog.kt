@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.vimivo.core.model.MediaItem
+import dev.vimivo.desktop.platform.FriendlyError
 import dev.vimivo.desktop.playback.MpvTranscoder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +74,7 @@ private class TranscodeState(private val scope: CoroutineScope, initial: File?) 
                 onSuccess = { resultFile = it; message = "Saved as ${it.name}" },
                 onFailure = {
                     failed = it !is CancellationException
-                    message = if (failed) it.message ?: "Conversion failed" else "Cancelled"
+                    message = if (failed) FriendlyError.describe(it, "Conversion failed") else "Cancelled"
                 },
             )
         }

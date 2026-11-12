@@ -1493,7 +1493,7 @@ private fun DesktopLibraryPanel(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Button(onClick = onOpenFile) { Text("Open File(s)") }
         OutlinedButton(onClick = onAddFolder) { Text("Add Folder") }
-        OutlinedButton(onClick = onImportPlaylist) { Text("Import M3U…") }
+        OutlinedButton(onClick = onImportPlaylist) { Text("Import Playlist…") }
         OutlinedButton(onClick = onRefreshAvailability) { Text("Refresh Availability") }
     }
     state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -1739,8 +1739,8 @@ internal fun clipboardText(): String? = runCatching {
 }.getOrNull()?.takeIf(String::isNotBlank)
 
 internal fun choosePlaylistFile(): File? {
-    val dialog = FileDialog(null as Frame?, "Import Playlist (M3U, XSPF)", FileDialog.LOAD)
-    dialog.setFilenameFilter { _, name -> name.endsWith(".m3u", true) || name.endsWith(".m3u8", true) || name.endsWith(".xspf", true) }
+    val dialog = FileDialog(null as Frame?, "Import Playlist (M3U, PLS, XSPF)", FileDialog.LOAD)
+    dialog.setFilenameFilter { _, name -> PLAYLIST_EXTENSIONS.any { name.endsWith(it, ignoreCase = true) } }
     dialog.isVisible = true
     return dialog.files?.firstOrNull() ?: dialog.file?.let { File(dialog.directory, it) }
 }
@@ -1837,3 +1837,5 @@ private fun shouldRememberWindow(placement: WindowPlacement, shown: dev.vimivo.d
     val normal = !shown.miniPlayer && !shown.pipMode
     return placement == WindowPlacement.Floating && normal && size.isSpecified
 }
+
+private val PLAYLIST_EXTENSIONS = listOf(".m3u", ".m3u8", ".pls", ".xspf")

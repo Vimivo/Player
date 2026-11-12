@@ -621,7 +621,7 @@ internal class DesktopLibraryController(
     }
 
     private fun report(error: Throwable) {
-        mutableState.value = mutableState.value.copy(loading = false, error = error.message ?: "Library operation failed")
+        mutableState.value = mutableState.value.copy(loading = false, error = dev.vimivo.desktop.platform.FriendlyError.describe(error, "Library operation failed"))
     }
 
     private fun mutatePersonalData(block: () -> Unit) = scope.launch {

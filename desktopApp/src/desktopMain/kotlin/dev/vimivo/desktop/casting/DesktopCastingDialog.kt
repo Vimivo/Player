@@ -80,7 +80,7 @@ internal fun DesktopCastingDialog(
             val result = withContext(Dispatchers.IO) { startCast(session, renderer, media) }
             result.fold(
                 onSuccess = { onPausePlayback(); failure = null; activeRenderer = renderer },
-                onFailure = { failure = it.message ?: "Casting failed"; activeRenderer = null },
+                onFailure = { failure = dev.vimivo.desktop.platform.FriendlyError.describe(it, "Casting failed"); activeRenderer = null },
             )
         }
     }
