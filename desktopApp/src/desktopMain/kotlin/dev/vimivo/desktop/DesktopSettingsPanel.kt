@@ -40,6 +40,10 @@ import dev.vimivo.playback.EqualizerPreset
 import dev.vimivo.playback.PlaybackProfile
 import dev.vimivo.playback.PlaybackSleepTimer
 import dev.vimivo.playback.ReplayGainMode
+import dev.vimivo.desktop.playback.HotkeyPreset
+import dev.vimivo.playback.ToneMapping
+import dev.vimivo.playback.UpscaleQuality
+import dev.vimivo.playback.VideoQualitySettings
 import dev.vimivo.playback.SleepTimerOptions
 import dev.vimivo.settings.LibraryViewMode
 import dev.vimivo.settings.RepeatBehavior
@@ -77,6 +81,10 @@ internal fun DesktopSettingsPanel(
     activeReplayGain: ReplayGainMode = ReplayGainMode.OFF,
     diagnosticsStatus: String? = null,
     updateStatus: String? = null,
+    videoQuality: VideoQualitySettings? = null,
+    onVideoQualityChanged: ((VideoQualitySettings) -> Unit)? = null,
+    hotkeyPreset: HotkeyPreset? = null,
+    onHotkeyPresetSelected: ((HotkeyPreset) -> Unit)? = null,
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -141,6 +149,11 @@ internal fun DesktopSettingsPanel(
                     }
                 }
             }
+        }
+
+        // Picture quality and keyboard: these used to live only in the menu bar, where few people look.
+        if (videoQuality != null && onVideoQualityChanged != null) item {
+            VideoAndKeyboardCard(videoQuality, onVideoQualityChanged, hotkeyPreset, onHotkeyPresetSelected)
         }
 
         // Category 2: Library & Presentation
@@ -616,6 +629,71 @@ private fun SleepTimerCard(sleepTimer: PlaybackSleepTimer) {
                 if (remaining != null || state.stopAfterCurrent) {
                     Button(onClick = sleepTimer::cancel) { Text("Cancel") }
                 }
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun VideoAndKeyboardCard(
+    quality: VideoQualitySettings,
+    onChange: (VideoQualitySettings) -> Unit,
+    hotkeyPreset: HotkeyPreset?,
+    onHotkeyPreset: ((HotkeyPreset) -> Unit)?,
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = false) { contentDescription = "Video quality and keyboard settings" },
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            VimivoSettingsSectionHeader(
+                title = "Video quality",
+                subtitle = "Higher scaling looks sharper but uses more of the graphics card. Changes apply right away and are remembered.",
+            )
+            ChoiceRow("Scaling", UpscaleQuality.entries, quality.upscale, { it.label }) { onChange(quality.copy(upscale = it)) }
+            ChoiceRow("HDR tone mapping", ToneMapping.entries, quality.toneMapping, { it.label }) { onChange(quality.copy(toneMapping = it)) }
+            VimivoSettingsRow(
+                title = "Remove colour banding",
+                subtitle = "Smooths visible steps in dark gradients.",
+            ) {
+                Switch(checked = quality.deband, onCheckedChange = { onChange(quality.copy(deband = it)) })
+            }
+            VimivoSettingsRow(
+                title = "Smooth motion",
+                subtitle = "Matches video frames to your screen's refresh rate for steadier panning.",
+            ) {
+                Switch(checked = quality.smoothMotion, onCheckedChange = { onChange(quality.copy(smoothMotion = it)) })
+            }
+            VimivoSettingsRow(
+                title = "Exclusive audio output",
+                subtitle = "Takes the sound device for bit-exact playback; other apps are silent while Vimivo plays.",
+            ) {
+                Switch(checked = quality.exclusiveAudio, onCheckedChange = { onChange(quality.copy(exclusiveAudio = it)) })
+            }
+            if (hotkeyPreset != null && onHotkeyPreset != null) {
+                VimivoSettingsSectionHeader(title = "Keyboard shortcuts", subtitle = "Pick the key layout you already know.")
+                ChoiceRow("Layout", HotkeyPreset.entries, hotkeyPreset, { it.displayName }, onHotkeyPreset)
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun <T> ChoiceRow(label: String, options: List<T>, selected: T, name: (T) -> String, onSelect: (T) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            options.forEach { option ->
+                androidx.compose.material3.FilterChip(
+                    selected = option == selected,
+                    onClick = { onSelect(option) },
+                    label = { Text(name(option)) },
+                )
             }
         }
     }

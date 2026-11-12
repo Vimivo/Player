@@ -359,7 +359,7 @@ private fun PlayerControlBar(
         )
         PlayerIconButton(
             Icons.Outlined.Search,
-            "Command Palette (Cmd+K)",
+            "Command Palette (${if (dev.vimivo.desktop.platform.DesktopPlatform.detect() == dev.vimivo.desktop.platform.DesktopPlatform.MACOS) "⌘K" else "Ctrl+K"})",
         ) {
             onIntent(PlayerIntent.ToggleCommandPalette)
         }

@@ -1184,6 +1184,10 @@ private fun DesktopPlayer(
                 LaunchSettingsSection(playerState, viewModel::dispatch)
                 DesktopSettingsPanel(
                     state = libraryState,
+                    videoQuality = playerState.videoQuality,
+                    onVideoQualityChanged = { viewModel.dispatch(PlayerIntent.SetVideoQuality(it)) },
+                    hotkeyPreset = playerState.hotkeyPreset,
+                    onHotkeyPresetSelected = { viewModel.dispatch(PlayerIntent.SetHotkeyPreset(it)) },
                     onThemeSelected = library::setThemeMode,
                     onAddFolder = library::addFolder,
                     onRefreshAvailability = library::refreshAvailability,

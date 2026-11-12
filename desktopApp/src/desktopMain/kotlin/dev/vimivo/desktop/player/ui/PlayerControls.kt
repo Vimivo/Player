@@ -15,6 +15,13 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.TooltipArea
+import androidx.compose.foundation.TooltipPlacement
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -76,6 +83,7 @@ internal fun PlayerIconButton(
 }
 
 /** The look of [PlayerIconButton] without its click handling, for buttons with their own gestures. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun PlayerIconFace(
     icon: ImageVector,
@@ -87,27 +95,40 @@ internal fun PlayerIconFace(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    Box(
-        modifier
-            .size(size)
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (hovered) PlayerPalette.hover else Color.Transparent)
-            .hoverable(interaction)
-            .pointerHoverIcon(PointerIcon.Hand)
-            .semantics {
-                contentDescription = label
-                role = Role.Button
-            },
-        contentAlignment = Alignment.Center,
+    // A name appears after a short hover, so an icon never has to be guessed.
+    TooltipArea(
+        tooltip = {
+            Surface(color = PlayerPalette.glass, shape = RoundedCornerShape(6.dp), shadowElevation = 4.dp) {
+                Text(label, color = PlayerPalette.content, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+            }
+        },
+        delayMillis = TOOLTIP_DELAY_MILLIS,
+        tooltipPlacement = TooltipPlacement.CursorPoint(alignment = Alignment.TopCenter, offset = DpOffset(0.dp, (-12).dp)),
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = if (selected) PlayerPalette.trackPlayed else PlayerPalette.content,
-            modifier = Modifier.size(iconSize),
-        )
+        Box(
+            modifier
+                .size(size)
+                .clip(RoundedCornerShape(6.dp))
+                .background(if (hovered) PlayerPalette.hover else Color.Transparent)
+                .hoverable(interaction)
+                .pointerHoverIcon(PointerIcon.Hand)
+                .semantics {
+                    contentDescription = label
+                    role = Role.Button
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (selected) PlayerPalette.trackPlayed else PlayerPalette.content,
+                modifier = Modifier.size(iconSize),
+            )
+        }
     }
 }
+
+private const val TOOLTIP_DELAY_MILLIS = 450
 
 /**
  * A thin slider (3 dp track, 5 dp on hover, 12 dp thumb) for volume and picture settings. Double-click resets to
