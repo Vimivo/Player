@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		31700 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 31702 /* Localizable.strings */; };
 		1043 /* VideoThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2043 /* VideoThumbnailView.swift */; };
 		1042 /* VideoPlayerSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2042 /* VideoPlayerSheets.swift */; };
 		1041 /* VideoPlayerGestures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2041 /* VideoPlayerGestures.swift */; };
@@ -123,6 +124,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		31701 /* bn */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = bn; path = bn.lproj/Localizable.strings; sourceTree = "<group>"; };
 		2043 /* VideoThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoThumbnailView.swift; sourceTree = "<group>"; };
 		2042 /* VideoPlayerSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerSheets.swift; sourceTree = "<group>"; };
 		2041 /* VideoPlayerGestures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerGestures.swift; sourceTree = "<group>"; };
@@ -412,6 +414,7 @@
 			isa = PBXGroup;
 			children = (
 				2023 /* Assets.xcassets */,
+				31702 /* Localizable.strings */,
 				2030 /* Info.plist */,
 				2033 /* Vimivo.entitlements */,
 			);
@@ -499,6 +502,7 @@
 			knownRegions = (
 				en,
 				Base,
+				bn,
 			);
 			mainGroup = 4001;
 			productRefGroup = 4008 /* Products */;
@@ -512,12 +516,24 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXVariantGroup section */
+		31702 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				31701 /* bn */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
 /* Begin PBXResourcesBuildPhase section */
 		7003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				1023 /* Assets.xcassets in Resources */,
+				31700 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

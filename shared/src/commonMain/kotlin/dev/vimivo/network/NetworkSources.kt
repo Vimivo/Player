@@ -26,6 +26,9 @@ data class RemoteDirectoryEntry(
 sealed interface NetworkBrowseResult {
     data class Success(val entries: List<RemoteDirectoryEntry>) : NetworkBrowseResult
     data class Failure(val message: String, val recoverable: Boolean = true) : NetworkBrowseResult
+
+    /** First connection to an SSH server: the person must confirm its key [fingerprint] before anything is sent. */
+    data class NeedsTrust(val host: String, val port: Int, val fingerprint: String) : NetworkBrowseResult
 }
 
 interface NetworkSourceRepository {
@@ -33,4 +36,7 @@ interface NetworkSourceRepository {
     suspend fun save(location: NetworkLocation): Result<Unit>
     suspend fun remove(id: String): Result<Unit>
     suspend fun browse(location: NetworkLocation, path: String = location.endpoint): NetworkBrowseResult
+
+    /** Remembers that the person accepted this server key (SFTP). */
+    suspend fun trustHost(host: String, port: Int, fingerprint: String) = Unit
 }

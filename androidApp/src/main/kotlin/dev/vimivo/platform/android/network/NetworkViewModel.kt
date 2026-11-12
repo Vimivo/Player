@@ -81,6 +81,9 @@ data class NetworkUiState(
     val directoryEntries: List<RemoteDirectoryEntry> = emptyList(),
     val isBrowsing: Boolean = false,
     val browserMessage: String? = null,
+    /** An SFTP server whose key the person has not confirmed yet. */
+    val pendingTrust: NetworkBrowseResult.NeedsTrust? = null,
+    val pendingTrustPath: String? = null,
 )
 
 class NetworkViewModel(
@@ -223,8 +226,25 @@ class NetworkViewModel(
             is NetworkBrowseResult.Failure -> mutableState.update {
                 it.copy(isBrowsing = false, browserMessage = result.message)
             }
+            is NetworkBrowseResult.NeedsTrust -> mutableState.update {
+                it.copy(isBrowsing = false, pendingTrust = result, pendingTrustPath = path)
+            }
         }
     }
+
+    /** The person confirmed the server key: remember it and open the folder that was waiting. */
+    fun trustPendingHost() {
+        val trust = mutableState.value.pendingTrust ?: return
+        val location = mutableState.value.browsingLocation ?: return
+        val path = mutableState.value.pendingTrustPath ?: location.endpoint
+        mutableState.update { it.copy(pendingTrust = null, pendingTrustPath = null) }
+        viewModelScope.launch {
+            networkSources.trustHost(trust.host, trust.port, trust.fingerprint)
+            browse(location, path)
+        }
+    }
+
+    fun dismissTrust() = mutableState.update { it.copy(pendingTrust = null, pendingTrustPath = null) }
 
     fun openRemote(entry: RemoteDirectoryEntry) {
         entry.media?.let(playback::play)

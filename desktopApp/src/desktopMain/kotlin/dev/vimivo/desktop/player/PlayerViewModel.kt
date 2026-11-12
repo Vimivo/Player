@@ -306,6 +306,7 @@ internal class PlayerViewModel(
                 engine.applyVideoQuality(intent.settings)
                 preferences.saveVideoQuality(intent.settings)
             }
+            is PlayerIntent.ShowHud -> commands.report(intent.message)
             is PlayerIntent.SetLanguage -> {
                 local.update { it.copy(language = intent.code) }
                 preferences.saveLanguage(intent.code)

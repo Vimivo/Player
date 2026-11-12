@@ -167,6 +167,7 @@ internal sealed interface PlayerIntent {
     data object TogglePipMode : PlayerIntent
     data object ToggleAudioOnlyMode : PlayerIntent
     data object RotateVideo : PlayerIntent
+    data class ShowHud(val message: HudMessage) : PlayerIntent
     data class SetLanguage(val code: String) : PlayerIntent
     data class SetHotkeyPreset(val preset: dev.vimivo.desktop.playback.HotkeyPreset) : PlayerIntent
     data class SetVideoQuality(val settings: dev.vimivo.playback.VideoQualitySettings) : PlayerIntent

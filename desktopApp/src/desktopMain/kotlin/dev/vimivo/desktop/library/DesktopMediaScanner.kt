@@ -205,13 +205,18 @@ internal class DesktopMediaScanner(private val database: DesktopDatabase) {
         }
     }
 
+    /** Videos get the release-group noise stripped ("The.Film.2019.1080p.x264" becomes "The Film (2019)"); music keeps its name. */
+    private fun titleFor(fileName: String, kind: MediaKind): String =
+        if (kind == MediaKind.VIDEO) dev.vimivo.core.util.TitleParser.clean(fileName).display
+        else fileName.substringBeforeLast('.')
+
     private fun Path.toMedia(rootId: String, attrs: BasicFileAttributes? = null): MediaItem {
         val attributes = attrs ?: Files.readAttributes(this, BasicFileAttributes::class.java)
         val extension = extension().lowercase()
         val kind = if (extension in AUDIO_EXTENSIONS) MediaKind.AUDIO else MediaKind.VIDEO
         val uri = toRealPath().toUri().toString()
         return MediaItem(
-            id = MediaId(identity(rootId, uri)), uri = uri, title = fileName.toString().substringBeforeLast('.'), kind = kind,
+            id = MediaId(identity(rootId, uri)), uri = uri, title = titleFor(fileName.toString(), kind), kind = kind,
             fileName = fileName.toString(), sizeBytes = attributes.size(), dateModifiedEpochSeconds = attributes.lastModifiedTime().toMillis() / 1000,
             folderName = parent?.fileName?.toString(), folderPath = parent?.toString(), source = MediaSource.SAF_TREE,
         )

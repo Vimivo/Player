@@ -1455,6 +1455,22 @@ private fun NetworkScreen(viewModel: NetworkViewModel = koinViewModel()) {
             item { SectionTitle("${activeLocation.name} files") }
             if (state.isBrowsing) item { LoadingIndicator("Browsing network folder") }
             state.browserMessage?.let { message -> item { ErrorState(message) } }
+            state.pendingTrust?.let { trust ->
+                item {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = viewModel::dismissTrust,
+                        title = { Text("Trust this server?") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("First time connecting to ${trust.host}. Check that this key matches your server; if it does not, someone may be pretending to be it.")
+                                Text(trust.fingerprint, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace))
+                            }
+                        },
+                        confirmButton = { androidx.compose.material3.TextButton(viewModel::trustPendingHost) { Text("Trust and connect") } },
+                        dismissButton = { androidx.compose.material3.TextButton(viewModel::dismissTrust) { Text("Cancel") } },
+                    )
+                }
+            }
             items(state.directoryEntries, key = { it.uri }) { entry ->
                 ListItem(
                     modifier = Modifier.clickable { viewModel.openRemote(entry) },

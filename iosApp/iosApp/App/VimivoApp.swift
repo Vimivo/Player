@@ -8,6 +8,7 @@ public struct VimivoApp: App {
     @StateObject private var router = AppRouter.shared
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("vimivo_theme") private var theme: String = "system"
+    @AppStorage("vimivo_app_language") private var appLanguage: String = "system"
 
     public init() {}
 
@@ -15,6 +16,8 @@ public struct VimivoApp: App {
         WindowGroup {
             MainTabView(engine: engine, router: router)
                 .preferredColorScheme(colorScheme)
+                // "System" follows the phone; English or Bengali is chosen in Settings and applies at once.
+                .environment(\.locale, appLanguage == "system" ? Locale.autoupdatingCurrent : Locale(identifier: appLanguage))
                 .tint(Color.accentColor)
                 .onOpenURL { url in
                     Task { await router.handle(url, engine: engine) }

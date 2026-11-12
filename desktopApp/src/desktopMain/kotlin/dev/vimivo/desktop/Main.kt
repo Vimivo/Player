@@ -322,8 +322,18 @@ private fun desktopApplication(
             chooseDiscOrIsoFile()?.let { openFileHandler.submit(listOf(it)) }
         },
         onOpenFolder = {
-            dev.vimivo.desktop.library.DesktopFolderPicker.chooseDirectory("Open a folder to play").getOrNull()
-                ?.let { openFileHandler.submit(listOf(it)) }
+            dev.vimivo.desktop.library.DesktopFolderPicker.chooseDirectory("Open a folder to play").getOrNull()?.let { folder ->
+                val found = dev.vimivo.desktop.platform.FolderMedia.collect(folder)
+                if (found.files.isEmpty()) {
+                    viewModel.dispatch(PlayerIntent.ShowHud(dev.vimivo.desktop.player.HudMessage.NoMediaInFolder(folder.name)))
+                } else {
+                    val items = found.files.map(dev.vimivo.desktop.player.LaunchPlanner::mediaItemFor)
+                    viewModel.dispatch(PlayerIntent.PlayFrom(items, 0, folder.name))
+                    if (found.truncated) {
+                        viewModel.dispatch(PlayerIntent.ShowHud(dev.vimivo.desktop.player.HudMessage.FolderTruncated(dev.vimivo.desktop.platform.FolderMedia.MAX_FILES)))
+                    }
+                }
+            }
         },
     )
     val mediaInfoVisible by viewModel.commands.mediaInfoVisible.collectAsState()

@@ -66,7 +66,7 @@ class AndroidNetworkSourceRepository(
         NetworkProtocol.SMB -> browseSmb(location, path)
         NetworkProtocol.UPNP, NetworkProtocol.DLNA -> NetworkBrowseResult.Failure("Select a discovered media server before browsing its ContentDirectory")
         NetworkProtocol.FTP -> NetworkBrowseResult.Failure("FTP is intentionally not enabled; use SFTP, WebDAV, or SMB2/3")
-        NetworkProtocol.SFTP -> NetworkBrowseResult.Failure("SFTP needs a first-use server key confirmation screen, which Android does not have yet")
+        NetworkProtocol.SFTP -> browseSftp(location, path)
     }
 
     /** Open SMB connections, one per location and share, kept so folders open without logging in again. */
@@ -94,6 +94,53 @@ class AndroidNetworkSourceRepository(
             onSuccess = { NetworkBrowseResult.Success(it) },
             onFailure = { NetworkBrowseResult.Failure(it.message ?: "Could not browse this SMB share") },
         )
+    }
+
+    private val sftpSessions = java.util.concurrent.ConcurrentHashMap<String, dev.vimivo.network.ShareSession>()
+    private val knownHosts by lazy { dev.vimivo.network.KnownHosts(java.io.File(context.filesDir, "known_hosts")) }
+
+    override suspend fun trustHost(host: String, port: Int, fingerprint: String) {
+        withContext(Dispatchers.IO) { knownHosts.trust(host, port, fingerprint) }
+    }
+
+    /**
+     * [path] is `sftp://host[:port]/folder`. A server seen for the first time is not contacted with a password: the
+     * person is shown its key fingerprint ([NetworkBrowseResult.NeedsTrust]) and confirms it first.
+     */
+    private suspend fun browseSftp(location: NetworkLocation, path: String): NetworkBrowseResult = withContext(Dispatchers.IO) {
+        val uri = runCatching { URI(path) }.getOrNull()
+        val host = uri?.host ?: return@withContext NetworkBrowseResult.Failure("The SFTP address needs a server name: sftp://host/folder")
+        val port = if (uri.port > 0) uri.port else dev.vimivo.network.ShareProtocol.SFTP.defaultPort
+        val key = "${location.id}|$host:$port"
+        if (sftpSessions[key] == null && knownHosts.fingerprint(host, port) == null) {
+            return@withContext dev.vimivo.network.SftpFileSystem.probeFingerprint(host, port).fold(
+                onSuccess = { NetworkBrowseResult.NeedsTrust(host, port, it) },
+                onFailure = { NetworkBrowseResult.Failure(it.message ?: "Could not reach $host") },
+            )
+        }
+        runCatching {
+            val session = sftpSessions[key] ?: connectSftp(location, host, port, key)
+            session.fs.list(uri.path.trim('/')).map { entry ->
+                val entryUri = "sftp://$host:$port/${entry.path}"
+                val media = if (entry.isDirectory || !dev.vimivo.cast.CastMime.isMedia(entry.name)) {
+                    null
+                } else {
+                    MediaItem(MediaId(entryUri), session.playUrl(entry.path).getOrThrow(), entry.name, MediaKind.STREAM, source = MediaSource.NETWORK)
+                }
+                RemoteDirectoryEntry(entry.name, entryUri, entry.isDirectory, entry.sizeBytes, media = media)
+            }
+        }.fold(
+            onSuccess = { NetworkBrowseResult.Success(it) },
+            onFailure = { NetworkBrowseResult.Failure(it.message ?: "Could not browse this SFTP server") },
+        )
+    }
+
+    private fun connectSftp(location: NetworkLocation, host: String, port: Int, key: String): dev.vimivo.network.ShareSession {
+        val user = location.username?.takeIf { it.isNotBlank() } ?: throw SecurityException("Add a user name to this location")
+        val password = credentials.password(location.id) ?: throw SecurityException("Credentials have expired or are unavailable; update this location")
+        val session = dev.vimivo.network.ShareSession.sftp(host, port, user, password, knownHosts).getOrThrow()
+        sftpSessions[key] = session
+        return session
     }
 
     private fun connectSmb(location: NetworkLocation, host: String, share: String): dev.vimivo.network.ShareSession {

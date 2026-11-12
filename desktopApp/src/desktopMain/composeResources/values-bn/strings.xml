@@ -74,4 +74,6 @@
     <string name="hud_deinterlace_mode">ডিইন্টারলেসিং: %1$s</string>
     <string name="hud_crop">ক্রপ: %1$s</string>
     <string name="hud_no_black_bars">কোনো কালো বার পাওয়া যায়নি</string>
+    <string name="hud_no_media_in_folder">%1$s ফোল্ডারে কোনো অডিও বা ভিডিও ফাইল পাওয়া যায়নি</string>
+    <string name="hud_folder_truncated">প্রথম %1$d টি ফাইল চালানো হচ্ছে</string>
 </resources>

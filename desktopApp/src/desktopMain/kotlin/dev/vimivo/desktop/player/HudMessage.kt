@@ -17,7 +17,9 @@ import dev.vimivo.desktop.resources.hud_loop_on
 import dev.vimivo.desktop.resources.hud_loop_point_a
 import dev.vimivo.desktop.resources.hud_muted
 import dev.vimivo.desktop.resources.hud_no_audio_tracks
+import dev.vimivo.desktop.resources.hud_folder_truncated
 import dev.vimivo.desktop.resources.hud_no_black_bars
+import dev.vimivo.desktop.resources.hud_no_media_in_folder
 import dev.vimivo.desktop.resources.hud_no_subtitle_tracks
 import dev.vimivo.desktop.resources.hud_repeat_changed
 import dev.vimivo.desktop.resources.hud_shuffle_toggled
@@ -67,6 +69,8 @@ internal sealed interface HudMessage {
     data class Skipped(val title: String) : HudMessage
     data object StreamOpened : HudMessage
     data object ClipboardNotUrl : HudMessage
+    data class NoMediaInFolder(val folder: String) : HudMessage
+    data class FolderTruncated(val count: Int) : HudMessage
 
     /** A command failed; [action] is the command's label and [reason] the engine's message, if any. */
     data class Failed(val action: String, val reason: String?) : HudMessage
@@ -98,6 +102,8 @@ private fun HudMessage.formatted(): Pair<StringResource, Array<Any>> = when (thi
     is HudMessage.SubtitleFailed -> Res.string.hud_subtitle_failed to arrayOf(label)
     is HudMessage.AddedToQueue -> Res.string.hud_added_to_queue to arrayOf(count)
     is HudMessage.Skipped -> Res.string.hud_skipped to arrayOf(title)
+    is HudMessage.NoMediaInFolder -> Res.string.hud_no_media_in_folder to arrayOf(folder)
+    is HudMessage.FolderTruncated -> Res.string.hud_folder_truncated to arrayOf(count)
     is HudMessage.Deinterlace ->
         (if (enabled) Res.string.hud_deinterlace_on else Res.string.hud_deinterlace_off) to emptyArray()
     is HudMessage.DeinterlaceModeChanged -> Res.string.hud_deinterlace_mode to arrayOf(label)

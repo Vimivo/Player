@@ -40,7 +40,9 @@ internal object DesktopVideoInspector {
                 ?.toInt()
 
             val cacheIdentity = "${media.id.value}:${media.sizeBytes}:${media.dateModifiedEpochSeconds}"
-            val thumbnailUri = if (video != null) extractThumbnail(file, durationMillis, cache, cacheIdentity) else null
+            // A poster the user already keeps beside the video beats a frame grab.
+            val posterUri = if (video != null) localPosterUri(file, cache, cacheIdentity) else null
+            val thumbnailUri = posterUri ?: if (video != null) extractThumbnail(file, durationMillis, cache, cacheIdentity) else null
 
             ExtractedMediaMetadata(
                 title = inspection.title ?: media.title,
@@ -60,6 +62,13 @@ internal object DesktopVideoInspector {
                 artworkUri = thumbnailUri,
             )
         }
+    }
+
+    private fun localPosterUri(file: File, cache: DesktopMediaCache, cacheIdentity: String): String? {
+        val poster = dev.vimivo.desktop.platform.LocalPoster.find(file) ?: return null
+        val identity = "$cacheIdentity:poster:${poster.name}:${poster.lastModified()}"
+        return cache.getThumbnail(identity)
+            ?: runCatching { cache.storeThumbnail(identity, poster.readBytes()).getOrNull() }.getOrNull()
     }
 
     private fun extractThumbnail(

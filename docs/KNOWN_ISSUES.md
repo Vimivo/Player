@@ -117,3 +117,20 @@ This register documents current technical limitations, edge cases, and distribut
 - **Android build:** it was broken from the network-share work until `assembleDebug` was run (duplicate BouncyCastle classes
   and licence files); fixed by pinning BouncyCastle 1.87. Whether smbj/sshj actually work on a device is still unknown.
 
+## Added 2026-11-12 (fifth round: folders, posters, SFTP, iOS Bengali)
+
+- **Open Folder** now includes subfolders (natural order, hidden items skipped, capped at 5,000 files with a message).
+- **Library titles and posters (offline).** Video file names like `The.Film.2019.1080p.BluRay.x264-GRP.mkv` are shown as
+  `The Film (2019)` or `Show · S01E02` (`TitleParser`). A `poster.jpg`, `folder.jpg`, `cover.jpg` or `<name>.jpg` beside a
+  video is used as its picture instead of a frame grab. Existing library entries keep their old titles until rescanned. There is
+  no online metadata lookup, by design.
+- **Android SFTP** works after the person confirms the server's key fingerprint (shown in a dialog) on first connection.
+  Not tried against a real server.
+- **iOS Bengali:** `bn.lproj/Localizable.strings` translates the ~190 SwiftUI texts, and the language choice in Settings now
+  actually applies (it was saved but never used). Translations were written without a native review and have not been looked
+  at on a device. Texts built from variables, and strings that live in the shared Kotlin code, are not covered.
+- **Not built, and why:** Chromecast (needs Google Play Services, which conflicts with the no-tracker rule), AirPlay sending
+  (closed protocol), x264/x265 and DVD menus (GPL), CarPlay (needs Apple's approval), iOS MKV/AVI (needs an iOS libmpv build
+  and a second playback surface), crossfade (mpv cannot overlap two files), self-installing updates (needs a signing and
+  update-feed setup), other languages (no reviewer for the translations).
+

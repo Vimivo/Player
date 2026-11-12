@@ -76,4 +76,6 @@
     <string name="hud_deinterlace_mode">Deinterlacing: %1$s</string>
     <string name="hud_crop">Crop: %1$s</string>
     <string name="hud_no_black_bars">No black bars found</string>
+    <string name="hud_no_media_in_folder">No audio or video files found in %1$s</string>
+    <string name="hud_folder_truncated">Playing the first %1$d files</string>
 </resources>
