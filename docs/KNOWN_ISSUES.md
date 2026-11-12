@@ -59,3 +59,23 @@ This register documents current technical limitations, edge cases, and distribut
 - **Local development builds** link Homebrew's GPL libmpv. Distributable builds must set `VIMIVO_MPV_PREFIX`; packaging
   tasks now fail without it.
 
+## Added 2026-11-12 (second round)
+
+- **Casting is DLNA / UPnP only** (desktop and Android). Chromecast needs Google's SDK and AirPlay is a closed protocol;
+  neither is built. Casting has only been tested against a simulated renderer on loopback, not a real TV. Android stops the
+  cast when you leave the video player.
+- **Video rotation** turns the picture in 90° steps without turning the phone (all platforms). On Android it rotates the
+  video view, so a libmpv/SurfaceView pipeline that ignores view rotation would need an engine-side rotation. Check on a device.
+- **Listen as audio** switches the video track off while the sound keeps playing (Android, iOS; desktop has audio-only).
+  After it, opening the video again restores the picture.
+- **Sleep timer** has custom hours/minutes on all platforms and is reachable from the video player on Android and iOS.
+- **Desktop video quality** (scaler, deband, smooth motion, HDR tone mapping, exclusive audio) is applied for the current
+  session only; the choices are not saved yet.
+- **Biometric vault unlock**: Android 10+ (platform prompt) and iOS (Face ID / Touch ID). Not tried on a device.
+- **Localization is much narrower than documented.** Android has 96 strings in English and Bangla, but about 400 UI
+  strings are written directly in the code in English. iOS has no localization files at all. "EN + বাংলা" is true only for
+  the Android strings that use resources.
+- **Still missing:** SMB / SFTP / WebDAV sources (the LGPL libmpv has no `smb://` or `sftp://`; a client library and local
+  proxy are needed), iOS MKV/AVI (needs libmpv for iOS), poster and metadata library, Android TV / tvOS, Dolby Vision profile
+  handling, crossfade, Android colour Plan B.
+

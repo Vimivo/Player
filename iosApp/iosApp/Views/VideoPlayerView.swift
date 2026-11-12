@@ -34,6 +34,8 @@ public struct VideoPlayerView: View {
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
             errorCard
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, 120)
             if let secondary = model.secondarySubtitleText {
                 VStack {
                     Text(secondary)
@@ -385,26 +387,34 @@ private struct VideoControls: View {
             SettingsHandle { open(.options) }
             VideoSeekBar(engine: engine, model: model)
             HStack(spacing: 4) {
-                PlayerIconButton(systemName: "lock.fill", label: "Lock screen controls", action: model.lockControls)
+                PlayerIconButton(systemName: "lock.fill", label: "Lock screen controls", size: 18, action: model.lockControls)
                 PlayerIconButton(
                     systemName: model.rotationLocked ? "lock.rotation" : "rotate.right",
-                    label: model.rotationLocked ? "Unlock orientation" : "Lock orientation"
+                    label: model.rotationLocked ? "Unlock orientation" : "Lock orientation",
+                    size: 18
                 ) {
                     model.touch()
                     model.toggleRotationLock(scene: activeScene)
                 }
-                PlayerIconButton(systemName: "rotate.right.fill", label: "Rotate video, now \(model.videoRotation.label)") {
+                PlayerIconButton(systemName: "crop.rotate", label: "Rotate video, now \(model.videoRotation.label)", size: 18) {
                     model.touch()
                     model.rotateVideo()
                 }
-                PlayerIconButton(systemName: "moon.zzz.fill", label: "Sleep timer") {
-                    open(.sleep)
+                Menu {
+                    Button { open(.sleep) } label: { Label("Sleep timer", systemImage: "moon.zzz.fill") }
+                    Button {
+                        model.touch()
+                        onListenAsAudio()
+                    } label: { Label("Listen as audio", systemImage: "headphones") }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 42, height: 42)
+                        .contentShape(Rectangle())
                 }
-                PlayerIconButton(systemName: "headphones", label: "Listen as audio") {
-                    model.touch()
-                    onListenAsAudio()
-                }
-                Spacer()
+                .accessibilityLabel("More: sleep timer, listen as audio")
+                Spacer(minLength: 4)
                 PlayerPill(
                     systemName: "speedometer",
                     text: MediaFormatting.speed(engine.state.playbackRate),
@@ -570,10 +580,11 @@ private struct PlayerPill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: systemName).font(.system(size: 14, weight: .semibold))
-                Text(text).font(.subheadline.weight(.semibold)).monospacedDigit()
+                Text(text).font(.subheadline.weight(.semibold)).monospacedDigit().lineLimit(1)
             }
+            .fixedSize()
             .foregroundColor(.white)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(Color.white.opacity(0.14), in: Capsule())
         }

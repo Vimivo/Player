@@ -4,7 +4,6 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
-import java.io.RandomAccessFile
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -23,11 +22,18 @@ import java.util.concurrent.RejectedExecutionException
  * ([allowedClient]) may fetch it, on a random-token path, on a private LAN address; stop it when casting ends.
  */
 class LocalMediaServer(
-    private val file: File,
+    private val source: CastSource,
     private val mimeType: String,
     private val allowedClient: InetAddress?,
     private val bindAddress: InetAddress? = localPrivateIpv4Addresses().firstOrNull(),
 ) {
+    constructor(
+        file: File,
+        mimeType: String,
+        allowedClient: InetAddress?,
+        bindAddress: InetAddress? = localPrivateIpv4Addresses().firstOrNull(),
+    ) : this(FileCastSource(file), mimeType, allowedClient, bindAddress)
+
     private val token = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(TOKEN_BYTES).also(SecureRandom()::nextBytes))
     private var server: ServerSocket? = null
     private var pool: ExecutorService? = null
@@ -40,14 +46,14 @@ class LocalMediaServer(
     fun start(): Result<String> {
         server?.let { return Result.success(checkNotNull(url)) }
         val address = bindAddress ?: return Result.failure(IOException("No local network connection found"))
-        if (!file.isFile) return Result.failure(IOException("The file is not available"))
+        if (!source.isAvailable()) return Result.failure(IOException("The file is not available"))
         val socket = try {
             ServerSocket().apply { bind(InetSocketAddress(address, 0)) }
         } catch (e: IOException) {
             return Result.failure(e)
         }
         server = socket
-        url = "http://${address.hostAddress}:${socket.localPort}/m/$token/${URLEncoder.encode(file.name, Charsets.UTF_8).replace("+", "%20")}"
+        url = "http://${address.hostAddress}:${socket.localPort}/m/$token/${URLEncoder.encode(source.name, Charsets.UTF_8).replace("+", "%20")}"
         val executor = Executors.newFixedThreadPool(MAX_THREADS) { r -> Thread(r, "vimivo-cast-media").apply { isDaemon = true } }
         pool = executor
         executor.execute { acceptLoop(socket, executor) }
@@ -98,7 +104,7 @@ class LocalMediaServer(
     }
 
     private fun sendFile(out: OutputStream, request: Request) {
-        val length = file.length()
+        val length = source.length()
         val range = parseRange(request.range, length)
         if (range == null && request.range != null) {
             out.write("HTTP/1.1 416 Range Not Satisfiable\r\nContent-Range: bytes */$length\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
@@ -113,12 +119,11 @@ class LocalMediaServer(
         head.append("transferMode.dlna.org: Streaming\r\ncontentFeatures.dlna.org: DLNA.ORG_OP=01;DLNA.ORG_CI=0\r\nConnection: close\r\n\r\n")
         out.write(head.toString().toByteArray(Charsets.ISO_8859_1))
         if (request.method == "HEAD" || count == 0L) return
-        RandomAccessFile(file, "r").use { source ->
-            source.seek(start)
+        source.open(start).use { input ->
             val buffer = ByteArray(COPY_BUFFER)
             var remaining = count
             while (remaining > 0) {
-                val read = source.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
                 if (read < 0) break
                 out.write(buffer, 0, read)
                 remaining -= read
@@ -178,4 +183,23 @@ class LocalMediaServer(
             return if (start in 0..end && start < length) start..end else null
         }
     }
+}
+
+/** Something a renderer can fetch in pieces: a file, or on Android a content URI. */
+interface CastSource {
+    val name: String
+    fun isAvailable(): Boolean
+    fun length(): Long
+
+    /** A stream positioned at [offset]; the caller closes it. */
+    fun open(offset: Long): InputStream
+}
+
+class FileCastSource(private val file: File) : CastSource {
+    override val name: String get() = file.name
+    override fun isAvailable(): Boolean = file.isFile
+    override fun length(): Long = file.length()
+
+    override fun open(offset: Long): InputStream =
+        java.io.FileInputStream(file).also { stream -> stream.channel.position(offset) }
 }

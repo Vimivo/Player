@@ -33,29 +33,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.vimivo.cast.CastMime
-import dev.vimivo.cast.DlnaClient
+import dev.vimivo.cast.CastSession
+import dev.vimivo.cast.FileCastSource
 import dev.vimivo.cast.DlnaDiscovery
 import dev.vimivo.cast.DlnaRenderer
-import dev.vimivo.cast.LocalMediaServer
 import dev.vimivo.core.model.MediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.net.InetAddress
 import java.net.URI
-
-/** What is being cast right now. It outlives the dialog, so the TV keeps playing after the window is closed. */
-internal class CastSession {
-    var renderer by mutableStateOf<DlnaRenderer?>(null)
-    var server: LocalMediaServer? = null
-
-    fun close() {
-        server?.stop()
-        server = null
-        renderer = null
-    }
-}
 
 private sealed interface CastStatus {
     data object Idle : CastStatus
@@ -79,7 +66,8 @@ internal fun DesktopCastingDialog(
     var searching by remember { mutableStateOf(true) }
     var searchRound by remember { mutableIntStateOf(0) }
     var failure by remember { mutableStateOf<String?>(null) }
-    val status: CastStatus = session.renderer?.let { CastStatus.Casting(it) } ?: failure?.let { CastStatus.Failed(it) } ?: CastStatus.Idle
+    var activeRenderer by remember { mutableStateOf(session.renderer) }
+    val status: CastStatus = activeRenderer?.let { CastStatus.Casting(it) } ?: failure?.let { CastStatus.Failed(it) } ?: CastStatus.Idle
 
     LaunchedEffect(searchRound) {
         searching = true
@@ -91,18 +79,16 @@ internal fun DesktopCastingDialog(
         scope.launch {
             val result = withContext(Dispatchers.IO) { startCast(session, renderer, media) }
             result.fold(
-                onSuccess = { onPausePlayback(); failure = null; session.renderer = renderer },
-                onFailure = { session.close(); failure = it.message ?: "Casting failed" },
+                onSuccess = { onPausePlayback(); failure = null; activeRenderer = renderer },
+                onFailure = { failure = it.message ?: "Casting failed"; activeRenderer = null },
             )
         }
     }
 
-    fun stopCasting(renderer: DlnaRenderer) {
+    fun stopCasting() {
         scope.launch {
-            withContext(Dispatchers.IO) {
-                DlnaClient(renderer).stop()
-                session.close()
-            }
+            withContext(Dispatchers.IO) { session.close() }
+            activeRenderer = null
         }
     }
 
@@ -126,7 +112,7 @@ internal fun DesktopCastingDialog(
                     else "Casting “${currentMedia.title}”. Devices must be on the same network (DLNA / UPnP).",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                CastStatusPanel(status, scope, onStop = ::stopCasting)
+                CastStatusPanel(status, session, scope, onStop = ::stopCasting)
                 if (searching) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -148,14 +134,14 @@ internal fun DesktopCastingDialog(
 }
 
 @Composable
-private fun CastStatusPanel(status: CastStatus, scope: kotlinx.coroutines.CoroutineScope, onStop: (DlnaRenderer) -> Unit) {
+private fun CastStatusPanel(status: CastStatus, session: CastSession, scope: kotlinx.coroutines.CoroutineScope, onStop: () -> Unit) {
     when (status) {
         is CastStatus.Casting -> {
             Text("Playing on ${status.renderer.name}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { scope.launch { withContext(Dispatchers.IO) { DlnaClient(status.renderer).pause() } } }) { Text("Pause") }
-                OutlinedButton(onClick = { scope.launch { withContext(Dispatchers.IO) { DlnaClient(status.renderer).play() } } }) { Text("Play") }
-                OutlinedButton(onClick = { onStop(status.renderer) }) { Text("Stop casting") }
+                OutlinedButton(onClick = { scope.launch { withContext(Dispatchers.IO) { session.pause() } } }) { Text("Pause") }
+                OutlinedButton(onClick = { scope.launch { withContext(Dispatchers.IO) { session.resume() } } }) { Text("Play") }
+                OutlinedButton(onClick = onStop) { Text("Stop casting") }
             }
         }
         is CastStatus.Failed -> Text(status.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
@@ -182,20 +168,11 @@ private fun RendererRow(renderer: DlnaRenderer, enabled: Boolean, onClick: () ->
 
 /** Starts [media] on [renderer]: a local file is served to that device only, a web link is handed over as it is. */
 private fun startCast(session: CastSession, renderer: DlnaRenderer, media: MediaItem): Result<Unit> {
-    session.close()
-    return runCatching {
-        val uri = URI(media.uri)
-        val mime = CastMime.forName(media.fileName ?: media.title)
-        val link = when (uri.scheme) {
-            "file" -> {
-                val host = InetAddress.getByName(URI(renderer.avTransportControlUrl).host)
-                LocalMediaServer(File(uri), mime, allowedClient = host).also { session.server = it }.start().getOrThrow()
-            }
-            "http", "https" -> media.uri
-            else -> error("This kind of source cannot be cast")
-        }
-        val client = DlnaClient(renderer)
-        client.load(link, media.title, mime).getOrThrow()
-        client.play().getOrThrow()
+    val uri = runCatching { URI(media.uri) }.getOrElse { return Result.failure(it) }
+    val mime = CastMime.forName(media.fileName ?: media.title)
+    return when (uri.scheme) {
+        "file" -> session.start(renderer, media.title, mime, FileCastSource(File(uri)), null)
+        "http", "https" -> session.start(renderer, media.title, mime, null, media.uri)
+        else -> Result.failure(IllegalStateException("This kind of source cannot be cast"))
     }
 }

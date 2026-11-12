@@ -445,7 +445,7 @@ private fun PlayerWindow(
     onOpenFiles: (List<File>) -> Unit,
     onCloseRequest: () -> Unit,
 ) {
-    val castSession = remember { dev.vimivo.desktop.casting.CastSession() }
+    val castSession = remember { dev.vimivo.cast.CastSession() }
     DisposableEffect(Unit) { onDispose(castSession::close) }
     val playerState by viewModel.state.collectAsState()
     val media = playerState.playback.media

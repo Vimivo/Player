@@ -99,6 +99,7 @@ import androidx.compose.material.icons.rounded.ScreenLockRotation
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.ScreenRotationAlt
 import androidx.compose.material.icons.outlined.Bedtime
+import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -253,6 +254,10 @@ fun AdvancedVideoPlayer(
     var zoom by remember { mutableFloatStateOf(1f) }
     var videoRotation by rememberSaveable { mutableStateOf(VideoRotation.NONE) }
     var sleepSheetVisible by remember { mutableStateOf(false) }
+    var castSheetVisible by remember { mutableStateOf(false) }
+    val castSession = remember { dev.vimivo.cast.CastSession() }
+    // A cast keeps going while this screen is open; leaving the player ends it so no server is left running.
+    DisposableEffect(castSession) { onDispose(castSession::close) }
     var videoAspect by remember { mutableFloatStateOf(0f) }
     // Coming back from "listen as audio" must bring the picture back.
     LaunchedEffect(Unit) { viewModel.setVideoEnabled(true) }
@@ -697,6 +702,7 @@ fun AdvancedVideoPlayer(
                             showMessage(Icons.Rounded.ScreenRotationAlt, "Video ${videoRotation.label}")
                         },
                         onSleepTimer = { sleepSheetVisible = true },
+                        onCast = { castSheetVisible = true },
                         onListenAsAudio = {
                             viewModel.setVideoEnabled(false)
                             onListenAsAudio()
@@ -721,6 +727,14 @@ fun AdvancedVideoPlayer(
                 } else AnimatedVisibility(controlsVisible, enter = fadeIn(), exit = fadeOut()) { controls() }
             }
         }
+    }
+    if (castSheetVisible) {
+        CastSheet(
+            session = castSession,
+            media = media,
+            onPausePlayback = { if (player.isPlaying) viewModel.togglePlayback() },
+            onDismiss = { castSheetVisible = false },
+        )
     }
     if (sleepSheetVisible) {
         dev.vimivo.platform.android.ui.components.BottomSheet({ sleepSheetVisible = false }) {
@@ -793,6 +807,7 @@ private fun VideoControls(
     onRotateVideo: () -> Unit,
     onSleepTimer: () -> Unit,
     onListenAsAudio: () -> Unit,
+    onCast: () -> Unit,
     onAspect: () -> Unit,
     onPip: () -> Unit,
     onPopup: () -> Unit,
@@ -916,6 +931,7 @@ private fun VideoControls(
                     )
                     PlayerIconButton(Icons.Outlined.Bedtime, "Sleep timer", onClick = onSleepTimer)
                     PlayerIconButton(Icons.Outlined.Headphones, "Listen as audio", onClick = onListenAsAudio)
+                    PlayerIconButton(Icons.Outlined.Cast, "Cast to TV", onClick = onCast)
                     Spacer(Modifier.weight(1f))
                     PlayerIconButton(Icons.Outlined.FitScreen, "Floating popup player", onClick = onPopup)
                     Spacer(Modifier.width(4.dp))

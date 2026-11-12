@@ -14,7 +14,7 @@ Status: ✅ verified · ⚠️ partial/broken · ❓ code exists, not verified �
 
 ## PART 1 — Desktop vs VLC (macOS / Windows / Linux)
 
-**Totals (66 rows):** ✅ 25 · 🧪 3 · 🔨 32 · ⚠️ 1 · ❌ 2 · ⛔ 3
+**Totals (66 rows):** ✅ 25 · 🧪 4 · 🔨 32 · ⚠️ 1 · ❌ 1 · ⛔ 3
 
 ### ✅ Done (25)
 All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch · frame step · A–B loop · resume · HW decoding · HDR · gapless · aspect/crop/black-bar/zoom/pan · deinterlace modes · brightness/contrast/saturation/hue/gamma · snapshot · multiple video tracks · 10-band EQ · volume 200% · audio track switching · audio/subtitle delay · normalization + ReplayGain · subtitle auto-load · drag & drop subtitles · playlists M3U/XSPF/PLS · shuffle/repeat/auto-next · history/recent · folder browsing
@@ -43,7 +43,7 @@ All formats · damaged/incomplete/growing files · speed 0.25–4× with pitch �
 | 35 | stream to network | 🧪 | Wi-Fi receive only (see 61). Streaming *out* to other devices is not built | [DesktopWifiTransferServerTest](../desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/sharing/DesktopWifiTransferServerTest.kt) |
 | 36 | Web URL playback | ✅ | direct HTTP/HLS/DASH/RTSP/RTP/UDP/MMS links enabled in StreamValidator & MpvPlayerEngine | [Evidence](evidence/P7/network/network_streams_evidence.txt) |
 | 37 | internet radio + podcasts (opt-in) | 🔨 built (untested) | `DesktopRadioPodcastDialog` (curated high-res community radio + Radio Browser API search + podcast RSS episode stream) | — |
-| 38 | Chromecast/DLNA casting | ❌ | Removed from menu and palette 2026-11-12. The dialog listed two hard-coded fake devices; discovery replies were never read and nothing was streamed. Not built | — |
+| 38 | Chromecast/DLNA casting | 🧪 | Rebuilt 2026-11-12 as DLNA / UPnP only: SSDP discovery, AVTransport control, a one-file range server for local media (desktop dialog, Android sheet). Tested against a simulated renderer over loopback; not a real TV. Chromecast and AirPlay are not built | [CastNetworkTest](../shared/src/jvmCommonTest/kotlin/dev/vimivo/cast/CastNetworkTest.kt) |
 | 39 | convert/transcode | ❌ | Removed from menu and palette 2026-11-12. It called a system `ffmpeg` with invalid arguments and, when that failed, copied the source and reported success. A real implementation needs an LGPL transcoder in the media package (ADR-004) | — |
 | 40 | record | 🔨 built (untested) | Real-time stream recording / dump to file via mpv stream-record in MpvPlayerEngine, control bar & Tools menu | — |
 | 41 | screen capture | 🔨 | `av://` capture URLs (avfoundation / gdigrab / x11grab) corrected 2026-11-12 and unit-tested; needs a run with camera / screen-recording permission on each OS. Wayland is not covered | [CaptureSourcesTest](../desktopApp/src/desktopTest/kotlin/dev/vimivo/desktop/capture/CaptureSourcesTest.kt) |
