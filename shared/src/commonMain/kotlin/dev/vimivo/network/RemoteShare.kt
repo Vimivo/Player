@@ -28,17 +28,28 @@ object RemotePaths {
     fun sorted(entries: List<RemoteEntry>): List<RemoteEntry> =
         entries.sortedWith(compareByDescending<RemoteEntry> { it.isDirectory }.thenBy { it.name.lowercase() })
 
+    private val localSuffixes = listOf(".local", ".lan", ".home.arpa")
+
     /** Plain http is fine on a home network, never across the internet. */
     fun isPrivateHost(host: String): Boolean {
         val h = host.lowercase()
-        if (h == "localhost" || h.endsWith(".local") || h.endsWith(".lan") || h.endsWith(".home.arpa")) return true
-        val parts = h.split('.')
-        if (parts.size != 4) return false
-        val n = parts.map { it.toIntOrNull() ?: return false }
-        if (n.any { it !in 0..255 }) return false
-        return n[0] == 10 || n[0] == 127 || (n[0] == 192 && n[1] == 168) || (n[0] == 172 && n[1] in 16..31) ||
-            (n[0] == 169 && n[1] == 254)
+        return h == "localhost" || localSuffixes.any(h::endsWith) || parseIpv4(h)?.let(::isPrivateIpv4) == true
     }
+
+    private fun parseIpv4(host: String): List<Int>? {
+        val numbers = host.split('.').mapNotNull { it.toIntOrNull() }
+        return numbers.takeIf { host.split('.').size == IPV4_PARTS && it.size == IPV4_PARTS && it.all { n -> n in 0..255 } }
+    }
+
+    private fun isPrivateIpv4(n: List<Int>): Boolean = when (n[0]) {
+        10, 127 -> true
+        192 -> n[1] == 168
+        172 -> n[1] in 16..31
+        169 -> n[1] == 254
+        else -> false
+    }
+
+    private const val IPV4_PARTS = 4
 }
 
 /** Reads a WebDAV `207 Multi-Status` reply to a PROPFIND. Namespace prefixes vary between servers, so they are ignored. */

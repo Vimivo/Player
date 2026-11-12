@@ -188,6 +188,18 @@ compose.resources {
 compose.desktop {
     application {
         mainClass = "dev.vimivo.desktop.MainKt"
+        // Low memory for a player that mostly sits idle: the serial collector has no per-thread overhead, the heap
+        // returns freed memory instead of hoarding it, and the code cache and metaspace are capped.
+        jvmArgs += listOf(
+            "-XX:+UseSerialGC",
+            "-Xms32m",
+            "-Xmx768m",
+            "-XX:MinHeapFreeRatio=10",
+            "-XX:MaxHeapFreeRatio=25",
+            "-XX:MaxMetaspaceSize=192m",
+            "-XX:ReservedCodeCacheSize=96m",
+            "-Xss1m",
+        )
         nativeDistributions {
             val operatingSystem = org.gradle.internal.os.OperatingSystem.current()
             val formats = when {
@@ -224,6 +236,10 @@ compose.desktop {
                 "java.xml",
                 "jdk.unsupported",
                 "jdk.crypto.ec",
+                // The web remote and Wi-Fi share use the JDK HTTP server; SMB and SFTP need naming and management APIs.
+                "jdk.httpserver",
+                "java.naming",
+                "java.management",
             )
             macOS {
                 infoPlist { extraKeysRawXml = macDocumentTypesXml(mediaTypes) }

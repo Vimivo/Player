@@ -406,6 +406,7 @@ private fun MenuBarScope.ToolsMenu(context: MenuContext) = with(context) {
         Item("Open Network Stream…", shortcut = primaryShortcut(Key.N), onClick = actions.onOpenStream)
         Item("Internet Radio & Podcasts…", onClick = { send(PlayerIntent.ToggleRadioPodcast) })
         Item("Cast to TV or Speaker…", onClick = { send(PlayerIntent.ToggleCasting) })
+        Item("Convert Media…", onClick = { send(PlayerIntent.ToggleTranscodeDialog) })
         Item("Web Remote Control…", onClick = { send(PlayerIntent.ToggleWebRemote) })
         Item("Wi-Fi File Sharing…", onClick = { send(PlayerIntent.ToggleWifiSharing) })
         Item("User Scripts Folder…", onClick = { send(PlayerIntent.ToggleScripts) })

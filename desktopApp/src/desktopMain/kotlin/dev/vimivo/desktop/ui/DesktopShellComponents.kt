@@ -55,6 +55,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Headphones
@@ -722,6 +723,7 @@ internal fun DesktopHomeScreenView(
     onOpenFile: () -> Unit,
     onAddFolder: () -> Unit,
     onOpenStreamDialog: () -> Unit,
+    onOpenShare: () -> Unit = {},
     onDismissRecommendation: (String, String) -> Unit,
     onTogglePersonalization: (Boolean) -> Unit,
     onScan: (String) -> Unit,
@@ -805,6 +807,14 @@ internal fun DesktopHomeScreenView(
                             Spacer(Modifier.width(8.dp))
                             Text("Network Stream")
                         }
+                        OutlinedButton(
+                            onClick = onOpenShare,
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Icon(Icons.Outlined.Dns, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Network Share (NAS)")
+                        }
                     }
                 }
             }
@@ -825,6 +835,9 @@ internal fun DesktopHomeScreenView(
                 }
                 OutlinedButton(onClick = onOpenStreamDialog, shape = RoundedCornerShape(8.dp)) {
                     Text("Open Stream…")
+                }
+                OutlinedButton(onClick = onOpenShare, shape = RoundedCornerShape(8.dp)) {
+                    Text("Network Share…")
                 }
             }
 

@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,21 +37,25 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.vimivo.cast.CastMime
 import dev.vimivo.desktop.platform.DesktopDirectories
 import dev.vimivo.network.KnownHosts
 import dev.vimivo.network.RemoteEntry
 import dev.vimivo.network.RemotePaths
+import dev.vimivo.network.SftpFileSystem
 import dev.vimivo.network.ShareProtocol
 import dev.vimivo.network.ShareSession
 import dev.vimivo.network.ShareSessionHolder
-import dev.vimivo.network.SftpFileSystem
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** What the user typed on the connect screen. */
 private class ConnectForm {
     var protocol by mutableStateOf(ShareProtocol.SMB)
     var host by mutableStateOf("")
@@ -65,9 +70,103 @@ private class ConnectForm {
         ShareProtocol.SFTP -> host.isNotBlank() && username.isNotBlank()
         ShareProtocol.WEBDAV -> url.isNotBlank()
     }
+
+    val sftpPort: Int get() = port.toIntOrNull() ?: ShareProtocol.SFTP.defaultPort
 }
 
-private class Browser(val path: String = "", val entries: List<RemoteEntry> = emptyList(), val loading: Boolean = false)
+/** The folder being shown. */
+private class FolderView(val path: String = "", val entries: List<RemoteEntry> = emptyList(), val loading: Boolean = false)
+
+/** All the dialog's behaviour, so the composables below only draw. */
+private class ShareDialogState(
+    private val scope: CoroutineScope,
+    private val holder: ShareSessionHolder,
+    private val knownHosts: KnownHosts,
+    private val onOpenUrl: (url: String, title: String) -> Unit,
+    private val onDismiss: () -> Unit,
+) {
+    val form = ConnectForm()
+    var folder by mutableStateOf<FolderView?>(if (holder.current != null) FolderView(loading = true) else null)
+    var busy by mutableStateOf(false)
+    var error by mutableStateOf<String?>(null)
+    var pendingFingerprint by mutableStateOf<String?>(null)
+
+    val title: String get() = holder.current?.label ?: "Network share"
+
+    fun openRootIfConnected() {
+        if (folder?.loading == true && holder.current != null) browse("")
+    }
+
+    fun browse(path: String) {
+        val session = holder.current ?: return
+        folder = FolderView(path, folder?.entries.orEmpty(), loading = true)
+        scope.launch {
+            withContext(Dispatchers.IO) { runCatching { session.fs.list(path) } }.fold(
+                onSuccess = { folder = FolderView(path, it) },
+                onFailure = { error = it.message ?: "Could not open the folder"; folder = FolderView(path) },
+            )
+        }
+    }
+
+    fun up() = browse(RemotePaths.parent(folder?.path.orEmpty()))
+
+    fun connect() {
+        busy = true
+        error = null
+        val secret = form.password.toCharArray()
+        scope.launch {
+            val result = withContext(Dispatchers.IO) { open(secret) }
+            busy = false
+            result?.fold(
+                onSuccess = { holder.replace(it); error = null; browse("") },
+                onFailure = { error = it.message ?: "Could not connect" },
+            )
+        }
+    }
+
+    /** Null means a trust prompt is now showing instead of a result. */
+    private fun open(secret: CharArray): Result<ShareSession>? = when (form.protocol) {
+        ShareProtocol.SMB -> ShareSession.smb(form.host, form.share, form.username, secret)
+        ShareProtocol.WEBDAV -> ShareSession.webDav(form.url, form.username, secret)
+        ShareProtocol.SFTP -> openSftp(secret)
+    }
+
+    private fun openSftp(secret: CharArray): Result<ShareSession>? {
+        val host = form.host.trim()
+        if (knownHosts.fingerprint(host, form.sftpPort) != null) {
+            return ShareSession.sftp(host, form.sftpPort, form.username, secret, knownHosts)
+        }
+        val probe = SftpFileSystem.probeFingerprint(host, form.sftpPort)
+        probe.getOrNull()?.let { pendingFingerprint = it; return null }
+        return Result.failure(probe.exceptionOrNull() ?: IllegalStateException("Could not reach $host"))
+    }
+
+    fun trustAndConnect() {
+        val fingerprint = pendingFingerprint ?: return
+        knownHosts.trust(form.host.trim(), form.sftpPort, fingerprint)
+        pendingFingerprint = null
+        connect()
+    }
+
+    fun play(entry: RemoteEntry) {
+        val session = holder.current ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) { session.playUrl(entry.path) }.fold(
+                onSuccess = { onOpenUrl(it, entry.name); onDismiss() },
+                onFailure = { error = it.message ?: "Could not start playback" },
+            )
+        }
+    }
+
+    fun disconnect() {
+        holder.replace(null)
+        folder = null
+    }
+
+    fun cancelOrClose() {
+        if (pendingFingerprint != null) pendingFingerprint = null else onDismiss()
+    }
+}
 
 /**
  * Connect to a network share and play its media. Works for Windows / NAS shares (SMB), SSH servers (SFTP) and WebDAV
@@ -80,72 +179,9 @@ internal fun DesktopNetworkShareDialog(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val form = remember { ConnectForm() }
     val knownHosts = remember { KnownHosts(DesktopDirectories.resolve().data.resolve("known_hosts").toFile()) }
-    var browser by remember { mutableStateOf<Browser?>(if (holder.current != null) Browser(loading = true) else null) }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var pendingFingerprint by remember { mutableStateOf<String?>(null) }
-
-    fun browse(path: String) {
-        val session = holder.current ?: return
-        browser = Browser(path, browser?.entries.orEmpty(), loading = true)
-        scope.launch {
-            val result = withContext(Dispatchers.IO) { runCatching { session.fs.list(path) } }
-            result.fold(
-                onSuccess = { browser = Browser(path, it) },
-                onFailure = { error = it.message ?: "Could not open the folder"; browser = Browser(path) },
-            )
-        }
-    }
-
-    fun finishConnect(result: Result<ShareSession>) {
-        busy = false
-        result.fold(
-            onSuccess = { holder.replace(it); error = null; browse("") },
-            onFailure = { error = it.message ?: "Could not connect" },
-        )
-    }
-
-    fun connect() {
-        busy = true
-        error = null
-        val secret = form.password.toCharArray()
-        scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                when (form.protocol) {
-                    ShareProtocol.SMB -> ShareSession.smb(form.host, form.share, form.username, secret)
-                    ShareProtocol.WEBDAV -> ShareSession.webDav(form.url, form.username, secret)
-                    ShareProtocol.SFTP -> {
-                        val port = form.port.toIntOrNull() ?: ShareProtocol.SFTP.defaultPort
-                        if (knownHosts.fingerprint(form.host.trim(), port) == null) {
-                            SftpFileSystem.probeFingerprint(form.host.trim(), port).fold(
-                                onSuccess = { pendingFingerprint = it; Result.failure(IllegalStateException("")) },
-                                onFailure = { Result.failure(it) },
-                            )
-                        } else {
-                            ShareSession.sftp(form.host, port, form.username, secret, knownHosts)
-                        }
-                    }
-                }
-            }
-            if (pendingFingerprint != null) busy = false else finishConnect(result)
-        }
-    }
-
-    fun play(entry: RemoteEntry) {
-        val session = holder.current ?: return
-        scope.launch {
-            val url = withContext(Dispatchers.IO) { session.playUrl(entry.path) }
-            url.fold(
-                onSuccess = { onOpenUrl(it, entry.name); onDismiss() },
-                onFailure = { error = it.message ?: "Could not start playback" },
-            )
-        }
-    }
-
-    if (browser != null && holder.current == null) browser = null
-    LaunchedBrowse(browser, holder) { browse("") }
+    val state = remember { ShareDialogState(scope, holder, knownHosts, onOpenUrl, onDismiss) }
+    LaunchedEffect(Unit) { state.openRootIfConnected() }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -153,41 +189,37 @@ internal fun DesktopNetworkShareDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Dns, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
-                Text(holder.current?.label ?: "Network share", style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                Text(state.title, style = MaterialTheme.typography.titleLarge, maxLines = 1)
             }
         },
-        text = {
-            val trust = pendingFingerprint
-            when {
-                trust != null -> TrustPrompt(form.host, trust)
-                browser != null -> BrowserPane(browser!!, error, onUp = { browse(RemotePaths.parent(browser!!.path)) }, onOpen = ::browse, onPlay = ::play)
-                else -> ConnectPane(form, busy, error)
-            }
-        },
-        confirmButton = {
-            val trust = pendingFingerprint
-            when {
-                trust != null -> Button(onClick = {
-                    knownHosts.trust(form.host.trim(), form.port.toIntOrNull() ?: ShareProtocol.SFTP.defaultPort, trust)
-                    pendingFingerprint = null
-                    connect()
-                }) { Text("Trust this server and connect") }
-                browser != null -> TextButton(onClick = { holder.replace(null); browser = null }) { Text("Disconnect") }
-                else -> Button(onClick = ::connect, enabled = form.isComplete() && !busy) { Text(if (busy) "Connecting…" else "Connect") }
-            }
-        },
+        text = { DialogBody(state) },
+        confirmButton = { PrimaryAction(state) },
         dismissButton = {
-            TextButton(onClick = { if (pendingFingerprint != null) pendingFingerprint = null else onDismiss() }) {
-                Text(if (pendingFingerprint != null) "Cancel" else "Close")
-            }
+            TextButton(onClick = state::cancelOrClose) { Text(if (state.pendingFingerprint != null) "Cancel" else "Close") }
         },
     )
 }
 
-/** Opens the root folder when the dialog is reopened on a share that is still connected. */
 @Composable
-private fun LaunchedBrowse(browser: Browser?, holder: ShareSessionHolder, start: () -> Unit) {
-    androidx.compose.runtime.LaunchedEffect(Unit) { if (browser?.loading == true && holder.current != null) start() }
+private fun DialogBody(state: ShareDialogState) {
+    val fingerprint = state.pendingFingerprint
+    val folder = state.folder
+    when {
+        fingerprint != null -> TrustPrompt(state.form.host, fingerprint)
+        folder != null -> BrowserPane(folder, state.error, state::up, state::browse, state::play)
+        else -> ConnectPane(state.form, state.busy, state.error)
+    }
+}
+
+@Composable
+private fun PrimaryAction(state: ShareDialogState) {
+    when {
+        state.pendingFingerprint != null -> Button(onClick = state::trustAndConnect) { Text("Trust this server and connect") }
+        state.folder != null -> TextButton(onClick = state::disconnect) { Text("Disconnect") }
+        else -> Button(onClick = state::connect, enabled = state.form.isComplete() && !state.busy) {
+            Text(if (state.busy) "Connecting…" else "Connect")
+        }
+    }
 }
 
 @Composable
@@ -203,17 +235,10 @@ private fun ConnectPane(form: ConnectForm, busy: Boolean, error: String?) {
                 FilterChip(selected = form.protocol == p, onClick = { form.protocol = p }, label = { Text(p.name.replace("WEBDAV", "WebDAV")) })
             }
         }
-        when (form.protocol) {
-            ShareProtocol.WEBDAV -> Field("Address", form.url, "https://nas.local/dav") { form.url = it }
-            else -> {
-                Field("Server name or IP", form.host, "192.168.1.100 or nas.local") { form.host = it }
-                if (form.protocol == ShareProtocol.SMB) Field("Share name", form.share, "Movies") { form.share = it }
-                else Field("Port", form.port, "22") { form.port = it.filter(Char::isDigit).take(5) }
-            }
-        }
+        AddressFields(form)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Field(if (form.protocol == ShareProtocol.SMB) "User (blank = guest)" else "User", form.username, "", Modifier.weight(1f)) { form.username = it }
-            Field("Password", form.password, "", Modifier.weight(1f), password = true) { form.password = it }
+            Field(if (form.protocol == ShareProtocol.SMB) "User (blank = guest)" else "User", form.username, Modifier.weight(1f)) { form.username = it }
+            Field("Password", form.password, Modifier.weight(1f), password = true) { form.password = it }
         }
         if (busy) Row(verticalAlignment = Alignment.CenterVertically) {
             CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -225,13 +250,23 @@ private fun ConnectPane(form: ConnectForm, busy: Boolean, error: String?) {
 }
 
 @Composable
-private fun Field(label: String, value: String, hint: String, modifier: Modifier = Modifier.fillMaxWidth(), password: Boolean = false, onChange: (String) -> Unit) {
+private fun AddressFields(form: ConnectForm) {
+    if (form.protocol == ShareProtocol.WEBDAV) {
+        Field("Address, e.g. https://nas.local/dav", form.url) { form.url = it }
+        return
+    }
+    Field("Server name or IP, e.g. nas.local", form.host) { form.host = it }
+    if (form.protocol == ShareProtocol.SMB) Field("Share name, e.g. Movies", form.share) { form.share = it }
+    else Field("Port (22)", form.port) { form.port = it.filter(Char::isDigit).take(5) }
+}
+
+@Composable
+private fun Field(label: String, value: String, modifier: Modifier = Modifier.fillMaxWidth(), password: Boolean = false, onChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
         label = { Text(label) },
-        placeholder = if (hint.isEmpty()) null else ({ Text(hint) }),
-        visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         singleLine = true,
         modifier = modifier,
     )
@@ -245,49 +280,53 @@ private fun TrustPrompt(host: String, fingerprint: String) {
             "Check that this key matches your server before trusting it. If it does not, someone may be pretending to be your server.",
             style = MaterialTheme.typography.bodySmall,
         )
-        Text(fingerprint, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace))
+        Text(fingerprint, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
     }
 }
 
 @Composable
-private fun BrowserPane(browser: Browser, error: String?, onUp: () -> Unit, onOpen: (String) -> Unit, onPlay: (RemoteEntry) -> Unit) {
+private fun BrowserPane(folder: FolderView, error: String?, onUp: () -> Unit, onOpen: (String) -> Unit, onPlay: (RemoteEntry) -> Unit) {
     Column(modifier = Modifier.width(460.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onUp, enabled = browser.path.isNotEmpty() && !browser.loading) {
+            IconButton(onClick = onUp, enabled = folder.path.isNotEmpty() && !folder.loading) {
                 Icon(Icons.Outlined.ArrowUpward, contentDescription = "Up one folder")
             }
-            Text("/" + browser.path, style = MaterialTheme.typography.bodyMedium, maxLines = 1, modifier = Modifier.weight(1f))
-            if (browser.loading) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            Text("/" + folder.path, style = MaterialTheme.typography.bodyMedium, maxLines = 1, modifier = Modifier.weight(1f))
+            if (folder.loading) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         }
         error?.takeIf { it.isNotBlank() }?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         LazyColumn(Modifier.heightIn(max = 340.dp).fillMaxWidth()) {
-            items(browser.entries, key = { it.path }) { entry ->
-                val playable = !entry.isDirectory && CastMime.isMedia(entry.name)
-                Row(
-                    Modifier.fillMaxWidth()
-                        .clickable(enabled = entry.isDirectory || playable) { if (entry.isDirectory) onOpen(entry.path) else onPlay(entry) }
-                        .padding(vertical = 8.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        when {
-                            entry.isDirectory -> Icons.Outlined.Folder
-                            playable -> Icons.Outlined.PlayCircle
-                            else -> Icons.AutoMirrored.Outlined.InsertDriveFile
-                        },
-                        contentDescription = null,
-                        tint = if (entry.isDirectory || playable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        entry.name,
-                        maxLines = 1,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (entry.isDirectory || playable) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
-                    )
-                }
-            }
+            items(folder.entries, key = { it.path }) { entry -> EntryRow(entry, onOpen, onPlay) }
         }
-        if (!browser.loading && browser.entries.isEmpty()) Text("This folder is empty.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
+        if (!folder.loading && folder.entries.isEmpty()) {
+            Text("This folder is empty.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun EntryRow(entry: RemoteEntry, onOpen: (String) -> Unit, onPlay: (RemoteEntry) -> Unit) {
+    val playable = !entry.isDirectory && CastMime.isMedia(entry.name)
+    val usable = entry.isDirectory || playable
+    val color = if (usable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+    val icon = when {
+        entry.isDirectory -> Icons.Outlined.Folder
+        playable -> Icons.Outlined.PlayCircle
+        else -> Icons.AutoMirrored.Outlined.InsertDriveFile
+    }
+    Row(
+        Modifier.fillMaxWidth()
+            .clickable(enabled = usable) { if (entry.isDirectory) onOpen(entry.path) else onPlay(entry) }
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = color)
+        Spacer(Modifier.width(12.dp))
+        Text(
+            entry.name,
+            maxLines = 1,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (usable) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+        )
     }
 }

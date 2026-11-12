@@ -167,6 +167,9 @@ internal fun DesktopCommandPalette(
             PaletteAction("Internet Radio & Podcasts", "Tools", null, Icons.Outlined.Radio) {
                 onIntent(PlayerIntent.ToggleRadioPodcast)
             },
+            PaletteAction("Convert Media (audio, or rewrap MKV / MP4)", "Tools", null, Icons.Outlined.Transform) {
+                onIntent(PlayerIntent.ToggleTranscodeDialog)
+            },
             PaletteAction("Cast to TV or Speaker", "Tools", null, Icons.Outlined.Cast) {
                 onIntent(PlayerIntent.ToggleCasting)
             },

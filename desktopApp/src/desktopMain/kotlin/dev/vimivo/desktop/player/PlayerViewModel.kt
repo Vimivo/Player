@@ -63,8 +63,16 @@ internal class PlayerViewModel(
     private val store: DesktopPlaybackStore,
     private val recentMedia: DesktopRecentMediaRepository,
     private val scope: CoroutineScope,
+    private val preferences: dev.vimivo.desktop.platform.DesktopPreferences,
 ) : AutoCloseable {
-    private val local = MutableStateFlow(LocalState())
+    private val local = MutableStateFlow(
+        LocalState(toolbarConfig = preferences.loadToolbar(), videoQuality = preferences.loadVideoQuality()),
+    )
+
+    init {
+        // The renderer starts at its defaults; bring it to the choices saved last time.
+        engine.applyVideoQuality(local.value.videoQuality)
+    }
     private var mediaControls: MprisService? = null
 
     /** The one seek path: the timeline, keyboard shortcuts, the wheel and chapter jumps all go through it. */
@@ -288,6 +296,7 @@ internal class PlayerViewModel(
             is PlayerIntent.SetVideoQuality -> {
                 local.update { it.copy(videoQuality = intent.settings) }
                 engine.applyVideoQuality(intent.settings)
+                preferences.saveVideoQuality(intent.settings)
             }
             PlayerIntent.RotateVideo -> {
                 val next = local.value.videoRotation.next()
@@ -308,7 +317,10 @@ internal class PlayerViewModel(
             PlayerIntent.ToggleNetworkShare -> local.update { it.copy(networkShareVisible = !it.networkShareVisible) }
             PlayerIntent.ToggleCasting -> local.update { it.copy(castingVisible = !it.castingVisible) }
             PlayerIntent.ToggleToolbarCustomize -> local.update { it.copy(toolbarCustomizeVisible = !it.toolbarCustomizeVisible) }
-            is PlayerIntent.SetToolbarConfig -> local.update { it.copy(toolbarConfig = intent.config) }
+            is PlayerIntent.SetToolbarConfig -> {
+                local.update { it.copy(toolbarConfig = intent.config) }
+                preferences.saveToolbar(intent.config)
+            }
             PlayerIntent.ToggleAudioPassthrough -> {
                 val next = !local.value.audioPassthrough
                 engine.setAudioPassthrough(next)

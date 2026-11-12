@@ -922,6 +922,7 @@ private fun DesktopPlayer(
                                         },
                                         onAddFolder = library::addFolder,
                                         onOpenStreamDialog = { showOpenStreamDialog = true },
+                                        onOpenShare = { viewModel.dispatch(PlayerIntent.ToggleNetworkShare) },
                                         onDismissRecommendation = library::dismissRecommendation,
                                         onTogglePersonalization = library::setPersonalizationEnabled,
                                         onScan = library::scan,

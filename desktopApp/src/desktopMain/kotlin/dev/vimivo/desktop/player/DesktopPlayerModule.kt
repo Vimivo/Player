@@ -57,7 +57,12 @@ internal fun desktopPlayerModule(isolated: Boolean): Module = module {
             stopRequest = get<PlaybackSleepTimer>(),
         )
     }
-    single { PlayerViewModel(get(), get(), get(), get(), get(PlayerScope)) } onClose { it?.close() }
+    single {
+        dev.vimivo.desktop.platform.DesktopPreferences(
+            dev.vimivo.desktop.platform.DesktopDirectories.resolve().data.resolve("preferences.properties").toFile(),
+        )
+    }
+    single { PlayerViewModel(get(), get(), get(), get(), get(PlayerScope), get()) } onClose { it?.close() }
     single<MprisService> {
         val viewModel = get<PlayerViewModel>()
         MprisServiceFactory.create(get(), get(), viewModel::togglePlayback).also(viewModel::attachMediaControls)
