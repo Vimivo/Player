@@ -25,6 +25,9 @@ build-media/
 # Native media framework built by scripts/build_media (not committed)
 iosApp/Frameworks/
 
+# Android JNI libraries built by scripts/build_rust_android.sh (not committed)
+androidApp/src/main/jniLibs/
+
 # Local test builds (APK, DMG)
 dist/
 
