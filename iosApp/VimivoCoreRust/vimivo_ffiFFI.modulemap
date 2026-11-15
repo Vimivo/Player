@@ -1,0 +1,4 @@
+module vimivo_ffiFFI {
+    header "vimivo_ffiFFI.h"
+    export *
+}
