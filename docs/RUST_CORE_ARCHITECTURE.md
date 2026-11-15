@@ -79,7 +79,27 @@ The project contains a standard Cargo workspace at the root:
 ### 3.4 Media Parsers (`src/parser.rs`)
 - **TitleParser**: 100% offline regex-based title cleaner. Strips release-group noise (`1080p, BluRay, x264, HDR, AAC`) and parses `SxxEyy` or release years.
 - **LrcLyricsParser**: Synchronized LRC parser supporting millisecond tags `[mm:ss.xx]`, offset adjustments, and binary-search active line lookup.
-- **PlaylistM3uHandler**: Unicode and Bengali-safe M3U/M3U8 playlist parser and generator.
+- **PlaylistFormats (M3U, PLS, XSPF)**:
+  - M3U / M3U8 unicode-safe parser and exporter.
+  - PLS (Winamp/Shoutcast) numbered key parser.
+  - XSPF XML parser with entity-expansion/DTD injection defenses.
+
+### 3.5 Video Tools & Cropping (`src/video.rs`)
+- **BlackBarDetector**: 8-bit luma plane scanner detecting letterbox / pillarbox bars with noise-fraction thresholds.
+- **VideoCropMath**: Centered ratio calculation, chroma-even alignment, and content-bounds cropping.
+- **IntroSkip**: Chapter title heuristics (`intro, opening, recap, prologue, cold open`) or short first chapter detection with 85s fallback jump.
+
+### 3.6 Universal Streaming & Reconnection (`src/streaming.rs`)
+- **StreamValidator**: URL validation (length limits, forbidden control characters), protocol allowlist (`http`, `https`, `rtsp`, `rtsps`, `rtp`, `udp`, `mms`, `smb`, `sftp`, `ftp`, `nfs`, and capture devices). Rejects non-stream web pages (YouTube, TikTok, Instagram, Reddit).
+- **StreamReconnectionPolicy**: Exponential backoff with bounded retries.
+
+### 3.7 Smart Playlists & Template Renaming (`src/smart_playlist.rs`, `src/rename.rs`)
+- **SmartPlaylistEvaluator**: AST condition evaluator matching media items across Title, Artist, Album, Genre, Duration, Favorite, and Year.
+- **RenameTemplate**: Template-based file renaming (`{artist}`, `{album}`, `{title}`, `{track}`, `{year}`) with Windows/Linux forbidden character sanitization.
+
+### 3.8 Playback Engine & libmpv Mapping (`src/engine.rs`)
+- State machine contracts: `PlaybackStatus`, `PlaybackState`, and `PlayerCommand`.
+- `MpvCommandMapper`: Direct property and command string formatting for `libmpv` C API integration.
 
 ---
 
