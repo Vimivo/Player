@@ -1,0 +1,15 @@
+[package]
+name = "vimivo-ffi"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+vimivo-core = { path = "../vimivo-core" }
+uniffi = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
