@@ -10,6 +10,6 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 vimivo-core = { path = "../vimivo-core" }
-uniffi = { workspace = true }
+uniffi = { workspace = true, features = ["cli"] }
 thiserror = { workspace = true }
 serde = { workspace = true }

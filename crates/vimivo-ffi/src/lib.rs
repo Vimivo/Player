@@ -14,12 +14,12 @@ uniffi::setup_scaffolding!();
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum VimivoFfiError {
-    #[error("Database error: {message}")]
-    DatabaseError { message: String },
-    #[error("Not found: {message}")]
-    NotFound { message: String },
-    #[error("Internal error: {message}")]
-    InternalError { message: String },
+    #[error("Database error: {reason}")]
+    DatabaseError { reason: String },
+    #[error("Not found: {reason}")]
+    NotFound { reason: String },
+    #[error("Internal error: {reason}")]
+    InternalError { reason: String },
 }
 
 // ---------------------------------------------------------------------------
@@ -145,14 +145,14 @@ impl FfiDatabase {
     #[uniffi::constructor]
     pub fn open(path: String) -> Result<Self, VimivoFfiError> {
         let db = VimivoDatabase::open(&path)
-            .map_err(|e| VimivoFfiError::DatabaseError { message: e.to_string() })?;
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })?;
         Ok(Self { inner: Mutex::new(db) })
     }
 
     #[uniffi::constructor]
     pub fn open_in_memory() -> Result<Self, VimivoFfiError> {
         let db = VimivoDatabase::open_in_memory()
-            .map_err(|e| VimivoFfiError::DatabaseError { message: e.to_string() })?;
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })?;
         Ok(Self { inner: Mutex::new(db) })
     }
 
@@ -170,13 +170,13 @@ impl FfiDatabase {
 
         let db = self.inner.lock().unwrap();
         db.upsert_media_item(&core_item)
-            .map_err(|e| VimivoFfiError::DatabaseError { message: e.to_string() })
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
     }
 
     pub fn get_item(&self, id: String) -> Result<Option<FfiMediaItem>, VimivoFfiError> {
         let db = self.inner.lock().unwrap();
         let item = db.get_media_item(&id)
-            .map_err(|e| VimivoFfiError::DatabaseError { message: e.to_string() })?;
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })?;
         Ok(item.map(FfiMediaItem::from))
     }
 
@@ -185,20 +185,20 @@ impl FfiDatabase {
         let mut q = CoreQuery::default();
         q.text = search_text;
         let page = db.query_media_items(&q)
-            .map_err(|e| VimivoFfiError::DatabaseError { message: e.to_string() })?;
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })?;
         Ok(page.items.into_iter().map(FfiMediaItem::from).collect())
     }
 
     pub fn set_favorite(&self, media_id: String, is_fav: bool) -> Result<(), VimivoFfiError> {
         let db = self.inner.lock().unwrap();
         db.set_favorite(&media_id, is_fav)
-            .map_err(|e| VimivoFfiError::DatabaseError { message: e.to_string() })
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
     }
 
     pub fn is_favorite(&self, media_id: String) -> Result<bool, VimivoFfiError> {
         let db = self.inner.lock().unwrap();
         db.is_favorite(&media_id)
-            .map_err(|e| VimivoFfiError::DatabaseError { message: e.to_string() })
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
     }
 }
 
