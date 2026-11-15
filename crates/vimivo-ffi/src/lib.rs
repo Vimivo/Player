@@ -109,6 +109,17 @@ pub struct FfiMediaItem {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub artwork_uri: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub size_bytes: Option<i64>,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiPlaylist {
+    pub id: String,
+    pub name: String,
+    pub media_ids: Vec<String>,
+    pub created_at_millis: i64,
 }
 
 impl From<CoreMediaItem> for FfiMediaItem {
@@ -127,6 +138,9 @@ impl From<CoreMediaItem> for FfiMediaItem {
             artist: item.artist,
             album: item.album,
             artwork_uri: item.artwork_uri,
+            width: item.width,
+            height: item.height,
+            size_bytes: item.size_bytes,
         }
     }
 }
@@ -167,10 +181,44 @@ impl FfiDatabase {
         core_item.artist = item.artist;
         core_item.album = item.album;
         core_item.artwork_uri = item.artwork_uri;
+        core_item.width = item.width;
+        core_item.height = item.height;
+        core_item.size_bytes = item.size_bytes;
 
         let db = self.inner.lock().unwrap();
         db.upsert_media_item(&core_item)
             .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn delete_item(&self, id: String) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.delete_media_item(&id)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn update_media_uri(&self, id: String, uri: String) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.update_media_uri(&id, &uri)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn update_video_metadata(
+        &self,
+        id: String,
+        width: Option<i32>,
+        height: Option<i32>,
+        size_bytes: Option<i64>,
+    ) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.update_video_metadata(&id, width, height, size_bytes)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn get_all_items(&self) -> Result<Vec<FfiMediaItem>, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        let items = db.get_all_media_items()
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })?;
+        Ok(items.into_iter().map(FfiMediaItem::from).collect())
     }
 
     pub fn get_item(&self, id: String) -> Result<Option<FfiMediaItem>, VimivoFfiError> {
@@ -198,6 +246,73 @@ impl FfiDatabase {
     pub fn is_favorite(&self, media_id: String) -> Result<bool, VimivoFfiError> {
         let db = self.inner.lock().unwrap();
         db.is_favorite(&media_id)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn get_favorites(&self) -> Result<Vec<String>, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.get_all_favorites()
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn save_playlist(&self, playlist: FfiPlaylist) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.save_playlist(
+            &playlist.id,
+            &playlist.name,
+            &playlist.media_ids,
+            playlist.created_at_millis,
+        )
+        .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn delete_playlist(&self, id: String) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.delete_playlist(&id)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn get_playlists(&self) -> Result<Vec<FfiPlaylist>, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        let list = db.get_all_playlists()
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })?;
+        Ok(list
+            .into_iter()
+            .map(|p| FfiPlaylist {
+                id: p.id,
+                name: p.name,
+                media_ids: p.media_ids,
+                created_at_millis: p.created_at_millis,
+            })
+            .collect())
+    }
+
+    pub fn save_lyrics(&self, media_id: String, source: String, text: String) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.save_lyrics(&media_id, &source, &text)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn get_lyrics(&self, media_id: String) -> Result<Option<String>, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.get_lyrics(&media_id)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn update_playback_position(
+        &self,
+        media_id: String,
+        position_ms: i64,
+        duration_ms: Option<i64>,
+    ) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.update_playback_position(&media_id, position_ms, duration_ms)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn get_playback_position(&self, media_id: String) -> Result<Option<i64>, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.get_playback_position(&media_id)
             .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
     }
 }

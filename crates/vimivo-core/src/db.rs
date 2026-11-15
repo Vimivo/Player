@@ -518,6 +518,156 @@ impl VimivoDatabase {
         )?;
         Ok(())
     }
+
+    pub fn get_playback_position(&self, media_id: &str) -> Result<Option<i64>> {
+        self.conn
+            .query_row(
+                "SELECT position_ms FROM playback_positions WHERE media_id = ?1",
+                params![media_id],
+                |r| r.get(0),
+            )
+            .optional()
+    }
+
+    pub fn delete_media_item(&self, id: &str) -> Result<()> {
+        self.conn.execute("DELETE FROM media_items WHERE id = ?1", params![id])?;
+        self.conn.execute("DELETE FROM favorites WHERE media_id = ?1", params![id])?;
+        self.conn.execute("DELETE FROM playlist_items WHERE media_id = ?1", params![id])?;
+        self.conn.execute("DELETE FROM playback_positions WHERE media_id = ?1", params![id])?;
+        self.conn.execute("DELETE FROM lyrics WHERE media_id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn update_media_uri(&self, id: &str, uri: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE media_items SET uri = ?1 WHERE id = ?2",
+            params![uri, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_video_metadata(
+        &self,
+        id: &str,
+        width: Option<i32>,
+        height: Option<i32>,
+        size_bytes: Option<i64>,
+    ) -> Result<()> {
+        let mut clauses = Vec::new();
+        let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+        if let Some(w) = width {
+            clauses.push("width = ?");
+            params_vec.push(Box::new(w));
+        }
+        if let Some(h) = height {
+            clauses.push("height = ?");
+            params_vec.push(Box::new(h));
+        }
+        if let Some(s) = size_bytes {
+            clauses.push("size_bytes = ?");
+            params_vec.push(Box::new(s));
+        }
+        if clauses.is_empty() {
+            return Ok(());
+        }
+
+        let sql = format!("UPDATE media_items SET {} WHERE id = ?", clauses.join(", "));
+        params_vec.push(Box::new(id.to_string()));
+
+        let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|b| b.as_ref()).collect();
+        self.conn.execute(&sql, params_refs.as_slice())?;
+        Ok(())
+    }
+
+    pub fn get_all_media_items(&self) -> Result<Vec<MediaItem>> {
+        let mut stmt = self.conn.prepare("SELECT * FROM media_items ORDER BY title COLLATE NOCASE ASC")?;
+        let rows = stmt.query_map([], |row| Self::row_to_media_item(row))?;
+        let mut items = Vec::new();
+        for r in rows {
+            items.push(r?);
+        }
+        Ok(items)
+    }
+
+    pub fn get_all_favorites(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare("SELECT media_id FROM favorites")?;
+        let rows = stmt.query_map([], |row| row.get(0))?;
+        let mut favs = Vec::new();
+        for r in rows {
+            favs.push(r?);
+        }
+        Ok(favs)
+    }
+
+    pub fn save_playlist(
+        &self,
+        id: &str,
+        name: &str,
+        media_ids: &[String],
+        created_at_millis: i64,
+    ) -> Result<()> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute(
+            "INSERT INTO playlists (id, name, created_at_millis) VALUES (?1, ?2, ?3)
+             ON CONFLICT(id) DO UPDATE SET name = excluded.name",
+            params![id, name, created_at_millis],
+        )?;
+        tx.execute("DELETE FROM playlist_items WHERE playlist_id = ?1", params![id])?;
+        for (idx, mid) in media_ids.iter().enumerate() {
+            tx.execute(
+                "INSERT INTO playlist_items (playlist_id, media_id, position) VALUES (?1, ?2, ?3)",
+                params![id, mid, idx as i32],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn delete_playlist(&self, id: &str) -> Result<()> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM playlist_items WHERE playlist_id = ?1", params![id])?;
+        tx.execute("DELETE FROM playlists WHERE id = ?1", params![id])?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn get_all_playlists(&self) -> Result<Vec<StoredPlaylist>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, created_at_millis FROM playlists ORDER BY created_at_millis DESC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))
+        })?;
+
+        let mut playlists = Vec::new();
+        for r in rows {
+            let (pid, name, created_at) = r?;
+            let mut item_stmt = self.conn.prepare(
+                "SELECT media_id FROM playlist_items WHERE playlist_id = ?1 ORDER BY position ASC",
+            )?;
+            let item_rows = item_stmt.query_map(params![&pid], |ir| ir.get::<_, String>(0))?;
+            let mut media_ids = Vec::new();
+            for mid in item_rows {
+                media_ids.push(mid?);
+            }
+            playlists.push(StoredPlaylist {
+                id: pid,
+                name,
+                media_ids,
+                created_at_millis: created_at,
+            });
+        }
+        Ok(playlists)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredPlaylist {
+    pub id: String,
+    pub name: String,
+    pub media_ids: Vec<String>,
+    pub created_at_millis: i64,
 }
 
 #[cfg(test)]
