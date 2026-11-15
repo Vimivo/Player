@@ -104,6 +104,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.jna)
     implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.zxing.core)
