@@ -52,7 +52,7 @@ for label, target in matches:
             MISSING_COUNT=$((MISSING_COUNT + 1))
         fi
     done
-done < <(find . -type f -name "*.md" ! -path "*/build/*" ! -path "*/.gradle/*" ! -path "*/.git/*")
+done < <(find . -type f -name "*.md" ! -path "*/build/*" ! -path "*/build-media/*" ! -path "*/target/*" ! -path "*/.venv-media/*" ! -path "*/.gradle/*" ! -path "*/.git/*")
 
 echo "Checked $CHECKED_COUNT relative links across markdown documents."
 
