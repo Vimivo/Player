@@ -1,0 +1,264 @@
+import { Button, VerticalBox, HorizontalBox, Slider, LineEdit, ListView, StandardTableView } from "std-widgets.slint";
+
+export struct MediaRow {
+    id: string,
+    title: string,
+    artist: string,
+    album: string,
+    duration: string,
+}
+
+export component AppWindow inherits Window {
+    title: "Vimivo — Every Sound. Every Frame.";
+    preferred-width: 1024px;
+    preferred-height: 680px;
+    min-width: 800px;
+    min-height: 520px;
+    background: #0f1117;
+    default-font-family: "Inter, system-ui, sans-serif";
+
+    in-out property <string> search-text: "";
+    in-out property <string> now-playing-title: "No Media Playing";
+    in-out property <string> now-playing-artist: "Select a song or video to begin";
+    in-out property <string> current-time: "00:00";
+    in-out property <string> total-time: "00:00";
+    in-out property <float> progress: 0.0;
+    in-out property <bool> is-playing: false;
+    in-out property <bool> is-shuffled: false;
+    in-out property <int> repeat-mode: 0; // 0: Off, 1: All, 2: One
+    in-out property <[MediaRow]> media-list: [];
+
+    callback play-pause-clicked();
+    callback next-clicked();
+    callback previous-clicked();
+    callback shuffle-toggled();
+    callback repeat-toggled();
+    callback item-selected(string);
+    callback search-changed(string);
+    callback progress-seeked(float);
+
+    VerticalBox {
+        padding: 0px;
+        spacing: 0px;
+
+        // Top App Bar / Header
+        HorizontalBox {
+            padding: 16px;
+            spacing: 12px;
+            height: 64px;
+
+            Text {
+                text: "Vimivo";
+                font-size: 20px;
+                font-weight: 700;
+                color: #60a5fa;
+                vertical-alignment: center;
+            }
+
+            Rectangle { width: 24px; }
+
+            search-input := LineEdit {
+                placeholder-text: "Search songs, artists, albums, or videos...";
+                text <=> root.search-text;
+                horizontal-stretch: 1;
+                edited(text) => { root.search-changed(text); }
+            }
+        }
+
+        // Main Content Area: Sidebar + Media Table
+        HorizontalBox {
+            padding: 0px;
+            spacing: 0px;
+            vertical-stretch: 1;
+
+            // Sidebar
+            Rectangle {
+                width: 220px;
+                background: #141722;
+
+                VerticalBox {
+                    padding: 16px;
+                    spacing: 8px;
+
+                    Text {
+                        text: "LIBRARY";
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: #64748b;
+                    }
+
+                    Button { text: "🎵 Tracks"; }
+                    Button { text: "🎬 Videos"; }
+                    Button { text: "💿 Albums"; }
+                    Button { text: "👤 Artists"; }
+                    Button { text: "⭐ Favorites"; }
+
+                    Rectangle { height: 16px; }
+
+                    Text {
+                        text: "PLAYLISTS";
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: #64748b;
+                    }
+
+                    Button { text: "➕ New Playlist"; }
+                    Button { text: "Recent Queue"; }
+
+                    Rectangle { vertical-stretch: 1; }
+
+                    Button { text: "⚙️ Settings"; }
+                }
+            }
+
+            // Divider
+            Rectangle { width: 1px; background: #1e293b; }
+
+            // Media List View
+            Rectangle {
+                background: #0f1117;
+                horizontal-stretch: 1;
+
+                VerticalBox {
+                    padding: 16px;
+                    spacing: 12px;
+
+                    // Header row
+                    HorizontalBox {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        height: 32px;
+
+                        Text { text: "TITLE"; font-size: 12px; font-weight: 600; color: #64748b; horizontal-stretch: 3; }
+                        Text { text: "ARTIST"; font-size: 12px; font-weight: 600; color: #64748b; horizontal-stretch: 2; }
+                        Text { text: "ALBUM"; font-size: 12px; font-weight: 600; color: #64748b; horizontal-stretch: 2; }
+                        Text { text: "DURATION"; font-size: 12px; font-weight: 600; color: #64748b; width: 80px; }
+                    }
+
+                    Rectangle { height: 1px; background: #1e293b; }
+
+                    ListView {
+                        for item in root.media-list : Rectangle {
+                            height: 48px;
+                            background: touch.has-hover ? #1e293b : transparent;
+                            border-radius: 6px;
+
+                            touch := TouchArea {
+                                clicked => { root.item-selected(item.id); }
+                            }
+
+                            HorizontalBox {
+                                padding-left: 12px;
+                                padding-right: 12px;
+
+                                Text { text: item.title; color: #f8fafc; font-size: 14px; font-weight: 500; vertical-alignment: center; horizontal-stretch: 3; }
+                                Text { text: item.artist; color: #94a3b8; font-size: 13px; vertical-alignment: center; horizontal-stretch: 2; }
+                                Text { text: item.album; color: #94a3b8; font-size: 13px; vertical-alignment: center; horizontal-stretch: 2; }
+                                Text { text: item.duration; color: #64748b; font-size: 12px; vertical-alignment: center; width: 80px; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Bottom Playback Transport Bar
+        Rectangle {
+            height: 90px;
+            background: #141722;
+            border-width: 1px;
+            border-color: #1e293b;
+
+            HorizontalBox {
+                padding: 16px;
+                spacing: 16px;
+
+                // Track Info Left
+                VerticalBox {
+                    width: 240px;
+                    spacing: 2px;
+                    alignment: center;
+
+                    Text {
+                        text: root.now-playing-title;
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: #f8fafc;
+                        overflow: elide;
+                    }
+
+                    Text {
+                        text: root.now-playing-artist;
+                        font-size: 12px;
+                        color: #94a3b8;
+                        overflow: elide;
+                    }
+                }
+
+                // Transport Controls Center
+                VerticalBox {
+                    horizontal-stretch: 1;
+                    spacing: 6px;
+                    alignment: center;
+
+                    HorizontalBox {
+                        alignment: center;
+                        spacing: 16px;
+
+                        Button {
+                            text: root.is-shuffled ? "🔀 (On)" : "🔀";
+                            clicked => { root.shuffle-toggled(); }
+                        }
+                        Button {
+                            text: "⏮️";
+                            clicked => { root.previous-clicked(); }
+                        }
+                        Button {
+                            text: root.is-playing ? "⏸️ Pause" : "▶️ Play";
+                            primary: true;
+                            clicked => { root.play-pause-clicked(); }
+                        }
+                        Button {
+                            text: "⏭️";
+                            clicked => { root.next-clicked(); }
+                        }
+                        Button {
+                            text: root.repeat-mode == 1 ? "🔁 All" : root.repeat-mode == 2 ? "🔂 One" : "🔁 Off";
+                            clicked => { root.repeat-toggled(); }
+                        }
+                    }
+
+                    HorizontalBox {
+                        spacing: 8px;
+                        alignment: center;
+
+                        Text { text: root.current-time; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                        Slider {
+                            value <=> root.progress;
+                            minimum: 0.0;
+                            maximum: 100.0;
+                            horizontal-stretch: 1;
+                            changed(val) => { root.progress-seeked(val); }
+                        }
+                        Text { text: root.total-time; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                    }
+                }
+
+                // Volume Slider Right
+                HorizontalBox {
+                    width: 180px;
+                    spacing: 8px;
+                    alignment: center;
+
+                    Text { text: "🔊"; vertical-alignment: center; }
+                    Slider {
+                        value: 80.0;
+                        minimum: 0.0;
+                        maximum: 100.0;
+                        horizontal-stretch: 1;
+                    }
+                }
+            }
+        }
+    }
+}
