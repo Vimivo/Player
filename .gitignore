@@ -23,3 +23,10 @@ build-media/
 
 # Native media framework built by scripts/build_media (not committed)
 iosApp/Frameworks/
+
+# Local test builds (APK, DMG)
+dist/
+
+# Rust build output
+target/
+
