@@ -3,9 +3,12 @@
 use std::sync::Mutex;
 use vimivo_core::audio::{ReplayGain, ReplayGainMode as CoreReplayGainMode};
 use vimivo_core::db::VimivoDatabase;
-use vimivo_core::model::{LibraryQuery as CoreQuery, MediaItem as CoreMediaItem, MediaKind as CoreMediaKind, QueueRepeatMode as CoreRepeatMode};
-use vimivo_core::parser::{LrcLyricsParser, TitleParser};
+use vimivo_core::model::{ChapterInfo as CoreChapterInfo, LibraryQuery as CoreQuery, MediaItem as CoreMediaItem, MediaKind as CoreMediaKind, QueueRepeatMode as CoreRepeatMode};
+use vimivo_core::parser::{LrcLyricsParser, PlaylistFormats, TitleParser};
 use vimivo_core::queue::PlayQueue;
+use vimivo_core::rename::RenameTemplate;
+use vimivo_core::streaming::{StreamValidationResult, StreamValidator};
+use vimivo_core::video::IntroSkip;
 
 uniffi::setup_scaffolding!();
 
@@ -268,4 +271,108 @@ impl FfiPlayQueue {
 #[uniffi::export]
 pub fn calculate_replay_gain_linear(gain_db: Option<f32>, peak: Option<f32>) -> f32 {
     ReplayGain::linear_gain(CoreReplayGainMode::Track, gain_db, None, peak, None)
+}
+
+// ---------------------------------------------------------------------------
+// Streaming Validation
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Record)]
+pub struct FfiStreamValidation {
+    pub is_valid: bool,
+    pub is_live: bool,
+    pub display_title: String,
+    pub error_message: Option<String>,
+}
+
+#[uniffi::export]
+pub fn validate_stream_url(url: String) -> FfiStreamValidation {
+    match StreamValidator::validate(&url) {
+        StreamValidationResult::Valid { is_live, display_title, .. } => FfiStreamValidation {
+            is_valid: true,
+            is_live,
+            display_title,
+            error_message: None,
+        },
+        StreamValidationResult::Invalid { message, .. } => FfiStreamValidation {
+            is_valid: false,
+            is_live: false,
+            display_title: String::new(),
+            error_message: Some(message),
+        },
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Video & Intro Skip
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Record)]
+pub struct FfiChapterInfo {
+    pub index: i32,
+    pub title: String,
+    pub start_position_millis: i64,
+}
+
+#[uniffi::export]
+pub fn calculate_intro_skip_target(
+    position_millis: i64,
+    chapters: Vec<FfiChapterInfo>,
+    duration_millis: Option<i64>,
+) -> i64 {
+    let core_chapters: Vec<CoreChapterInfo> = chapters
+        .into_iter()
+        .map(|c| CoreChapterInfo {
+            index: c.index,
+            title: c.title,
+            start_position_millis: c.start_position_millis,
+        })
+        .collect();
+
+    IntroSkip::target(position_millis, &core_chapters, duration_millis)
+}
+
+// ---------------------------------------------------------------------------
+// Rename Template Formatting
+// ---------------------------------------------------------------------------
+
+#[uniffi::export]
+pub fn format_rename_template(template: String, item: FfiMediaItem) -> String {
+    let mut core_item = CoreMediaItem::new(item.id, item.uri, item.title, CoreMediaKind::Audio);
+    core_item.artist = item.artist;
+    core_item.album = item.album;
+    RenameTemplate::format(&template, &core_item)
+}
+
+// ---------------------------------------------------------------------------
+// Playlist Parser (M3U, PLS, XSPF)
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Record)]
+pub struct FfiPlaylistItem {
+    pub uri: String,
+    pub title: Option<String>,
+    pub duration_seconds: Option<i32>,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiParsedPlaylist {
+    pub name: String,
+    pub items: Vec<FfiPlaylistItem>,
+}
+
+#[uniffi::export]
+pub fn parse_playlist_file(file_name: String, content: String) -> Option<FfiParsedPlaylist> {
+    PlaylistFormats::parse(&file_name, &content).map(|p| FfiParsedPlaylist {
+        name: p.name,
+        items: p
+            .entries
+            .into_iter()
+            .map(|e| FfiPlaylistItem {
+                uri: e.uri,
+                title: e.title,
+                duration_seconds: e.duration_seconds,
+            })
+            .collect(),
+    })
 }

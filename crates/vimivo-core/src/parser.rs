@@ -339,9 +339,216 @@ impl PlaylistM3uHandler {
     }
 }
 
+// ---------------------------------------------------------------------------
+// 4. PLS Playlist Parser
+// ---------------------------------------------------------------------------
+
+pub struct PlaylistPlsHandler;
+
+impl PlaylistPlsHandler {
+    pub fn is_pls(file_name: &str) -> bool {
+        file_name.to_lowercase().ends_with(".pls")
+    }
+
+    pub fn parse(content: &str, default_name: &str) -> ParsedPlaylist {
+        let key_re = Regex::new(r"(?i)^(File|Title|Length)(\d+)$").unwrap();
+        let mut files: HashMap<i32, String> = HashMap::new();
+        let mut titles: HashMap<i32, String> = HashMap::new();
+        let mut lengths: HashMap<i32, i32> = HashMap::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if !trimmed.contains('=') {
+                continue;
+            }
+
+            let mut parts = trimmed.splitn(2, '=');
+            let key_str = parts.next().unwrap_or("").trim();
+            let val_str = parts.next().unwrap_or("").trim();
+
+            if let Some(caps) = key_re.captures(key_str) {
+                if let Ok(idx) = caps[2].parse::<i32>() {
+                    match caps[1].to_lowercase().as_str() {
+                        "file" => {
+                            if !val_str.is_empty() {
+                                files.insert(idx, val_str.to_string());
+                            }
+                        }
+                        "title" => {
+                            if !val_str.is_empty() {
+                                titles.insert(idx, val_str.to_string());
+                            }
+                        }
+                        "length" => {
+                            if let Ok(l) = val_str.parse::<i32>() {
+                                if l >= 0 {
+                                    lengths.insert(idx, l);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        let mut sorted_keys: Vec<i32> = files.keys().cloned().collect();
+        sorted_keys.sort();
+
+        let entries = sorted_keys
+            .into_iter()
+            .map(|idx| PlaylistItemEntry {
+                uri: files.remove(&idx).unwrap(),
+                title: titles.remove(&idx),
+                duration_seconds: lengths.remove(&idx),
+            })
+            .collect();
+
+        ParsedPlaylist {
+            name: default_name.to_string(),
+            entries,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 5. XSPF Playlist Parser
+// ---------------------------------------------------------------------------
+
+pub struct PlaylistXspfHandler;
+
+impl PlaylistXspfHandler {
+    pub fn is_xspf(file_name: &str) -> bool {
+        file_name.to_lowercase().ends_with(".xspf")
+    }
+
+    pub fn parse(content: &str, default_name: &str) -> Result<ParsedPlaylist, String> {
+        let lower = content.to_lowercase();
+        if lower.contains("<!doctype") || lower.contains("<!entity") {
+            return Err("XSPF playlists with DTD or entity declarations are rejected for security".into());
+        }
+        if !lower.contains("<playlist") {
+            return Err("Not an XSPF playlist".into());
+        }
+
+        let track_list_re = Regex::new(r"(?is)<trackList\b[^>]*>(.*?)</trackList>").unwrap();
+        let track_re = Regex::new(r"(?is)<track\b[^>]*>(.*?)</track>").unwrap();
+
+        let track_list_content = track_list_re
+            .captures(content)
+            .and_then(|c| c.get(1))
+            .map(|m| m.as_str())
+            .unwrap_or(content);
+
+        let title_re = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>").unwrap();
+        let loc_re = Regex::new(r"(?is)<location\b[^>]*>(.*?)</location>").unwrap();
+        let dur_re = Regex::new(r"(?is)<duration\b[^>]*>(.*?)</duration>").unwrap();
+
+        let playlist_name = title_re
+            .captures(&content[..track_list_re.find(content).map(|m| m.start()).unwrap_or(content.len())])
+            .and_then(|c| c.get(1))
+            .map(|m| Self::unescape_xml(m.as_str().trim()))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| default_name.to_string());
+
+        let mut entries = Vec::new();
+        for track_match in track_re.captures_iter(track_list_content) {
+            let track_body = &track_match[1];
+            if let Some(loc_cap) = loc_re.captures(track_body) {
+                let uri = Self::unescape_xml(loc_cap[1].trim());
+                if uri.is_empty() {
+                    continue;
+                }
+                let title = title_re
+                    .captures(track_body)
+                    .map(|c| Self::unescape_xml(c[1].trim()))
+                    .filter(|s| !s.is_empty());
+
+                let duration_seconds = dur_re
+                    .captures(track_body)
+                    .and_then(|c| c[1].trim().parse::<i64>().ok())
+                    .filter(|&ms| ms >= 0)
+                    .map(|ms| (ms / 1000) as i32);
+
+                entries.push(PlaylistItemEntry {
+                    uri,
+                    title,
+                    duration_seconds,
+                });
+            }
+        }
+
+        Ok(ParsedPlaylist {
+            name: playlist_name,
+            entries,
+        })
+    }
+
+    fn unescape_xml(text: &str) -> String {
+        text.replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&amp;", "&")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 6. Unified PlaylistFormats Detector
+// ---------------------------------------------------------------------------
+
+pub struct PlaylistFormats;
+
+impl PlaylistFormats {
+    pub fn parse(file_name: &str, content: &str) -> Option<ParsedPlaylist> {
+        let ext = file_name.rsplit('.').next().unwrap_or("").to_lowercase();
+        let default_name = file_name.rsplit('/').next().unwrap_or(file_name);
+        let default_name = default_name.rsplit('\\').next().unwrap_or(default_name);
+        let name_without_ext = default_name.rsplit_once('.').map(|(n, _)| n).unwrap_or(default_name);
+
+        match ext.as_str() {
+            "m3u" | "m3u8" => Some(PlaylistM3uHandler::parse(content, name_without_ext)),
+            "pls" => Some(PlaylistPlsHandler::parse(content, name_without_ext)),
+            "xspf" => PlaylistXspfHandler::parse(content, name_without_ext).ok(),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_pls_parsing() {
+        let pls = "[playlist]\nFile1=http://stream.org:8000/live\nTitle1=Ambient Live\nLength1=300\nNumberOfEntries=1\n";
+        let parsed = PlaylistPlsHandler::parse(pls, "Radio");
+        assert_eq!(parsed.entries.len(), 1);
+        assert_eq!(parsed.entries[0].uri, "http://stream.org:8000/live");
+        assert_eq!(parsed.entries[0].title.as_deref(), Some("Ambient Live"));
+        assert_eq!(parsed.entries[0].duration_seconds, Some(300));
+    }
+
+    #[test]
+    fn test_xspf_parsing() {
+        let xspf = r#"<?xml version="1.0" encoding="UTF-8"?>
+<playlist version="1" xmlns="http://xspf.org/ns/0/">
+  <title>Chill Beats</title>
+  <trackList>
+    <track>
+      <location>file:///music/song.mp3</location>
+      <title>Evening Chill</title>
+      <duration>180000</duration>
+    </track>
+  </trackList>
+</playlist>"#;
+        let parsed = PlaylistXspfHandler::parse(xspf, "Default").unwrap();
+        assert_eq!(parsed.name, "Chill Beats");
+        assert_eq!(parsed.entries.len(), 1);
+        assert_eq!(parsed.entries[0].uri, "file:///music/song.mp3");
+        assert_eq!(parsed.entries[0].title.as_deref(), Some("Evening Chill"));
+        assert_eq!(parsed.entries[0].duration_seconds, Some(180));
+    }
 
     #[test]
     fn test_title_parser_release_tag_cleaning() {
