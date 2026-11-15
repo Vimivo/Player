@@ -14,8 +14,13 @@ let package = Package(
         ),
     ],
     targets: [
+        .binaryTarget(
+            name: "VimivoCoreRustFFI",
+            path: "../Frameworks/VimivoCoreRustFFI.xcframework"
+        ),
         .target(
             name: "VimivoCoreRust",
+            dependencies: ["VimivoCoreRustFFI"],
             path: ".",
             sources: ["vimivo_ffi.swift"],
             publicHeadersPath: "."
