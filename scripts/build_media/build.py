@@ -192,7 +192,8 @@ class Target:
             ldflags += f" {device_flags}"
             env["CC"] = "clang"
             env["CXX"] = "clang++"
-            env["IPHONEOS_DEPLOYMENT_TARGET"] = MANIFEST["ios"]["deployment_target"]
+            # No IPHONEOS_DEPLOYMENT_TARGET here: clang also reads it for the build machine's compiler and would target iOS.
+            # The -target flag above already carries the deployment target.
         if self.system == "windows":
             ldflags += " -static-libgcc -static-libstdc++"
         if self.system == "android":
