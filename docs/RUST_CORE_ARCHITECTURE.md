@@ -103,21 +103,30 @@ The project contains a standard Cargo workspace at the root:
 
 ---
 
-## 4. Platform UI Bindings
+## 4. Platform UI Bindings & Build Pipelines
 
 ### 4.1 iOS & macOS (Swift / SwiftUI)
-- `crates/vimivo-ffi` compiles into an Apple `.xcframework` or static library:
-  ```bash
-  cargo build --package vimivo-ffi --target aarch64-apple-ios --release
-  cargo build --package vimivo-ffi --target aarch64-apple-darwin --release
-  ```
-- Generate Swift bindings via UniFFI CLI:
-  ```bash
-  cargo run --bin uniffi-bindgen generate --library target/release/libvimivo_ffi.dylib --language swift --out-dir iosApp/Generated
-  ```
-- In SwiftUI:
+- Built and packaged via `scripts/build_rust_apple.sh`:
+  - Compiles for iOS Simulator (`aarch64-apple-ios-sim`), iOS Device (`aarch64-apple-ios`), and macOS (`aarch64-apple-darwin`).
+  - Bundles headers and creates universal `iosApp/Frameworks/VimivoCoreRustFFI.xcframework`.
+- Exported as a Swift Package in `iosApp/VimivoCoreRust/` with `Package.swift`:
   ```swift
-  import VimivoCore
+  // swift-tools-version:5.9
+  import PackageDescription
+
+  let package = Package(
+      name: "VimivoCoreRust",
+      platforms: [.iOS(.v16), .macOS(.v12)],
+      products: [.library(name: "VimivoCoreRust", targets: ["VimivoCoreRust"])],
+      targets: [
+          .binaryTarget(name: "VimivoCoreRustFFI", path: "../Frameworks/VimivoCoreRustFFI.xcframework"),
+          .target(name: "VimivoCoreRust", dependencies: ["VimivoCoreRustFFI"], path: ".", sources: ["vimivo_ffi.swift"], publicHeadersPath: ".")
+      ]
+  )
+  ```
+- In Swift / SwiftUI:
+  ```swift
+  import VimivoCoreRust
 
   let db = try FfiDatabase.open(path: databasePath)
   let items = try db.queryItems(searchText: "Solaris")
@@ -126,15 +135,16 @@ The project contains a standard Cargo workspace at the root:
   ```
 
 ### 4.2 Android (Kotlin / Jetpack Compose)
-- Compiled via `cargo-ndk` for target ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`):
-  ```bash
-  cargo ndk -t arm64-v8a -o androidApp/src/main/jniLibs build --release -p vimivo-ffi
-  ```
-- Generated Kotlin bindings imported directly into Android Jetpack Compose ViewModels.
+- Built via `scripts/build_rust_android.sh` using `cargo-ndk`:
+  - Compiles `libvimivo_ffi.so` for target ABIs (`arm64-v8a` and `x86_64`).
+  - Automatically outputs to `androidApp/src/main/jniLibs/{arm64-v8a,x86_64}/libvimivo_ffi.so`.
+- Kotlin bindings generated into `androidApp/src/main/java/dev/vimivo/core/rust/uniffi/vimivo_ffi/vimivo_ffi.kt`.
+- Uses JNA (`net.java.dev.jna:jna`) configured in `androidApp/build.gradle.kts`.
+- Verified packaging with `./gradlew :androidApp:assembleDebug` producing 100% self-contained APK.
 
 ### 4.3 Windows & Linux (Rust + Slint)
 - Pure Rust execution:
   ```bash
   cargo run -p vimivo-desktop
   ```
-- Slint compiles the declarative `ui/appwindow.slint` into high-performance native machine code utilizing OpenGL, DirectX (on Windows), or Wayland/X11 (on Linux).
+- Slint compiles declarative `ui/appwindow.slint` into high-performance native machine code utilizing OpenGL, DirectX (on Windows), or Wayland/X11 (on Linux).
