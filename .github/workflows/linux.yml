@@ -47,6 +47,7 @@ jobs:
         # Built by build-media.yml from scripts/build_media (ADR-004). The test media is checked in.
         run: |
           python3 scripts/build_media/fetch_media.py --target linux-x86_64 --dest "$RUNNER_TEMP/vimivo-media"
+          echo "VIMIVO_MPV_PREFIX=$RUNNER_TEMP/vimivo-media" >> "$GITHUB_ENV"
           echo "VIMIVO_LINUX_MPV_DIR=$RUNNER_TEMP/vimivo-media/lib" >> "$GITHUB_ENV"
           echo "VIMIVO_TEST_MPV_DIR=$RUNNER_TEMP/vimivo-media/lib" >> "$GITHUB_ENV"
 

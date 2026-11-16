@@ -308,7 +308,9 @@ val bundleWindowsMpv by tasks.registering(Exec::class) {
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
     dependsOn("createDistributable")
     val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")
-    val nativeDir = providers.environmentVariable("VIMIVO_WINDOWS_MPV_DIR").orElse("")
+    val nativeDir = providers.environmentVariable("VIMIVO_WINDOWS_MPV_DIR")
+        .orElse(providers.environmentVariable("VIMIVO_MPV_PREFIX").map { "$it\\bin" })
+        .orElse("")
     commandLine(
         "python",
         project.file("scripts/bundle_windows_mpv.py").absolutePath,
@@ -318,7 +320,10 @@ val bundleWindowsMpv by tasks.registering(Exec::class) {
 }
 
 val bundleWindowsMediaControls by tasks.registering(Copy::class) {
-    onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
+    onlyIf {
+        org.gradle.internal.os.OperatingSystem.current().isWindows &&
+            layout.buildDirectory.file("native/vimivo_media_controls.dll").get().asFile.exists()
+    }
     dependsOn(windowsMediaControlsBridge)
     mustRunAfter("createDistributable")
     from(layout.buildDirectory.file("native/vimivo_media_controls.dll"))
@@ -330,7 +335,9 @@ val bundleLinuxMpv by tasks.registering(Exec::class) {
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isLinux }
     dependsOn("createDistributable")
     val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")
-    val nativeDir = providers.environmentVariable("VIMIVO_LINUX_MPV_DIR").orElse("")
+    val nativeDir = providers.environmentVariable("VIMIVO_LINUX_MPV_DIR")
+        .orElse(providers.environmentVariable("VIMIVO_MPV_PREFIX").map { "$it/lib" })
+        .orElse("")
     commandLine(
         "python3",
         project.file("scripts/bundle_linux_mpv.py").absolutePath,
@@ -358,6 +365,8 @@ val packageVimivoAppImage by tasks.registering(Exec::class) {
 // to a local Homebrew libmpv, which links GPL components (x264, x265, rubberband); refuse to package that.
 val requireLgplMediaPackage by tasks.registering {
     val prefix = providers.environmentVariable("VIMIVO_MPV_PREFIX")
+        .orElse(providers.environmentVariable("VIMIVO_WINDOWS_MPV_DIR"))
+        .orElse(providers.environmentVariable("VIMIVO_LINUX_MPV_DIR"))
     doFirst {
         if (!prefix.isPresent) {
             throw GradleException(

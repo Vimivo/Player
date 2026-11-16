@@ -54,6 +54,7 @@ jobs:
         shell: cmd
         env:
           # createDistributable is finalized by bundleWindowsMpv, which copies the DLLs from this directory.
+          VIMIVO_MPV_PREFIX: ${{ github.workspace }}\windows-mpv
           VIMIVO_WINDOWS_MPV_DIR: ${{ github.workspace }}\windows-mpv\bin
         run: |
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
