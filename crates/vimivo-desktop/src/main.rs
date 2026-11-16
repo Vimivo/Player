@@ -20,82 +20,135 @@ fn format_duration(millis: Option<i64>) -> String {
     }
 }
 
+fn get_database_dir() -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            let mut path = std::path::PathBuf::from(appdata);
+            path.push("vimivo");
+            return Some(path);
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            let mut path = std::path::PathBuf::from(home);
+            path.push("Library");
+            path.push("Application Support");
+            path.push("vimivo");
+            return Some(path);
+        }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
+            let mut path = std::path::PathBuf::from(xdg);
+            path.push("vimivo");
+            return Some(path);
+        } else if let Ok(home) = std::env::var("HOME") {
+            let mut path = std::path::PathBuf::from(home);
+            path.push(".local");
+            path.push("share");
+            path.push("vimivo");
+            return Some(path);
+        }
+    }
+
+    None
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let main_window = AppWindow::new()?;
 
-    // 1. Initialize Vimivo Core Database
-    let db = match VimivoDatabase::open_in_memory() {
-        Ok(database) => {
-            // Seed a few demo tracks to verify the UI
-            let _ = database.upsert_media_item(&MediaItem {
-                id: "track-1".into(),
-                uri: "file:///music/solaris.flac".into(),
-                title: "Solaris Flare".into(),
-                kind: MediaKind::Audio,
-                duration_millis: Some(214000),
-                artist: Some("Vimivo Studio".into()),
-                album: Some("Aurora Horizon".into()),
-                artwork_uri: None,
-                album_artist: None,
-                genre: Some("Ambient".into()),
-                size_bytes: Some(15400000),
-                mime_type: Some("audio/flac".into()),
-                file_name: Some("solaris.flac".into()),
-                date_added_epoch_seconds: None,
-                date_modified_epoch_seconds: None,
-                width: None,
-                height: None,
-                frame_rate: None,
-                bitrate: None,
-                track_number: Some(1),
-                disc_number: Some(1),
-                release_year: Some(2026),
-                folder_name: None,
-                folder_path: None,
-                source: vimivo_core::model::MediaSource::LocalFile,
-                volume_name: None,
-                is_favorite: false,
-                is_available: true,
-                last_playback_position_millis: 0,
-                last_played_at_epoch_millis: None,
-            });
+    // 1. Initialize Vimivo Core Database (persistent under user data directory, with in-memory fallback)
+    let db = {
+        let opened_db = if let Some(dir) = get_database_dir() {
+            let _ = std::fs::create_dir_all(&dir);
+            let db_path = dir.join("vimivo.db");
+            VimivoDatabase::open(db_path.to_str().unwrap_or("vimivo.db"))
+                .or_else(|_| VimivoDatabase::open_in_memory())
+        } else {
+            VimivoDatabase::open_in_memory()
+        };
 
-            let _ = database.upsert_media_item(&MediaItem {
-                id: "track-2".into(),
-                uri: "file:///music/lunar.mp3".into(),
-                title: "Lunar Gravity".into(),
-                kind: MediaKind::Audio,
-                duration_millis: Some(185000),
-                artist: Some("Deep Space".into()),
-                album: Some("Orbital Sound".into()),
-                artwork_uri: None,
-                album_artist: None,
-                genre: Some("Electronic".into()),
-                size_bytes: Some(7400000),
-                mime_type: Some("audio/mp3".into()),
-                file_name: Some("lunar.mp3".into()),
-                date_added_epoch_seconds: None,
-                date_modified_epoch_seconds: None,
-                width: None,
-                height: None,
-                frame_rate: None,
-                bitrate: None,
-                track_number: Some(2),
-                disc_number: Some(1),
-                release_year: Some(2026),
-                folder_name: None,
-                folder_path: None,
-                source: vimivo_core::model::MediaSource::LocalFile,
-                volume_name: None,
-                is_favorite: false,
-                is_available: true,
-                last_playback_position_millis: 0,
-                last_played_at_epoch_millis: None,
-            });
+        match opened_db {
+            Ok(database) => {
+                // Seed demo tracks if database is empty
+                if let Ok(page) = database.query_media_items(&LibraryQuery::default()) {
+                    if page.total_count == 0 {
+                        let _ = database.upsert_media_item(&MediaItem {
+                            id: "track-1".into(),
+                            uri: "file:///music/solaris.flac".into(),
+                            title: "Solaris Flare".into(),
+                            kind: MediaKind::Audio,
+                            duration_millis: Some(214000),
+                            artist: Some("Vimivo Studio".into()),
+                            album: Some("Aurora Horizon".into()),
+                            artwork_uri: None,
+                            album_artist: None,
+                            genre: Some("Ambient".into()),
+                            size_bytes: Some(15400000),
+                            mime_type: Some("audio/flac".into()),
+                            file_name: Some("solaris.flac".into()),
+                            date_added_epoch_seconds: None,
+                            date_modified_epoch_seconds: None,
+                            width: None,
+                            height: None,
+                            frame_rate: None,
+                            bitrate: None,
+                            track_number: Some(1),
+                            disc_number: Some(1),
+                            release_year: Some(2026),
+                            folder_name: None,
+                            folder_path: None,
+                            source: vimivo_core::model::MediaSource::LocalFile,
+                            volume_name: None,
+                            is_favorite: false,
+                            is_available: true,
+                            last_playback_position_millis: 0,
+                            last_played_at_epoch_millis: None,
+                        });
 
-            database
+                        let _ = database.upsert_media_item(&MediaItem {
+                            id: "track-2".into(),
+                            uri: "file:///music/lunar.mp3".into(),
+                            title: "Lunar Gravity".into(),
+                            kind: MediaKind::Audio,
+                            duration_millis: Some(185000),
+                            artist: Some("Deep Space".into()),
+                            album: Some("Orbital Sound".into()),
+                            artwork_uri: None,
+                            album_artist: None,
+                            genre: Some("Electronic".into()),
+                            size_bytes: Some(7400000),
+                            mime_type: Some("audio/mp3".into()),
+                            file_name: Some("lunar.mp3".into()),
+                            date_added_epoch_seconds: None,
+                            date_modified_epoch_seconds: None,
+                            width: None,
+                            height: None,
+                            frame_rate: None,
+                            bitrate: None,
+                            track_number: Some(2),
+                            disc_number: Some(1),
+                            release_year: Some(2026),
+                            folder_name: None,
+                            folder_path: None,
+                            source: vimivo_core::model::MediaSource::LocalFile,
+                            volume_name: None,
+                            is_favorite: false,
+                            is_available: true,
+                            last_playback_position_millis: 0,
+                            last_played_at_epoch_millis: None,
+                        });
+                    }
+                }
+                database
+            }
+            Err(e) => panic!("Failed to initialize database: {}", e),
         }
-        Err(e) => panic!("Failed to initialize database: {}", e),
     };
 
     let db_ref = Rc::new(Mutex::new(db));
