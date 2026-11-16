@@ -129,6 +129,18 @@ impl PlayQueue {
         was_current
     }
 
+    pub fn move_item(&mut self, from: usize, to: usize) {
+        if from >= self.items.len() || to >= self.items.len() || from == to {
+            return;
+        }
+        let current_id = self.current_id().map(|s| s.to_string());
+        let item = self.items.remove(from);
+        self.items.insert(to, item);
+        if let Some(id) = current_id {
+            self.current_index = self.items.iter().position(|x| x == &id).unwrap_or(0);
+        }
+    }
+
     pub fn set_shuffled(&mut self, shuffled: bool) {
         if self.shuffled == shuffled {
             return;

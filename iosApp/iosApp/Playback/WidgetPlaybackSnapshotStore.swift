@@ -23,7 +23,7 @@ struct WidgetPlaybackSnapshot: Codable, Equatable {
     )
 }
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
 import ActivityKit
 #endif
 
@@ -83,7 +83,7 @@ final class WidgetPlaybackSnapshotStore {
         positionSeconds: Double,
         durationSeconds: Double
     ) {
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
         if #available(iOS 16.1, *) {
             guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
@@ -145,7 +145,7 @@ final class WidgetPlaybackSnapshotStore {
     }
 
     private func endLiveActivity() {
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
         if #available(iOS 16.1, *) {
             for activity in Activity<VimivoPlaybackActivityAttributes>.activities {
                 Task {

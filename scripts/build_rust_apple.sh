@@ -13,8 +13,8 @@ cargo build -p vimivo-ffi --target aarch64-apple-ios-sim --release
 echo "==> Building Rust Core for iOS Device (aarch64-apple-ios)..."
 cargo build -p vimivo-ffi --target aarch64-apple-ios --release
 
-echo "==> Building Rust Core for macOS (aarch64-apple-darwin)..."
-cargo build -p vimivo-ffi --release
+echo "==> Building Rust Core for Mac Catalyst (aarch64-apple-ios-macabi)..."
+cargo build -p vimivo-ffi --target aarch64-apple-ios-macabi --release
 
 echo "==> Packaging VimivoCoreRustFFI.xcframework..."
 mkdir -p target/xcframework-headers
@@ -27,7 +27,7 @@ rm -rf iosApp/Frameworks/VimivoCoreRustFFI.xcframework
 xcodebuild -create-xcframework \
   -library target/aarch64-apple-ios-sim/release/libvimivo_ffi.a -headers target/xcframework-headers \
   -library target/aarch64-apple-ios/release/libvimivo_ffi.a -headers target/xcframework-headers \
-  -library target/release/libvimivo_ffi.a -headers target/xcframework-headers \
+  -library target/aarch64-apple-ios-macabi/release/libvimivo_ffi.a -headers target/xcframework-headers \
   -output iosApp/Frameworks/VimivoCoreRustFFI.xcframework
 
 echo "==> Successfully created iosApp/Frameworks/VimivoCoreRustFFI.xcframework"

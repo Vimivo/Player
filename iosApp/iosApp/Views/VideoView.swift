@@ -1,6 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
-import VimivoShared
+import VimivoCoreRust
 
 /// Opens the full-screen player; the engine decides the start position using the shared resume rules.
 public typealias OpenVideoAction = (_ items: [MediaItem], _ index: Int) -> Void

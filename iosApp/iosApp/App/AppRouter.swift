@@ -1,5 +1,4 @@
 import Foundation
-import VimivoShared
 
 /// Routes URLs the system hands to Vimivo: `vimivo://now-playing` from widgets, `vimivo://play?id=` deep
 /// links, and media files opened from other apps ("Open in Vimivo", the share sheet, Files).
@@ -67,7 +66,7 @@ final class AppRouter: ObservableObject {
         guard let home = folder(item) else { return [item] }
         return library
             .filter { $0.kind == item.kind && folder($0) == home }
-            .sorted { NaturalOrder.shared.compare(a: name($0), b: name($1)) < 0 }
+            .sorted { name($0).localizedStandardCompare(name($1)) == .orderedAscending }
     }
 
     private func play(_ item: MediaItem, engine: AVPlayerPlaybackEngine) {

@@ -1,31 +1,28 @@
 import Foundation
-import VimivoShared
+import VimivoCoreRust
 
-/// The app's persistent library. The schema, migrations and queries live in the shared module
-/// (`LocalLibraryStore`, over the system SQLite); this class opens the database under Application Support, maps the
-/// shared records to the app's own models, and logs a failure instead of crashing the UI.
+/// The app's persistent library backed 100% by Rust (`crates/vimivo-core` SQLite engine)
+/// accessed via `FfiDatabase` from `VimivoCoreRust`.
 public final class IOSDatabase {
     public static let shared = IOSDatabase()
-    private let store: LocalLibraryStore
+    private let store: FfiDatabase
 
     public init(path: String? = nil) {
         store = IOSDatabase.openStore(at: path)
     }
 
-    private static func openStore(at path: String?) -> LocalLibraryStore {
+    private static func openStore(at path: String?) -> FfiDatabase {
         do {
-            if let path { return try IosLibrary.shared.open(path: path) }
+            if let path { return try FfiDatabase.open(path: path) }
             guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
                 throw CocoaError(.fileNoSuchFile)
             }
             let directory = appSupport.appendingPathComponent("vimivo", isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            return try IosLibrary.shared.open(path: directory.appendingPathComponent("vimivo.db").path)
+            return try FfiDatabase.open(path: directory.appendingPathComponent("vimivo.db").path)
         } catch {
-            // Without a database the app still runs, with a library that lasts until it is closed.
             NSLog("Vimivo: the library database could not be opened (%@); using a temporary one", "\(error)")
-            // A shared in-memory database cannot fail to open.
-            return (try? IosLibrary.shared.openInMemory())!
+            return (try? FfiDatabase.openInMemory())!
         }
     }
 
@@ -43,7 +40,7 @@ public final class IOSDatabase {
     // MARK: - Media Items
 
     public func saveMediaItem(_ item: MediaItem) {
-        attempt("media save") { try store.saveMedia(item: item.stored) }
+        attempt("media save") { try store.upsertItem(item: item.toFfi()) }
     }
 
     /// Re-points an app-owned file at its current container path, which changes when the app is updated.
@@ -52,7 +49,9 @@ public final class IOSDatabase {
     }
 
     public func getAllMediaItems() -> [MediaItem] {
-        attempt("media read", fallback: []) { try store.allMedia().map(MediaItem.init(stored:)) }
+        attempt("media read", fallback: []) {
+            try store.getAllItems().map(MediaItem.init(ffi:))
+        }
     }
 
     /// Stores width, height, and file size discovered after import without touching other fields.
@@ -60,22 +59,22 @@ public final class IOSDatabase {
         attempt("video metadata update") {
             try store.updateVideoMetadata(
                 id: id,
-                width: width.map { KotlinInt(int: Int32($0)) },
-                height: height.map { KotlinInt(int: Int32($0)) },
-                sizeBytes: sizeBytes.map { KotlinLong(longLong: $0) }
+                width: width.map { Int32($0) },
+                height: height.map { Int32($0) },
+                sizeBytes: sizeBytes
             )
         }
     }
 
     public func deleteMediaItem(id: String) {
-        attempt("media delete") { try store.deleteMedia(id: id) }
+        attempt("media delete") { try store.deleteItem(id: id) }
     }
 
     // MARK: - Playlists
 
     public func getAllPlaylists() -> [Playlist] {
         attempt("playlist read", fallback: []) {
-            try store.playlists().map {
+            try store.getPlaylists().map {
                 Playlist(id: $0.id, name: $0.name, mediaIds: $0.mediaIds, createdAtMillis: $0.createdAtMillis)
             }
         }
@@ -83,7 +82,7 @@ public final class IOSDatabase {
 
     public func savePlaylist(_ playlist: Playlist) {
         attempt("playlist save") {
-            try store.savePlaylist(playlist: StoredPlaylist(
+            try store.savePlaylist(playlist: FfiPlaylist(
                 id: playlist.id, name: playlist.name, mediaIds: playlist.mediaIds, createdAtMillis: playlist.createdAtMillis
             ))
         }
@@ -96,18 +95,18 @@ public final class IOSDatabase {
     // MARK: - Favorites
 
     public func getFavorites() -> Set<String> {
-        attempt("favorites read", fallback: []) { Set(try store.favorites()) }
+        attempt("favorites read", fallback: []) { Set(try store.getFavorites()) }
     }
 
     public func setFavorite(mediaId: String, isFavorite: Bool) {
-        attempt("favorite update") { try store.setFavorite(mediaId: mediaId, favorite: isFavorite) }
+        attempt("favorite update") { try store.setFavorite(mediaId: mediaId, isFav: isFavorite) }
     }
 
     // MARK: - Bookmarks
 
     public func addBookmark(_ bookmark: Bookmark) {
         attempt("bookmark write") {
-            try store.addBookmark(bookmark: StoredBookmark(
+            try store.addBookmark(bookmark: FfiBookmark(
                 id: bookmark.id, mediaId: bookmark.mediaId, name: bookmark.name,
                 positionMillis: bookmark.positionMillis, createdAtMillis: bookmark.createdAtMillis
             ))
@@ -116,7 +115,7 @@ public final class IOSDatabase {
 
     public func bookmarks(mediaId: String) -> [Bookmark] {
         attempt("bookmark read", fallback: []) {
-            try store.bookmarks(mediaId: mediaId).map {
+            try store.getBookmarks(mediaId: mediaId).map {
                 Bookmark(
                     id: $0.id, mediaId: $0.mediaId, name: $0.name,
                     positionMillis: $0.positionMillis, createdAtMillis: $0.createdAtMillis
@@ -138,7 +137,7 @@ public final class IOSDatabase {
 
     public func lyrics(mediaId: String) -> (source: String, text: String)? {
         attempt("lyrics read", fallback: nil) {
-            try store.lyrics(mediaId: mediaId).map { ($0.source, $0.text) }
+            try store.getLyricsRecord(mediaId: mediaId).map { ($0.source, $0.text) }
         }
     }
 
@@ -160,17 +159,28 @@ public final class IOSDatabase {
 
     /// Counts a play and refreshes recency without touching the saved resume position.
     public func recordPlayStart(mediaId: String) {
-        attempt("history write") { try store.recordPlayStart(mediaId: mediaId) }
+        attempt("history write") {
+            let now = Int64(Date().timeIntervalSince1970 * 1000)
+            try store.recordPlayStart(mediaId: mediaId, playedAtMillis: now)
+        }
     }
 
     /// Persists the resume position; never counts as an additional play.
     public func savePosition(mediaId: String, positionMillis: Int64, completed: Bool) {
-        attempt("history write") { try store.savePosition(mediaId: mediaId, positionMillis: positionMillis, completed: completed) }
+        attempt("history write") {
+            let now = Int64(Date().timeIntervalSince1970 * 1000)
+            try store.savePosition(
+                mediaId: mediaId,
+                positionMillis: positionMillis,
+                completed: completed,
+                updatedAtMillis: now
+            )
+        }
     }
 
     public func resumeState(mediaId: String) -> ResumeState? {
         attempt("resume read", fallback: nil) {
-            try store.resumeState(mediaId: mediaId).map {
+            try store.getResumeState(mediaId: mediaId).map {
                 ResumeState(positionMillis: $0.positionMillis, durationMillis: nil, completed: $0.completed)
             }
         }
@@ -178,7 +188,7 @@ public final class IOSDatabase {
 
     public func getHistory() -> [PlaybackHistory] {
         attempt("history read", fallback: []) {
-            try store.history().map {
+            try store.getHistory().map {
                 PlaybackHistory(
                     id: $0.id, mediaId: $0.mediaId, lastPlayedAtMillis: $0.lastPlayedAtMillis,
                     positionMillis: $0.positionMillis, completed: $0.completed, playCount: Int($0.playCount)
@@ -188,63 +198,58 @@ public final class IOSDatabase {
     }
 }
 
-// MARK: - Mapping between the shared records and the app's models
+// MARK: - Mapping between Rust FFI records and the app's models
 
-private extension MediaItem {
-    init(stored: StoredMedia) {
+extension MediaItem {
+    init(ffi: FfiMediaItem) {
+        let kind: MediaKind
+        switch ffi.kind {
+        case .audio: kind = .audio
+        case .video: kind = .video
+        case .stream: kind = .stream
+        }
+
         self.init(
-            id: stored.id,
-            uri: stored.uri,
-            title: stored.title,
-            kind: MediaKind(rawValue: stored.kind) ?? .audio,
-            durationMillis: stored.durationMillis?.int64Value,
-            artist: stored.artist,
-            album: stored.album,
-            artworkUri: stored.artworkUri,
-            albumArtist: stored.albumArtist,
-            bookmarkData: stored.bookmarkData?.data,
-            width: stored.width.map { Int(truncating: $0) },
-            height: stored.height.map { Int(truncating: $0) },
-            sizeBytes: stored.sizeBytes?.int64Value,
-            dateAddedMillis: stored.dateAddedMillis?.int64Value
+            id: ffi.id,
+            uri: ffi.uri,
+            title: ffi.title,
+            kind: kind,
+            durationMillis: ffi.durationMillis,
+            artist: ffi.artist,
+            album: ffi.album,
+            artworkUri: ffi.artworkUri,
+            albumArtist: ffi.albumArtist,
+            bookmarkData: ffi.bookmarkData,
+            width: ffi.width.map(Int.init),
+            height: ffi.height.map(Int.init),
+            sizeBytes: ffi.sizeBytes,
+            dateAddedMillis: ffi.dateAddedMillis
         )
     }
 
-    var stored: StoredMedia {
-        StoredMedia(
+    func toFfi() -> FfiMediaItem {
+        let ffiKind: FfiMediaKind
+        switch kind {
+        case .audio: ffiKind = .audio
+        case .video: ffiKind = .video
+        case .stream: ffiKind = .stream
+        }
+
+        return FfiMediaItem(
             id: id,
             uri: uri,
             title: title,
-            kind: kind.rawValue,
-            durationMillis: durationMillis.map { KotlinLong(longLong: $0) },
+            kind: ffiKind,
+            durationMillis: durationMillis,
             artist: artist,
             album: album,
             artworkUri: artworkUri,
             albumArtist: albumArtist,
-            bookmarkData: bookmarkData.map(KotlinByteArray.init(data:)),
-            width: width.map { KotlinInt(int: Int32($0)) },
-            height: height.map { KotlinInt(int: Int32($0)) },
-            sizeBytes: sizeBytes.map { KotlinLong(longLong: $0) },
-            dateAddedMillis: dateAddedMillis.map { KotlinLong(longLong: $0) }
+            bookmarkData: bookmarkData,
+            width: width.map(Int32.init),
+            height: height.map(Int32.init),
+            sizeBytes: sizeBytes,
+            dateAddedMillis: dateAddedMillis
         )
-    }
-}
-
-extension KotlinByteArray {
-    convenience init(data: Data) {
-        self.init(size: Int32(data.count))
-        for (index, byte) in data.enumerated() {
-            self.set(index: Int32(index), value: Int8(bitPattern: byte))
-        }
-    }
-
-    var data: Data {
-        var result = Data(count: Int(self.size))
-        result.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
-            for i in 0..<self.size {
-                buffer[Int(i)] = UInt8(bitPattern: self.get(index: i))
-            }
-        }
-        return result
     }
 }

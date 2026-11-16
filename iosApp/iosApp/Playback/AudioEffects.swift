@@ -1,8 +1,44 @@
 import AVFoundation
 import MediaToolbox
-import VimivoShared
+import CoreAudio
+import VimivoCoreRust
 
-/// The audio effects a listener can set (V1 #19, #21, #24): the 10-band equalizer with its presets, bass, treble and
+public enum EqualizerPreset: String, CaseIterable, Identifiable {
+    case flat, rock, pop, classical, jazz, vocal, bassBoost, trebleBoost, acoustic, electronic, podcast, custom
+
+    public var id: String { rawValue }
+    public var name: String { rawValue.uppercased() }
+
+    public static var entries: [EqualizerPreset] { allCases }
+
+    public var ffiPreset: FfiEqualizerPreset {
+        switch self {
+        case .flat: return .flat
+        case .rock: return .rock
+        case .pop: return .pop
+        case .classical: return .classical
+        case .jazz: return .jazz
+        case .vocal: return .vocal
+        case .bassBoost: return .bassBoost
+        case .trebleBoost: return .trebleBoost
+        case .acoustic: return .acoustic
+        case .electronic: return .electronic
+        case .podcast: return .podcast
+        case .custom: return .custom
+        }
+    }
+}
+
+public enum ReplayGainMode: String, CaseIterable, Identifiable {
+    case off, track, album
+
+    public var id: String { rawValue }
+    public var name: String { rawValue }
+
+    public static var entries: [ReplayGainMode] { allCases }
+}
+
+/// The audio effects a listener can set: the 10-band equalizer with its presets, bass, treble and
 /// preamp, a volume boost up to 200 % that is limited instead of clipping, and ReplayGain.
 public struct AudioEffectSettings: Equatable {
     public var equalizerOn = false
@@ -30,25 +66,21 @@ public struct AudioEffectSettings: Equatable {
         var bands = [Float](repeating: 0, count: 10)
         var preamp: Float = 1
         if equalizerOn {
-            let centres = GraphicEqualizerBands.shared.CENTRES_HZ
-            let shared = AudioEnhancementSettings(
-                enabled: true, preset: preset,
-                bands: zip(centres, customGains).map { EqualizerBand(centerFrequencyHz: $0.0.int32Value, gainDb: $0.1) },
-                bassStrength: bass, trebleGainDb: treble, preampDb: min(0, preampDb), replayGainMode: replayGain,
-                balance: 0, volumeNormalization: false, customPresetName: nil, customPresets: [],
-                monoDownmix: monoDownmix, bassBoostStrength: bassBoost, virtualizerStrength: virtualizer, reverbPreset: reverbPreset,
-                compressorEnabled: false, stereoWidenerStrength: 0, spatializerEnabled: false,
-                dialogueClarityEnabled: false
-            )
-            bands = EqualizerPresets.shared.resolved(settings: shared).map(\.floatValue)
-            preamp = AudioDspChain.companion.linear(gainDb: min(0, preampDb))
+            bands = resolveEqualizerGains(preset: preset.ffiPreset, customGains: customGains, bassStrength: bass, trebleGainDb: treble)
+            preamp = pow(10.0, min(0, preampDb) / 20.0)
         }
-        let replay = ReplayGain.shared.linearGain(
-            mode: replayGain,
-            trackGainDb: tags.trackGainDb.map { KotlinFloat(float: $0) },
-            albumGainDb: tags.albumGainDb.map { KotlinFloat(float: $0) },
-            trackPeak: tags.trackPeak.map { KotlinFloat(float: $0) },
-            albumPeak: tags.albumPeak.map { KotlinFloat(float: $0) }
+        let ffiReplayMode: FfiReplayGainMode
+        switch replayGain {
+        case .off: ffiReplayMode = .off
+        case .track: ffiReplayMode = .track
+        case .album: ffiReplayMode = .album
+        }
+        let replay = calculateReplayGainModeLinear(
+            mode: ffiReplayMode,
+            trackGainDb: tags.trackGainDb,
+            albumGainDb: tags.albumGainDb,
+            trackPeak: tags.trackPeak,
+            albumPeak: tags.albumPeak
         )
         return (boost * preamp * replay, bands)
     }
@@ -124,33 +156,187 @@ public struct ReplayGainTagValues: Equatable {
             }
         }
         func value(_ tag: String) -> String? { found.first { $0.key.hasSuffix(tag) }?.value }
-        func gain(_ text: String?) -> Float? { ReplayGain.shared.parseGainDb(text: text)?.floatValue }
-        func peak(_ text: String?) -> Float? { ReplayGain.shared.parsePeak(text: text)?.floatValue }
         return ReplayGainTagValues(
-            trackGainDb: gain(value("REPLAYGAIN_TRACK_GAIN")), albumGainDb: gain(value("REPLAYGAIN_ALBUM_GAIN")),
-            trackPeak: peak(value("REPLAYGAIN_TRACK_PEAK")), albumPeak: peak(value("REPLAYGAIN_ALBUM_PEAK"))
+            trackGainDb: parseReplayGainDb(text: value("REPLAYGAIN_TRACK_GAIN")),
+            albumGainDb: parseReplayGainDb(text: value("REPLAYGAIN_ALBUM_GAIN")),
+            trackPeak: parseReplayGainPeak(text: value("REPLAYGAIN_TRACK_PEAK")),
+            albumPeak: parseReplayGainPeak(text: value("REPLAYGAIN_ALBUM_PEAK"))
         )
     }
 }
 
-/// Runs the shared DSP chain on the audio of an `AVPlayerItem` through an audio-processing tap. Settings can change
-/// while playing; the tap picks up the new ones at the start of its next buffer.
-///
-/// The chain is the same Kotlin code the other apps run (`AudioDspChain`); samples are copied into one preallocated
-/// array per buffer. AVFoundation runs the tap on its own audio-processing thread, with buffers of a few thousand
-/// frames, not on the real-time output thread.
+// MARK: - Native Swift DSP Chain (Biquad Equalizer & Limiter)
+
+public struct GraphicEqualizerBands {
+    public static let centresHz: [Int] = [31, 62, 125, 250, 500, 1_000, 2_000, 4_000, 8_000, 16_000]
+}
+
+final class PeakLimiter {
+    private let releaseCoefficient: Float
+    private let channels: Int
+    private let ceiling: Float
+    private var gain: Float = 1.0
+
+    init(sampleRate: Int, channels: Int, ceiling: Float = 0.97, releaseMillis: Float = 80.0) {
+        self.channels = max(1, channels)
+        self.ceiling = ceiling
+        self.releaseCoefficient = exp(-1.0 / Float((Double(releaseMillis) / 1000.0) * Double(sampleRate)))
+    }
+
+    func process(samples: UnsafeMutablePointer<Float>, frames: Int) {
+        for frame in 0..<frames {
+            let start = frame * channels
+            var peak: Float = 0
+            for ch in 0..<channels { peak = max(peak, abs(samples[start + ch])) }
+            let limit: Float = peak > ceiling ? ceiling / peak : 1.0
+            gain = min(1.0 - (1.0 - gain) * releaseCoefficient, limit)
+            if gain < 1.0 {
+                for ch in 0..<channels { samples[start + ch] *= gain }
+            }
+        }
+    }
+
+    func reset() { gain = 1.0 }
+}
+
+final class GraphicEqualizer {
+    private let sampleRate: Int
+    private let channels: Int
+    private let centresHz: [Int]
+    private var gainsDb: [Float]
+    private var sections: [Section] = []
+
+    init(sampleRate: Int, channels: Int, centresHz: [Int] = GraphicEqualizerBands.centresHz) {
+        self.sampleRate = max(1, sampleRate)
+        self.channels = max(1, channels)
+        self.centresHz = centresHz
+        self.gainsDb = [Float](repeating: 0, count: centresHz.count)
+    }
+
+    var isFlat: Bool { gainsDb.allSatisfy { $0 == 0 } }
+
+    func setGainsDb(_ gains: [Float]) {
+        gainsDb = centresHz.indices.map { i in
+            let g = i < gains.count ? gains[i] : 0
+            return min(12.0, max(-12.0, g))
+        }
+        sections = centresHz.indices.compactMap { i -> Section? in
+            guard gainsDb[i] != 0, centresHz[i] < sampleRate / 2 else { return nil }
+            return Section(coefficients: coefficients(centreHz: centresHz[i], gainDb: gainsDb[i]), channels: channels)
+        }
+    }
+
+    func process(samples: UnsafeMutablePointer<Float>, frames: Int) {
+        guard !isFlat else { return }
+        for section in sections { section.process(samples: samples, frames: frames) }
+    }
+
+    func reset() { for section in sections { section.reset() } }
+
+    private func coefficients(centreHz: Int, gainDb: Float) -> (b0: Float, b1: Float, b2: Float, a1: Float, a2: Float) {
+        let a = pow(10.0, Double(gainDb) / 40.0)
+        let w0 = 2.0 * Double.pi * Double(centreHz) / Double(sampleRate)
+        let alpha = sin(w0) / 2.0 // Q = 1.0
+        let a0 = 1.0 + alpha / a
+        return (
+            Float((1.0 + alpha * a) / a0),
+            Float((-2.0 * cos(w0)) / a0),
+            Float((1.0 - alpha * a) / a0),
+            Float((-2.0 * cos(w0)) / a0),
+            Float((1.0 - alpha / a) / a0)
+        )
+    }
+
+    private final class Section {
+        let b0, b1, b2, a1, a2: Float
+        let channels: Int
+        var z1: [Float]
+        var z2: [Float]
+
+        init(coefficients c: (b0: Float, b1: Float, b2: Float, a1: Float, a2: Float), channels: Int) {
+            self.b0 = c.b0; self.b1 = c.b1; self.b2 = c.b2; self.a1 = c.a1; self.a2 = c.a2
+            self.channels = channels
+            self.z1 = [Float](repeating: 0, count: channels)
+            self.z2 = [Float](repeating: 0, count: channels)
+        }
+
+        func process(samples: UnsafeMutablePointer<Float>, frames: Int) {
+            for frame in 0..<frames {
+                for ch in 0..<channels {
+                    let idx = frame * channels + ch
+                    let x = samples[idx]
+                    let y = b0 * x + z1[ch]
+                    z1[ch] = b1 * x - a1 * y + z2[ch]
+                    z2[ch] = b2 * x - a2 * y
+                    samples[idx] = y
+                }
+            }
+        }
+
+        func reset() {
+            z1 = [Float](repeating: 0, count: channels)
+            z2 = [Float](repeating: 0, count: channels)
+        }
+    }
+}
+
+final class AudioDspChain {
+    let equalizer: GraphicEqualizer
+    private let limiter: PeakLimiter
+    private var equalizerRaisesLevel = false
+    var gain: Float = 1.0
+    var monoDownmix = false
+    private let channels: Int
+
+    init(sampleRate: Int, channels: Int) {
+        self.channels = max(1, channels)
+        self.equalizer = GraphicEqualizer(sampleRate: sampleRate, channels: channels)
+        self.limiter = PeakLimiter(sampleRate: sampleRate, channels: channels)
+    }
+
+    var isNeutral: Bool { gain == 1.0 && equalizer.isFlat && !monoDownmix }
+
+    func setEqualizerGainsDb(_ gains: [Float]) {
+        equalizer.setGainsDb(gains)
+        equalizerRaisesLevel = gains.contains { $0 > 0 }
+    }
+
+    func process(samples: UnsafeMutablePointer<Float>, frames: Int) {
+        guard !isNeutral, frames > 0 else { return }
+        let count = frames * channels
+        if gain != 1.0 {
+            for i in 0..<count { samples[i] *= gain }
+        }
+        if monoDownmix && channels >= 2 {
+            for f in 0..<frames {
+                let start = f * channels
+                var sum: Float = 0
+                for ch in 0..<channels { sum += samples[start + ch] }
+                let mono = sum / Float(channels)
+                for ch in 0..<channels { samples[start + ch] = mono }
+            }
+        }
+        equalizer.process(samples: samples, frames: frames)
+        if gain > 1.0 || equalizerRaisesLevel {
+            limiter.process(samples: samples, frames: frames)
+        }
+    }
+
+    func reset() {
+        equalizer.reset()
+        limiter.reset()
+    }
+}
+
+// MARK: - Tap & Controller
+
 public final class AudioEffectsController {
     private let lock = NSLock()
     private var settings = AudioEffectSettings()
     private var tags = ReplayGainTagValues()
     private var version = 0
 
-    /// Called with the first channel of every buffer after the effects, so tests can measure what is really played.
-    /// Nil in the app.
     public var tapObserver: (([Float], Double) -> Void)?
-
-    /// The first few unusual things a tap met (source audio that could not be fetched, a format it passes through),
-    /// so a silent or untouched render can be explained instead of guessed at.
     public private(set) var tapEvents: [String] = []
 
     fileprivate func record(_ event: String) {
@@ -158,21 +344,7 @@ public final class AudioEffectsController {
         if tapEvents.count < 16 { tapEvents.append(event) }
     }
 
-    public init() {
-        _ = Self.kotlinWarmedUp
-    }
-
-    /// Touches everything the tap will use on the Kotlin side (the chain, its equalizer, the presets) once, from the
-    /// thread that creates the controller. Otherwise the first use of that code, with its one-time runtime
-    /// initialisation, happens on AVFoundation's audio-processing thread in the middle of playback.
-    private static let kotlinWarmedUp: Void = {
-        let chain = AudioDspChain(sampleRate: 44_100, channels: 1)
-        let scratch = KotlinFloatArray(size: 64)
-        chain.gain = 1.5
-        chain.setEqualizerGainsDb(gains: Array(repeating: KotlinFloat(float: 0), count: 10))
-        chain.process(samples: scratch, frames: 64)
-        _ = AudioEffectSettings().chain(tags: ReplayGainTagValues())
-    }()
+    public init() {}
 
     public func update(settings: AudioEffectSettings) {
         lock.lock(); defer { lock.unlock() }
@@ -196,7 +368,6 @@ public final class AudioEffectsController {
         return (version, settings, tags)
     }
 
-    /// An audio mix that sends every audio track of [asset] through the effects, or nil if it has none.
     public func mix(for asset: AVAsset) async -> AVAudioMix? {
         guard let tracks = try? await asset.loadTracks(withMediaType: .audio), !tracks.isEmpty else { return nil }
         let mix = AVMutableAudioMix()
@@ -233,7 +404,6 @@ public final class AudioEffectsController {
                 let state = Unmanaged<TapState>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
                 let status = MTAudioProcessingTapGetSourceAudio(tap, frames, buffers, flagsOut, nil, framesOut)
                 guard status == noErr else {
-                    // Nothing was delivered: say so (zero frames) rather than leave the count unset.
                     framesOut.pointee = 0
                     state.record("source audio status \(status) for \(frames) frames")
                     return
@@ -247,11 +417,9 @@ public final class AudioEffectsController {
     }
 }
 
-/// What one tap keeps between buffers: the stream format, the chain and the scratch array.
 private final class TapState {
     private let controller: AudioEffectsController
     private var chain: AudioDspChain?
-    private var scratch: KotlinFloatArray?
     private var channels = 0
     private var interleaved = false
     private var appliedVersion = -1
@@ -267,26 +435,23 @@ private final class TapState {
     func prepare(maxFrames: Int, format: AudioStreamBasicDescription) {
         let isFloat = format.mFormatID == kAudioFormatLinearPCM
             && format.mFormatFlags & kAudioFormatFlagIsFloat != 0 && format.mBitsPerChannel == 32
-        guard isFloat else { // anything else passes through untouched
+        guard isFloat else {
             controller.record("passing through: format flags \(format.mFormatFlags), \(format.mBitsPerChannel) bits")
             return
         }
         channels = Int(format.mChannelsPerFrame)
         interleaved = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0
         sampleRate = format.mSampleRate
-        controller.record("tap prepared: \(maxFrames) frames, \(format.mChannelsPerFrame) channels, \(Int(format.mSampleRate)) Hz")
-        chain = AudioDspChain(sampleRate: Int32(format.mSampleRate), channels: Int32(channels))
-        scratch = KotlinFloatArray(size: Int32(maxFrames * channels))
+        chain = AudioDspChain(sampleRate: Int(format.mSampleRate), channels: channels)
         appliedVersion = -1
     }
 
     func unprepare() {
         chain = nil
-        scratch = nil
     }
 
     func process(_ bufferList: UnsafeMutablePointer<AudioBufferList>, frames: Int) {
-        guard let chain, let scratch, frames > 0 else { return }
+        guard let chain, frames > 0 else { return }
         if !loggedFirstProcess {
             loggedFirstProcess = true
             controller.record("tap processing: first buffer \(frames) frames")
@@ -296,9 +461,9 @@ private final class TapState {
             appliedVersion = current.version
             let configuration = current.settings.chain(tags: current.tags)
             chain.gain = configuration.gain
-            chain.setEqualizerGainsDb(gains: configuration.bandsDb.map { KotlinFloat(float: $0) })
+            chain.setEqualizerGainsDb(configuration.bandsDb)
         }
-        if !chain.isNeutral { applyChain(chain, scratch, bufferList, frames) }
+        if !chain.isNeutral { applyChain(chain, bufferList, frames) }
         if let observer = controller.tapObserver { observe(bufferList, frames, observer) }
     }
 
@@ -309,30 +474,29 @@ private final class TapState {
         observer((0..<frames).map { data[$0 * stride] }, sampleRate)
     }
 
-    private func applyChain(_ chain: AudioDspChain, _ scratch: KotlinFloatArray, _ bufferList: UnsafeMutablePointer<AudioBufferList>, _ frames: Int) {
+    private func applyChain(_ chain: AudioDspChain, _ bufferList: UnsafeMutablePointer<AudioBufferList>, _ frames: Int) {
         let buffers = UnsafeMutableAudioBufferListPointer(bufferList)
-        guard frames * channels <= Int(scratch.size) else { return }
         if interleaved, let data = buffers.first?.mData?.assumingMemoryBound(to: Float.self) {
-            for index in 0..<(frames * channels) { scratch.set(index: Int32(index), value: data[index]) }
-            chain.process(samples: scratch, frames: Int32(frames))
-            for index in 0..<(frames * channels) { data[index] = scratch.get(index: Int32(index)) }
+            chain.process(samples: data, frames: frames)
         } else if buffers.count == channels {
+            // Non-interleaved planar: interleave into scratch, process, de-interleave
+            var scratch = [Float](repeating: 0, count: frames * channels)
             for (channel, buffer) in buffers.enumerated() {
                 guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { return }
-                for frame in 0..<frames { scratch.set(index: Int32(frame * channels + channel), value: data[frame]) }
+                for frame in 0..<frames { scratch[frame * channels + channel] = data[frame] }
             }
-            chain.process(samples: scratch, frames: Int32(frames))
+            scratch.withUnsafeMutableBufferPointer { ptr in
+                chain.process(samples: ptr.baseAddress!, frames: frames)
+            }
             for (channel, buffer) in buffers.enumerated() {
                 guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { return }
-                for frame in 0..<frames { data[frame] = scratch.get(index: Int32(frame * channels + channel)) }
+                for frame in 0..<frames { data[frame] = scratch[frame * channels + channel] }
             }
         }
     }
 }
 
 extension AVPlayerPlaybackEngine {
-    /// Applies [settings] now and remembers them. The effects tap is only put on an item once something is on, so
-    /// untouched sound keeps the system's own audio path.
     public func applyAudio(_ settings: AudioEffectSettings) {
         audioSettings = settings
         settings.save()
@@ -340,7 +504,6 @@ extension AVPlayerPlaybackEngine {
         if let item = player.currentItem { attachAudioEffects(to: item) }
     }
 
-    /// Puts the effects on [item]'s audio when they are needed, and reads its ReplayGain tags.
     func attachAudioEffects(to item: AVPlayerItem) {
         audioEffects.update(tags: ReplayGainTagValues())
         guard !audioSettings.isNeutral else { return }

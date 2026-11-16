@@ -1,5 +1,5 @@
 import AVFoundation
-import VimivoShared
+import VimivoCoreRust
 import XCTest
 @testable import iosApp
 

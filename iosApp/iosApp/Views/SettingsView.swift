@@ -1,5 +1,5 @@
 import SwiftUI
-import VimivoShared
+import VimivoCoreRust
 
 public struct SettingsView: View {
     @AppStorage("vimivo_theme") private var theme: String = "system"
@@ -190,8 +190,8 @@ public struct SettingsView: View {
                 SoundSlider(title: "Treble", value: Binding(get: { Double(engine.audioSettings.treble) }, set: { setTreble($0) }), range: -12...12, unit: " dB")
                 SoundSlider(title: "Preamp", value: Binding(get: { Double(engine.audioSettings.preampDb) }, set: { setPreamp($0) }), range: -12...0, unit: " dB")
                 if engine.audioSettings.preset == EqualizerPreset.custom {
-                    ForEach(Array(GraphicEqualizerBands.shared.CENTRES_HZ.enumerated()), id: \.offset) { index, hz in
-                        SoundSlider(title: "\(hz) Hz", value: bandBinding(index), range: -12...12, unit: " dB")
+                    ForEach(Array(GraphicEqualizerBands.centresHz.enumerated()), id: \.offset) { pair in
+                        SoundSlider(title: "\(pair.element) Hz", value: bandBinding(pair.offset), range: -12...12, unit: " dB")
                     }
                 }
             }

@@ -1,5 +1,4 @@
 import Foundation
-import VimivoShared
 
 public enum MediaKind: String, Codable, CaseIterable {
     case audio

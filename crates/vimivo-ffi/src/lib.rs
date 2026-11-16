@@ -144,9 +144,49 @@ pub struct FfiMediaItem {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub artwork_uri: Option<String>,
+    pub album_artist: Option<String>,
+    pub bookmark_data: Option<Vec<u8>>,
     pub width: Option<i32>,
     pub height: Option<i32>,
     pub size_bytes: Option<i64>,
+    pub date_added_millis: Option<i64>,
+}
+
+#[derive(uniffi::Record, Clone, Debug, PartialEq, Eq)]
+pub struct FfiResumeState {
+    pub position_millis: i64,
+    pub completed: bool,
+}
+
+#[derive(uniffi::Record, Clone, Debug, PartialEq, Eq)]
+pub struct FfiStoredLyrics {
+    pub source: String,
+    pub text: String,
+}
+
+#[derive(uniffi::Record, Clone, Debug, PartialEq, Eq)]
+pub struct FfiCropRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+#[derive(uniffi::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FfiCropPreset {
+    None,
+    Auto,
+    Ratio16_9,
+    Ratio21_9,
+    Ratio4_3,
+    Ratio1_1,
+}
+
+#[derive(uniffi::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FfiReplayGainMode {
+    Off,
+    Track,
+    Album,
 }
 
 #[derive(uniffi::Record)]
@@ -198,9 +238,12 @@ impl From<CoreMediaItem> for FfiMediaItem {
             artist: item.artist,
             album: item.album,
             artwork_uri: item.artwork_uri,
+            album_artist: item.album_artist,
+            bookmark_data: item.bookmark_data,
             width: item.width,
             height: item.height,
             size_bytes: item.size_bytes,
+            date_added_millis: item.date_added_epoch_seconds.map(|s| s * 1000),
         }
     }
 }
@@ -241,9 +284,12 @@ impl FfiDatabase {
         core_item.artist = item.artist;
         core_item.album = item.album;
         core_item.artwork_uri = item.artwork_uri;
+        core_item.album_artist = item.album_artist;
+        core_item.bookmark_data = item.bookmark_data;
         core_item.width = item.width;
         core_item.height = item.height;
         core_item.size_bytes = item.size_bytes;
+        core_item.date_added_epoch_seconds = item.date_added_millis.map(|ms| ms / 1000);
 
         let db = self.inner.lock().unwrap();
         db.upsert_media_item(&core_item)
@@ -460,6 +506,23 @@ impl FfiDatabase {
             current_index,
         })
     }
+
+    pub fn get_resume_state(&self, media_id: String) -> Result<Option<FfiResumeState>, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.get_resume_state(&media_id)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+            .map(|opt| opt.map(|r| FfiResumeState {
+                position_millis: r.position_millis,
+                completed: r.completed,
+            }))
+    }
+
+    pub fn get_lyrics_record(&self, media_id: String) -> Result<Option<FfiStoredLyrics>, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.get_lyrics_record(&media_id)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+            .map(|opt| opt.map(|(source, text)| FfiStoredLyrics { source, text }))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -521,6 +584,77 @@ impl FfiPlayQueue {
     pub fn set_shuffled(&self, shuffled: bool) {
         let mut q = self.inner.lock().unwrap();
         q.set_shuffled(shuffled);
+    }
+
+    pub fn jump_to(&self, index: u32) -> bool {
+        let mut q = self.inner.lock().unwrap();
+        q.jump_to(index as usize)
+    }
+
+    pub fn jump_to_id(&self, id: String) -> bool {
+        let mut q = self.inner.lock().unwrap();
+        q.jump_to_id(&id)
+    }
+
+    pub fn append(&self, id: String) {
+        let mut q = self.inner.lock().unwrap();
+        q.append(id);
+    }
+
+    pub fn insert_next(&self, id: String) {
+        let mut q = self.inner.lock().unwrap();
+        q.insert_next(id);
+    }
+
+    pub fn remove(&self, index: u32) -> bool {
+        let mut q = self.inner.lock().unwrap();
+        q.remove(index as usize)
+    }
+
+    pub fn move_item(&self, from: u32, to: u32) {
+        let mut q = self.inner.lock().unwrap();
+        q.move_item(from as usize, to as usize);
+    }
+
+    pub fn size(&self) -> u32 {
+        let q = self.inner.lock().unwrap();
+        q.size() as u32
+    }
+
+    pub fn is_shuffled(&self) -> bool {
+        let q = self.inner.lock().unwrap();
+        q.is_shuffled()
+    }
+
+    pub fn toggle_shuffle(&self) -> bool {
+        let mut q = self.inner.lock().unwrap();
+        let next = !q.is_shuffled();
+        q.set_shuffled(next);
+        next
+    }
+
+    pub fn get_repeat_mode(&self) -> FfiQueueRepeatMode {
+        let q = self.inner.lock().unwrap();
+        match q.repeat_mode() {
+            CoreRepeatMode::Off => FfiQueueRepeatMode::Off,
+            CoreRepeatMode::All => FfiQueueRepeatMode::All,
+            CoreRepeatMode::One => FfiQueueRepeatMode::One,
+        }
+    }
+
+    pub fn cycle_repeat(&self) -> FfiQueueRepeatMode {
+        let mut q = self.inner.lock().unwrap();
+        let next = match q.repeat_mode() {
+            CoreRepeatMode::Off => CoreRepeatMode::All,
+            CoreRepeatMode::All => CoreRepeatMode::One,
+            CoreRepeatMode::One => CoreRepeatMode::Off,
+        };
+        q.set_repeat_mode(next);
+        match next {
+            CoreRepeatMode::Off => FfiQueueRepeatMode::Off,
+            CoreRepeatMode::All => FfiQueueRepeatMode::All,
+            CoreRepeatMode::One => FfiQueueRepeatMode::One,
+        }
     }
 }
 
@@ -1679,6 +1813,92 @@ pub fn parse_custom_sleep_timer_minutes(hours: String, minutes: String) -> Optio
 #[uniffi::export]
 pub fn format_sleep_timer_label(minutes: i32) -> String {
     CoreSleepTimerOptions::label(minutes)
+}
+
+// ---------------------------------------------------------------------------
+// Video Crop & Black Bar Detection
+// ---------------------------------------------------------------------------
+
+#[uniffi::export]
+pub fn calculate_crop_centered(source_width: i32, source_height: i32, ratio: f64) -> Option<FfiCropRect> {
+    vimivo_core::video::VideoCropMath::centered(source_width, source_height, ratio).map(|r| FfiCropRect {
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+    })
+}
+
+#[uniffi::export]
+pub fn calculate_crop_from_content(source_width: i32, source_height: i32, content: FfiCropRect) -> Option<FfiCropRect> {
+    let c = vimivo_core::video::CropRect {
+        x: content.x,
+        y: content.y,
+        width: content.width,
+        height: content.height,
+    };
+    vimivo_core::video::VideoCropMath::from_content(source_width, source_height, &c).map(|r| FfiCropRect {
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+    })
+}
+
+#[uniffi::export]
+pub fn detect_black_bar_bounds(width: i32, height: i32, luma: Vec<u8>) -> Option<FfiCropRect> {
+    vimivo_core::video::BlackBarDetector::content_bounds(width, height, &luma).map(|r| FfiCropRect {
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+    })
+}
+
+#[uniffi::export]
+pub fn union_crop_bounds(bounds: Vec<FfiCropRect>) -> Option<FfiCropRect> {
+    let core_bounds: Vec<vimivo_core::video::CropRect> = bounds.into_iter().map(|b| vimivo_core::video::CropRect {
+        x: b.x,
+        y: b.y,
+        width: b.width,
+        height: b.height,
+    }).collect();
+    vimivo_core::video::BlackBarDetector::union(&core_bounds).map(|r| FfiCropRect {
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// ReplayGain
+// ---------------------------------------------------------------------------
+
+#[uniffi::export]
+pub fn calculate_replay_gain_mode_linear(
+    mode: FfiReplayGainMode,
+    track_gain_db: Option<f32>,
+    album_gain_db: Option<f32>,
+    track_peak: Option<f32>,
+    album_peak: Option<f32>,
+) -> f32 {
+    let core_mode = match mode {
+        FfiReplayGainMode::Off => CoreReplayGainMode::Off,
+        FfiReplayGainMode::Track => CoreReplayGainMode::Track,
+        FfiReplayGainMode::Album => CoreReplayGainMode::Album,
+    };
+    ReplayGain::linear_gain(core_mode, track_gain_db, album_gain_db, track_peak, album_peak)
+}
+
+#[uniffi::export]
+pub fn parse_replay_gain_db(text: Option<String>) -> Option<f32> {
+    text.as_deref().and_then(ReplayGain::parse_gain_db)
+}
+
+#[uniffi::export]
+pub fn parse_replay_gain_peak(text: Option<String>) -> Option<f32> {
+    text.as_deref().and_then(ReplayGain::parse_peak)
 }
 
 

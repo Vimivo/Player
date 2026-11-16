@@ -16,6 +16,7 @@
 		1040 /* VideoPlayerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2040 /* VideoPlayerModel.swift */; };
 		1191 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2191 /* AppRouter.swift */; };
 		1001 /* VimivoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2001 /* VimivoApp.swift */; };
+		1099 /* ThirdPartyNotices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2099 /* ThirdPartyNotices.swift */; };
 		1002 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2002 /* MediaModels.swift */; };
 		1003 /* PlaybackModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2003 /* PlaybackModels.swift */; };
 		1004 /* KeychainCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2004 /* KeychainCredentialStore.swift */; };
@@ -98,6 +99,8 @@
 		1348 /* SleepTimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2348 /* SleepTimerTests.swift */; };
 		11701 /* VaultPinStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21701 /* VaultPinStoreTests.swift */; };
 		1349 /* QueueEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2349 /* QueueEngineTests.swift */; };
+		9101 /* VimivoCoreRust in Frameworks */ = {isa = PBXBuildFile; productRef = 9103 /* VimivoCoreRust */; };
+		9102 /* VimivoCoreRust in Frameworks */ = {isa = PBXBuildFile; productRef = 9103 /* VimivoCoreRust */; };
 /* End PBXBuildFile section */
 
 
@@ -135,6 +138,7 @@
 		2040 /* VideoPlayerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerModel.swift; sourceTree = "<group>"; };
 		0001 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2001 /* VimivoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VimivoApp.swift; sourceTree = "<group>"; };
+		2099 /* ThirdPartyNotices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThirdPartyNotices.swift; sourceTree = "<group>"; };
 		2191 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		2002 /* MediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModels.swift; sourceTree = "<group>"; };
 		2003 /* PlaybackModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackModels.swift; sourceTree = "<group>"; };
@@ -221,6 +225,7 @@
 				1027 /* AVKit.framework in Frameworks */,
 				1028 /* MediaPlayer.framework in Frameworks */,
 				1029 /* Security.framework in Frameworks */,
+				9101 /* VimivoCoreRust in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,6 +234,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1103 /* libsqlite3.tbd in Frameworks */,
+				9102 /* VimivoCoreRust in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,6 +286,7 @@
 			children = (
 				2002 /* MediaModels.swift */,
 				2003 /* PlaybackModels.swift */,
+				2099 /* ThirdPartyNotices.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -434,7 +441,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6001 /* Build configuration list for PBXNativeTarget "iosApp" */;
 			buildPhases = (
-				7001 /* Run Kotlin Script */,
 				7002 /* Sources */,
 				3001 /* Frameworks */,
 				7003 /* Resources */,
@@ -447,6 +453,9 @@
 				5102 /* PBXTargetDependency */,
 			);
 			name = iosApp;
+			packageProductDependencies = (
+				9103 /* VimivoCoreRust */,
+			);
 			productName = iosApp;
 			productReference = 0001 /* iosApp.app */;
 			productType = "com.apple.product-type.application";
@@ -465,6 +474,9 @@
 				5101 /* PBXTargetDependency */,
 			);
 			name = iosAppTests;
+			packageProductDependencies = (
+				9103 /* VimivoCoreRust */,
+			);
 			productName = iosAppTests;
 			productReference = 0002 /* iosAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -512,6 +524,9 @@
 				bn,
 			);
 			mainGroup = 4001;
+			packageReferences = (
+				9100 /* VimivoCoreRust */,
+			);
 			productRefGroup = 4008 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -522,6 +537,21 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		9100 /* VimivoCoreRust */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VimivoCoreRust;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9103 /* VimivoCoreRust */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9100 /* VimivoCoreRust */;
+			productName = VimivoCoreRust;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin PBXVariantGroup section */
 		31702 /* Localizable.strings */ = {
@@ -585,24 +615,6 @@
 			shellPath = /bin/sh;
 			shellScript = "slice=\"ios-arm64\"\n[ \"$PLATFORM_NAME\" = \"iphonesimulator\" ] && slice=\"ios-arm64-simulator\"\nFW=\"$SRCROOT/Frameworks/VimivoMedia.xcframework/$slice/VimivoMedia.framework\"\nif [ -d \"$FW\" ]; then\n  DEST=\"$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH\"\n  mkdir -p \"$DEST\"\n  rsync -a --delete \"$FW\" \"$DEST/\"\n  if [ -n \"$EXPANDED_CODE_SIGN_IDENTITY\" ]; then codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --preserve-metadata=identifier,entitlements \"$DEST/VimivoMedia.framework\"; fi\nelse\n  echo \"note: VimivoMedia.framework not found; MKV and AVI playback are off (build it with scripts/build_media)\"\nfi\n";
 		};
-		7001 /* Run Kotlin Script */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Compile Kotlin Framework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\" && ./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -623,6 +635,7 @@
 				1001 /* VimivoApp.swift in Sources */,
 				1191 /* AppRouter.swift in Sources */,
 				1002 /* MediaModels.swift in Sources */,
+				1099 /* ThirdPartyNotices.swift in Sources */,
 				1003 /* PlaybackModels.swift in Sources */,
 				1004 /* KeychainCredentialStore.swift in Sources */,
 				1005 /* SecurityScopedMediaManager.swift in Sources */,
@@ -761,22 +774,21 @@
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 				);
 				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (
 					"$(inherited)",
-					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/ios-arm64",
 				);
 				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
-					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/ios-arm64-simulator",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/macos-arm64",
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-framework",
-					VimivoShared,
 				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
@@ -788,9 +800,11 @@
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.vimivo.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = Debug;
 		};
@@ -805,22 +819,21 @@
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 				);
 				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (
 					"$(inherited)",
-					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/ios-arm64",
 				);
 				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
-					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/ios-arm64-simulator",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/Frameworks/VimivoMedia.xcframework/macos-arm64",
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-framework",
-					VimivoShared,
 				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
@@ -832,9 +845,11 @@
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.vimivo.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1,2,6";
 			};
 			name = Release;
 		};

@@ -1,5 +1,5 @@
 import SwiftUI
-import VimivoShared
+import VimivoCoreRust
 
 /// Synced lyrics as a centred, fading list around the current line; or a prompt to load a file when there are none.
 struct LyricsPanel: View {
@@ -22,7 +22,7 @@ struct LyricsPanel: View {
                                 .frame(maxWidth: .infinity)
                                 .opacity(index == active ? 1 : max(0.22, 0.62 - 0.12 * Double(distance)))
                                 .id(index)
-                                .onTapGesture { if let time = line.timeMillis { onSeek(time.int64Value) } }
+                                .onTapGesture { if let time = line.timeMillis { onSeek(time) } }
                                 .accessibilityAddTraits(index == active ? .isSelected : [])
                         }
                     }

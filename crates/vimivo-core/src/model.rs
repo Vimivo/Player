@@ -69,6 +69,7 @@ pub struct MediaItem {
     pub volume_name: Option<String>,
     pub is_favorite: Boolean,
     pub is_available: Boolean,
+    pub bookmark_data: Option<Vec<u8>>,
     pub last_playback_position_millis: i64,
     pub last_played_at_epoch_millis: Option<i64>,
 }
@@ -106,6 +107,7 @@ impl MediaItem {
             volume_name: None,
             is_favorite: false,
             is_available: true,
+            bookmark_data: None,
             last_playback_position_millis: 0,
             last_played_at_epoch_millis: None,
         }

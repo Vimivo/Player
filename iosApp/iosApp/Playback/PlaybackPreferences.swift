@@ -1,15 +1,15 @@
 import Foundation
-import VimivoShared
+import VimivoCoreRust
 
-/// User playback preferences and the bridge to the shared Kotlin resume rules, so iOS starts media at the
-/// same position Android and desktop would.
+/// User playback preferences and the bridge to the Rust core resume rules, so iOS starts media at the
+/// exact same position Android, Windows, Linux, and macOS desktop would.
 public enum PlaybackPreferences {
     public static let resumeVideoKey = "vimivo_resume_video"
     public static let resumeSongsKey = "vimivo_resume_songs"
 
-    /// Speeds offered by every platform, defined once in the shared Kotlin module.
-    public static let speedPresets: [Float] = PlaybackSpeeds.shared.PRESETS.map { $0.floatValue }
-    public static let speedRange: ClosedRange<Double> = Double(PlaybackSpeeds.shared.MIN)...Double(PlaybackSpeeds.shared.MAX)
+    /// Speeds offered by every platform, defined once in the Rust core module.
+    public static let speedPresets: [Float] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+    public static let speedRange: ClosedRange<Double> = 0.25...4.0
 
     /// How often the current position is persisted while playing, matching the desktop save interval.
     public static let checkpointIntervalMillis: Int64 = 10_000
@@ -21,10 +21,16 @@ public enum PlaybackPreferences {
     ) -> Int64 {
         guard let saved, isResumeEnabled(for: item.kind, defaults: defaults) else { return 0 }
         let duration = saved.durationMillis ?? item.durationMillis
-        return ResumePolicy.shared.startPositionMillis(
-            kind: item.kind.shared,
+        let ffiKind: FfiMediaKind
+        switch item.kind {
+        case .audio: ffiKind = .audio
+        case .video: ffiKind = .video
+        case .stream: ffiKind = .stream
+        }
+        return calculateResumeStartPosition(
+            kind: ffiKind,
             savedPositionMillis: saved.positionMillis,
-            durationMillis: duration.map { KotlinLong(value: $0) },
+            durationMillis: duration,
             completed: saved.completed,
             includeShortAudio: defaults.object(forKey: resumeSongsKey) as? Bool ?? false
         )
@@ -41,14 +47,10 @@ public struct ResumeState: Equatable {
     public let positionMillis: Int64
     public let durationMillis: Int64?
     public let completed: Bool
-}
 
-extension MediaKind {
-    var shared: VimivoShared.MediaKind {
-        switch self {
-        case .audio: return .audio
-        case .video: return .video
-        case .stream: return .stream
-        }
+    public init(positionMillis: Int64, durationMillis: Int64? = nil, completed: Bool) {
+        self.positionMillis = positionMillis
+        self.durationMillis = durationMillis
+        self.completed = completed
     }
 }

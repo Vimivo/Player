@@ -1,8 +1,77 @@
 import SwiftUI
 import AVKit
 import UIKit
-import VimivoShared
+import VimivoCoreRust
 import Combine
+
+public enum MobileDecoderMode: String, CaseIterable, Identifiable {
+    case hw = "HW"
+    case hwPlus = "HW+"
+    case sw = "SW"
+
+    public var id: String { rawValue }
+    public var chipLabel: String { rawValue }
+}
+
+final class InMemoryDecoderPreferenceStore {
+    static let shared = InMemoryDecoderPreferenceStore()
+    static var companion: InMemoryDecoderPreferenceStore { shared }
+    private var preferences: [String: MobileDecoderMode] = [:]
+
+    func setDecoderForMedia(uri: String, mode: MobileDecoderMode) {
+        preferences[uri] = mode
+    }
+
+    func getDecoderForMedia(uri: String) -> MobileDecoderMode? {
+        preferences[uri]
+    }
+}
+
+public enum VideoRotation: Int, CaseIterable {
+    case none = 0
+    case cw90 = 1
+    case cw180 = 2
+    case cw270 = 3
+
+    public var ffi: FfiVideoRotation {
+        switch self {
+        case .none: return .none
+        case .cw90: return .clockwise90
+        case .cw180: return .clockwise180
+        case .cw270: return .clockwise270
+        }
+    }
+
+    public init(ffi: FfiVideoRotation) {
+        switch ffi {
+        case .none: self = .none
+        case .clockwise90: self = .cw90
+        case .clockwise180: self = .cw180
+        case .clockwise270: self = .cw270
+        }
+    }
+
+    public var degrees: Double {
+        Double(getVideoRotationDegrees(rot: ffi))
+    }
+
+    public var label: String {
+        switch self {
+        case .none: return "0°"
+        case .cw90: return "90°"
+        case .cw180: return "180°"
+        case .cw270: return "270°"
+        }
+    }
+
+    public func next() -> VideoRotation {
+        VideoRotation(ffi: getNextVideoRotation(rot: ffi))
+    }
+
+    public func fitScale(containerWidth: Float, containerHeight: Float, videoAspect: Float) -> Float {
+        calculateVideoRotationFitScale(rot: ffi, containerWidth: containerWidth, containerHeight: containerHeight, videoAspect: videoAspect)
+    }
+}
 
 enum VideoAspect: CaseIterable, Identifiable {
     case fit, crop, stretch, ratio16x9, ratio4x3
@@ -184,7 +253,7 @@ final class VideoPlayerModel: ObservableObject {
     func setDecoderMode(_ mode: MobileDecoderMode) {
         self.decoderMode = mode
         if let uri = engine.state.currentItem?.uri {
-            InMemoryDecoderPreferenceStore.companion.shared.setDecoderForMedia(uri: uri, mode: mode)
+            InMemoryDecoderPreferenceStore.shared.setDecoderForMedia(uri: uri, mode: mode)
         }
     }
 

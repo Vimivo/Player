@@ -1,5 +1,5 @@
 import SwiftUI
-import VimivoShared
+import VimivoCoreRust
 
 /// The equalizer panel: on/off, presets, ten vertical band sliders, preamp, bass and treble. Dragging a band turns the
 /// current curve into a custom one, so a preset is never edited in place.
@@ -22,7 +22,7 @@ struct EqualizerContent: View {
     @ObservedObject var engine: AVPlayerPlaybackEngine
 
     private var settings: AudioEffectSettings { engine.audioSettings }
-    private var centres: [Int] { GraphicEqualizerBands.shared.CENTRES_HZ.map { Int(truncating: $0) } }
+    private var centres: [Int] { GraphicEqualizerBands.centresHz }
 
     private func update(_ change: (inout AudioEffectSettings) -> Void) {
         var next = engine.audioSettings
@@ -32,8 +32,8 @@ struct EqualizerContent: View {
 
     /// The band gains as shown: the preset's own, or the custom curve.
     private var gains: [Double] {
-        if settings.preset == EqualizerPreset.custom { return settings.customGains.map(Double.init) }
-        return EqualizerPresets.shared.gains(preset: settings.preset).map { $0.doubleValue }
+        if settings.preset == .custom { return settings.customGains.map(Double.init) }
+        return getEqualizerPresetGains(preset: settings.preset.ffiPreset).map(Double.init)
     }
 
     private func bandLabel(_ hz: Int) -> String { hz >= 1000 ? "\(hz / 1000)k" : "\(hz)" }
@@ -49,7 +49,7 @@ struct EqualizerContent: View {
                             update {
                                 $0.preset = preset
                                 $0.equalizerOn = true
-                                if preset == EqualizerPreset.custom { $0.customGains = gains.map(Float.init) }
+                                if preset == .custom { $0.customGains = gains.map(Float.init) }
                             }
                         }
                         .font(.subheadline)
@@ -71,7 +71,7 @@ struct EqualizerContent: View {
                         ) { value in
                             update {
                                 let base = gains
-                                $0.preset = EqualizerPreset.custom
+                                $0.preset = .custom
                                 $0.customGains = base.map(Float.init)
                                 $0.customGains[index] = Float(value)
                             }
@@ -88,7 +88,7 @@ struct EqualizerContent: View {
             slider("Treble", value: Double(settings.treble), range: -12...12, unit: " dB") { value in update { $0.treble = Float(value) } }
             Button("Reset") {
                 update {
-                    $0.preset = EqualizerPreset.flat
+                    $0.preset = .flat
                     $0.customGains = Array(repeating: 0, count: 10)
                     $0.bass = 0; $0.treble = 0; $0.preampDb = 0
                 }

@@ -1,6 +1,6 @@
 import Foundation
 import AVFoundation
-import VimivoShared
+import VimivoCoreRust
 import AVKit
 import Combine
 import UIKit
@@ -12,8 +12,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     /// The title of the last item skipped because it could not be played, for a brief notice in the UI.
     @Published public var skippedItemTitle: String?
     private var consecutiveFailures = 0
-    /// The order, position, shuffle and repeat of the queue are the shared module's; the engine maps its ids to items.
-    let queueModel = PlayQueue()
+    /// The order, position, shuffle and repeat of the queue are backed 100% by Rust (`FfiPlayQueue`).
+    let queueModel = FfiPlayQueue()
     private var itemsById: [String: MediaItem] = [:]
     @Published public private(set) var queue: [MediaItem] = []
     @Published public private(set) var currentIndex: Int = 0
@@ -107,7 +107,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     /// Replaces the queue without starting anything; a shuffled queue is shuffled again behind the chosen item.
     func replaceQueue(_ items: [MediaItem], currentIndex start: Int) {
         items.forEach { itemsById[$0.id] = $0 }
-        queueModel.replace(ids: items.map(\.id), startIndex: Int32(start))
+        queueModel.replace(ids: items.map(\.id), startIndex: UInt32(max(0, start)))
         syncQueue()
     }
 
@@ -132,7 +132,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     /// Removes queued items; the one that is playing stays.
     public func removeFromQueue(atOffsets offsets: IndexSet) {
         for index in offsets.sorted(by: >) where index != currentIndex {
-            _ = queueModel.remove(index: Int32(index))
+            _ = queueModel.remove(index: UInt32(index))
         }
         syncQueue()
     }
@@ -140,37 +140,41 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     /// Moves a queued item to a new position; the one that is playing keeps playing.
     public func moveInQueue(fromOffsets offsets: IndexSet, toOffset destination: Int) {
         guard let from = offsets.first else { return }
-        queueModel.move(from: Int32(from), to: Int32(destination > from ? destination - 1 : destination))
+        queueModel.moveItem(from: UInt32(from), to: UInt32(destination > from ? destination - 1 : destination))
         syncQueue()
     }
 
     public func playNext() {
-        guard let index = queueModel.next(automatic: false)?.intValue else {
-            if queueModel.size > 0 { stop() }
+        guard let id = queueModel.next() else {
+            if queueModel.size() > 0 { stop() }
             return
         }
         syncQueue()
-        loadItem(queue[index])
-    }
-
-    public func playPrevious() {
-        guard queueModel.size > 0 else { return }
-        let moved = Int(queueModel.previous(positionMillis: state.positionMillis, restartAfterMillis: PlayQueue.companion.DEFAULT_RESTART_AFTER_MILLIS))
-        if moved == Int(PlayQueue.companion.RESTART) {
-            seek(toMillis: 0)
-        } else {
-            syncQueue()
-            loadItem(queue[moved])
+        if let item = itemsById[id] {
+            loadItem(item)
         }
     }
 
-    /// Copies the shared queue's order and position into the published values the UI reads, then saves it and queues
+    public func playPrevious() {
+        guard queueModel.size() > 0 else { return }
+        if state.positionMillis > 3_000 {
+            seek(toMillis: 0)
+            return
+        }
+        guard let id = queueModel.previous() else { return }
+        syncQueue()
+        if let item = itemsById[id] {
+            loadItem(item)
+        }
+    }
+
+    /// Copies the Rust core queue's order and position into the published values the UI reads, then saves it and queues
     /// the song that follows for a gapless start.
     func syncQueue(persist: Bool = true) {
-        queue = queueModel.ids.compactMap { itemsById[$0] }
-        currentIndex = Int(queueModel.currentIndex)
-        state.isShuffled = queueModel.shuffled
-        state.repeatMode = RepeatMode(queueModel.repeat)
+        queue = queueModel.getIds().compactMap { itemsById[$0] }
+        currentIndex = Int(queueModel.getCurrentIndex())
+        state.isShuffled = queueModel.isShuffled()
+        state.repeatMode = RepeatMode(queueModel.getRepeatMode())
         if persist { persistQueue() }
         prepareFollowingItem()
     }
@@ -260,7 +264,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
 
     /// Shuffles the remaining items behind the current one; turning it off restores the original order.
     public func toggleShuffle() {
-        queueModel.toggleShuffle()
+        _ = queueModel.toggleShuffle()
         syncQueue()
     }
 
@@ -272,14 +276,20 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         updateNowPlaying()
         consecutiveFailures += 1
         let skippedTitle = state.currentItem?.title ?? ""
-        guard let index = queueModel.skipFailed(consecutiveFailures: Int32(consecutiveFailures))?.intValue else { return }
+        if consecutiveFailures >= Int(queueModel.size()) {
+            stop()
+            return
+        }
+        guard let id = queueModel.next() else { return }
         skippedItemTitle = skippedTitle
         syncQueue()
-        loadItem(queue[index])
+        if let item = itemsById[id] {
+            loadItem(item)
+        }
     }
 
     public func cycleRepeatMode() {
-        queueModel.cycleRepeat()
+        _ = queueModel.cycleRepeat()
         syncQueue()
     }
 
@@ -482,7 +492,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
             }
             // With the next item queued the player moves on by itself and `advanceToPrepared` follows it.
             if self.preparedNext != nil { return }
-            if self.queueModel.repeat == .one {
+            if self.queueModel.getRepeatMode() == .one {
                 self.seek(toMillis: 0)
                 self.resume()
             } else {
@@ -523,8 +533,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     // MARK: - Queue persistence
 
     private func persistQueue() {
-        let snapshot = queueModel.snapshot()
-        IOSDatabase.shared.saveQueue(mediaIds: snapshot.ids, currentIndex: Int(snapshot.currentIndex))
+        IOSDatabase.shared.saveQueue(mediaIds: queueModel.getIds(), currentIndex: Int(queueModel.getCurrentIndex()))
     }
 
     /// Restores the last queue paused, so nothing plays until the user asks.
@@ -535,7 +544,7 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         let items = saved.mediaIds.compactMap { library[$0] }
         guard !items.isEmpty else { return }
         items.forEach { itemsById[$0.id] = $0 }
-        queueModel.restore(savedIds: saved.mediaIds, savedIndex: Int32(saved.currentIndex), available: Set(library.keys))
+        queueModel.replace(ids: items.map(\.id), startIndex: UInt32(max(0, min(saved.currentIndex, items.count - 1))))
         syncQueue(persist: false)
         guard queue.indices.contains(currentIndex) else { return }
         let current = queue[currentIndex]
@@ -549,18 +558,19 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
     @discardableResult
     public func addBookmarkAtCurrentPosition() -> Bookmark? {
         guard let item = state.currentItem else { return nil }
-        // Naming and the "already bookmarked here" rule are the shared module's.
-        let existing = IOSDatabase.shared.bookmarks(mediaId: item.id).map {
-            StoredBookmark(id: $0.id, mediaId: $0.mediaId, name: $0.name, positionMillis: $0.positionMillis, createdAtMillis: $0.createdAtMillis)
+        let currentPos = state.positionMillis
+        let existing = IOSDatabase.shared.bookmarks(mediaId: item.id)
+        if existing.contains(where: { abs($0.positionMillis - currentPos) < 1000 }) {
+            return nil
         }
-        guard let created = Bookmarks.shared.create(
-            mediaId: item.id,
-            positionMillis: state.positionMillis,
-            existing: existing,
+        let count = existing.count + 1
+        let bookmark = Bookmark(
             id: UUID().uuidString,
+            mediaId: item.id,
+            name: "Bookmark \(count)",
+            positionMillis: currentPos,
             createdAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
-        ) else { return nil }
-        let bookmark = Bookmark(id: created.id, mediaId: created.mediaId, name: created.name, positionMillis: created.positionMillis, createdAtMillis: created.createdAtMillis)
+        )
         IOSDatabase.shared.addBookmark(bookmark)
         return bookmark
     }
@@ -693,7 +703,7 @@ extension AVPlayerPlaybackEngine {
             updateNowPlaying()
             return
         }
-        if queueModel.repeat == .one {
+        if queueModel.getRepeatMode() == .one {
             seek(toMillis: 0)
             resume()
         } else {

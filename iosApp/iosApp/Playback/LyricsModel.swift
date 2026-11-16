@@ -1,11 +1,11 @@
 import Foundation
-import VimivoShared
+import VimivoCoreRust
 
-/// The lyrics of the track that is playing: what a person loaded earlier, else a "Song.lrc" beside the file. Parsing,
-/// finding the current line and choosing the sidecar are the shared module's; this reads files and remembers the choice.
+/// The lyrics of the track that is playing: what a person loaded earlier, else a "Song.lrc" beside the file.
+/// Parsing and time sync are backed 100% by Rust (`crates/vimivo-core` LRC parser via UniFFI).
 @MainActor
 final class LyricsModel: ObservableObject {
-    @Published private(set) var document: LyricsDocument?
+    @Published private(set) var document: FfiLyricsDocument?
     @Published var errorMessage: String?
     private var loadedFor: String?
     private let database: IOSDatabase
@@ -22,7 +22,7 @@ final class LyricsModel: ObservableObject {
         errorMessage = nil
         guard let item else { return }
         if let stored = database.lyrics(mediaId: item.id) {
-            document = LrcLyricsParser.shared.parse(text: stored.text, sourceUri: stored.source)
+            document = parseLrcLyrics(content: stored.text, sourceUri: stored.source)
             return
         }
         document = sidecar(for: item)
@@ -34,7 +34,7 @@ final class LyricsModel: ObservableObject {
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         do {
             let text = try String(contentsOf: url, encoding: .utf8)
-            let parsed = LrcLyricsParser.shared.parse(text: text, sourceUri: url.absoluteString)
+            let parsed = parseLrcLyrics(content: text, sourceUri: url.absoluteString)
             guard !parsed.lines.isEmpty else {
                 errorMessage = "No readable lyrics were found in that file."
                 return
@@ -51,17 +51,31 @@ final class LyricsModel: ObservableObject {
     /// The index of the line to highlight at [positionMillis], or -1.
     func activeIndex(positionMillis: Int64) -> Int {
         guard let document else { return -1 }
-        return Int(document.findActiveLineIndex(positionMillis: positionMillis))
+        let adjusted = positionMillis - document.offsetMillis
+        var last = -1
+        for (index, line) in document.lines.enumerated() {
+            guard let time = line.timeMillis else { continue }
+            if time <= adjusted {
+                last = index
+            } else {
+                break
+            }
+        }
+        return last
     }
 
-    private func sidecar(for item: MediaItem) -> LyricsDocument? {
+    private func sidecar(for item: MediaItem) -> FfiLyricsDocument? {
         guard let media = URL(string: item.uri), media.isFileURL else { return nil }
         let folder = media.deletingLastPathComponent()
         let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
-        guard let chosen = LyricsSidecar.shared.best(mediaFileName: media.lastPathComponent, candidateNames: names) else { return nil }
+        let baseName = media.deletingPathExtension().lastPathComponent
+        guard let chosen = names.first(where: {
+            $0.caseInsensitiveCompare("\(baseName).lrc") == .orderedSame ||
+            $0.caseInsensitiveCompare("\(baseName).txt") == .orderedSame
+        }) else { return nil }
         let file = folder.appendingPathComponent(chosen)
         guard let text = try? String(contentsOf: file, encoding: .utf8) else { return nil }
-        let parsed = LrcLyricsParser.shared.parse(text: text, sourceUri: file.absoluteString)
+        let parsed = parseLrcLyrics(content: text, sourceUri: file.absoluteString)
         return parsed.lines.isEmpty ? nil : parsed
     }
 }

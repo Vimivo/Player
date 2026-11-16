@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 import UIKit
-import VimivoShared
+import VimivoCoreRust
 
 /// Frame stepping, A–B repeat and snapshots (V1 #5, #6, #16) for the AVPlayer-based engine.
 extension AVPlayerPlaybackEngine {
@@ -58,11 +58,11 @@ extension AVPlayerPlaybackEngine {
     public func saveSnapshot() async throws -> URL {
         let image = try await captureFrame()
         let title = state.currentItem?.title
-        let name = SnapshotNaming.shared.fileName(
+        let name = generateSnapshotFileName(
             title: title,
             positionMillis: state.positionMillis,
             timestampMillis: Int64(Date().timeIntervalSince1970 * 1000),
-            format: .png
+            isJpeg: false
         )
         let folder = try FileManager.default
             .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)

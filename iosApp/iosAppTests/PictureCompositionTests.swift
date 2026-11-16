@@ -1,7 +1,7 @@
 import AVFoundation
 import CoreImage
 import UIKit
-import VimivoShared
+import VimivoCoreRust
 import XCTest
 @testable import iosApp
 

@@ -8,7 +8,13 @@ pub struct VimivoDatabase {
     conn: Connection,
 }
 
-pub const CURRENT_SCHEMA_VERSION: i32 = 6;
+pub const CURRENT_SCHEMA_VERSION: i32 = 7;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredResumeState {
+    pub position_millis: i64,
+    pub completed: bool,
+}
 
 impl VimivoDatabase {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
@@ -70,6 +76,7 @@ impl VimivoDatabase {
                     folder_path TEXT,
                     source TEXT NOT NULL,
                     volume_name TEXT,
+                    bookmark_data BLOB,
                     is_available INTEGER NOT NULL DEFAULT 1
                 );
                 CREATE TABLE IF NOT EXISTS playlists (
@@ -192,6 +199,23 @@ impl VimivoDatabase {
             tx.commit()?;
         }
 
+        if from < 7 {
+            let tx = self.conn.transaction()?;
+            let has_col: bool = tx
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('media_items') WHERE name = 'bookmark_data'",
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )
+                .map(|count| count > 0)
+                .unwrap_or(false);
+            if !has_col {
+                tx.execute_batch("ALTER TABLE media_items ADD COLUMN bookmark_data BLOB;")?;
+            }
+            tx.execute("PRAGMA user_version = 7", [])?;
+            tx.commit()?;
+        }
+
         Ok(())
     }
 
@@ -220,10 +244,10 @@ impl VimivoDatabase {
                 album_artist, genre, size_bytes, mime_type, file_name,
                 date_added_epoch_seconds, date_modified_epoch_seconds,
                 width, height, frame_rate, bitrate, track_number, disc_number,
-                release_year, folder_name, folder_path, source, volume_name, is_available
+                release_year, folder_name, folder_path, source, volume_name, bookmark_data, is_available
             ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
-                ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27
+                ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28
             )
             ON CONFLICT(id) DO UPDATE SET
                 uri = excluded.uri,
@@ -244,6 +268,7 @@ impl VimivoDatabase {
                 bitrate = excluded.bitrate,
                 release_year = excluded.release_year,
                 folder_path = excluded.folder_path,
+                bookmark_data = COALESCE(excluded.bookmark_data, media_items.bookmark_data),
                 is_available = excluded.is_available
             "#,
             params![
@@ -273,6 +298,7 @@ impl VimivoDatabase {
                 item.folder_path,
                 source_str,
                 item.volume_name,
+                item.bookmark_data.as_deref(),
                 if item.is_available { 1 } else { 0 },
             ],
         )?;
@@ -417,6 +443,7 @@ impl VimivoDatabase {
             volume_name: row.get("volume_name")?,
             is_favorite: false,
             is_available: is_available_int != 0,
+            bookmark_data: row.get("bookmark_data").ok().flatten(),
             last_playback_position_millis: 0,
             last_played_at_epoch_millis: None,
         })
@@ -504,6 +531,16 @@ impl VimivoDatabase {
                 "SELECT text FROM lyrics WHERE media_id = ?1",
                 params![media_id],
                 |r| r.get(0),
+            )
+            .optional()
+    }
+
+    pub fn get_lyrics_record(&self, media_id: &str) -> Result<Option<(String, String)>> {
+        self.conn
+            .query_row(
+                "SELECT source, text FROM lyrics WHERE media_id = ?1",
+                params![media_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .optional()
     }
@@ -627,6 +664,23 @@ impl VimivoDatabase {
             )?;
         }
         Ok(())
+    }
+
+    pub fn get_resume_state(&self, media_id: &str) -> Result<Option<StoredResumeState>> {
+        self.conn
+            .query_row(
+                "SELECT position_millis, completed FROM playback_history WHERE media_id = ?1",
+                params![media_id],
+                |r| {
+                    let position_millis: i64 = r.get(0)?;
+                    let completed_int: i32 = r.get(1)?;
+                    Ok(StoredResumeState {
+                        position_millis,
+                        completed: completed_int != 0,
+                    })
+                },
+            )
+            .optional()
     }
 
     pub fn get_history(&self) -> Result<Vec<StoredHistory>> {

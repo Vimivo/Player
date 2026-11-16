@@ -1,10 +1,65 @@
 import AVFoundation
 import CoreImage
 import UIKit
-import VimivoShared
+import VimivoCoreRust
 
-/// Colour and crop choices for the picture (V1 #12, #14). The numbers use the same -100…100 scale as the other
-/// platforms; `crop` is the rectangle of the decoded picture to keep, and `cropPreset` is the choice that produced it.
+public struct CropRect: Equatable {
+    public let x: Int
+    public let y: Int
+    public let width: Int
+    public let height: Int
+
+    public init(x: Int, y: Int, width: Int, height: Int) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    }
+
+    init(ffi: FfiCropRect) {
+        self.x = Int(ffi.x)
+        self.y = Int(ffi.y)
+        self.width = Int(ffi.width)
+        self.height = Int(ffi.height)
+    }
+
+    var ffi: FfiCropRect {
+        FfiCropRect(x: Int32(x), y: Int32(y), width: Int32(width), height: Int32(height))
+    }
+}
+
+public enum CropPreset: String, CaseIterable, Identifiable {
+    case none, auto, ratio16x9, ratio21x9, ratio4x3, ratio1x1
+
+    public var id: String { rawValue }
+    public var name: String { rawValue }
+    public static var ratio11: CropPreset { .ratio1x1 }
+    public static var auto_: CropPreset { .auto }
+    public static var entries: [CropPreset] { allCases }
+
+    public var label: String {
+        switch self {
+        case .none: return "Off"
+        case .auto: return "Auto (crop black bars)"
+        case .ratio16x9: return "16:9"
+        case .ratio21x9: return "21:9"
+        case .ratio4x3: return "4:3"
+        case .ratio1x1: return "1:1"
+        }
+    }
+
+    public var ratio: Double? {
+        switch self {
+        case .none, .auto: return nil
+        case .ratio16x9: return 16.0 / 9.0
+        case .ratio21x9: return 21.0 / 9.0
+        case .ratio4x3: return 4.0 / 3.0
+        case .ratio1x1: return 1.0
+        }
+    }
+}
+
+/// Colour and crop choices for the picture.
 public struct PictureSettings: Equatable {
     public var brightness = 0
     public var contrast = 0
@@ -21,14 +76,12 @@ public struct PictureSettings: Equatable {
     }
 }
 
-/// Applies `PictureSettings` to every frame with Core Image through an `AVVideoComposition`, which AVPlayer, the
-/// snapshot generator and Picture in Picture all honour.
+/// Applies `PictureSettings` to every frame with Core Image through an `AVVideoComposition`.
 enum PictureComposition {
-    /// One frame: crop and scale to fill the frame, then colour. Pure, so it is tested without a player.
+    /// One frame: crop and scale to fill the frame, then colour.
     static func apply(_ settings: PictureSettings, to image: CIImage, renderSize: CGSize) -> CIImage {
         var output = image
         if let crop = settings.crop {
-            // CropRect counts from the top-left of the picture; Core Image counts from the bottom-left.
             let rect = CGRect(
                 x: CGFloat(crop.x), y: image.extent.height - CGFloat(crop.y + crop.height),
                 width: CGFloat(crop.width), height: CGFloat(crop.height)
@@ -53,7 +106,6 @@ enum PictureComposition {
             output = output.applyingFilter("CIHueAdjust", parameters: [kCIInputAngleKey: Double(settings.hue) / 100 * Double.pi])
         }
         if settings.gamma != 0 {
-            // Positive values lighten the middle tones, as on the other platforms.
             output = output.applyingFilter("CIGammaAdjust", parameters: ["inputPower": pow(2.0, -Double(settings.gamma) / 50)])
         }
         return output.cropped(to: CGRect(origin: .zero, size: renderSize))
@@ -83,18 +135,17 @@ extension AVPlayerPlaybackEngine {
         var settings = pictureSettings
         settings.cropPreset = preset
         settings.crop = nil
-        if preset == CropPreset.auto_ {
+        if preset == .auto {
             settings.crop = await detectBlackBars()
-        } else if let ratio = preset.ratio?.doubleValue, let size = player.currentItem?.presentationSize, size.width > 0 {
-            settings.crop = VideoCropMath.shared.centered(
+        } else if let ratio = preset.ratio, let size = player.currentItem?.presentationSize, size.width > 0 {
+            settings.crop = calculateCropCentered(
                 sourceWidth: Int32(size.width), sourceHeight: Int32(size.height), ratio: ratio
-            )
+            ).map(CropRect.init(ffi:))
         }
         await applyPicture(settings)
     }
 
-    /// Samples four frames (as the desktop does), finds the bars of each with the shared detector and crops to the
-    /// union, or returns nil when there are no bars worth removing.
+    /// Samples four frames, finds the black bars using Rust's BlackBarDetector and crops to the union.
     func detectBlackBars() async -> CropRect? {
         guard let item = player.currentItem, let seconds = Optional(CMTimeGetSeconds(item.duration)), seconds > 0 else { return nil }
         let generator = AVAssetImageGenerator(asset: item.asset)
@@ -106,10 +157,10 @@ extension AVPlayerPlaybackEngine {
             picture = CGSize(width: image.width, height: image.height)
             if let found = Self.contentBounds(of: image) { bounds.append(found) }
         }
-        guard picture.width > 0, let union = BlackBarDetector.shared.union(bounds: bounds) else { return nil }
-        return VideoCropMath.shared.fromContent(
+        guard picture.width > 0, let union = unionCropBounds(bounds: bounds.map(\.ffi)) else { return nil }
+        return calculateCropFromContent(
             sourceWidth: Int32(picture.width), sourceHeight: Int32(picture.height), content: union
-        )
+        ).map(CropRect.init(ffi:))
     }
 
     private static func contentBounds(of image: CGImage) -> CropRect? {
@@ -123,8 +174,6 @@ extension AVPlayerPlaybackEngine {
             return true
         }
         guard drawn else { return nil }
-        let bytes = KotlinByteArray(size: Int32(luma.count))
-        for (index, value) in luma.enumerated() { bytes.set(index: Int32(index), value: Int8(bitPattern: value)) }
-        return BlackBarDetector.shared.contentBounds(width: Int32(image.width), height: Int32(image.height), luma: bytes)
+        return detectBlackBarBounds(width: Int32(image.width), height: Int32(image.height), luma: Data(luma)).map(CropRect.init(ffi:))
     }
 }

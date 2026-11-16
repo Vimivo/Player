@@ -1,6 +1,6 @@
 import SwiftUI
 import AVKit
-import VimivoShared
+import VimivoCoreRust
 
 /// Full-screen custom video player with MX-style gestures, matching the Android player.
 public struct VideoPlayerView: View {

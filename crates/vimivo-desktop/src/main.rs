@@ -120,6 +120,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             volume_name: None,
                             is_favorite: false,
                             is_available: true,
+                            bookmark_data: None,
                             last_playback_position_millis: 0,
                             last_played_at_epoch_millis: None,
                         });
@@ -153,6 +154,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             volume_name: None,
                             is_favorite: false,
                             is_available: true,
+                            bookmark_data: None,
                             last_playback_position_millis: 0,
                             last_played_at_epoch_millis: None,
                         });

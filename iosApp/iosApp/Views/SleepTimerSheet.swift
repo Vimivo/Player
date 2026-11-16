@@ -1,5 +1,5 @@
 import SwiftUI
-import VimivoShared
+import VimivoCoreRust
 
 /// Choose when playback fades out and stops: a quick choice, a custom time, or after the current track.
 struct SleepTimerSheet: View {
@@ -25,7 +25,7 @@ struct SleepTimerContent: View {
     @State private var showInvalid = false
 
     private var customMinutes: Int? {
-        SleepTimerOptions.shared.customMinutes(hours: "\(hours)", minutes: "\(minutes)").map { $0.intValue }
+        parseCustomSleepTimerMinutes(hours: "\(hours)", minutes: "\(minutes)").map(Int.init)
     }
 
     var body: some View {
@@ -38,7 +38,7 @@ struct SleepTimerContent: View {
             }
             Section("Stop after") {
                 ForEach(SleepTimerModel.minuteChoices, id: \.self) { choice in
-                    Button(SleepTimerOptions.shared.label(minutes: Int32(choice))) { timer.start(minutes: choice); onDone() }
+                    Button(formatSleepTimerLabel(minutes: Int32(choice))) { timer.start(minutes: choice); onDone() }
                 }
                 Button("The current track") { timer.stopAfterCurrentTrack(); onDone() }
             }
@@ -54,7 +54,7 @@ struct SleepTimerContent: View {
                     .pickerStyle(.wheel)
                 }
                 .frame(height: 120)
-                Button("Start \(customMinutes.map { SleepTimerOptions.shared.label(minutes: Int32($0)) } ?? "timer")") {
+                Button("Start \(customMinutes.map { formatSleepTimerLabel(minutes: Int32($0)) } ?? "timer")") {
                     if let minutes = customMinutes { timer.start(minutes: minutes); onDone() } else { showInvalid = true }
                 }
                 if showInvalid && customMinutes == nil {

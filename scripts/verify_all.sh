@@ -15,8 +15,12 @@ CI_ONLY=()
 echo "================================================================="
 echo "  Vimivo — Unified Quality & Build Verification (host: ${HOST_OS} $(uname -m))"
 echo "================================================================="
-echo "Target modules: :shared, :desktopApp, :androidApp, iosApp"
+echo "Target modules: Rust (:vimivo-core, :vimivo-ffi, :vimivo-desktop), :shared, :desktopApp, :androidApp, iosApp"
 echo ""
+
+echo "==> Step 0: Testing Rust Core & Desktop (cargo test & build)..."
+cargo test --workspace --quiet
+cargo build -p vimivo-desktop --release --quiet
 
 echo "==> Step 1: Running static analysis (Detekt)..."
 ./gradlew detekt --quiet

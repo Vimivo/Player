@@ -1,6 +1,6 @@
 import SwiftUI
 import AVKit
-import VimivoShared
+import VimivoCoreRust
 import UniformTypeIdentifiers
 
 /// Focused bottom sheets for the video player: speed, audio, subtitles, and general options.
@@ -88,20 +88,21 @@ struct PlayerSheetView: View {
         return "Set A at \(MediaFormatting.clock(millis: engine.state.positionMillis))"
     }
 
-    /// A, then B, then clear: the same steps as on the other platforms (the shared `PlaybackControlPolicy`).
+    /// A, then B, then clear: the same steps as on the other platforms.
     private func advanceABRepeat() {
-        let current = ABRepeatRange(
-            pointA: (engine.abRepeat?.lowerBound ?? pendingA).map { KotlinLong(longLong: $0) },
-            pointB: engine.abRepeat.map { KotlinLong(longLong: $0.upperBound) },
-            enabled: engine.abRepeat != nil
-        )
-        let next = PlaybackControlPolicy.shared.nextABRepeat(current: current, positionMillis: engine.state.positionMillis)
-        if next.enabled, let a = next.pointA?.int64Value, let b = next.pointB?.int64Value {
-            engine.setABRepeat(a...b)
-            pendingA = nil
-        } else {
+        let currentPos = engine.state.positionMillis
+        if engine.abRepeat != nil {
             engine.setABRepeat(nil)
-            pendingA = next.pointA?.int64Value
+            pendingA = nil
+        } else if let a = pendingA {
+            if currentPos > a {
+                engine.setABRepeat(a...currentPos)
+                pendingA = nil
+            } else {
+                pendingA = currentPos
+            }
+        } else {
+            pendingA = currentPos
         }
     }
 

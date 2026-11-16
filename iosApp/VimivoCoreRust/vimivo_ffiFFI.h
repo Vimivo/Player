@@ -408,6 +408,11 @@ RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_item(void*_Nonnull ptr, R
 RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_lyrics(void*_Nonnull ptr, RustBuffer media_id, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_LYRICS_RECORD
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_LYRICS_RECORD
+RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_lyrics_record(void*_Nonnull ptr, RustBuffer media_id, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_PLAYBACK_POSITION
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_PLAYBACK_POSITION
 RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_playback_position(void*_Nonnull ptr, RustBuffer media_id, RustCallStatus *_Nonnull out_status
@@ -416,6 +421,11 @@ RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_playback_position(void*_N
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_PLAYLISTS
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_PLAYLISTS
 RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_playlists(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_RESUME_STATE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_RESUME_STATE
+RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_resume_state(void*_Nonnull ptr, RustBuffer media_id, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_IS_FAVORITE
@@ -530,6 +540,16 @@ void*_Nonnull uniffi_vimivo_ffi_fn_constructor_ffiplayqueue_new(RustCallStatus *
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_APPEND
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_APPEND
+void uniffi_vimivo_ffi_fn_method_ffiplayqueue_append(void*_Nonnull ptr, RustBuffer id, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_CYCLE_REPEAT
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_CYCLE_REPEAT
+RustBuffer uniffi_vimivo_ffi_fn_method_ffiplayqueue_cycle_repeat(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_GET_CURRENT_ID
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_GET_CURRENT_ID
 RustBuffer uniffi_vimivo_ffi_fn_method_ffiplayqueue_get_current_id(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
@@ -545,6 +565,36 @@ uint32_t uniffi_vimivo_ffi_fn_method_ffiplayqueue_get_current_index(void*_Nonnul
 RustBuffer uniffi_vimivo_ffi_fn_method_ffiplayqueue_get_ids(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_GET_REPEAT_MODE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_GET_REPEAT_MODE
+RustBuffer uniffi_vimivo_ffi_fn_method_ffiplayqueue_get_repeat_mode(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_INSERT_NEXT
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_INSERT_NEXT
+void uniffi_vimivo_ffi_fn_method_ffiplayqueue_insert_next(void*_Nonnull ptr, RustBuffer id, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_IS_SHUFFLED
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_IS_SHUFFLED
+int8_t uniffi_vimivo_ffi_fn_method_ffiplayqueue_is_shuffled(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_JUMP_TO
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_JUMP_TO
+int8_t uniffi_vimivo_ffi_fn_method_ffiplayqueue_jump_to(void*_Nonnull ptr, uint32_t index, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_JUMP_TO_ID
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_JUMP_TO_ID
+int8_t uniffi_vimivo_ffi_fn_method_ffiplayqueue_jump_to_id(void*_Nonnull ptr, RustBuffer id, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_MOVE_ITEM
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_MOVE_ITEM
+void uniffi_vimivo_ffi_fn_method_ffiplayqueue_move_item(void*_Nonnull ptr, uint32_t from, uint32_t to, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_NEXT
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_NEXT
 RustBuffer uniffi_vimivo_ffi_fn_method_ffiplayqueue_next(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
@@ -553,6 +603,11 @@ RustBuffer uniffi_vimivo_ffi_fn_method_ffiplayqueue_next(void*_Nonnull ptr, Rust
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_PREVIOUS
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_PREVIOUS
 RustBuffer uniffi_vimivo_ffi_fn_method_ffiplayqueue_previous(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_REMOVE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_REMOVE
+int8_t uniffi_vimivo_ffi_fn_method_ffiplayqueue_remove(void*_Nonnull ptr, uint32_t index, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_REPLACE
@@ -568,6 +623,16 @@ void uniffi_vimivo_ffi_fn_method_ffiplayqueue_set_repeat_mode(void*_Nonnull ptr,
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_SET_SHUFFLED
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_SET_SHUFFLED
 void uniffi_vimivo_ffi_fn_method_ffiplayqueue_set_shuffled(void*_Nonnull ptr, int8_t shuffled, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_SIZE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_SIZE
+uint32_t uniffi_vimivo_ffi_fn_method_ffiplayqueue_size(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_TOGGLE_SHUFFLE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIPLAYQUEUE_TOGGLE_SHUFFLE
+int8_t uniffi_vimivo_ffi_fn_method_ffiplayqueue_toggle_shuffle(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_CLONE_FFISOFTLIMITER
@@ -731,6 +796,16 @@ RustBuffer uniffi_vimivo_ffi_fn_func_build_network_stream_uri(RustBuffer config,
 float uniffi_vimivo_ffi_fn_func_calculate_brightness_swipe(float current, float delta_y, float screen_height, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_CROP_CENTERED
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_CROP_CENTERED
+RustBuffer uniffi_vimivo_ffi_fn_func_calculate_crop_centered(int32_t source_width, int32_t source_height, double ratio, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_CROP_FROM_CONTENT
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_CROP_FROM_CONTENT
+RustBuffer uniffi_vimivo_ffi_fn_func_calculate_crop_from_content(int32_t source_width, int32_t source_height, RustBuffer content, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_DOUBLE_TAP_SEEK
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_DOUBLE_TAP_SEEK
 int64_t uniffi_vimivo_ffi_fn_func_calculate_double_tap_seek(int64_t current_position_ms, int64_t total_duration_ms, int8_t is_right_side, RustCallStatus *_Nonnull out_status
@@ -749,6 +824,11 @@ RustBuffer uniffi_vimivo_ffi_fn_func_calculate_pinch_zoom(float base_scale, floa
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_REPLAY_GAIN_LINEAR
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_REPLAY_GAIN_LINEAR
 float uniffi_vimivo_ffi_fn_func_calculate_replay_gain_linear(RustBuffer gain_db, RustBuffer peak, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_REPLAY_GAIN_MODE_LINEAR
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_REPLAY_GAIN_MODE_LINEAR
+float uniffi_vimivo_ffi_fn_func_calculate_replay_gain_mode_linear(RustBuffer mode, RustBuffer track_gain_db, RustBuffer album_gain_db, RustBuffer track_peak, RustBuffer album_peak, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_RESUME_START_POSITION
@@ -804,6 +884,11 @@ RustBuffer uniffi_vimivo_ffi_fn_func_cycle_decoder_mode(RustBuffer current, Rust
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_DECODE_SUBTITLE_BYTES
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_DECODE_SUBTITLE_BYTES
 RustBuffer uniffi_vimivo_ffi_fn_func_decode_subtitle_bytes(RustBuffer bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_DETECT_BLACK_BAR_BOUNDS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_DETECT_BLACK_BAR_BOUNDS
+RustBuffer uniffi_vimivo_ffi_fn_func_detect_black_bar_bounds(int32_t width, int32_t height, RustBuffer luma, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_DETECT_MEDIA_MIME_TYPE
@@ -936,6 +1021,16 @@ RustBuffer uniffi_vimivo_ffi_fn_func_parse_lrc_lyrics(RustBuffer content, RustBu
 RustBuffer uniffi_vimivo_ffi_fn_func_parse_playlist_file(RustBuffer file_name, RustBuffer content, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_REPLAY_GAIN_DB
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_REPLAY_GAIN_DB
+RustBuffer uniffi_vimivo_ffi_fn_func_parse_replay_gain_db(RustBuffer text, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_REPLAY_GAIN_PEAK
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_REPLAY_GAIN_PEAK
+RustBuffer uniffi_vimivo_ffi_fn_func_parse_replay_gain_peak(RustBuffer text, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_SUBTITLE_CONTENT
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_SUBTITLE_CONTENT
 RustBuffer uniffi_vimivo_ffi_fn_func_parse_subtitle_content(RustBuffer content, RustCallStatus *_Nonnull out_status
@@ -954,6 +1049,11 @@ RustBuffer uniffi_vimivo_ffi_fn_func_resolve_equalizer_gains(RustBuffer preset, 
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_SANITIZE_TRANSFER_FILENAME
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_SANITIZE_TRANSFER_FILENAME
 RustBuffer uniffi_vimivo_ffi_fn_func_sanitize_transfer_filename(RustBuffer filename, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_UNION_CROP_BOUNDS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_UNION_CROP_BOUNDS
+RustBuffer uniffi_vimivo_ffi_fn_func_union_crop_bounds(RustBuffer bounds, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_VALIDATE_STREAM_URL
@@ -1253,6 +1353,18 @@ uint16_t uniffi_vimivo_ffi_checksum_func_calculate_brightness_swipe(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_CROP_CENTERED
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_CROP_CENTERED
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_crop_centered(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_CROP_FROM_CONTENT
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_CROP_FROM_CONTENT
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_crop_from_content(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_DOUBLE_TAP_SEEK
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_DOUBLE_TAP_SEEK
 uint16_t uniffi_vimivo_ffi_checksum_func_calculate_double_tap_seek(void
@@ -1274,6 +1386,12 @@ uint16_t uniffi_vimivo_ffi_checksum_func_calculate_pinch_zoom(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_REPLAY_GAIN_LINEAR
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_REPLAY_GAIN_LINEAR
 uint16_t uniffi_vimivo_ffi_checksum_func_calculate_replay_gain_linear(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_REPLAY_GAIN_MODE_LINEAR
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_REPLAY_GAIN_MODE_LINEAR
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_replay_gain_mode_linear(void
     
 );
 #endif
@@ -1340,6 +1458,12 @@ uint16_t uniffi_vimivo_ffi_checksum_func_cycle_decoder_mode(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_DECODE_SUBTITLE_BYTES
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_DECODE_SUBTITLE_BYTES
 uint16_t uniffi_vimivo_ffi_checksum_func_decode_subtitle_bytes(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_DETECT_BLACK_BAR_BOUNDS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_DETECT_BLACK_BAR_BOUNDS
+uint16_t uniffi_vimivo_ffi_checksum_func_detect_black_bar_bounds(void
     
 );
 #endif
@@ -1499,6 +1623,18 @@ uint16_t uniffi_vimivo_ffi_checksum_func_parse_playlist_file(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_REPLAY_GAIN_DB
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_REPLAY_GAIN_DB
+uint16_t uniffi_vimivo_ffi_checksum_func_parse_replay_gain_db(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_REPLAY_GAIN_PEAK
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_REPLAY_GAIN_PEAK
+uint16_t uniffi_vimivo_ffi_checksum_func_parse_replay_gain_peak(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_SUBTITLE_CONTENT
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_SUBTITLE_CONTENT
 uint16_t uniffi_vimivo_ffi_checksum_func_parse_subtitle_content(void
@@ -1520,6 +1656,12 @@ uint16_t uniffi_vimivo_ffi_checksum_func_resolve_equalizer_gains(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_SANITIZE_TRANSFER_FILENAME
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_SANITIZE_TRANSFER_FILENAME
 uint16_t uniffi_vimivo_ffi_checksum_func_sanitize_transfer_filename(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_UNION_CROP_BOUNDS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_UNION_CROP_BOUNDS
+uint16_t uniffi_vimivo_ffi_checksum_func_union_crop_bounds(void
     
 );
 #endif
@@ -1655,6 +1797,12 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_lyrics(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_LYRICS_RECORD
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_LYRICS_RECORD
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_lyrics_record(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_PLAYBACK_POSITION
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_PLAYBACK_POSITION
 uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_playback_position(void
@@ -1664,6 +1812,12 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_playback_position(voi
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_PLAYLISTS
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_PLAYLISTS
 uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_playlists(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_RESUME_STATE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_RESUME_STATE
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_resume_state(void
     
 );
 #endif
@@ -1763,6 +1917,18 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffidualsubtitlecoordinator_set_second
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_APPEND
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_APPEND
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_append(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_CYCLE_REPEAT
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_CYCLE_REPEAT
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_cycle_repeat(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_GET_CURRENT_ID
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_GET_CURRENT_ID
 uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_get_current_id(void
@@ -1781,6 +1947,42 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_get_ids(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_GET_REPEAT_MODE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_GET_REPEAT_MODE
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_get_repeat_mode(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_INSERT_NEXT
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_INSERT_NEXT
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_insert_next(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_IS_SHUFFLED
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_IS_SHUFFLED
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_is_shuffled(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_JUMP_TO
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_JUMP_TO
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_jump_to(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_JUMP_TO_ID
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_JUMP_TO_ID
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_jump_to_id(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_MOVE_ITEM
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_MOVE_ITEM
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_move_item(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_NEXT
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_NEXT
 uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_next(void
@@ -1790,6 +1992,12 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_next(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_PREVIOUS
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_PREVIOUS
 uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_previous(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_REMOVE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_REMOVE
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_remove(void
     
 );
 #endif
@@ -1808,6 +2016,18 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_set_repeat_mode(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_SET_SHUFFLED
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_SET_SHUFFLED
 uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_set_shuffled(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_SIZE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_SIZE
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_size(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_TOGGLE_SHUFFLE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIPLAYQUEUE_TOGGLE_SHUFFLE
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiplayqueue_toggle_shuffle(void
     
 );
 #endif

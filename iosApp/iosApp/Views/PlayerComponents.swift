@@ -1,7 +1,7 @@
 import LocalAuthentication
 import SwiftUI
 import UniformTypeIdentifiers
-import VimivoShared
+import VimivoCoreRust
 import AVKit
 import Network
 import CoreImage.CIFilterBuiltins
