@@ -28,7 +28,7 @@ smbj = "0.15.0"
 bouncycastle = "1.87"
 sshj = "0.41.2"
 jaudiotagger = "3.0.1"
-haze = "1.7.1"
+haze = "2.0.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
