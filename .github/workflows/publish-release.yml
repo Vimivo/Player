@@ -93,7 +93,4 @@ jobs:
           body_path: docs/RELEASE_NOTES.md
           files: |
             dist/*
-            docs/SHA256SUMS.txt
-            docs/release-manifest.json
-            docs/sbom.json
             docs/THIRD_PARTY_NOTICES.md
