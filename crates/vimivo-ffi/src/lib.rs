@@ -30,6 +30,10 @@ use vimivo_core::network_share::{
 use vimivo_core::vault::{VaultConfig, VaultManager};
 use vimivo_core::video::IntroSkip;
 use vimivo_core::wifi_transfer::{SharedFileInfo, WifiTransferEngine};
+use vimivo_core::engine::{
+    MpvCommandMapper as CoreMpvCommandMapper,
+};
+use vimivo_core::model::{VideoAspectRatio as CoreVideoAspectRatio};
 
 uniffi::setup_scaffolding!();
 
@@ -1406,3 +1410,83 @@ pub fn format_diagnostics_dropped_frames(diag: FfiMediaDiagnostics) -> String {
     };
     core.dropped_frames_summary()
 }
+
+// ---------------------------------------------------------------------------
+// Playback Engine & Command Mapper
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Enum)]
+pub enum FfiPlaybackStatus {
+    Idle,
+    Preparing,
+    Playing,
+    Paused,
+    Completed,
+    Error { message: String },
+}
+
+#[derive(uniffi::Enum)]
+pub enum FfiVideoAspectRatio {
+    Original,
+    Fit,
+    Fill,
+    Ratio16x9,
+    Ratio4x3,
+    Ratio21x9,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiMpvProperty {
+    pub name: String,
+    pub value: String,
+}
+
+#[uniffi::export]
+pub fn mpv_load_file_command(uri: String, start_position_millis: i64) -> Vec<String> {
+    CoreMpvCommandMapper::load_file(&uri, start_position_millis)
+}
+
+#[uniffi::export]
+pub fn mpv_aspect_ratio_property(ratio: FfiVideoAspectRatio) -> FfiMpvProperty {
+    let core_ratio = match ratio {
+        FfiVideoAspectRatio::Original => CoreVideoAspectRatio::Original,
+        FfiVideoAspectRatio::Fit => CoreVideoAspectRatio::Fit,
+        FfiVideoAspectRatio::Fill => CoreVideoAspectRatio::Fill,
+        FfiVideoAspectRatio::Ratio16x9 => CoreVideoAspectRatio::Ratio16_9,
+        FfiVideoAspectRatio::Ratio4x3 => CoreVideoAspectRatio::Ratio4_3,
+        FfiVideoAspectRatio::Ratio21x9 => CoreVideoAspectRatio::Ratio21_9,
+    };
+    let (name, val) = CoreMpvCommandMapper::aspect_ratio_property(core_ratio);
+    FfiMpvProperty {
+        name: name.to_string(),
+        value: val.to_string(),
+    }
+}
+
+#[uniffi::export]
+pub fn mpv_volume_property(volume: f32) -> FfiMpvProperty {
+    let (name, val) = CoreMpvCommandMapper::volume_property(volume);
+    FfiMpvProperty {
+        name: name.to_string(),
+        value: val,
+    }
+}
+
+#[uniffi::export]
+pub fn mpv_speed_property(speed: f32) -> FfiMpvProperty {
+    let (name, val) = CoreMpvCommandMapper::speed_property(speed);
+    FfiMpvProperty {
+        name: name.to_string(),
+        value: val,
+    }
+}
+
+#[uniffi::export]
+pub fn mpv_delay_property(delay_ms: i64, is_subtitle: bool) -> FfiMpvProperty {
+    let (name, val) = CoreMpvCommandMapper::delay_property(delay_ms, is_subtitle);
+    FfiMpvProperty {
+        name: name.to_string(),
+        value: val,
+    }
+}
+

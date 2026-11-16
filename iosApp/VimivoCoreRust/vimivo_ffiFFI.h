@@ -251,6 +251,52 @@ typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureStr
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_CLONE_FFIABLOOP
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_CLONE_FFIABLOOP
+void*_Nonnull uniffi_vimivo_ffi_fn_clone_ffiabloop(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FREE_FFIABLOOP
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FREE_FFIABLOOP
+void uniffi_vimivo_ffi_fn_free_ffiabloop(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_CONSTRUCTOR_FFIABLOOP_NEW
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_CONSTRUCTOR_FFIABLOOP_NEW
+void*_Nonnull uniffi_vimivo_ffi_fn_constructor_ffiabloop_new(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_BUTTON_LABEL
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_BUTTON_LABEL
+RustBuffer uniffi_vimivo_ffi_fn_method_ffiabloop_button_label(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_CHECK_LOOP
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_CHECK_LOOP
+RustBuffer uniffi_vimivo_ffi_fn_method_ffiabloop_check_loop(void*_Nonnull ptr, int64_t current_pos_ms, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_CLEAR
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_CLEAR
+void uniffi_vimivo_ffi_fn_method_ffiabloop_clear(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_IS_ACTIVE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_IS_ACTIVE
+int8_t uniffi_vimivo_ffi_fn_method_ffiabloop_is_active(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_SET_RANGE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_SET_RANGE
+int8_t uniffi_vimivo_ffi_fn_method_ffiabloop_set_range(void*_Nonnull ptr, int64_t a_ms, int64_t b_ms, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_STEP
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIABLOOP_STEP
+RustBuffer uniffi_vimivo_ffi_fn_method_ffiabloop_step(void*_Nonnull ptr, int64_t current_pos_ms, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_CLONE_FFIBASSBOOST
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_CLONE_FFIBASSBOOST
 void*_Nonnull uniffi_vimivo_ffi_fn_clone_ffibassboost(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
@@ -755,6 +801,21 @@ RustBuffer uniffi_vimivo_ffi_fn_func_detect_media_mime_type(RustBuffer filename,
 RustBuffer uniffi_vimivo_ffi_fn_func_fallback_decoder_mode(RustBuffer current, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_DIAGNOSTICS_AUDIO
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_DIAGNOSTICS_AUDIO
+RustBuffer uniffi_vimivo_ffi_fn_func_format_diagnostics_audio(RustBuffer diag, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_DIAGNOSTICS_DROPPED_FRAMES
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_DIAGNOSTICS_DROPPED_FRAMES
+RustBuffer uniffi_vimivo_ffi_fn_func_format_diagnostics_dropped_frames(RustBuffer diag, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_DIAGNOSTICS_VIDEO
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_DIAGNOSTICS_VIDEO
+RustBuffer uniffi_vimivo_ffi_fn_func_format_diagnostics_video(RustBuffer diag, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_RENAME_TEMPLATE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_RENAME_TEMPLATE
 RustBuffer uniffi_vimivo_ffi_fn_func_format_rename_template(RustBuffer template, RustBuffer item, RustCallStatus *_Nonnull out_status
@@ -788,6 +849,31 @@ RustBuffer uniffi_vimivo_ffi_fn_func_get_mpv_hwdec_arg(RustBuffer mode, RustBuff
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_IS_NEW_MEDIA_ITEM
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_IS_NEW_MEDIA_ITEM
 int8_t uniffi_vimivo_ffi_fn_func_is_new_media_item(int64_t added_at_sec, RustBuffer last_played_ms, int64_t current_time_sec, uint32_t threshold_days, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_ASPECT_RATIO_PROPERTY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_ASPECT_RATIO_PROPERTY
+RustBuffer uniffi_vimivo_ffi_fn_func_mpv_aspect_ratio_property(RustBuffer ratio, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_DELAY_PROPERTY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_DELAY_PROPERTY
+RustBuffer uniffi_vimivo_ffi_fn_func_mpv_delay_property(int64_t delay_ms, int8_t is_subtitle, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_LOAD_FILE_COMMAND
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_LOAD_FILE_COMMAND
+RustBuffer uniffi_vimivo_ffi_fn_func_mpv_load_file_command(RustBuffer uri, int64_t start_position_millis, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_SPEED_PROPERTY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_SPEED_PROPERTY
+RustBuffer uniffi_vimivo_ffi_fn_func_mpv_speed_property(float speed, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_VOLUME_PROPERTY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_MPV_VOLUME_PROPERTY
+RustBuffer uniffi_vimivo_ffi_fn_func_mpv_volume_property(float volume, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_HTTP_RANGE_HEADER
@@ -1201,6 +1287,24 @@ uint16_t uniffi_vimivo_ffi_checksum_func_fallback_decoder_mode(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_DIAGNOSTICS_AUDIO
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_DIAGNOSTICS_AUDIO
+uint16_t uniffi_vimivo_ffi_checksum_func_format_diagnostics_audio(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_DIAGNOSTICS_DROPPED_FRAMES
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_DIAGNOSTICS_DROPPED_FRAMES
+uint16_t uniffi_vimivo_ffi_checksum_func_format_diagnostics_dropped_frames(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_DIAGNOSTICS_VIDEO
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_DIAGNOSTICS_VIDEO
+uint16_t uniffi_vimivo_ffi_checksum_func_format_diagnostics_video(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_RENAME_TEMPLATE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_RENAME_TEMPLATE
 uint16_t uniffi_vimivo_ffi_checksum_func_format_rename_template(void
@@ -1243,6 +1347,36 @@ uint16_t uniffi_vimivo_ffi_checksum_func_is_new_media_item(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_ASPECT_RATIO_PROPERTY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_ASPECT_RATIO_PROPERTY
+uint16_t uniffi_vimivo_ffi_checksum_func_mpv_aspect_ratio_property(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_DELAY_PROPERTY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_DELAY_PROPERTY
+uint16_t uniffi_vimivo_ffi_checksum_func_mpv_delay_property(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_LOAD_FILE_COMMAND
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_LOAD_FILE_COMMAND
+uint16_t uniffi_vimivo_ffi_checksum_func_mpv_load_file_command(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_SPEED_PROPERTY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_SPEED_PROPERTY
+uint16_t uniffi_vimivo_ffi_checksum_func_mpv_speed_property(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_VOLUME_PROPERTY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_MPV_VOLUME_PROPERTY
+uint16_t uniffi_vimivo_ffi_checksum_func_mpv_volume_property(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_HTTP_RANGE_HEADER
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_HTTP_RANGE_HEADER
 uint16_t uniffi_vimivo_ffi_checksum_func_parse_http_range_header(void
@@ -1282,6 +1416,42 @@ uint16_t uniffi_vimivo_ffi_checksum_func_sanitize_transfer_filename(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_VALIDATE_STREAM_URL
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_VALIDATE_STREAM_URL
 uint16_t uniffi_vimivo_ffi_checksum_func_validate_stream_url(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_BUTTON_LABEL
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_BUTTON_LABEL
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiabloop_button_label(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_CHECK_LOOP
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_CHECK_LOOP
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiabloop_check_loop(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_CLEAR
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_CLEAR
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiabloop_clear(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_IS_ACTIVE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_IS_ACTIVE
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiabloop_is_active(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_SET_RANGE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_SET_RANGE
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiabloop_set_range(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_STEP
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIABLOOP_STEP
+uint16_t uniffi_vimivo_ffi_checksum_method_ffiabloop_step(void
     
 );
 #endif
@@ -1618,6 +1788,12 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffivoiceclarity_process(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIVOICECLARITY_SET_ENABLED
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIVOICECLARITY_SET_ENABLED
 uint16_t uniffi_vimivo_ffi_checksum_method_ffivoiceclarity_set_enabled(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_CONSTRUCTOR_FFIABLOOP_NEW
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_CONSTRUCTOR_FFIABLOOP_NEW
+uint16_t uniffi_vimivo_ffi_checksum_constructor_ffiabloop_new(void
     
 );
 #endif
