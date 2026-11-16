@@ -116,26 +116,7 @@ impl VimivoDatabase {
                 );
                 "#,
             )?;
-            Self::ensure_column(&tx, "media_items", "genre", "TEXT")?;
-            Self::ensure_column(&tx, "media_items", "size_bytes", "INTEGER")?;
-            Self::ensure_column(&tx, "media_items", "mime_type", "TEXT")?;
-            Self::ensure_column(&tx, "media_items", "file_name", "TEXT")?;
-            Self::ensure_column(&tx, "media_items", "date_added_epoch_seconds", "INTEGER")?;
-            Self::ensure_column(&tx, "media_items", "date_modified_epoch_seconds", "INTEGER")?;
-            Self::ensure_column(&tx, "media_items", "width", "INTEGER")?;
-            Self::ensure_column(&tx, "media_items", "height", "INTEGER")?;
-            Self::ensure_column(&tx, "media_items", "frame_rate", "REAL")?;
-            Self::ensure_column(&tx, "media_items", "bitrate", "INTEGER")?;
-            Self::ensure_column(&tx, "media_items", "track_number", "INTEGER")?;
-            Self::ensure_column(&tx, "media_items", "disc_number", "INTEGER")?;
-            Self::ensure_column(&tx, "media_items", "release_year", "INTEGER")?;
-            Self::ensure_column(&tx, "media_items", "folder_name", "TEXT")?;
-            Self::ensure_column(&tx, "media_items", "folder_path", "TEXT")?;
-            Self::ensure_column(&tx, "media_items", "source", "TEXT NOT NULL DEFAULT 'LOCAL_FILE'")?;
-            Self::ensure_column(&tx, "media_items", "volume_name", "TEXT")?;
-            Self::ensure_column(&tx, "media_items", "bookmark_data", "BLOB")?;
-            Self::ensure_column(&tx, "media_items", "is_available", "INTEGER NOT NULL DEFAULT 1")?;
-            Self::ensure_column(&tx, "favorites", "created_at_millis", "INTEGER NOT NULL DEFAULT 0")?;
+            Self::ensure_media_columns(&tx)?;
             tx.execute("PRAGMA user_version = 1", [])?;
             tx.commit()?;
         }
@@ -192,6 +173,7 @@ impl VimivoDatabase {
 
         if from < 5 {
             let tx = self.conn.transaction()?;
+            Self::ensure_media_columns(&tx)?;
             tx.execute_batch(
                 r#"
                 CREATE INDEX IF NOT EXISTS idx_media_artist ON media_items(artist);
@@ -413,6 +395,30 @@ impl VimivoDatabase {
             offset: query.offset,
             total_count,
         })
+    }
+
+    fn ensure_media_columns(conn: &rusqlite::Connection) -> Result<()> {
+        Self::ensure_column(conn, "media_items", "genre", "TEXT")?;
+        Self::ensure_column(conn, "media_items", "size_bytes", "INTEGER")?;
+        Self::ensure_column(conn, "media_items", "mime_type", "TEXT")?;
+        Self::ensure_column(conn, "media_items", "file_name", "TEXT")?;
+        Self::ensure_column(conn, "media_items", "date_added_epoch_seconds", "INTEGER")?;
+        Self::ensure_column(conn, "media_items", "date_modified_epoch_seconds", "INTEGER")?;
+        Self::ensure_column(conn, "media_items", "width", "INTEGER")?;
+        Self::ensure_column(conn, "media_items", "height", "INTEGER")?;
+        Self::ensure_column(conn, "media_items", "frame_rate", "REAL")?;
+        Self::ensure_column(conn, "media_items", "bitrate", "INTEGER")?;
+        Self::ensure_column(conn, "media_items", "track_number", "INTEGER")?;
+        Self::ensure_column(conn, "media_items", "disc_number", "INTEGER")?;
+        Self::ensure_column(conn, "media_items", "release_year", "INTEGER")?;
+        Self::ensure_column(conn, "media_items", "folder_name", "TEXT")?;
+        Self::ensure_column(conn, "media_items", "folder_path", "TEXT")?;
+        Self::ensure_column(conn, "media_items", "source", "TEXT NOT NULL DEFAULT 'LOCAL_FILE'")?;
+        Self::ensure_column(conn, "media_items", "volume_name", "TEXT")?;
+        Self::ensure_column(conn, "media_items", "bookmark_data", "BLOB")?;
+        Self::ensure_column(conn, "media_items", "is_available", "INTEGER NOT NULL DEFAULT 1")?;
+        Self::ensure_column(conn, "favorites", "created_at_millis", "INTEGER NOT NULL DEFAULT 0")?;
+        Ok(())
     }
 
     fn ensure_column(
