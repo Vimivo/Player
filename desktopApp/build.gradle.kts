@@ -211,7 +211,6 @@ compose.desktop {
                 operatingSystem.isLinux -> arrayOf(
                     org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
                     org.jetbrains.compose.desktop.application.dsl.TargetFormat.Rpm,
-                    org.jetbrains.compose.desktop.application.dsl.TargetFormat.AppImage,
                 )
                 else -> emptyArray()
             }

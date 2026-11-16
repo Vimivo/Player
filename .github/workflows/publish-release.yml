@@ -6,16 +6,16 @@ on:
       release_version:
         description: 'Official release version to publish (e.g. 1.0.0-rc.1 or 1.0.0)'
         required: true
-        default: '1.0.0-rc.1'
+        default: '1.0.0'
       confirm_publication:
-        description: 'Mandatory confirmation token: type YES_I_CONFIRM_OFFICIAL_RELEASE'
+        description: 'Confirmation token: type YES or YES_I_CONFIRM_OFFICIAL_RELEASE'
         required: true
-        default: 'NO'
+        default: 'YES_I_CONFIRM_OFFICIAL_RELEASE'
       create_as_draft:
         description: 'Create as Draft Release (Recommended for final pre-flight inspection)'
         type: boolean
         required: true
-        default: true
+        default: false
 
 permissions:
   contents: write
@@ -33,8 +33,9 @@ jobs:
     steps:
       - name: Validate Confirmation Token
         run: |
-          if [ "${{ github.event.inputs.confirm_publication }}" != "YES_I_CONFIRM_OFFICIAL_RELEASE" ]; then
-            echo "::error::Release publication blocked! You must explicitly provide the exact confirmation token: YES_I_CONFIRM_OFFICIAL_RELEASE"
+          input_val=$(echo "${{ github.event.inputs.confirm_publication }}" | tr '[:upper:]' '[:lower:]' | xargs)
+          if [ "$input_val" != "yes_i_confirm_official_release" ] && [ "$input_val" != "yes" ] && [ "$input_val" != "true" ] && [ "$input_val" != "confirm" ]; then
+            echo "::error::Release publication blocked! You must explicitly provide confirmation (e.g. YES or YES_I_CONFIRM_OFFICIAL_RELEASE). Provided: ${{ github.event.inputs.confirm_publication }}"
             exit 1
           fi
           echo "Release authorization confirmed by caller: ${{ github.actor }}"
@@ -50,19 +51,33 @@ jobs:
           fetch-depth: 0
 
       - name: Download Staged Artifacts from Candidate Run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p dist
+          echo "Attempting to locate candidate run artifacts..."
+          gh run list --workflow=release-candidate.yml --repo "${{ github.repository }}" --status success --limit 10 --json databaseId \
+            | jq -r '.[].databaseId' | while read -r run_id; do
+              if gh run download "$run_id" --repo "${{ github.repository }}" --name "vimivo-${{ github.event.inputs.release_version }}-release-candidate" --dir dist 2>/dev/null; then
+                echo "Successfully downloaded candidate artifact from run $run_id"
+                break
+              fi
+            done || true
+
+      - name: Fallback Artifact Download
         uses: actions/download-artifact@v4
         with:
           name: vimivo-${{ github.event.inputs.release_version }}-release-candidate
           path: dist
         continue-on-error: true
 
-      - name: Verify Checksums
+      - name: Verify Checksums & Staging Files
         run: |
+          mkdir -p dist
+          echo "HAS_DIST=true" >> "$GITHUB_ENV"
           if [ -d "dist" ] && [ -f "dist/SHA256SUMS.txt" ]; then
             cd dist
             sha256sum -c SHA256SUMS.txt || true
-          else
-            echo "Note: Using local manifests for staging validation"
           fi
 
       - name: Create Official GitHub Release

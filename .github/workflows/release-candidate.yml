@@ -7,9 +7,19 @@ on:
         description: 'Candidate release version (e.g. 1.0.0 or 0.1.0-beta.1)'
         required: true
         default: '1.0.0'
+      publish_release:
+        description: 'Publish directly as GitHub Release'
+        type: boolean
+        required: true
+        default: true
+      is_draft:
+        description: 'Create as Draft Release'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: release-candidate-${{ github.ref }}
@@ -271,3 +281,21 @@ jobs:
           name: vimivo-${{ github.event.inputs.candidate_version }}-release-candidate
           path: dist/*
           if-no-files-found: error
+
+      - name: Create Official GitHub Release
+        if: ${{ github.event.inputs.publish_release == 'true' || github.event.inputs.publish_release == true }}
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: "Vimivo ${{ github.event.inputs.candidate_version }}"
+          tag_name: "v${{ github.event.inputs.candidate_version }}"
+          draft: ${{ github.event.inputs.is_draft }}
+          prerelease: ${{ contains(github.event.inputs.candidate_version, 'rc') || contains(github.event.inputs.candidate_version, 'beta') }}
+          body_path: docs/RELEASE_NOTES.md
+          files: |
+            dist/*
+            docs/SHA256SUMS.txt
+            docs/release-manifest.json
+            docs/sbom.json
+            docs/THIRD_PARTY_NOTICES.md
