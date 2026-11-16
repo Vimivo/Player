@@ -2,12 +2,169 @@
 //! Range Header streaming parser, Multipart Upload parser, and Path Sanitizer.
 
 use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SharedFileInfo {
     pub name: String,
     pub size_bytes: u64,
     pub mime_type: String,
+}
+
+pub struct WifiServerHandle {
+    pub port: u16,
+    running: Arc<AtomicBool>,
+}
+
+impl WifiServerHandle {
+    pub fn stop(&self) {
+        self.running.store(false, Ordering::SeqCst);
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.running.load(Ordering::SeqCst)
+    }
+}
+
+pub struct WifiTransferServer;
+
+impl WifiTransferServer {
+    /// Starts embedded HTTP file transfer server on given address (e.g. "0.0.0.0:8080" or "127.0.0.1:0").
+    pub fn start(
+        bind_addr: &str,
+        device_name: String,
+        storage_dir: PathBuf,
+    ) -> Result<WifiServerHandle, std::io::Error> {
+        let listener = TcpListener::bind(bind_addr)?;
+        listener.set_nonblocking(true)?;
+        let port = listener.local_addr()?.port();
+        let running = Arc::new(AtomicBool::new(true));
+        let running_clone = Arc::clone(&running);
+
+        thread::spawn(move || {
+            while running_clone.load(Ordering::SeqCst) {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+                        let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+                        Self::handle_connection(&mut stream, &device_name, &storage_dir);
+                    }
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(30));
+                    }
+                    Err(_) => {
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(WifiServerHandle { port, running })
+    }
+
+    fn handle_connection(stream: &mut TcpStream, device_name: &str, storage_dir: &std::path::Path) {
+        let mut buffer = [0u8; 4096];
+        let bytes_read = match stream.read(&mut buffer) {
+            Ok(n) if n > 0 => n,
+            _ => return,
+        };
+
+        let request = String::from_utf8_lossy(&buffer[..bytes_read]);
+        let first_line = request.lines().next().unwrap_or("");
+        let mut parts = first_line.split_whitespace();
+        let method = parts.next().unwrap_or("");
+        let path = parts.next().unwrap_or("/");
+
+        if method == "GET" && (path == "/" || path == "/index.html") {
+            let files = Self::scan_storage_dir(storage_dir);
+            let body = WifiTransferEngine::render_web_ui(device_name, &files);
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = stream.write_all(response.as_bytes());
+        } else if method == "GET" && path.starts_with("/download/") {
+            let file_name = path.trim_start_matches("/download/");
+            let sanitized = WifiTransferEngine::sanitize_filename(file_name);
+            let file_path = storage_dir.join(&sanitized);
+
+            if let Ok(metadata) = std::fs::metadata(&file_path) {
+                let total_size = metadata.len();
+                let mime = WifiTransferEngine::detect_mime_type(&sanitized);
+
+                let range = request.lines().find_map(|line| {
+                    if line.to_lowercase().starts_with("range:") {
+                        let val = line.split_once(':')?.1.trim();
+                        WifiTransferEngine::parse_range_header(val, total_size)
+                    } else {
+                        None
+                    }
+                });
+
+                if let Some((start, end)) = range {
+                    let content_length = end - start + 1;
+                    let header = format!(
+                        "HTTP/1.1 206 Partial Content\r\nContent-Type: {}\r\nContent-Range: bytes {}-{}/{}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nConnection: close\r\n\r\n",
+                        mime, start, end, total_size, content_length
+                    );
+                    let _ = stream.write_all(header.as_bytes());
+
+                    if let Ok(mut f) = std::fs::File::open(&file_path) {
+                        use std::io::Seek;
+                        if f.seek(std::io::SeekFrom::Start(start)).is_ok() {
+                            let mut take = f.take(content_length);
+                            let _ = std::io::copy(&mut take, stream);
+                        }
+                    }
+                } else {
+                    let header = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccept-Ranges: bytes\r\nConnection: close\r\n\r\n",
+                        mime, total_size
+                    );
+                    let _ = stream.write_all(header.as_bytes());
+                    if let Ok(mut f) = std::fs::File::open(&file_path) {
+                        let _ = std::io::copy(&mut f, stream);
+                    }
+                }
+            } else {
+                let not_found = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+                let _ = stream.write_all(not_found.as_bytes());
+            }
+        } else if method == "POST" && path == "/upload" {
+            let response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK";
+            let _ = stream.write_all(response.as_bytes());
+        } else {
+            let not_found = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            let _ = stream.write_all(not_found.as_bytes());
+        }
+    }
+
+    fn scan_storage_dir(dir: &std::path::Path) -> Vec<SharedFileInfo> {
+        let mut files = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                if let Ok(meta) = entry.metadata() {
+                    if meta.is_file() {
+                        let name = entry.file_name().to_string_lossy().to_string();
+                        let mime = WifiTransferEngine::detect_mime_type(&name).to_string();
+                        files.push(SharedFileInfo {
+                            name,
+                            size_bytes: meta.len(),
+                            mime_type: mime,
+                        });
+                    }
+                }
+            }
+        }
+        files
+    }
 }
 
 pub struct WifiTransferEngine;
@@ -271,5 +428,27 @@ mod tests {
         assert!(html.contains("Pixel 8 Pro"));
         assert!(html.contains("sample.mp4"));
         assert!(html.contains("10.00 MB"));
+    }
+
+    #[test]
+    fn test_wifi_server_http_lifecycle() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let server = WifiTransferServer::start("127.0.0.1:0", "TestDevice".into(), temp_dir.path().to_path_buf())
+            .expect("Server binds successfully");
+        assert!(server.is_running());
+        assert!(server.port > 0);
+
+        // Connect and send HTTP GET
+        let mut client = TcpStream::connect(("127.0.0.1", server.port)).expect("Client connects");
+        client.write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n").unwrap();
+
+        let mut response = Vec::new();
+        let _ = client.read_to_end(&mut response);
+        let resp_str = String::from_utf8_lossy(&response);
+        assert!(resp_str.contains("HTTP/1.1 200 OK"));
+        assert!(resp_str.contains("Vimivo Wi-Fi Sharing"));
+
+        server.stop();
+        assert!(!server.is_running());
     }
 }
