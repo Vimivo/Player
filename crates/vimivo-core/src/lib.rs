@@ -14,3 +14,7 @@ pub mod subtitle;
 pub mod vault;
 pub mod wifi_transfer;
 pub mod batch;
+pub mod decoder;
+pub mod gesture;
+pub mod converter;
+pub mod network_share;
