@@ -1,14 +1,27 @@
 //! Vimivo FFI: UniFFI bindings for iOS, macOS, and Android.
 
 use std::sync::Mutex;
-use vimivo_core::audio::{ReplayGain, ReplayGainMode as CoreReplayGainMode};
+use vimivo_core::audio::{
+    BassBoost, ReplayGain, ReplayGainMode as CoreReplayGainMode, SoftLimiter, SpectrumVisualizer,
+    StereoVirtualizer, VoiceClarity,
+};
+use vimivo_core::batch::BatchEngine;
 use vimivo_core::db::{StoredBookmark, VimivoDatabase};
-use vimivo_core::model::{ChapterInfo as CoreChapterInfo, LibraryQuery as CoreQuery, MediaItem as CoreMediaItem, MediaKind as CoreMediaKind, QueueRepeatMode as CoreRepeatMode};
+use vimivo_core::model::{
+    ChapterInfo as CoreChapterInfo, LibraryQuery as CoreQuery, MediaItem as CoreMediaItem,
+    MediaKind as CoreMediaKind, QueueRepeatMode as CoreRepeatMode,
+};
 use vimivo_core::parser::{LrcLyricsParser, PlaylistFormats, TitleParser};
 use vimivo_core::queue::PlayQueue;
 use vimivo_core::rename::RenameTemplate;
 use vimivo_core::streaming::{StreamValidationResult, StreamValidator};
+use vimivo_core::subtitle::{
+    DualSubtitleCoordinator, SubtitleCue, SubtitleEncodingDetector, SubtitleGestures,
+    SubtitleParser, SubtitleTrack,
+};
+use vimivo_core::vault::{VaultConfig, VaultManager};
 use vimivo_core::video::IntroSkip;
+use vimivo_core::wifi_transfer::{SharedFileInfo, WifiTransferEngine};
 
 uniffi::setup_scaffolding!();
 
@@ -600,4 +613,427 @@ pub fn parse_playlist_file(file_name: String, content: String) -> Option<FfiPars
             })
             .collect(),
     })
+}
+
+// ---------------------------------------------------------------------------
+// Audio DSP
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Object)]
+pub struct FfiSpectrumVisualizer {
+    inner: Mutex<SpectrumVisualizer>,
+}
+
+#[uniffi::export]
+impl FfiSpectrumVisualizer {
+    #[uniffi::constructor]
+    pub fn new(num_bands: u32) -> Self {
+        Self {
+            inner: Mutex::new(SpectrumVisualizer::new(num_bands as usize)),
+        }
+    }
+
+    pub fn process_samples(&self, samples: Vec<f32>) -> Vec<f32> {
+        let mut visualizer = self.inner.lock().unwrap();
+        visualizer.process_samples(&samples).to_vec()
+    }
+
+    pub fn bands(&self) -> Vec<f32> {
+        let visualizer = self.inner.lock().unwrap();
+        visualizer.bands().to_vec()
+    }
+}
+
+#[derive(uniffi::Object)]
+pub struct FfiBassBoost {
+    inner: Mutex<BassBoost>,
+}
+
+#[uniffi::export]
+impl FfiBassBoost {
+    #[uniffi::constructor]
+    pub fn new(sample_rate: i32, channels: u32) -> Self {
+        Self {
+            inner: Mutex::new(BassBoost::new(sample_rate, channels as usize)),
+        }
+    }
+
+    pub fn set_gain_db(&self, gain_db: f32) {
+        let mut bb = self.inner.lock().unwrap();
+        bb.set_gain_db(gain_db);
+    }
+
+    pub fn set_cutoff_hz(&self, cutoff_hz: f32) {
+        let mut bb = self.inner.lock().unwrap();
+        bb.set_cutoff_hz(cutoff_hz);
+    }
+
+    pub fn gain_db(&self) -> f32 {
+        let bb = self.inner.lock().unwrap();
+        bb.gain_db()
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        let bb = self.inner.lock().unwrap();
+        bb.is_enabled()
+    }
+
+    pub fn process(&self, mut samples: Vec<f32>, frames: u32) -> Vec<f32> {
+        let mut bb = self.inner.lock().unwrap();
+        bb.process(&mut samples, frames as usize);
+        samples
+    }
+}
+
+#[derive(uniffi::Object)]
+pub struct FfiStereoVirtualizer {
+    inner: Mutex<StereoVirtualizer>,
+}
+
+#[uniffi::export]
+impl FfiStereoVirtualizer {
+    #[uniffi::constructor]
+    pub fn new(width: f32) -> Self {
+        Self {
+            inner: Mutex::new(StereoVirtualizer::new(width)),
+        }
+    }
+
+    pub fn set_width(&self, width: f32) {
+        let mut sv = self.inner.lock().unwrap();
+        sv.set_width(width);
+    }
+
+    pub fn width(&self) -> f32 {
+        let sv = self.inner.lock().unwrap();
+        sv.width()
+    }
+
+    pub fn process_stereo(&self, mut samples: Vec<f32>) -> Vec<f32> {
+        let sv = self.inner.lock().unwrap();
+        sv.process_stereo(&mut samples);
+        samples
+    }
+}
+
+#[derive(uniffi::Object)]
+pub struct FfiVoiceClarity {
+    inner: Mutex<VoiceClarity>,
+}
+
+#[uniffi::export]
+impl FfiVoiceClarity {
+    #[uniffi::constructor]
+    pub fn new(sample_rate: i32, channels: u32) -> Self {
+        Self {
+            inner: Mutex::new(VoiceClarity::new(sample_rate, channels as usize)),
+        }
+    }
+
+    pub fn set_enabled(&self, enabled: bool) {
+        let mut vc = self.inner.lock().unwrap();
+        vc.set_enabled(enabled);
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        let vc = self.inner.lock().unwrap();
+        vc.is_enabled()
+    }
+
+    pub fn process(&self, mut samples: Vec<f32>, frames: u32) -> Vec<f32> {
+        let mut vc = self.inner.lock().unwrap();
+        vc.process(&mut samples, frames as usize);
+        samples
+    }
+}
+
+#[derive(uniffi::Object)]
+pub struct FfiSoftLimiter {
+    inner: SoftLimiter,
+}
+
+#[uniffi::export]
+impl FfiSoftLimiter {
+    #[uniffi::constructor]
+    pub fn new(threshold: f32) -> Self {
+        Self {
+            inner: SoftLimiter::new(threshold),
+        }
+    }
+
+    pub fn process(&self, mut samples: Vec<f32>) -> Vec<f32> {
+        self.inner.process(&mut samples);
+        samples
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Subtitles
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Record)]
+pub struct FfiSubtitleCue {
+    pub index: u32,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub text: String,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiSubtitleStyle {
+    pub font_family: String,
+    pub font_size_scale: f32,
+    pub text_color_hex: String,
+    pub outline_color_hex: String,
+    pub outline_thickness: f32,
+    pub background_opacity: f32,
+    pub vertical_position_percent: f32,
+    pub bold: bool,
+    pub italic: bool,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiActiveSubtitles {
+    pub primary_text: Option<String>,
+    pub secondary_text: Option<String>,
+}
+
+#[uniffi::export]
+pub fn decode_subtitle_bytes(bytes: Vec<u8>) -> String {
+    SubtitleEncodingDetector::decode(&bytes)
+}
+
+#[uniffi::export]
+pub fn parse_subtitle_content(content: String) -> Vec<FfiSubtitleCue> {
+    SubtitleParser::parse(&content)
+        .into_iter()
+        .map(|c| FfiSubtitleCue {
+            index: c.index as u32,
+            start_ms: c.start_ms,
+            end_ms: c.end_ms,
+            text: c.text,
+        })
+        .collect()
+}
+
+#[uniffi::export]
+pub fn calculate_subtitle_drag_position(current_percent: f32, delta_y_pixels: f32, screen_height_pixels: f32) -> f32 {
+    SubtitleGestures::calculate_drag_position(current_percent, delta_y_pixels, screen_height_pixels)
+}
+
+#[uniffi::export]
+pub fn calculate_subtitle_pinch_font_scale(base_scale: f32, pinch_factor: f32) -> f32 {
+    SubtitleGestures::calculate_pinch_font_scale(base_scale, pinch_factor)
+}
+
+#[uniffi::export]
+pub fn calculate_subtitle_drag_delay(current_delay_ms: i64, delta_x_pixels: f32) -> i64 {
+    SubtitleGestures::calculate_drag_delay(current_delay_ms, delta_x_pixels)
+}
+
+#[derive(uniffi::Object)]
+pub struct FfiDualSubtitleCoordinator {
+    inner: Mutex<DualSubtitleCoordinator>,
+}
+
+#[uniffi::export]
+impl FfiDualSubtitleCoordinator {
+    #[uniffi::constructor]
+    pub fn new() -> Self {
+        Self {
+            inner: Mutex::new(DualSubtitleCoordinator::new()),
+        }
+    }
+
+    pub fn set_primary_cues(&self, name: String, language: String, cues: Vec<FfiSubtitleCue>, delay_ms: i64, speed: f64) {
+        let mut coord = self.inner.lock().unwrap();
+        let core_cues = cues
+            .into_iter()
+            .map(|c| SubtitleCue {
+                index: c.index as usize,
+                start_ms: c.start_ms,
+                end_ms: c.end_ms,
+                text: c.text,
+            })
+            .collect();
+        let mut track = SubtitleTrack::new(&name, &language, core_cues);
+        track.delay_ms = delay_ms;
+        track.speed_multiplier = speed;
+        coord.set_primary(Some(track));
+    }
+
+    pub fn set_secondary_cues(&self, name: String, language: String, cues: Vec<FfiSubtitleCue>, delay_ms: i64, speed: f64) {
+        let mut coord = self.inner.lock().unwrap();
+        let core_cues = cues
+            .into_iter()
+            .map(|c| SubtitleCue {
+                index: c.index as usize,
+                start_ms: c.start_ms,
+                end_ms: c.end_ms,
+                text: c.text,
+            })
+            .collect();
+        let mut track = SubtitleTrack::new(&name, &language, core_cues);
+        track.delay_ms = delay_ms;
+        track.speed_multiplier = speed;
+        coord.set_secondary(Some(track));
+    }
+
+    pub fn active_subtitles_at(&self, playback_ms: i64) -> FfiActiveSubtitles {
+        let coord = self.inner.lock().unwrap();
+        let active = coord.active_subtitles_at(playback_ms);
+        FfiActiveSubtitles {
+            primary_text: active.primary_text,
+            secondary_text: active.secondary_text,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Private Video Vault
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Object)]
+pub struct FfiVaultManager {
+    inner: Mutex<VaultManager>,
+}
+
+#[uniffi::export]
+impl FfiVaultManager {
+    #[uniffi::constructor]
+    pub fn new() -> Self {
+        Self {
+            inner: Mutex::new(VaultManager::new(VaultConfig::default())),
+        }
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        let vm = self.inner.lock().unwrap();
+        vm.is_initialized()
+    }
+
+    pub fn setup_pin(&self, pin: String) -> Result<(), VimivoFfiError> {
+        let mut vm = self.inner.lock().unwrap();
+        vm.setup_pin(&pin).map_err(|e| VimivoFfiError::InternalError {
+            reason: e.to_string(),
+        })
+    }
+
+    pub fn unlock(&self, pin: String, current_time_sec: u64) -> Result<String, VimivoFfiError> {
+        let mut vm = self.inner.lock().unwrap();
+        vm.unlock(&pin, current_time_sec)
+            .map_err(|e| VimivoFfiError::InternalError {
+                reason: e.to_string(),
+            })
+    }
+
+    pub fn is_unlocked(&self, token: String, current_time_sec: u64) -> bool {
+        let vm = self.inner.lock().unwrap();
+        vm.is_unlocked(&token, current_time_sec)
+    }
+
+    pub fn touch_session(&self, current_time_sec: u64) {
+        let mut vm = self.inner.lock().unwrap();
+        vm.touch_session(current_time_sec);
+    }
+
+    pub fn lock(&self) {
+        let mut vm = self.inner.lock().unwrap();
+        vm.lock();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Wi-Fi Offline File Sharing
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Record)]
+pub struct FfiSharedFileInfo {
+    pub name: String,
+    pub size_bytes: u64,
+    pub mime_type: String,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiHttpRange {
+    pub start: u64,
+    pub end: u64,
+}
+
+#[uniffi::export]
+pub fn sanitize_transfer_filename(filename: String) -> String {
+    WifiTransferEngine::sanitize_filename(&filename)
+}
+
+#[uniffi::export]
+pub fn parse_http_range_header(header: String, total_size: u64) -> Option<FfiHttpRange> {
+    WifiTransferEngine::parse_range_header(&header, total_size)
+        .map(|(s, e)| FfiHttpRange { start: s, end: e })
+}
+
+#[uniffi::export]
+pub fn detect_media_mime_type(filename: String) -> String {
+    WifiTransferEngine::detect_mime_type(&filename).to_string()
+}
+
+#[uniffi::export]
+pub fn render_wifi_transfer_html(device_name: String, files: Vec<FfiSharedFileInfo>) -> String {
+    let core_files: Vec<SharedFileInfo> = files
+        .into_iter()
+        .map(|f| SharedFileInfo {
+            name: f.name,
+            size_bytes: f.size_bytes,
+            mime_type: f.mime_type,
+        })
+        .collect();
+    WifiTransferEngine::render_web_ui(&device_name, &core_files)
+}
+
+// ---------------------------------------------------------------------------
+// Batch Operations & Badges
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Record)]
+pub struct FfiBatchRenameResult {
+    pub id: String,
+    pub old_name: String,
+    pub new_name: String,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiFolderSummary {
+    pub folder_path: String,
+    pub folder_name: String,
+    pub total_count: u32,
+    pub unplayed_count: u32,
+    pub new_count: u32,
+    pub total_size_bytes: u64,
+}
+
+#[uniffi::export]
+pub fn is_new_media_item(
+    added_at_sec: i64,
+    last_played_ms: Option<i64>,
+    current_time_sec: i64,
+    threshold_days: u32,
+) -> bool {
+    BatchEngine::is_new_item(added_at_sec, last_played_ms, current_time_sec, threshold_days)
+}
+
+#[uniffi::export]
+pub fn generate_batch_sequential_rename(
+    items: Vec<FfiBatchRenameResult>,
+    prefix: String,
+    start_index: u32,
+    pad_digits: u32,
+) -> Vec<FfiBatchRenameResult> {
+    let input_pairs: Vec<(String, String)> = items.into_iter().map(|i| (i.id, i.old_name)).collect();
+    BatchEngine::generate_sequential_rename(&input_pairs, &prefix, start_index, pad_digits as usize)
+        .into_iter()
+        .map(|r| FfiBatchRenameResult {
+            id: r.id,
+            old_name: r.old_name,
+            new_name: r.new_name,
+        })
+        .collect()
 }

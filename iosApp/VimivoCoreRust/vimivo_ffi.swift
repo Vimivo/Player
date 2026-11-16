@@ -431,6 +431,22 @@ fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
+    typealias FfiType = UInt64
+    typealias SwiftType = UInt64
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt64 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterInt64: FfiConverterPrimitive {
     typealias FfiType = Int64
     typealias SwiftType = Int64
@@ -457,6 +473,22 @@ fileprivate struct FfiConverterFloat: FfiConverterPrimitive {
 
     public static func write(_ value: Float, into buf: inout [UInt8]) {
         writeFloat(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterDouble: FfiConverterPrimitive {
+    typealias FfiType = Double
+    typealias SwiftType = Double
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Double {
+        return try lift(readDouble(&buf))
+    }
+
+    public static func write(_ value: Double, into buf: inout [UInt8]) {
+        writeDouble(&buf, lower(value))
     }
 }
 
@@ -523,6 +555,191 @@ fileprivate struct FfiConverterString: FfiConverter {
         writeInt(&buf, len)
         writeBytes(&buf, value.utf8)
     }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterData: FfiConverterRustBuffer {
+    typealias SwiftType = Data
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Data {
+        let len: Int32 = try readInt(&buf)
+        return Data(try readBytes(&buf, count: Int(len)))
+    }
+
+    public static func write(_ value: Data, into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        writeBytes(&buf, value)
+    }
+}
+
+
+
+
+public protocol FfiBassBoostProtocol : AnyObject {
+    
+    func gainDb()  -> Float
+    
+    func isEnabled()  -> Bool
+    
+    func process(samples: [Float], frames: UInt32)  -> [Float]
+    
+    func setCutoffHz(cutoffHz: Float) 
+    
+    func setGainDb(gainDb: Float) 
+    
+}
+
+open class FfiBassBoost:
+    FfiBassBoostProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vimivo_ffi_fn_clone_ffibassboost(self.pointer, $0) }
+    }
+public convenience init(sampleRate: Int32, channels: UInt32) {
+    let pointer =
+        try! rustCall() {
+    uniffi_vimivo_ffi_fn_constructor_ffibassboost_new(
+        FfiConverterInt32.lower(sampleRate),
+        FfiConverterUInt32.lower(channels),$0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vimivo_ffi_fn_free_ffibassboost(pointer, $0) }
+    }
+
+    
+
+    
+open func gainDb() -> Float {
+    return try!  FfiConverterFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffibassboost_gain_db(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func isEnabled() -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffibassboost_is_enabled(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func process(samples: [Float], frames: UInt32) -> [Float] {
+    return try!  FfiConverterSequenceFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffibassboost_process(self.uniffiClonePointer(),
+        FfiConverterSequenceFloat.lower(samples),
+        FfiConverterUInt32.lower(frames),$0
+    )
+})
+}
+    
+open func setCutoffHz(cutoffHz: Float) {try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffibassboost_set_cutoff_hz(self.uniffiClonePointer(),
+        FfiConverterFloat.lower(cutoffHz),$0
+    )
+}
+}
+    
+open func setGainDb(gainDb: Float) {try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffibassboost_set_gain_db(self.uniffiClonePointer(),
+        FfiConverterFloat.lower(gainDb),$0
+    )
+}
+}
+    
+
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiBassBoost: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = FfiBassBoost
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiBassBoost {
+        return FfiBassBoost(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: FfiBassBoost) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiBassBoost {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: FfiBassBoost, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiBassBoost_lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiBassBoost {
+    return try FfiConverterTypeFfiBassBoost.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiBassBoost_lower(_ value: FfiBassBoost) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeFfiBassBoost.lower(value)
 }
 
 
@@ -899,6 +1116,160 @@ public func FfiConverterTypeFfiDatabase_lower(_ value: FfiDatabase) -> UnsafeMut
 
 
 
+public protocol FfiDualSubtitleCoordinatorProtocol : AnyObject {
+    
+    func activeSubtitlesAt(playbackMs: Int64)  -> FfiActiveSubtitles
+    
+    func setPrimaryCues(name: String, language: String, cues: [FfiSubtitleCue], delayMs: Int64, speed: Double) 
+    
+    func setSecondaryCues(name: String, language: String, cues: [FfiSubtitleCue], delayMs: Int64, speed: Double) 
+    
+}
+
+open class FfiDualSubtitleCoordinator:
+    FfiDualSubtitleCoordinatorProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vimivo_ffi_fn_clone_ffidualsubtitlecoordinator(self.pointer, $0) }
+    }
+public convenience init() {
+    let pointer =
+        try! rustCall() {
+    uniffi_vimivo_ffi_fn_constructor_ffidualsubtitlecoordinator_new($0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vimivo_ffi_fn_free_ffidualsubtitlecoordinator(pointer, $0) }
+    }
+
+    
+
+    
+open func activeSubtitlesAt(playbackMs: Int64) -> FfiActiveSubtitles {
+    return try!  FfiConverterTypeFfiActiveSubtitles.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffidualsubtitlecoordinator_active_subtitles_at(self.uniffiClonePointer(),
+        FfiConverterInt64.lower(playbackMs),$0
+    )
+})
+}
+    
+open func setPrimaryCues(name: String, language: String, cues: [FfiSubtitleCue], delayMs: Int64, speed: Double) {try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffidualsubtitlecoordinator_set_primary_cues(self.uniffiClonePointer(),
+        FfiConverterString.lower(name),
+        FfiConverterString.lower(language),
+        FfiConverterSequenceTypeFfiSubtitleCue.lower(cues),
+        FfiConverterInt64.lower(delayMs),
+        FfiConverterDouble.lower(speed),$0
+    )
+}
+}
+    
+open func setSecondaryCues(name: String, language: String, cues: [FfiSubtitleCue], delayMs: Int64, speed: Double) {try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffidualsubtitlecoordinator_set_secondary_cues(self.uniffiClonePointer(),
+        FfiConverterString.lower(name),
+        FfiConverterString.lower(language),
+        FfiConverterSequenceTypeFfiSubtitleCue.lower(cues),
+        FfiConverterInt64.lower(delayMs),
+        FfiConverterDouble.lower(speed),$0
+    )
+}
+}
+    
+
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiDualSubtitleCoordinator: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = FfiDualSubtitleCoordinator
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiDualSubtitleCoordinator {
+        return FfiDualSubtitleCoordinator(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: FfiDualSubtitleCoordinator) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiDualSubtitleCoordinator {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: FfiDualSubtitleCoordinator, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiDualSubtitleCoordinator_lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiDualSubtitleCoordinator {
+    return try FfiConverterTypeFfiDualSubtitleCoordinator.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiDualSubtitleCoordinator_lower(_ value: FfiDualSubtitleCoordinator) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeFfiDualSubtitleCoordinator.lower(value)
+}
+
+
+
+
 public protocol FfiPlayQueueProtocol : AnyObject {
     
     func getCurrentId()  -> String?
@@ -1085,6 +1456,884 @@ public func FfiConverterTypeFfiPlayQueue_lift(_ pointer: UnsafeMutableRawPointer
 #endif
 public func FfiConverterTypeFfiPlayQueue_lower(_ value: FfiPlayQueue) -> UnsafeMutableRawPointer {
     return FfiConverterTypeFfiPlayQueue.lower(value)
+}
+
+
+
+
+public protocol FfiSoftLimiterProtocol : AnyObject {
+    
+    func process(samples: [Float])  -> [Float]
+    
+}
+
+open class FfiSoftLimiter:
+    FfiSoftLimiterProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vimivo_ffi_fn_clone_ffisoftlimiter(self.pointer, $0) }
+    }
+public convenience init(threshold: Float) {
+    let pointer =
+        try! rustCall() {
+    uniffi_vimivo_ffi_fn_constructor_ffisoftlimiter_new(
+        FfiConverterFloat.lower(threshold),$0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vimivo_ffi_fn_free_ffisoftlimiter(pointer, $0) }
+    }
+
+    
+
+    
+open func process(samples: [Float]) -> [Float] {
+    return try!  FfiConverterSequenceFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffisoftlimiter_process(self.uniffiClonePointer(),
+        FfiConverterSequenceFloat.lower(samples),$0
+    )
+})
+}
+    
+
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiSoftLimiter: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = FfiSoftLimiter
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiSoftLimiter {
+        return FfiSoftLimiter(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: FfiSoftLimiter) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiSoftLimiter {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: FfiSoftLimiter, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSoftLimiter_lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiSoftLimiter {
+    return try FfiConverterTypeFfiSoftLimiter.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSoftLimiter_lower(_ value: FfiSoftLimiter) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeFfiSoftLimiter.lower(value)
+}
+
+
+
+
+public protocol FfiSpectrumVisualizerProtocol : AnyObject {
+    
+    func bands()  -> [Float]
+    
+    func processSamples(samples: [Float])  -> [Float]
+    
+}
+
+open class FfiSpectrumVisualizer:
+    FfiSpectrumVisualizerProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vimivo_ffi_fn_clone_ffispectrumvisualizer(self.pointer, $0) }
+    }
+public convenience init(numBands: UInt32) {
+    let pointer =
+        try! rustCall() {
+    uniffi_vimivo_ffi_fn_constructor_ffispectrumvisualizer_new(
+        FfiConverterUInt32.lower(numBands),$0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vimivo_ffi_fn_free_ffispectrumvisualizer(pointer, $0) }
+    }
+
+    
+
+    
+open func bands() -> [Float] {
+    return try!  FfiConverterSequenceFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffispectrumvisualizer_bands(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func processSamples(samples: [Float]) -> [Float] {
+    return try!  FfiConverterSequenceFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffispectrumvisualizer_process_samples(self.uniffiClonePointer(),
+        FfiConverterSequenceFloat.lower(samples),$0
+    )
+})
+}
+    
+
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiSpectrumVisualizer: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = FfiSpectrumVisualizer
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiSpectrumVisualizer {
+        return FfiSpectrumVisualizer(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: FfiSpectrumVisualizer) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiSpectrumVisualizer {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: FfiSpectrumVisualizer, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSpectrumVisualizer_lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiSpectrumVisualizer {
+    return try FfiConverterTypeFfiSpectrumVisualizer.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSpectrumVisualizer_lower(_ value: FfiSpectrumVisualizer) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeFfiSpectrumVisualizer.lower(value)
+}
+
+
+
+
+public protocol FfiStereoVirtualizerProtocol : AnyObject {
+    
+    func processStereo(samples: [Float])  -> [Float]
+    
+    func setWidth(width: Float) 
+    
+    func width()  -> Float
+    
+}
+
+open class FfiStereoVirtualizer:
+    FfiStereoVirtualizerProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vimivo_ffi_fn_clone_ffistereovirtualizer(self.pointer, $0) }
+    }
+public convenience init(width: Float) {
+    let pointer =
+        try! rustCall() {
+    uniffi_vimivo_ffi_fn_constructor_ffistereovirtualizer_new(
+        FfiConverterFloat.lower(width),$0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vimivo_ffi_fn_free_ffistereovirtualizer(pointer, $0) }
+    }
+
+    
+
+    
+open func processStereo(samples: [Float]) -> [Float] {
+    return try!  FfiConverterSequenceFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffistereovirtualizer_process_stereo(self.uniffiClonePointer(),
+        FfiConverterSequenceFloat.lower(samples),$0
+    )
+})
+}
+    
+open func setWidth(width: Float) {try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffistereovirtualizer_set_width(self.uniffiClonePointer(),
+        FfiConverterFloat.lower(width),$0
+    )
+}
+}
+    
+open func width() -> Float {
+    return try!  FfiConverterFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffistereovirtualizer_width(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiStereoVirtualizer: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = FfiStereoVirtualizer
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiStereoVirtualizer {
+        return FfiStereoVirtualizer(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: FfiStereoVirtualizer) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiStereoVirtualizer {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: FfiStereoVirtualizer, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiStereoVirtualizer_lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiStereoVirtualizer {
+    return try FfiConverterTypeFfiStereoVirtualizer.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiStereoVirtualizer_lower(_ value: FfiStereoVirtualizer) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeFfiStereoVirtualizer.lower(value)
+}
+
+
+
+
+public protocol FfiVaultManagerProtocol : AnyObject {
+    
+    func isInitialized()  -> Bool
+    
+    func isUnlocked(token: String, currentTimeSec: UInt64)  -> Bool
+    
+    func lock() 
+    
+    func setupPin(pin: String) throws 
+    
+    func touchSession(currentTimeSec: UInt64) 
+    
+    func unlock(pin: String, currentTimeSec: UInt64) throws  -> String
+    
+}
+
+open class FfiVaultManager:
+    FfiVaultManagerProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vimivo_ffi_fn_clone_ffivaultmanager(self.pointer, $0) }
+    }
+public convenience init() {
+    let pointer =
+        try! rustCall() {
+    uniffi_vimivo_ffi_fn_constructor_ffivaultmanager_new($0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vimivo_ffi_fn_free_ffivaultmanager(pointer, $0) }
+    }
+
+    
+
+    
+open func isInitialized() -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffivaultmanager_is_initialized(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func isUnlocked(token: String, currentTimeSec: UInt64) -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffivaultmanager_is_unlocked(self.uniffiClonePointer(),
+        FfiConverterString.lower(token),
+        FfiConverterUInt64.lower(currentTimeSec),$0
+    )
+})
+}
+    
+open func lock() {try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffivaultmanager_lock(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+open func setupPin(pin: String)throws  {try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffivaultmanager_setup_pin(self.uniffiClonePointer(),
+        FfiConverterString.lower(pin),$0
+    )
+}
+}
+    
+open func touchSession(currentTimeSec: UInt64) {try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffivaultmanager_touch_session(self.uniffiClonePointer(),
+        FfiConverterUInt64.lower(currentTimeSec),$0
+    )
+}
+}
+    
+open func unlock(pin: String, currentTimeSec: UInt64)throws  -> String {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffivaultmanager_unlock(self.uniffiClonePointer(),
+        FfiConverterString.lower(pin),
+        FfiConverterUInt64.lower(currentTimeSec),$0
+    )
+})
+}
+    
+
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiVaultManager: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = FfiVaultManager
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiVaultManager {
+        return FfiVaultManager(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: FfiVaultManager) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiVaultManager {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: FfiVaultManager, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVaultManager_lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiVaultManager {
+    return try FfiConverterTypeFfiVaultManager.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVaultManager_lower(_ value: FfiVaultManager) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeFfiVaultManager.lower(value)
+}
+
+
+
+
+public protocol FfiVoiceClarityProtocol : AnyObject {
+    
+    func isEnabled()  -> Bool
+    
+    func process(samples: [Float], frames: UInt32)  -> [Float]
+    
+    func setEnabled(enabled: Bool) 
+    
+}
+
+open class FfiVoiceClarity:
+    FfiVoiceClarityProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_vimivo_ffi_fn_clone_ffivoiceclarity(self.pointer, $0) }
+    }
+public convenience init(sampleRate: Int32, channels: UInt32) {
+    let pointer =
+        try! rustCall() {
+    uniffi_vimivo_ffi_fn_constructor_ffivoiceclarity_new(
+        FfiConverterInt32.lower(sampleRate),
+        FfiConverterUInt32.lower(channels),$0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_vimivo_ffi_fn_free_ffivoiceclarity(pointer, $0) }
+    }
+
+    
+
+    
+open func isEnabled() -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffivoiceclarity_is_enabled(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func process(samples: [Float], frames: UInt32) -> [Float] {
+    return try!  FfiConverterSequenceFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffivoiceclarity_process(self.uniffiClonePointer(),
+        FfiConverterSequenceFloat.lower(samples),
+        FfiConverterUInt32.lower(frames),$0
+    )
+})
+}
+    
+open func setEnabled(enabled: Bool) {try! rustCall() {
+    uniffi_vimivo_ffi_fn_method_ffivoiceclarity_set_enabled(self.uniffiClonePointer(),
+        FfiConverterBool.lower(enabled),$0
+    )
+}
+}
+    
+
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiVoiceClarity: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = FfiVoiceClarity
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiVoiceClarity {
+        return FfiVoiceClarity(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: FfiVoiceClarity) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiVoiceClarity {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: FfiVoiceClarity, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVoiceClarity_lift(_ pointer: UnsafeMutableRawPointer) throws -> FfiVoiceClarity {
+    return try FfiConverterTypeFfiVoiceClarity.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVoiceClarity_lower(_ value: FfiVoiceClarity) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeFfiVoiceClarity.lower(value)
+}
+
+
+public struct FfiActiveSubtitles {
+    public var primaryText: String?
+    public var secondaryText: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(primaryText: String?, secondaryText: String?) {
+        self.primaryText = primaryText
+        self.secondaryText = secondaryText
+    }
+}
+
+
+
+extension FfiActiveSubtitles: Equatable, Hashable {
+    public static func ==(lhs: FfiActiveSubtitles, rhs: FfiActiveSubtitles) -> Bool {
+        if lhs.primaryText != rhs.primaryText {
+            return false
+        }
+        if lhs.secondaryText != rhs.secondaryText {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(primaryText)
+        hasher.combine(secondaryText)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiActiveSubtitles: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiActiveSubtitles {
+        return
+            try FfiActiveSubtitles(
+                primaryText: FfiConverterOptionString.read(from: &buf), 
+                secondaryText: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiActiveSubtitles, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.primaryText, into: &buf)
+        FfiConverterOptionString.write(value.secondaryText, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiActiveSubtitles_lift(_ buf: RustBuffer) throws -> FfiActiveSubtitles {
+    return try FfiConverterTypeFfiActiveSubtitles.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiActiveSubtitles_lower(_ value: FfiActiveSubtitles) -> RustBuffer {
+    return FfiConverterTypeFfiActiveSubtitles.lower(value)
+}
+
+
+public struct FfiBatchRenameResult {
+    public var id: String
+    public var oldName: String
+    public var newName: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, oldName: String, newName: String) {
+        self.id = id
+        self.oldName = oldName
+        self.newName = newName
+    }
+}
+
+
+
+extension FfiBatchRenameResult: Equatable, Hashable {
+    public static func ==(lhs: FfiBatchRenameResult, rhs: FfiBatchRenameResult) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.oldName != rhs.oldName {
+            return false
+        }
+        if lhs.newName != rhs.newName {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(oldName)
+        hasher.combine(newName)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiBatchRenameResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiBatchRenameResult {
+        return
+            try FfiBatchRenameResult(
+                id: FfiConverterString.read(from: &buf), 
+                oldName: FfiConverterString.read(from: &buf), 
+                newName: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiBatchRenameResult, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.oldName, into: &buf)
+        FfiConverterString.write(value.newName, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiBatchRenameResult_lift(_ buf: RustBuffer) throws -> FfiBatchRenameResult {
+    return try FfiConverterTypeFfiBatchRenameResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiBatchRenameResult_lower(_ value: FfiBatchRenameResult) -> RustBuffer {
+    return FfiConverterTypeFfiBatchRenameResult.lower(value)
 }
 
 
@@ -1342,6 +2591,104 @@ public func FfiConverterTypeFfiCleanTitle_lower(_ value: FfiCleanTitle) -> RustB
 }
 
 
+public struct FfiFolderSummary {
+    public var folderPath: String
+    public var folderName: String
+    public var totalCount: UInt32
+    public var unplayedCount: UInt32
+    public var newCount: UInt32
+    public var totalSizeBytes: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(folderPath: String, folderName: String, totalCount: UInt32, unplayedCount: UInt32, newCount: UInt32, totalSizeBytes: UInt64) {
+        self.folderPath = folderPath
+        self.folderName = folderName
+        self.totalCount = totalCount
+        self.unplayedCount = unplayedCount
+        self.newCount = newCount
+        self.totalSizeBytes = totalSizeBytes
+    }
+}
+
+
+
+extension FfiFolderSummary: Equatable, Hashable {
+    public static func ==(lhs: FfiFolderSummary, rhs: FfiFolderSummary) -> Bool {
+        if lhs.folderPath != rhs.folderPath {
+            return false
+        }
+        if lhs.folderName != rhs.folderName {
+            return false
+        }
+        if lhs.totalCount != rhs.totalCount {
+            return false
+        }
+        if lhs.unplayedCount != rhs.unplayedCount {
+            return false
+        }
+        if lhs.newCount != rhs.newCount {
+            return false
+        }
+        if lhs.totalSizeBytes != rhs.totalSizeBytes {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(folderPath)
+        hasher.combine(folderName)
+        hasher.combine(totalCount)
+        hasher.combine(unplayedCount)
+        hasher.combine(newCount)
+        hasher.combine(totalSizeBytes)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiFolderSummary: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiFolderSummary {
+        return
+            try FfiFolderSummary(
+                folderPath: FfiConverterString.read(from: &buf), 
+                folderName: FfiConverterString.read(from: &buf), 
+                totalCount: FfiConverterUInt32.read(from: &buf), 
+                unplayedCount: FfiConverterUInt32.read(from: &buf), 
+                newCount: FfiConverterUInt32.read(from: &buf), 
+                totalSizeBytes: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiFolderSummary, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.folderPath, into: &buf)
+        FfiConverterString.write(value.folderName, into: &buf)
+        FfiConverterUInt32.write(value.totalCount, into: &buf)
+        FfiConverterUInt32.write(value.unplayedCount, into: &buf)
+        FfiConverterUInt32.write(value.newCount, into: &buf)
+        FfiConverterUInt64.write(value.totalSizeBytes, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiFolderSummary_lift(_ buf: RustBuffer) throws -> FfiFolderSummary {
+    return try FfiConverterTypeFfiFolderSummary.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiFolderSummary_lower(_ value: FfiFolderSummary) -> RustBuffer {
+    return FfiConverterTypeFfiFolderSummary.lower(value)
+}
+
+
 public struct FfiHistory {
     public var id: String
     public var mediaId: String
@@ -1437,6 +2784,72 @@ public func FfiConverterTypeFfiHistory_lift(_ buf: RustBuffer) throws -> FfiHist
 #endif
 public func FfiConverterTypeFfiHistory_lower(_ value: FfiHistory) -> RustBuffer {
     return FfiConverterTypeFfiHistory.lower(value)
+}
+
+
+public struct FfiHttpRange {
+    public var start: UInt64
+    public var end: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(start: UInt64, end: UInt64) {
+        self.start = start
+        self.end = end
+    }
+}
+
+
+
+extension FfiHttpRange: Equatable, Hashable {
+    public static func ==(lhs: FfiHttpRange, rhs: FfiHttpRange) -> Bool {
+        if lhs.start != rhs.start {
+            return false
+        }
+        if lhs.end != rhs.end {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(start)
+        hasher.combine(end)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiHttpRange: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiHttpRange {
+        return
+            try FfiHttpRange(
+                start: FfiConverterUInt64.read(from: &buf), 
+                end: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiHttpRange, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.start, into: &buf)
+        FfiConverterUInt64.write(value.end, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiHttpRange_lift(_ buf: RustBuffer) throws -> FfiHttpRange {
+    return try FfiConverterTypeFfiHttpRange.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiHttpRange_lower(_ value: FfiHttpRange) -> RustBuffer {
+    return FfiConverterTypeFfiHttpRange.lower(value)
 }
 
 
@@ -2006,6 +3419,80 @@ public func FfiConverterTypeFfiQueueState_lower(_ value: FfiQueueState) -> RustB
 }
 
 
+public struct FfiSharedFileInfo {
+    public var name: String
+    public var sizeBytes: UInt64
+    public var mimeType: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(name: String, sizeBytes: UInt64, mimeType: String) {
+        self.name = name
+        self.sizeBytes = sizeBytes
+        self.mimeType = mimeType
+    }
+}
+
+
+
+extension FfiSharedFileInfo: Equatable, Hashable {
+    public static func ==(lhs: FfiSharedFileInfo, rhs: FfiSharedFileInfo) -> Bool {
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.sizeBytes != rhs.sizeBytes {
+            return false
+        }
+        if lhs.mimeType != rhs.mimeType {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(sizeBytes)
+        hasher.combine(mimeType)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiSharedFileInfo: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiSharedFileInfo {
+        return
+            try FfiSharedFileInfo(
+                name: FfiConverterString.read(from: &buf), 
+                sizeBytes: FfiConverterUInt64.read(from: &buf), 
+                mimeType: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiSharedFileInfo, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterUInt64.write(value.sizeBytes, into: &buf)
+        FfiConverterString.write(value.mimeType, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSharedFileInfo_lift(_ buf: RustBuffer) throws -> FfiSharedFileInfo {
+    return try FfiConverterTypeFfiSharedFileInfo.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSharedFileInfo_lower(_ value: FfiSharedFileInfo) -> RustBuffer {
+    return FfiConverterTypeFfiSharedFileInfo.lower(value)
+}
+
+
 public struct FfiStreamValidation {
     public var isValid: Bool
     public var isLive: Bool
@@ -2085,6 +3572,210 @@ public func FfiConverterTypeFfiStreamValidation_lift(_ buf: RustBuffer) throws -
 #endif
 public func FfiConverterTypeFfiStreamValidation_lower(_ value: FfiStreamValidation) -> RustBuffer {
     return FfiConverterTypeFfiStreamValidation.lower(value)
+}
+
+
+public struct FfiSubtitleCue {
+    public var index: UInt32
+    public var startMs: Int64
+    public var endMs: Int64
+    public var text: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(index: UInt32, startMs: Int64, endMs: Int64, text: String) {
+        self.index = index
+        self.startMs = startMs
+        self.endMs = endMs
+        self.text = text
+    }
+}
+
+
+
+extension FfiSubtitleCue: Equatable, Hashable {
+    public static func ==(lhs: FfiSubtitleCue, rhs: FfiSubtitleCue) -> Bool {
+        if lhs.index != rhs.index {
+            return false
+        }
+        if lhs.startMs != rhs.startMs {
+            return false
+        }
+        if lhs.endMs != rhs.endMs {
+            return false
+        }
+        if lhs.text != rhs.text {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(index)
+        hasher.combine(startMs)
+        hasher.combine(endMs)
+        hasher.combine(text)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiSubtitleCue: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiSubtitleCue {
+        return
+            try FfiSubtitleCue(
+                index: FfiConverterUInt32.read(from: &buf), 
+                startMs: FfiConverterInt64.read(from: &buf), 
+                endMs: FfiConverterInt64.read(from: &buf), 
+                text: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiSubtitleCue, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.index, into: &buf)
+        FfiConverterInt64.write(value.startMs, into: &buf)
+        FfiConverterInt64.write(value.endMs, into: &buf)
+        FfiConverterString.write(value.text, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSubtitleCue_lift(_ buf: RustBuffer) throws -> FfiSubtitleCue {
+    return try FfiConverterTypeFfiSubtitleCue.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSubtitleCue_lower(_ value: FfiSubtitleCue) -> RustBuffer {
+    return FfiConverterTypeFfiSubtitleCue.lower(value)
+}
+
+
+public struct FfiSubtitleStyle {
+    public var fontFamily: String
+    public var fontSizeScale: Float
+    public var textColorHex: String
+    public var outlineColorHex: String
+    public var outlineThickness: Float
+    public var backgroundOpacity: Float
+    public var verticalPositionPercent: Float
+    public var bold: Bool
+    public var italic: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(fontFamily: String, fontSizeScale: Float, textColorHex: String, outlineColorHex: String, outlineThickness: Float, backgroundOpacity: Float, verticalPositionPercent: Float, bold: Bool, italic: Bool) {
+        self.fontFamily = fontFamily
+        self.fontSizeScale = fontSizeScale
+        self.textColorHex = textColorHex
+        self.outlineColorHex = outlineColorHex
+        self.outlineThickness = outlineThickness
+        self.backgroundOpacity = backgroundOpacity
+        self.verticalPositionPercent = verticalPositionPercent
+        self.bold = bold
+        self.italic = italic
+    }
+}
+
+
+
+extension FfiSubtitleStyle: Equatable, Hashable {
+    public static func ==(lhs: FfiSubtitleStyle, rhs: FfiSubtitleStyle) -> Bool {
+        if lhs.fontFamily != rhs.fontFamily {
+            return false
+        }
+        if lhs.fontSizeScale != rhs.fontSizeScale {
+            return false
+        }
+        if lhs.textColorHex != rhs.textColorHex {
+            return false
+        }
+        if lhs.outlineColorHex != rhs.outlineColorHex {
+            return false
+        }
+        if lhs.outlineThickness != rhs.outlineThickness {
+            return false
+        }
+        if lhs.backgroundOpacity != rhs.backgroundOpacity {
+            return false
+        }
+        if lhs.verticalPositionPercent != rhs.verticalPositionPercent {
+            return false
+        }
+        if lhs.bold != rhs.bold {
+            return false
+        }
+        if lhs.italic != rhs.italic {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(fontFamily)
+        hasher.combine(fontSizeScale)
+        hasher.combine(textColorHex)
+        hasher.combine(outlineColorHex)
+        hasher.combine(outlineThickness)
+        hasher.combine(backgroundOpacity)
+        hasher.combine(verticalPositionPercent)
+        hasher.combine(bold)
+        hasher.combine(italic)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiSubtitleStyle: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiSubtitleStyle {
+        return
+            try FfiSubtitleStyle(
+                fontFamily: FfiConverterString.read(from: &buf), 
+                fontSizeScale: FfiConverterFloat.read(from: &buf), 
+                textColorHex: FfiConverterString.read(from: &buf), 
+                outlineColorHex: FfiConverterString.read(from: &buf), 
+                outlineThickness: FfiConverterFloat.read(from: &buf), 
+                backgroundOpacity: FfiConverterFloat.read(from: &buf), 
+                verticalPositionPercent: FfiConverterFloat.read(from: &buf), 
+                bold: FfiConverterBool.read(from: &buf), 
+                italic: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiSubtitleStyle, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.fontFamily, into: &buf)
+        FfiConverterFloat.write(value.fontSizeScale, into: &buf)
+        FfiConverterString.write(value.textColorHex, into: &buf)
+        FfiConverterString.write(value.outlineColorHex, into: &buf)
+        FfiConverterFloat.write(value.outlineThickness, into: &buf)
+        FfiConverterFloat.write(value.backgroundOpacity, into: &buf)
+        FfiConverterFloat.write(value.verticalPositionPercent, into: &buf)
+        FfiConverterBool.write(value.bold, into: &buf)
+        FfiConverterBool.write(value.italic, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSubtitleStyle_lift(_ buf: RustBuffer) throws -> FfiSubtitleStyle {
+    return try FfiConverterTypeFfiSubtitleStyle.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiSubtitleStyle_lower(_ value: FfiSubtitleStyle) -> RustBuffer {
+    return FfiConverterTypeFfiSubtitleStyle.lower(value)
 }
 
 // Note that we don't yet support `indirect` for enums.
@@ -2403,6 +4094,30 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeFfiHttpRange: FfiConverterRustBuffer {
+    typealias SwiftType = FfiHttpRange?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeFfiHttpRange.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeFfiHttpRange.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeFfiMediaItem: FfiConverterRustBuffer {
     typealias SwiftType = FfiMediaItem?
 
@@ -2451,6 +4166,31 @@ fileprivate struct FfiConverterOptionTypeFfiParsedPlaylist: FfiConverterRustBuff
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceFloat: FfiConverterRustBuffer {
+    typealias SwiftType = [Float]
+
+    public static func write(_ value: [Float], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterFloat.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Float] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [Float]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterFloat.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
     typealias SwiftType = [String]
 
@@ -2468,6 +4208,31 @@ fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterString.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeFfiBatchRenameResult: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiBatchRenameResult]
+
+    public static func write(_ value: [FfiBatchRenameResult], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiBatchRenameResult.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiBatchRenameResult] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiBatchRenameResult]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiBatchRenameResult.read(from: &buf))
         }
         return seq
     }
@@ -2647,6 +4412,56 @@ fileprivate struct FfiConverterSequenceTypeFfiPlaylistItem: FfiConverterRustBuff
         return seq
     }
 }
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeFfiSharedFileInfo: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiSharedFileInfo]
+
+    public static func write(_ value: [FfiSharedFileInfo], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiSharedFileInfo.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiSharedFileInfo] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiSharedFileInfo]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiSharedFileInfo.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeFfiSubtitleCue: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiSubtitleCue]
+
+    public static func write(_ value: [FfiSubtitleCue], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiSubtitleCue.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiSubtitleCue] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiSubtitleCue]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiSubtitleCue.read(from: &buf))
+        }
+        return seq
+    }
+}
 public func calculateIntroSkipTarget(positionMillis: Int64, chapters: [FfiChapterInfo], durationMillis: Int64?) -> Int64 {
     return try!  FfiConverterInt64.lift(try! rustCall() {
     uniffi_vimivo_ffi_fn_func_calculate_intro_skip_target(
@@ -2664,10 +4479,49 @@ public func calculateReplayGainLinear(gainDb: Float?, peak: Float?) -> Float {
     )
 })
 }
+public func calculateSubtitleDragDelay(currentDelayMs: Int64, deltaXPixels: Float) -> Int64 {
+    return try!  FfiConverterInt64.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_calculate_subtitle_drag_delay(
+        FfiConverterInt64.lower(currentDelayMs),
+        FfiConverterFloat.lower(deltaXPixels),$0
+    )
+})
+}
+public func calculateSubtitleDragPosition(currentPercent: Float, deltaYPixels: Float, screenHeightPixels: Float) -> Float {
+    return try!  FfiConverterFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_calculate_subtitle_drag_position(
+        FfiConverterFloat.lower(currentPercent),
+        FfiConverterFloat.lower(deltaYPixels),
+        FfiConverterFloat.lower(screenHeightPixels),$0
+    )
+})
+}
+public func calculateSubtitlePinchFontScale(baseScale: Float, pinchFactor: Float) -> Float {
+    return try!  FfiConverterFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_calculate_subtitle_pinch_font_scale(
+        FfiConverterFloat.lower(baseScale),
+        FfiConverterFloat.lower(pinchFactor),$0
+    )
+})
+}
 public func cleanMediaTitle(fileName: String) -> FfiCleanTitle {
     return try!  FfiConverterTypeFfiCleanTitle.lift(try! rustCall() {
     uniffi_vimivo_ffi_fn_func_clean_media_title(
         FfiConverterString.lower(fileName),$0
+    )
+})
+}
+public func decodeSubtitleBytes(bytes: Data) -> String {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_decode_subtitle_bytes(
+        FfiConverterData.lower(bytes),$0
+    )
+})
+}
+public func detectMediaMimeType(filename: String) -> String {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_detect_media_mime_type(
+        FfiConverterString.lower(filename),$0
     )
 })
 }
@@ -2676,6 +4530,34 @@ public func formatRenameTemplate(template: String, item: FfiMediaItem) -> String
     uniffi_vimivo_ffi_fn_func_format_rename_template(
         FfiConverterString.lower(template),
         FfiConverterTypeFfiMediaItem.lower(item),$0
+    )
+})
+}
+public func generateBatchSequentialRename(items: [FfiBatchRenameResult], prefix: String, startIndex: UInt32, padDigits: UInt32) -> [FfiBatchRenameResult] {
+    return try!  FfiConverterSequenceTypeFfiBatchRenameResult.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_generate_batch_sequential_rename(
+        FfiConverterSequenceTypeFfiBatchRenameResult.lower(items),
+        FfiConverterString.lower(prefix),
+        FfiConverterUInt32.lower(startIndex),
+        FfiConverterUInt32.lower(padDigits),$0
+    )
+})
+}
+public func isNewMediaItem(addedAtSec: Int64, lastPlayedMs: Int64?, currentTimeSec: Int64, thresholdDays: UInt32) -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_is_new_media_item(
+        FfiConverterInt64.lower(addedAtSec),
+        FfiConverterOptionInt64.lower(lastPlayedMs),
+        FfiConverterInt64.lower(currentTimeSec),
+        FfiConverterUInt32.lower(thresholdDays),$0
+    )
+})
+}
+public func parseHttpRangeHeader(header: String, totalSize: UInt64) -> FfiHttpRange? {
+    return try!  FfiConverterOptionTypeFfiHttpRange.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_parse_http_range_header(
+        FfiConverterString.lower(header),
+        FfiConverterUInt64.lower(totalSize),$0
     )
 })
 }
@@ -2692,6 +4574,28 @@ public func parsePlaylistFile(fileName: String, content: String) -> FfiParsedPla
     uniffi_vimivo_ffi_fn_func_parse_playlist_file(
         FfiConverterString.lower(fileName),
         FfiConverterString.lower(content),$0
+    )
+})
+}
+public func parseSubtitleContent(content: String) -> [FfiSubtitleCue] {
+    return try!  FfiConverterSequenceTypeFfiSubtitleCue.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_parse_subtitle_content(
+        FfiConverterString.lower(content),$0
+    )
+})
+}
+public func renderWifiTransferHtml(deviceName: String, files: [FfiSharedFileInfo]) -> String {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_render_wifi_transfer_html(
+        FfiConverterString.lower(deviceName),
+        FfiConverterSequenceTypeFfiSharedFileInfo.lower(files),$0
+    )
+})
+}
+public func sanitizeTransferFilename(filename: String) -> String {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_sanitize_transfer_filename(
+        FfiConverterString.lower(filename),$0
     )
 })
 }
@@ -2724,10 +4628,34 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_func_calculate_replay_gain_linear() != 3107) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_func_calculate_subtitle_drag_delay() != 39566) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_calculate_subtitle_drag_position() != 19112) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_calculate_subtitle_pinch_font_scale() != 44123) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_func_clean_media_title() != 18973) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_func_decode_subtitle_bytes() != 40105) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_detect_media_mime_type() != 33546) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_func_format_rename_template() != 64066) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_generate_batch_sequential_rename() != 37358) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_is_new_media_item() != 43230) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_parse_http_range_header() != 24222) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_func_parse_lrc_lyrics() != 58350) {
@@ -2736,7 +4664,31 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_func_parse_playlist_file() != 40967) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_func_parse_subtitle_content() != 56810) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_render_wifi_transfer_html() != 6474) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_sanitize_transfer_filename() != 64653) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_func_validate_stream_url() != 39085) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffibassboost_gain_db() != 49689) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffibassboost_is_enabled() != 49473) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffibassboost_process() != 60440) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffibassboost_set_cutoff_hz() != 57272) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffibassboost_set_gain_db() != 62094) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_add_bookmark() != 24039) {
@@ -2814,6 +4766,15 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_upsert_item() != 242) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_method_ffidualsubtitlecoordinator_active_subtitles_at() != 5678) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffidualsubtitlecoordinator_set_primary_cues() != 36106) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffidualsubtitlecoordinator_set_secondary_cues() != 57384) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_method_ffiplayqueue_get_current_id() != 20368) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2838,13 +4799,79 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_method_ffiplayqueue_set_shuffled() != 60536) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_method_ffisoftlimiter_process() != 39451) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffispectrumvisualizer_bands() != 4711) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffispectrumvisualizer_process_samples() != 46841) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffistereovirtualizer_process_stereo() != 25110) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffistereovirtualizer_set_width() != 17193) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffistereovirtualizer_width() != 12354) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffivaultmanager_is_initialized() != 12177) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffivaultmanager_is_unlocked() != 24763) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffivaultmanager_lock() != 50877) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffivaultmanager_setup_pin() != 47713) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffivaultmanager_touch_session() != 13339) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffivaultmanager_unlock() != 42693) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffivoiceclarity_is_enabled() != 19475) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffivoiceclarity_process() != 52723) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffivoiceclarity_set_enabled() != 30778) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_constructor_ffibassboost_new() != 54592) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_constructor_ffidatabase_open() != 7591) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_constructor_ffidatabase_open_in_memory() != 37636) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_constructor_ffidualsubtitlecoordinator_new() != 32191) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_constructor_ffiplayqueue_new() != 37088) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_constructor_ffisoftlimiter_new() != 53125) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_constructor_ffispectrumvisualizer_new() != 51541) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_constructor_ffistereovirtualizer_new() != 9834) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_constructor_ffivaultmanager_new() != 35893) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_constructor_ffivoiceclarity_new() != 5129) {
         return InitializationResult.apiChecksumMismatch
     }
 
