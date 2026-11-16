@@ -149,6 +149,15 @@ Vimivo/
 
 ---
 
+## Support & Sponsorship
+
+Vimivo is 100% free, open source, and ad-free. If you find Vimivo valuable, you can support its independent development:
+
+- **Support Kori**: [supportkori.com/iamtashanto](https://www.supportkori.com/iamtashanto)
+- **Developer Website**: [tashanto.com](https://tashanto.com)
+
+---
+
 ## License
 
 Vimivo is open-source software licensed under the [MIT License](LICENSE). Third-party dependencies and native media libraries retain their respective licenses (LGPL/GPL/Apache 2.0). See [Third-Party Notices](docs/THIRD_PARTY_NOTICES.md) and [License Audit](docs/LICENSE_AUDIT.md).
