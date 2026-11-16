@@ -126,7 +126,7 @@ public struct SettingsView: View {
                     HStack {
                         Text("Application")
                         Spacer()
-                        Text("Vimivo for iOS")
+                        Text("Vimivo")
                             .foregroundColor(.secondary)
                     }
                     HStack {
@@ -134,6 +134,16 @@ public struct SettingsView: View {
                         Spacer()
                         Text("Every Sound. Every Frame.")
                             .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("Developer")
+                        Spacer()
+                        Link("TA Shanto", destination: URL(string: "https://tashanto.com")!)
+                    }
+                    HStack {
+                        Text("Support Creator")
+                        Spacer()
+                        Link("Support Kori", destination: URL(string: "https://supportkori.com/iamtashanto")!)
                     }
                     HStack {
                         Text("Version")

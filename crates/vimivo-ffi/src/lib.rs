@@ -243,7 +243,7 @@ impl From<CoreMediaItem> for FfiMediaItem {
             width: item.width,
             height: item.height,
             size_bytes: item.size_bytes,
-            date_added_millis: item.date_added_epoch_seconds.map(|s| s * 1000),
+            date_added_millis: item.date_added_epoch_seconds,
         }
     }
 }
@@ -289,7 +289,7 @@ impl FfiDatabase {
         core_item.width = item.width;
         core_item.height = item.height;
         core_item.size_bytes = item.size_bytes;
-        core_item.date_added_epoch_seconds = item.date_added_millis.map(|ms| ms / 1000);
+        core_item.date_added_epoch_seconds = item.date_added_millis;
 
         let db = self.inner.lock().unwrap();
         db.upsert_media_item(&core_item)

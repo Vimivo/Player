@@ -8,7 +8,7 @@ public enum PlaybackPreferences {
     public static let resumeSongsKey = "vimivo_resume_songs"
 
     /// Speeds offered by every platform, defined once in the Rust core module.
-    public static let speedPresets: [Float] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+    public static let speedPresets: [Float] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0]
     public static let speedRange: ClosedRange<Double> = 0.25...4.0
 
     /// How often the current position is persisted while playing, matching the desktop save interval.

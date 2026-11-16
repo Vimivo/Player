@@ -563,11 +563,14 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         if existing.contains(where: { abs($0.positionMillis - currentPos) < 1000 }) {
             return nil
         }
-        let count = existing.count + 1
+        let totalSec = currentPos / 1000
+        let m = totalSec / 60
+        let s = totalSec % 60
+        let formattedName = String(format: "%d:%02d", m, s)
         let bookmark = Bookmark(
             id: UUID().uuidString,
             mediaId: item.id,
-            name: "Bookmark \(count)",
+            name: formattedName,
             positionMillis: currentPos,
             createdAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
         )

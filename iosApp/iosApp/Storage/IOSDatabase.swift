@@ -145,7 +145,15 @@ public final class IOSDatabase {
 
     /// Replaces the persisted queue atomically so a crash never leaves a half-written queue.
     public func saveQueue(mediaIds: [String], currentIndex: Int) {
-        attempt("queue save") { try store.saveQueue(mediaIds: mediaIds, currentIndex: Int32(currentIndex)) }
+        let clamped: Int
+        if mediaIds.isEmpty {
+            clamped = 0
+        } else if currentIndex < 0 || currentIndex >= mediaIds.count {
+            clamped = 0
+        } else {
+            clamped = currentIndex
+        }
+        attempt("queue save") { try store.saveQueue(mediaIds: mediaIds, currentIndex: Int32(clamped)) }
     }
 
     public func loadQueue() -> (mediaIds: [String], currentIndex: Int) {
@@ -249,7 +257,7 @@ extension MediaItem {
             width: width.map(Int32.init),
             height: height.map(Int32.init),
             sizeBytes: sizeBytes,
-            dateAddedMillis: dateAddedMillis
+            dateAddedMillis: dateAddedMillis ?? Int64(Date().timeIntervalSince1970 * 1000)
         )
     }
 }

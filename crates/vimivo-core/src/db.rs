@@ -74,7 +74,7 @@ impl VimivoDatabase {
                     release_year INTEGER,
                     folder_name TEXT,
                     folder_path TEXT,
-                    source TEXT NOT NULL,
+                    source TEXT NOT NULL DEFAULT 'LOCAL_FILE',
                     volume_name TEXT,
                     bookmark_data BLOB,
                     is_available INTEGER NOT NULL DEFAULT 1
@@ -93,7 +93,7 @@ impl VimivoDatabase {
                 );
                 CREATE TABLE IF NOT EXISTS favorites (
                     media_id TEXT PRIMARY KEY,
-                    created_at_millis INTEGER NOT NULL
+                    created_at_millis INTEGER NOT NULL DEFAULT 0
                 );
                 CREATE TABLE IF NOT EXISTS playback_history (
                     id TEXT PRIMARY KEY,
@@ -116,6 +116,26 @@ impl VimivoDatabase {
                 );
                 "#,
             )?;
+            Self::ensure_column(&tx, "media_items", "genre", "TEXT")?;
+            Self::ensure_column(&tx, "media_items", "size_bytes", "INTEGER")?;
+            Self::ensure_column(&tx, "media_items", "mime_type", "TEXT")?;
+            Self::ensure_column(&tx, "media_items", "file_name", "TEXT")?;
+            Self::ensure_column(&tx, "media_items", "date_added_epoch_seconds", "INTEGER")?;
+            Self::ensure_column(&tx, "media_items", "date_modified_epoch_seconds", "INTEGER")?;
+            Self::ensure_column(&tx, "media_items", "width", "INTEGER")?;
+            Self::ensure_column(&tx, "media_items", "height", "INTEGER")?;
+            Self::ensure_column(&tx, "media_items", "frame_rate", "REAL")?;
+            Self::ensure_column(&tx, "media_items", "bitrate", "INTEGER")?;
+            Self::ensure_column(&tx, "media_items", "track_number", "INTEGER")?;
+            Self::ensure_column(&tx, "media_items", "disc_number", "INTEGER")?;
+            Self::ensure_column(&tx, "media_items", "release_year", "INTEGER")?;
+            Self::ensure_column(&tx, "media_items", "folder_name", "TEXT")?;
+            Self::ensure_column(&tx, "media_items", "folder_path", "TEXT")?;
+            Self::ensure_column(&tx, "media_items", "source", "TEXT NOT NULL DEFAULT 'LOCAL_FILE'")?;
+            Self::ensure_column(&tx, "media_items", "volume_name", "TEXT")?;
+            Self::ensure_column(&tx, "media_items", "bookmark_data", "BLOB")?;
+            Self::ensure_column(&tx, "media_items", "is_available", "INTEGER NOT NULL DEFAULT 1")?;
+            Self::ensure_column(&tx, "favorites", "created_at_millis", "INTEGER NOT NULL DEFAULT 0")?;
             tx.execute("PRAGMA user_version = 1", [])?;
             tx.commit()?;
         }
@@ -395,16 +415,43 @@ impl VimivoDatabase {
         })
     }
 
+    fn ensure_column(
+        conn: &rusqlite::Connection,
+        table: &str,
+        column: &str,
+        col_type_sql: &str,
+    ) -> Result<()> {
+        let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;
+        let mut rows = stmt.query([])?;
+        let mut exists = false;
+        while let Some(row) = rows.next()? {
+            let name: String = row.get(1)?;
+            if name.eq_ignore_ascii_case(column) {
+                exists = true;
+                break;
+            }
+        }
+        if !exists {
+            conn.execute(
+                &format!("ALTER TABLE {} ADD COLUMN {} {}", table, column, col_type_sql),
+                [],
+            )?;
+        }
+        Ok(())
+    }
+
     fn row_to_media_item(row: &rusqlite::Row) -> rusqlite::Result<MediaItem> {
         let kind_str: String = row.get("kind")?;
-        let kind = match kind_str.as_str() {
+        let kind = match kind_str.to_uppercase().as_str() {
             "AUDIO" => MediaKind::Audio,
             "VIDEO" => MediaKind::Video,
             _ => MediaKind::Stream,
         };
 
-        let source_str: String = row.get("source")?;
-        let source = match source_str.as_str() {
+        let source_str: String = row
+            .get::<_, Option<String>>("source")?
+            .unwrap_or_else(|| "LOCAL_FILE".to_string());
+        let source = match source_str.to_uppercase().as_str() {
             "MEDIA_STORE" => MediaSource::MediaStore,
             "SAF_FILE" => MediaSource::SafFile,
             "SAF_TREE" => MediaSource::SafTree,
@@ -412,7 +459,7 @@ impl VimivoDatabase {
             _ => MediaSource::LocalFile,
         };
 
-        let is_available_int: i32 = row.get("is_available")?;
+        let is_available_int: i32 = row.get::<_, Option<i32>>("is_available")?.unwrap_or(1);
 
         Ok(MediaItem {
             id: MediaId(row.get("id")?),
@@ -724,8 +771,15 @@ impl VimivoDatabase {
     }
 
     pub fn save_queue(&self, media_ids: &[String], current_index: i32) -> Result<()> {
+        let clamped = if media_ids.is_empty() {
+            0
+        } else if current_index < 0 || current_index as usize >= media_ids.len() {
+            0
+        } else {
+            current_index
+        };
         self.set_setting("queue_ids", &media_ids.join("\n"))?;
-        self.set_setting("queue_index", &current_index.to_string())?;
+        self.set_setting("queue_index", &clamped.to_string())?;
         Ok(())
     }
 
@@ -737,7 +791,12 @@ impl VimivoDatabase {
         } else {
             ids_str.lines().map(|s| s.to_string()).collect()
         };
-        let index = index_str.parse::<i32>().unwrap_or(0);
+        let mut index = index_str.parse::<i32>().unwrap_or(0);
+        if ids.is_empty() {
+            index = 0;
+        } else if index < 0 || index as usize >= ids.len() {
+            index = 0;
+        }
         Ok((ids, index))
     }
 
