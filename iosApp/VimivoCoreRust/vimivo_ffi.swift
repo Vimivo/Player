@@ -4734,6 +4734,140 @@ extension FfiDecoderMode: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
+public enum FfiEqualizerPreset {
+    
+    case flat
+    case rock
+    case pop
+    case classical
+    case jazz
+    case vocal
+    case bassBoost
+    case trebleBoost
+    case acoustic
+    case electronic
+    case podcast
+    case custom
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiEqualizerPreset: FfiConverterRustBuffer {
+    typealias SwiftType = FfiEqualizerPreset
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiEqualizerPreset {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .flat
+        
+        case 2: return .rock
+        
+        case 3: return .pop
+        
+        case 4: return .classical
+        
+        case 5: return .jazz
+        
+        case 6: return .vocal
+        
+        case 7: return .bassBoost
+        
+        case 8: return .trebleBoost
+        
+        case 9: return .acoustic
+        
+        case 10: return .electronic
+        
+        case 11: return .podcast
+        
+        case 12: return .custom
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiEqualizerPreset, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .flat:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .rock:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .pop:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .classical:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .jazz:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .vocal:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .bassBoost:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .trebleBoost:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .acoustic:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .electronic:
+            writeInt(&buf, Int32(10))
+        
+        
+        case .podcast:
+            writeInt(&buf, Int32(11))
+        
+        
+        case .custom:
+            writeInt(&buf, Int32(12))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiEqualizerPreset_lift(_ buf: RustBuffer) throws -> FfiEqualizerPreset {
+    return try FfiConverterTypeFfiEqualizerPreset.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiEqualizerPreset_lower(_ value: FfiEqualizerPreset) -> RustBuffer {
+    return FfiConverterTypeFfiEqualizerPreset.lower(value)
+}
+
+
+
+extension FfiEqualizerPreset: Equatable, Hashable {}
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 public enum FfiMediaKind {
     
     case audio
@@ -5145,6 +5279,84 @@ extension FfiVideoAspectRatio: Equatable, Hashable {}
 
 
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum FfiVideoRotation {
+    
+    case none
+    case clockwise90
+    case clockwise180
+    case clockwise270
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiVideoRotation: FfiConverterRustBuffer {
+    typealias SwiftType = FfiVideoRotation
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiVideoRotation {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .none
+        
+        case 2: return .clockwise90
+        
+        case 3: return .clockwise180
+        
+        case 4: return .clockwise270
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: FfiVideoRotation, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .none:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .clockwise90:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .clockwise180:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .clockwise270:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVideoRotation_lift(_ buf: RustBuffer) throws -> FfiVideoRotation {
+    return try FfiConverterTypeFfiVideoRotation.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiVideoRotation_lower(_ value: FfiVideoRotation) -> RustBuffer {
+    return FfiConverterTypeFfiVideoRotation.lower(value)
+}
+
+
+
+extension FfiVideoRotation: Equatable, Hashable {}
+
+
+
 
 public enum VimivoFfiError {
 
@@ -5407,6 +5619,30 @@ fileprivate struct FfiConverterOptionTypeFfiDecoderMode: FfiConverterRustBuffer 
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeFfiDecoderMode.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionSequenceFloat: FfiConverterRustBuffer {
+    typealias SwiftType = [Float]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterSequenceFloat.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterSequenceFloat.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -5764,6 +6000,17 @@ public func calculateReplayGainLinear(gainDb: Float?, peak: Float?) -> Float {
     )
 })
 }
+public func calculateResumeStartPosition(kind: FfiMediaKind, savedPositionMillis: Int64, durationMillis: Int64?, completed: Bool, includeShortAudio: Bool) -> Int64 {
+    return try!  FfiConverterInt64.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_calculate_resume_start_position(
+        FfiConverterTypeFfiMediaKind.lower(kind),
+        FfiConverterInt64.lower(savedPositionMillis),
+        FfiConverterOptionInt64.lower(durationMillis),
+        FfiConverterBool.lower(completed),
+        FfiConverterBool.lower(includeShortAudio),$0
+    )
+})
+}
 public func calculateSeekSwipe(currentPositionMs: Int64, totalDurationMs: Int64, deltaX: Float, screenWidth: Float) -> FfiSeekGestureResult {
     return try!  FfiConverterTypeFfiSeekGestureResult.lift(try! rustCall() {
     uniffi_vimivo_ffi_fn_func_calculate_seek_swipe(
@@ -5771,6 +6018,14 @@ public func calculateSeekSwipe(currentPositionMs: Int64, totalDurationMs: Int64,
         FfiConverterInt64.lower(totalDurationMs),
         FfiConverterFloat.lower(deltaX),
         FfiConverterFloat.lower(screenWidth),$0
+    )
+})
+}
+public func calculateSleepFadeVolume(elapsedMillis: Int64, fadeMillis: Int64) -> Float {
+    return try!  FfiConverterFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_calculate_sleep_fade_volume(
+        FfiConverterInt64.lower(elapsedMillis),
+        FfiConverterInt64.lower(fadeMillis),$0
     )
 })
 }
@@ -5796,6 +6051,16 @@ public func calculateSubtitlePinchFontScale(baseScale: Float, pinchFactor: Float
     uniffi_vimivo_ffi_fn_func_calculate_subtitle_pinch_font_scale(
         FfiConverterFloat.lower(baseScale),
         FfiConverterFloat.lower(pinchFactor),$0
+    )
+})
+}
+public func calculateVideoRotationFitScale(rot: FfiVideoRotation, containerWidth: Float, containerHeight: Float, videoAspect: Float) -> Float {
+    return try!  FfiConverterFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_calculate_video_rotation_fit_scale(
+        FfiConverterTypeFfiVideoRotation.lower(rot),
+        FfiConverterFloat.lower(containerWidth),
+        FfiConverterFloat.lower(containerHeight),
+        FfiConverterFloat.lower(videoAspect),$0
     )
 })
 }
@@ -5872,6 +6137,13 @@ public func formatRenameTemplate(template: String, item: FfiMediaItem) -> String
     )
 })
 }
+public func formatSleepTimerLabel(minutes: Int32) -> String {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_format_sleep_timer_label(
+        FfiConverterInt32.lower(minutes),$0
+    )
+})
+}
 public func generateAudioExtractionFfmpegArgs(videoPath: String, outPath: String, format: FfiAudioExtractFormat, bitrate: FfiAudioExtractBitrate) -> [String] {
     return try!  FfiConverterSequenceString.lift(try! rustCall() {
     uniffi_vimivo_ffi_fn_func_generate_audio_extraction_ffmpeg_args(
@@ -5900,6 +6172,23 @@ public func generateBatchSequentialRename(items: [FfiBatchRenameResult], prefix:
     )
 })
 }
+public func generateSnapshotFileName(title: String?, positionMillis: Int64, timestampMillis: Int64, isJpeg: Bool) -> String {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_generate_snapshot_file_name(
+        FfiConverterOptionString.lower(title),
+        FfiConverterInt64.lower(positionMillis),
+        FfiConverterInt64.lower(timestampMillis),
+        FfiConverterBool.lower(isJpeg),$0
+    )
+})
+}
+public func getEqualizerPresetGains(preset: FfiEqualizerPreset) -> [Float] {
+    return try!  FfiConverterSequenceFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_get_equalizer_preset_gains(
+        FfiConverterTypeFfiEqualizerPreset.lower(preset),$0
+    )
+})
+}
 public func getLongPressPlaybackSpeed(isPressed: Bool) -> Float {
     return try!  FfiConverterFloat.lift(try! rustCall() {
     uniffi_vimivo_ffi_fn_func_get_long_press_playback_speed(
@@ -5912,6 +6201,20 @@ public func getMpvHwdecArg(mode: FfiDecoderMode, os: String) -> String {
     uniffi_vimivo_ffi_fn_func_get_mpv_hwdec_arg(
         FfiConverterTypeFfiDecoderMode.lower(mode),
         FfiConverterString.lower(os),$0
+    )
+})
+}
+public func getNextVideoRotation(rot: FfiVideoRotation) -> FfiVideoRotation {
+    return try!  FfiConverterTypeFfiVideoRotation.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_get_next_video_rotation(
+        FfiConverterTypeFfiVideoRotation.lower(rot),$0
+    )
+})
+}
+public func getVideoRotationDegrees(rot: FfiVideoRotation) -> Int32 {
+    return try!  FfiConverterInt32.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_get_video_rotation_degrees(
+        FfiConverterTypeFfiVideoRotation.lower(rot),$0
     )
 })
 }
@@ -5962,6 +6265,14 @@ public func mpvVolumeProperty(volume: Float) -> FfiMpvProperty {
     )
 })
 }
+public func parseCustomSleepTimerMinutes(hours: String, minutes: String) -> Int32? {
+    return try!  FfiConverterOptionInt32.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_parse_custom_sleep_timer_minutes(
+        FfiConverterString.lower(hours),
+        FfiConverterString.lower(minutes),$0
+    )
+})
+}
 public func parseHttpRangeHeader(header: String, totalSize: UInt64) -> FfiHttpRange? {
     return try!  FfiConverterOptionTypeFfiHttpRange.lift(try! rustCall() {
     uniffi_vimivo_ffi_fn_func_parse_http_range_header(
@@ -5998,6 +6309,16 @@ public func renderWifiTransferHtml(deviceName: String, files: [FfiSharedFileInfo
     uniffi_vimivo_ffi_fn_func_render_wifi_transfer_html(
         FfiConverterString.lower(deviceName),
         FfiConverterSequenceTypeFfiSharedFileInfo.lower(files),$0
+    )
+})
+}
+public func resolveEqualizerGains(preset: FfiEqualizerPreset, customGains: [Float]?, bassStrength: Float, trebleGainDb: Float) -> [Float] {
+    return try!  FfiConverterSequenceFloat.lift(try! rustCall() {
+    uniffi_vimivo_ffi_fn_func_resolve_equalizer_gains(
+        FfiConverterTypeFfiEqualizerPreset.lower(preset),
+        FfiConverterOptionSequenceFloat.lower(customGains),
+        FfiConverterFloat.lower(bassStrength),
+        FfiConverterFloat.lower(trebleGainDb),$0
     )
 })
 }
@@ -6049,7 +6370,13 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_func_calculate_replay_gain_linear() != 3107) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_func_calculate_resume_start_position() != 27511) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_func_calculate_seek_swipe() != 4617) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_calculate_sleep_fade_volume() != 15856) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_func_calculate_subtitle_drag_delay() != 39566) {
@@ -6059,6 +6386,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_func_calculate_subtitle_pinch_font_scale() != 44123) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_calculate_video_rotation_fit_scale() != 43210) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_func_calculate_volume_swipe() != 13479) {
@@ -6091,6 +6421,9 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_func_format_rename_template() != 64066) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_func_format_sleep_timer_label() != 50265) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_func_generate_audio_extraction_ffmpeg_args() != 60441) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -6100,10 +6433,22 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_func_generate_batch_sequential_rename() != 37358) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_func_generate_snapshot_file_name() != 61293) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_get_equalizer_preset_gains() != 50258) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_func_get_long_press_playback_speed() != 18344) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_func_get_mpv_hwdec_arg() != 42760) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_get_next_video_rotation() != 51171) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_get_video_rotation_degrees() != 54428) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_func_is_new_media_item() != 43230) {
@@ -6124,6 +6469,9 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_func_mpv_volume_property() != 32937) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_func_parse_custom_sleep_timer_minutes() != 31212) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_func_parse_http_range_header() != 24222) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -6137,6 +6485,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_func_render_wifi_transfer_html() != 6474) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_func_resolve_equalizer_gains() != 29057) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_func_sanitize_transfer_filename() != 64653) {

@@ -9,6 +9,64 @@ impl GraphicEqualizerBands {
     pub const CENTRES_HZ: [i32; 10] = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EqualizerPreset {
+    Flat,
+    Rock,
+    Pop,
+    Classical,
+    Jazz,
+    Vocal,
+    BassBoost,
+    TrebleBoost,
+    Acoustic,
+    Electronic,
+    Podcast,
+    Custom,
+}
+
+pub struct EqualizerPresets;
+
+impl EqualizerPresets {
+    pub fn gains(preset: EqualizerPreset) -> [f32; 10] {
+        match preset {
+            EqualizerPreset::Flat | EqualizerPreset::Custom => [0.0; 10],
+            EqualizerPreset::Rock => [4.0, 3.0, 1.0, -1.0, -2.0, 0.0, 2.0, 3.0, 4.0, 4.0],
+            EqualizerPreset::Pop => [-1.0, 1.0, 3.0, 4.0, 2.0, -1.0, -2.0, -2.0, 1.0, 2.0],
+            EqualizerPreset::Classical => [3.0, 2.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0, 3.0, 4.0],
+            EqualizerPreset::Jazz => [3.0, 2.0, 1.0, 2.0, -1.0, -1.0, 0.0, 1.0, 2.0, 3.0],
+            EqualizerPreset::Vocal => [-3.0, -2.0, -1.0, 1.0, 3.0, 4.0, 4.0, 3.0, 1.0, 0.0],
+            EqualizerPreset::BassBoost => [6.0, 5.0, 4.0, 2.0, 0.0, -1.0, -2.0, -2.0, -2.0, -2.0],
+            EqualizerPreset::TrebleBoost => [-2.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            EqualizerPreset::Acoustic => [3.0, 2.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 2.0, 1.0],
+            EqualizerPreset::Electronic => [5.0, 4.0, 2.0, 0.0, -2.0, 2.0, 1.0, 2.0, 4.0, 5.0],
+            EqualizerPreset::Podcast => [-2.0, -1.0, 0.0, 2.0, 4.0, 4.0, 3.0, 1.0, -1.0, -2.0],
+        }
+    }
+
+    pub fn resolved(
+        preset: EqualizerPreset,
+        custom_gains: Option<&[f32; 10]>,
+        bass_strength: f32,
+        treble_gain_db: f32,
+    ) -> [f32; 10] {
+        let mut base = match preset {
+            EqualizerPreset::Custom => custom_gains.copied().unwrap_or([0.0; 10]),
+            _ => Self::gains(preset),
+        };
+
+        let bass_add = bass_strength.clamp(0.0, 1.0) * 6.0;
+        base[0] = (base[0] + bass_add).clamp(-MAX_GAIN_DB, MAX_GAIN_DB);
+        base[1] = (base[1] + bass_add).clamp(-MAX_GAIN_DB, MAX_GAIN_DB);
+
+        let treble_clamped = treble_gain_db.clamp(-MAX_GAIN_DB, MAX_GAIN_DB);
+        base[8] = (base[8] + treble_clamped).clamp(-MAX_GAIN_DB, MAX_GAIN_DB);
+        base[9] = (base[9] + treble_clamped).clamp(-MAX_GAIN_DB, MAX_GAIN_DB);
+
+        base
+    }
+}
+
 pub const MAX_GAIN_DB: f32 = 12.0;
 const Q: f32 = 1.41421356; // sqrt(2) for 1-octave bandwidth
 

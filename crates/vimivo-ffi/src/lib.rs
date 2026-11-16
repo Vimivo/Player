@@ -34,6 +34,16 @@ use vimivo_core::engine::{
     MpvCommandMapper as CoreMpvCommandMapper,
 };
 use vimivo_core::model::{VideoAspectRatio as CoreVideoAspectRatio};
+use vimivo_core::audio::{
+    EqualizerPreset as CoreEqPreset, EqualizerPresets as CoreEqPresets,
+};
+use vimivo_core::playback_policy::{
+    ResumePolicy as CoreResumePolicy, VideoRotation as CoreVideoRotation,
+    SnapshotNaming as CoreSnapshotNaming, SnapshotFormat as CoreSnapshotFormat,
+};
+use vimivo_core::sleep_timer::{
+    SleepFade as CoreSleepFade, SleepTimerOptions as CoreSleepTimerOptions,
+};
 
 uniffi::setup_scaffolding!();
 
@@ -1489,4 +1499,186 @@ pub fn mpv_delay_property(delay_ms: i64, is_subtitle: bool) -> FfiMpvProperty {
         value: val,
     }
 }
+
+// ---------------------------------------------------------------------------
+// Resume Policy & Playback Preferences
+// ---------------------------------------------------------------------------
+
+#[uniffi::export]
+pub fn calculate_resume_start_position(
+    kind: FfiMediaKind,
+    saved_position_millis: i64,
+    duration_millis: Option<i64>,
+    completed: bool,
+    include_short_audio: bool,
+) -> i64 {
+    let core_kind = match kind {
+        FfiMediaKind::Audio => CoreMediaKind::Audio,
+        FfiMediaKind::Video => CoreMediaKind::Video,
+        FfiMediaKind::Stream => CoreMediaKind::Stream,
+    };
+    CoreResumePolicy::start_position_millis(
+        core_kind,
+        saved_position_millis,
+        duration_millis,
+        completed,
+        include_short_audio,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Equalizer Presets
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Enum)]
+pub enum FfiEqualizerPreset {
+    Flat,
+    Rock,
+    Pop,
+    Classical,
+    Jazz,
+    Vocal,
+    BassBoost,
+    TrebleBoost,
+    Acoustic,
+    Electronic,
+    Podcast,
+    Custom,
+}
+
+#[uniffi::export]
+pub fn get_equalizer_preset_gains(preset: FfiEqualizerPreset) -> Vec<f32> {
+    let core_preset = match preset {
+        FfiEqualizerPreset::Flat => CoreEqPreset::Flat,
+        FfiEqualizerPreset::Rock => CoreEqPreset::Rock,
+        FfiEqualizerPreset::Pop => CoreEqPreset::Pop,
+        FfiEqualizerPreset::Classical => CoreEqPreset::Classical,
+        FfiEqualizerPreset::Jazz => CoreEqPreset::Jazz,
+        FfiEqualizerPreset::Vocal => CoreEqPreset::Vocal,
+        FfiEqualizerPreset::BassBoost => CoreEqPreset::BassBoost,
+        FfiEqualizerPreset::TrebleBoost => CoreEqPreset::TrebleBoost,
+        FfiEqualizerPreset::Acoustic => CoreEqPreset::Acoustic,
+        FfiEqualizerPreset::Electronic => CoreEqPreset::Electronic,
+        FfiEqualizerPreset::Podcast => CoreEqPreset::Podcast,
+        FfiEqualizerPreset::Custom => CoreEqPreset::Custom,
+    };
+    CoreEqPresets::gains(core_preset).to_vec()
+}
+
+#[uniffi::export]
+pub fn resolve_equalizer_gains(
+    preset: FfiEqualizerPreset,
+    custom_gains: Option<Vec<f32>>,
+    bass_strength: f32,
+    treble_gain_db: f32,
+) -> Vec<f32> {
+    let core_preset = match preset {
+        FfiEqualizerPreset::Flat => CoreEqPreset::Flat,
+        FfiEqualizerPreset::Rock => CoreEqPreset::Rock,
+        FfiEqualizerPreset::Pop => CoreEqPreset::Pop,
+        FfiEqualizerPreset::Classical => CoreEqPreset::Classical,
+        FfiEqualizerPreset::Jazz => CoreEqPreset::Jazz,
+        FfiEqualizerPreset::Vocal => CoreEqPreset::Vocal,
+        FfiEqualizerPreset::BassBoost => CoreEqPreset::BassBoost,
+        FfiEqualizerPreset::TrebleBoost => CoreEqPreset::TrebleBoost,
+        FfiEqualizerPreset::Acoustic => CoreEqPreset::Acoustic,
+        FfiEqualizerPreset::Electronic => CoreEqPreset::Electronic,
+        FfiEqualizerPreset::Podcast => CoreEqPreset::Podcast,
+        FfiEqualizerPreset::Custom => CoreEqPreset::Custom,
+    };
+    let mut custom_array = [0.0f32; 10];
+    if let Some(cg) = custom_gains {
+        for (i, val) in cg.into_iter().take(10).enumerate() {
+            custom_array[i] = val;
+        }
+    }
+    CoreEqPresets::resolved(core_preset, Some(&custom_array), bass_strength, treble_gain_db).to_vec()
+}
+
+// ---------------------------------------------------------------------------
+// Video Rotation
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Enum)]
+pub enum FfiVideoRotation {
+    None,
+    Clockwise90,
+    Clockwise180,
+    Clockwise270,
+}
+
+#[uniffi::export]
+pub fn get_video_rotation_degrees(rot: FfiVideoRotation) -> i32 {
+    match rot {
+        FfiVideoRotation::None => 0,
+        FfiVideoRotation::Clockwise90 => 90,
+        FfiVideoRotation::Clockwise180 => 180,
+        FfiVideoRotation::Clockwise270 => 270,
+    }
+}
+
+#[uniffi::export]
+pub fn get_next_video_rotation(rot: FfiVideoRotation) -> FfiVideoRotation {
+    match rot {
+        FfiVideoRotation::None => FfiVideoRotation::Clockwise90,
+        FfiVideoRotation::Clockwise90 => FfiVideoRotation::Clockwise180,
+        FfiVideoRotation::Clockwise180 => FfiVideoRotation::Clockwise270,
+        FfiVideoRotation::Clockwise270 => FfiVideoRotation::None,
+    }
+}
+
+#[uniffi::export]
+pub fn calculate_video_rotation_fit_scale(
+    rot: FfiVideoRotation,
+    container_width: f32,
+    container_height: f32,
+    video_aspect: f32,
+) -> f32 {
+    let core_rot = match rot {
+        FfiVideoRotation::None => CoreVideoRotation::None,
+        FfiVideoRotation::Clockwise90 => CoreVideoRotation::Clockwise90,
+        FfiVideoRotation::Clockwise180 => CoreVideoRotation::Clockwise180,
+        FfiVideoRotation::Clockwise270 => CoreVideoRotation::Clockwise270,
+    };
+    core_rot.fit_scale(container_width, container_height, video_aspect)
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot Naming
+// ---------------------------------------------------------------------------
+
+#[uniffi::export]
+pub fn generate_snapshot_file_name(
+    title: Option<String>,
+    position_millis: i64,
+    timestamp_millis: i64,
+    is_jpeg: bool,
+) -> String {
+    let fmt = if is_jpeg {
+        CoreSnapshotFormat::Jpeg
+    } else {
+        CoreSnapshotFormat::Png
+    };
+    CoreSnapshotNaming::file_name(title.as_deref(), position_millis, timestamp_millis, fmt)
+}
+
+// ---------------------------------------------------------------------------
+// Sleep Timer
+// ---------------------------------------------------------------------------
+
+#[uniffi::export]
+pub fn calculate_sleep_fade_volume(elapsed_millis: i64, fade_millis: i64) -> f32 {
+    CoreSleepFade::volume_fraction(elapsed_millis, fade_millis)
+}
+
+#[uniffi::export]
+pub fn parse_custom_sleep_timer_minutes(hours: String, minutes: String) -> Option<i32> {
+    CoreSleepTimerOptions::custom_minutes(&hours, &minutes)
+}
+
+#[uniffi::export]
+pub fn format_sleep_timer_label(minutes: i32) -> String {
+    CoreSleepTimerOptions::label(minutes)
+}
+
 

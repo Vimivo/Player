@@ -751,9 +751,19 @@ RustBuffer uniffi_vimivo_ffi_fn_func_calculate_pinch_zoom(float base_scale, floa
 float uniffi_vimivo_ffi_fn_func_calculate_replay_gain_linear(RustBuffer gain_db, RustBuffer peak, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_RESUME_START_POSITION
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_RESUME_START_POSITION
+int64_t uniffi_vimivo_ffi_fn_func_calculate_resume_start_position(RustBuffer kind, int64_t saved_position_millis, RustBuffer duration_millis, int8_t completed, int8_t include_short_audio, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SEEK_SWIPE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SEEK_SWIPE
 RustBuffer uniffi_vimivo_ffi_fn_func_calculate_seek_swipe(int64_t current_position_ms, int64_t total_duration_ms, float delta_x, float screen_width, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SLEEP_FADE_VOLUME
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SLEEP_FADE_VOLUME
+float uniffi_vimivo_ffi_fn_func_calculate_sleep_fade_volume(int64_t elapsed_millis, int64_t fade_millis, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SUBTITLE_DRAG_DELAY
@@ -769,6 +779,11 @@ float uniffi_vimivo_ffi_fn_func_calculate_subtitle_drag_position(float current_p
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SUBTITLE_PINCH_FONT_SCALE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SUBTITLE_PINCH_FONT_SCALE
 float uniffi_vimivo_ffi_fn_func_calculate_subtitle_pinch_font_scale(float base_scale, float pinch_factor, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_VIDEO_ROTATION_FIT_SCALE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_VIDEO_ROTATION_FIT_SCALE
+float uniffi_vimivo_ffi_fn_func_calculate_video_rotation_fit_scale(RustBuffer rot, float container_width, float container_height, float video_aspect, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_VOLUME_SWIPE
@@ -821,6 +836,11 @@ RustBuffer uniffi_vimivo_ffi_fn_func_format_diagnostics_video(RustBuffer diag, R
 RustBuffer uniffi_vimivo_ffi_fn_func_format_rename_template(RustBuffer template, RustBuffer item, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_SLEEP_TIMER_LABEL
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_SLEEP_TIMER_LABEL
+RustBuffer uniffi_vimivo_ffi_fn_func_format_sleep_timer_label(int32_t minutes, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_AUDIO_EXTRACTION_FFMPEG_ARGS
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_AUDIO_EXTRACTION_FFMPEG_ARGS
 RustBuffer uniffi_vimivo_ffi_fn_func_generate_audio_extraction_ffmpeg_args(RustBuffer video_path, RustBuffer out_path, RustBuffer format, RustBuffer bitrate, RustCallStatus *_Nonnull out_status
@@ -836,6 +856,16 @@ RustBuffer uniffi_vimivo_ffi_fn_func_generate_audio_output_path(RustBuffer video
 RustBuffer uniffi_vimivo_ffi_fn_func_generate_batch_sequential_rename(RustBuffer items, RustBuffer prefix, uint32_t start_index, uint32_t pad_digits, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_SNAPSHOT_FILE_NAME
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_SNAPSHOT_FILE_NAME
+RustBuffer uniffi_vimivo_ffi_fn_func_generate_snapshot_file_name(RustBuffer title, int64_t position_millis, int64_t timestamp_millis, int8_t is_jpeg, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_EQUALIZER_PRESET_GAINS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_EQUALIZER_PRESET_GAINS
+RustBuffer uniffi_vimivo_ffi_fn_func_get_equalizer_preset_gains(RustBuffer preset, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_LONG_PRESS_PLAYBACK_SPEED
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_LONG_PRESS_PLAYBACK_SPEED
 float uniffi_vimivo_ffi_fn_func_get_long_press_playback_speed(int8_t is_pressed, RustCallStatus *_Nonnull out_status
@@ -844,6 +874,16 @@ float uniffi_vimivo_ffi_fn_func_get_long_press_playback_speed(int8_t is_pressed,
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_MPV_HWDEC_ARG
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_MPV_HWDEC_ARG
 RustBuffer uniffi_vimivo_ffi_fn_func_get_mpv_hwdec_arg(RustBuffer mode, RustBuffer os, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_NEXT_VIDEO_ROTATION
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_NEXT_VIDEO_ROTATION
+RustBuffer uniffi_vimivo_ffi_fn_func_get_next_video_rotation(RustBuffer rot, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_VIDEO_ROTATION_DEGREES
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_VIDEO_ROTATION_DEGREES
+int32_t uniffi_vimivo_ffi_fn_func_get_video_rotation_degrees(RustBuffer rot, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_IS_NEW_MEDIA_ITEM
@@ -876,6 +916,11 @@ RustBuffer uniffi_vimivo_ffi_fn_func_mpv_speed_property(float speed, RustCallSta
 RustBuffer uniffi_vimivo_ffi_fn_func_mpv_volume_property(float volume, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_CUSTOM_SLEEP_TIMER_MINUTES
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_CUSTOM_SLEEP_TIMER_MINUTES
+RustBuffer uniffi_vimivo_ffi_fn_func_parse_custom_sleep_timer_minutes(RustBuffer hours, RustBuffer minutes, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_HTTP_RANGE_HEADER
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_PARSE_HTTP_RANGE_HEADER
 RustBuffer uniffi_vimivo_ffi_fn_func_parse_http_range_header(RustBuffer header, uint64_t total_size, RustCallStatus *_Nonnull out_status
@@ -899,6 +944,11 @@ RustBuffer uniffi_vimivo_ffi_fn_func_parse_subtitle_content(RustBuffer content, 
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_RENDER_WIFI_TRANSFER_HTML
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_RENDER_WIFI_TRANSFER_HTML
 RustBuffer uniffi_vimivo_ffi_fn_func_render_wifi_transfer_html(RustBuffer device_name, RustBuffer files, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_RESOLVE_EQUALIZER_GAINS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_RESOLVE_EQUALIZER_GAINS
+RustBuffer uniffi_vimivo_ffi_fn_func_resolve_equalizer_gains(RustBuffer preset, RustBuffer custom_gains, float bass_strength, float treble_gain_db, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_SANITIZE_TRANSFER_FILENAME
@@ -1227,9 +1277,21 @@ uint16_t uniffi_vimivo_ffi_checksum_func_calculate_replay_gain_linear(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_RESUME_START_POSITION
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_RESUME_START_POSITION
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_resume_start_position(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_SEEK_SWIPE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_SEEK_SWIPE
 uint16_t uniffi_vimivo_ffi_checksum_func_calculate_seek_swipe(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_SLEEP_FADE_VOLUME
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_SLEEP_FADE_VOLUME
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_sleep_fade_volume(void
     
 );
 #endif
@@ -1248,6 +1310,12 @@ uint16_t uniffi_vimivo_ffi_checksum_func_calculate_subtitle_drag_position(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_SUBTITLE_PINCH_FONT_SCALE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_SUBTITLE_PINCH_FONT_SCALE
 uint16_t uniffi_vimivo_ffi_checksum_func_calculate_subtitle_pinch_font_scale(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_VIDEO_ROTATION_FIT_SCALE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_VIDEO_ROTATION_FIT_SCALE
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_video_rotation_fit_scale(void
     
 );
 #endif
@@ -1311,6 +1379,12 @@ uint16_t uniffi_vimivo_ffi_checksum_func_format_rename_template(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_SLEEP_TIMER_LABEL
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_SLEEP_TIMER_LABEL
+uint16_t uniffi_vimivo_ffi_checksum_func_format_sleep_timer_label(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_AUDIO_EXTRACTION_FFMPEG_ARGS
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_AUDIO_EXTRACTION_FFMPEG_ARGS
 uint16_t uniffi_vimivo_ffi_checksum_func_generate_audio_extraction_ffmpeg_args(void
@@ -1329,6 +1403,18 @@ uint16_t uniffi_vimivo_ffi_checksum_func_generate_batch_sequential_rename(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_SNAPSHOT_FILE_NAME
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_SNAPSHOT_FILE_NAME
+uint16_t uniffi_vimivo_ffi_checksum_func_generate_snapshot_file_name(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_EQUALIZER_PRESET_GAINS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_EQUALIZER_PRESET_GAINS
+uint16_t uniffi_vimivo_ffi_checksum_func_get_equalizer_preset_gains(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_LONG_PRESS_PLAYBACK_SPEED
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_LONG_PRESS_PLAYBACK_SPEED
 uint16_t uniffi_vimivo_ffi_checksum_func_get_long_press_playback_speed(void
@@ -1338,6 +1424,18 @@ uint16_t uniffi_vimivo_ffi_checksum_func_get_long_press_playback_speed(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_MPV_HWDEC_ARG
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_MPV_HWDEC_ARG
 uint16_t uniffi_vimivo_ffi_checksum_func_get_mpv_hwdec_arg(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_NEXT_VIDEO_ROTATION
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_NEXT_VIDEO_ROTATION
+uint16_t uniffi_vimivo_ffi_checksum_func_get_next_video_rotation(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_VIDEO_ROTATION_DEGREES
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_VIDEO_ROTATION_DEGREES
+uint16_t uniffi_vimivo_ffi_checksum_func_get_video_rotation_degrees(void
     
 );
 #endif
@@ -1377,6 +1475,12 @@ uint16_t uniffi_vimivo_ffi_checksum_func_mpv_volume_property(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_CUSTOM_SLEEP_TIMER_MINUTES
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_CUSTOM_SLEEP_TIMER_MINUTES
+uint16_t uniffi_vimivo_ffi_checksum_func_parse_custom_sleep_timer_minutes(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_HTTP_RANGE_HEADER
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_PARSE_HTTP_RANGE_HEADER
 uint16_t uniffi_vimivo_ffi_checksum_func_parse_http_range_header(void
@@ -1404,6 +1508,12 @@ uint16_t uniffi_vimivo_ffi_checksum_func_parse_subtitle_content(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_RENDER_WIFI_TRANSFER_HTML
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_RENDER_WIFI_TRANSFER_HTML
 uint16_t uniffi_vimivo_ffi_checksum_func_render_wifi_transfer_html(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_RESOLVE_EQUALIZER_GAINS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_RESOLVE_EQUALIZER_GAINS
+uint16_t uniffi_vimivo_ffi_checksum_func_resolve_equalizer_gains(void
     
 );
 #endif

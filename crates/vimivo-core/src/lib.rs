@@ -20,3 +20,5 @@ pub mod converter;
 pub mod network_share;
 pub mod ab_loop;
 pub mod diagnostics;
+pub mod sleep_timer;
+pub mod playback_policy;
