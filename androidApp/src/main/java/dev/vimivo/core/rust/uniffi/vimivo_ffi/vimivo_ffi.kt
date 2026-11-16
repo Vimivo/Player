@@ -786,6 +786,22 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -813,13 +829,21 @@ internal interface UniffiLib : Library {
     ): Pointer
     fun uniffi_vimivo_ffi_fn_constructor_ffidatabase_open_in_memory(uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
+    fun uniffi_vimivo_ffi_fn_method_ffidatabase_add_bookmark(`ptr`: Pointer,`bookmark`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_vimivo_ffi_fn_method_ffidatabase_delete_bookmark(`ptr`: Pointer,`id`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_delete_item(`ptr`: Pointer,`id`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_delete_playlist(`ptr`: Pointer,`id`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_get_all_items(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_vimivo_ffi_fn_method_ffidatabase_get_bookmarks(`ptr`: Pointer,`mediaId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_get_favorites(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_vimivo_ffi_fn_method_ffidatabase_get_history(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_get_item(`ptr`: Pointer,`id`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -831,11 +855,19 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_is_favorite(`ptr`: Pointer,`mediaId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
+    fun uniffi_vimivo_ffi_fn_method_ffidatabase_load_queue(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_query_items(`ptr`: Pointer,`searchText`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_vimivo_ffi_fn_method_ffidatabase_record_play_start(`ptr`: Pointer,`mediaId`: RustBuffer.ByValue,`playedAtMillis`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_save_lyrics(`ptr`: Pointer,`mediaId`: RustBuffer.ByValue,`source`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_save_playlist(`ptr`: Pointer,`playlist`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_vimivo_ffi_fn_method_ffidatabase_save_position(`ptr`: Pointer,`mediaId`: RustBuffer.ByValue,`positionMillis`: Long,`completed`: Byte,`updatedAtMillis`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_vimivo_ffi_fn_method_ffidatabase_save_queue(`ptr`: Pointer,`mediaIds`: RustBuffer.ByValue,`currentIndex`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_vimivo_ffi_fn_method_ffidatabase_set_favorite(`ptr`: Pointer,`mediaId`: RustBuffer.ByValue,`isFav`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
@@ -1009,13 +1041,21 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_vimivo_ffi_checksum_func_validate_stream_url(
     ): Short
+    fun uniffi_vimivo_ffi_checksum_method_ffidatabase_add_bookmark(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_method_ffidatabase_delete_bookmark(
+    ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_delete_item(
     ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_delete_playlist(
     ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_get_all_items(
     ): Short
+    fun uniffi_vimivo_ffi_checksum_method_ffidatabase_get_bookmarks(
+    ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_get_favorites(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_method_ffidatabase_get_history(
     ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_get_item(
     ): Short
@@ -1027,11 +1067,19 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_is_favorite(
     ): Short
+    fun uniffi_vimivo_ffi_checksum_method_ffidatabase_load_queue(
+    ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_query_items(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_method_ffidatabase_record_play_start(
     ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_save_lyrics(
     ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_save_playlist(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_method_ffidatabase_save_position(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_method_ffidatabase_save_queue(
     ): Short
     fun uniffi_vimivo_ffi_checksum_method_ffidatabase_set_favorite(
     ): Short
@@ -1103,6 +1151,12 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_vimivo_ffi_checksum_func_validate_stream_url() != 39085.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_add_bookmark() != 24039.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_delete_bookmark() != 47919.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_delete_item() != 16145.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1112,7 +1166,13 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_get_all_items() != 21310.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_get_bookmarks() != 30127.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_get_favorites() != 55661.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_get_history() != 39195.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_get_item() != 32289.toShort()) {
@@ -1130,13 +1190,25 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_is_favorite() != 53356.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_load_queue() != 39711.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_query_items() != 21310.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_record_play_start() != 40355.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_save_lyrics() != 41281.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_save_playlist() != 59087.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_save_position() != 131.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_save_queue() != 6622.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_vimivo_ffi_checksum_method_ffidatabase_set_favorite() != 27062.toShort()) {
@@ -1570,13 +1642,21 @@ private class JavaLangRefCleanable(
 }
 public interface FfiDatabaseInterface {
     
+    fun `addBookmark`(`bookmark`: FfiBookmark)
+    
+    fun `deleteBookmark`(`id`: kotlin.String)
+    
     fun `deleteItem`(`id`: kotlin.String)
     
     fun `deletePlaylist`(`id`: kotlin.String)
     
     fun `getAllItems`(): List<FfiMediaItem>
     
+    fun `getBookmarks`(`mediaId`: kotlin.String): List<FfiBookmark>
+    
     fun `getFavorites`(): List<kotlin.String>
+    
+    fun `getHistory`(): List<FfiHistory>
     
     fun `getItem`(`id`: kotlin.String): FfiMediaItem?
     
@@ -1588,11 +1668,19 @@ public interface FfiDatabaseInterface {
     
     fun `isFavorite`(`mediaId`: kotlin.String): kotlin.Boolean
     
+    fun `loadQueue`(): FfiQueueState
+    
     fun `queryItems`(`searchText`: kotlin.String): List<FfiMediaItem>
+    
+    fun `recordPlayStart`(`mediaId`: kotlin.String, `playedAtMillis`: kotlin.Long)
     
     fun `saveLyrics`(`mediaId`: kotlin.String, `source`: kotlin.String, `text`: kotlin.String)
     
     fun `savePlaylist`(`playlist`: FfiPlaylist)
+    
+    fun `savePosition`(`mediaId`: kotlin.String, `positionMillis`: kotlin.Long, `completed`: kotlin.Boolean, `updatedAtMillis`: kotlin.Long)
+    
+    fun `saveQueue`(`mediaIds`: List<kotlin.String>, `currentIndex`: kotlin.Int)
     
     fun `setFavorite`(`mediaId`: kotlin.String, `isFav`: kotlin.Boolean)
     
@@ -1689,6 +1777,30 @@ open class FfiDatabase: Disposable, AutoCloseable, FfiDatabaseInterface {
     }
 
     
+    @Throws(VimivoFfiException::class)override fun `addBookmark`(`bookmark`: FfiBookmark)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(VimivoFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_add_bookmark(
+        it, FfiConverterTypeFfiBookmark.lower(`bookmark`),_status)
+}
+    }
+    
+    
+
+    
+    @Throws(VimivoFfiException::class)override fun `deleteBookmark`(`id`: kotlin.String)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(VimivoFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_delete_bookmark(
+        it, FfiConverterString.lower(`id`),_status)
+}
+    }
+    
+    
+
+    
     @Throws(VimivoFfiException::class)override fun `deleteItem`(`id`: kotlin.String)
         = 
     callWithPointer {
@@ -1726,11 +1838,37 @@ open class FfiDatabase: Disposable, AutoCloseable, FfiDatabaseInterface {
     
 
     
+    @Throws(VimivoFfiException::class)override fun `getBookmarks`(`mediaId`: kotlin.String): List<FfiBookmark> {
+            return FfiConverterSequenceTypeFfiBookmark.lift(
+    callWithPointer {
+    uniffiRustCallWithError(VimivoFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_get_bookmarks(
+        it, FfiConverterString.lower(`mediaId`),_status)
+}
+    }
+    )
+    }
+    
+
+    
     @Throws(VimivoFfiException::class)override fun `getFavorites`(): List<kotlin.String> {
             return FfiConverterSequenceString.lift(
     callWithPointer {
     uniffiRustCallWithError(VimivoFfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_get_favorites(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
+    @Throws(VimivoFfiException::class)override fun `getHistory`(): List<FfiHistory> {
+            return FfiConverterSequenceTypeFfiHistory.lift(
+    callWithPointer {
+    uniffiRustCallWithError(VimivoFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_get_history(
         it, _status)
 }
     }
@@ -1804,6 +1942,19 @@ open class FfiDatabase: Disposable, AutoCloseable, FfiDatabaseInterface {
     
 
     
+    @Throws(VimivoFfiException::class)override fun `loadQueue`(): FfiQueueState {
+            return FfiConverterTypeFfiQueueState.lift(
+    callWithPointer {
+    uniffiRustCallWithError(VimivoFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_load_queue(
+        it, _status)
+}
+    }
+    )
+    }
+    
+
+    
     @Throws(VimivoFfiException::class)override fun `queryItems`(`searchText`: kotlin.String): List<FfiMediaItem> {
             return FfiConverterSequenceTypeFfiMediaItem.lift(
     callWithPointer {
@@ -1814,6 +1965,18 @@ open class FfiDatabase: Disposable, AutoCloseable, FfiDatabaseInterface {
     }
     )
     }
+    
+
+    
+    @Throws(VimivoFfiException::class)override fun `recordPlayStart`(`mediaId`: kotlin.String, `playedAtMillis`: kotlin.Long)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(VimivoFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_record_play_start(
+        it, FfiConverterString.lower(`mediaId`),FfiConverterLong.lower(`playedAtMillis`),_status)
+}
+    }
+    
     
 
     
@@ -1835,6 +1998,30 @@ open class FfiDatabase: Disposable, AutoCloseable, FfiDatabaseInterface {
     uniffiRustCallWithError(VimivoFfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_save_playlist(
         it, FfiConverterTypeFfiPlaylist.lower(`playlist`),_status)
+}
+    }
+    
+    
+
+    
+    @Throws(VimivoFfiException::class)override fun `savePosition`(`mediaId`: kotlin.String, `positionMillis`: kotlin.Long, `completed`: kotlin.Boolean, `updatedAtMillis`: kotlin.Long)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(VimivoFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_save_position(
+        it, FfiConverterString.lower(`mediaId`),FfiConverterLong.lower(`positionMillis`),FfiConverterBoolean.lower(`completed`),FfiConverterLong.lower(`updatedAtMillis`),_status)
+}
+    }
+    
+    
+
+    
+    @Throws(VimivoFfiException::class)override fun `saveQueue`(`mediaIds`: List<kotlin.String>, `currentIndex`: kotlin.Int)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(VimivoFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_method_ffidatabase_save_queue(
+        it, FfiConverterSequenceString.lower(`mediaIds`),FfiConverterInt.lower(`currentIndex`),_status)
 }
     }
     
@@ -2298,6 +2485,50 @@ public object FfiConverterTypeFfiPlayQueue: FfiConverter<FfiPlayQueue, Pointer> 
 
 
 
+data class FfiBookmark (
+    var `id`: kotlin.String, 
+    var `mediaId`: kotlin.String, 
+    var `name`: kotlin.String, 
+    var `positionMillis`: kotlin.Long, 
+    var `createdAtMillis`: kotlin.Long
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiBookmark: FfiConverterRustBuffer<FfiBookmark> {
+    override fun read(buf: ByteBuffer): FfiBookmark {
+        return FfiBookmark(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiBookmark) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`mediaId`) +
+            FfiConverterString.allocationSize(value.`name`) +
+            FfiConverterLong.allocationSize(value.`positionMillis`) +
+            FfiConverterLong.allocationSize(value.`createdAtMillis`)
+    )
+
+    override fun write(value: FfiBookmark, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterString.write(value.`mediaId`, buf)
+            FfiConverterString.write(value.`name`, buf)
+            FfiConverterLong.write(value.`positionMillis`, buf)
+            FfiConverterLong.write(value.`createdAtMillis`, buf)
+    }
+}
+
+
+
 data class FfiChapterInfo (
     var `index`: kotlin.Int, 
     var `title`: kotlin.String, 
@@ -2373,6 +2604,54 @@ public object FfiConverterTypeFfiCleanTitle: FfiConverterRustBuffer<FfiCleanTitl
             FfiConverterOptionalInt.write(value.`season`, buf)
             FfiConverterOptionalInt.write(value.`episode`, buf)
             FfiConverterString.write(value.`display`, buf)
+    }
+}
+
+
+
+data class FfiHistory (
+    var `id`: kotlin.String, 
+    var `mediaId`: kotlin.String, 
+    var `lastPlayedAtMillis`: kotlin.Long, 
+    var `positionMillis`: kotlin.Long, 
+    var `completed`: kotlin.Boolean, 
+    var `playCount`: kotlin.Int
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiHistory: FfiConverterRustBuffer<FfiHistory> {
+    override fun read(buf: ByteBuffer): FfiHistory {
+        return FfiHistory(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiHistory) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`mediaId`) +
+            FfiConverterLong.allocationSize(value.`lastPlayedAtMillis`) +
+            FfiConverterLong.allocationSize(value.`positionMillis`) +
+            FfiConverterBoolean.allocationSize(value.`completed`) +
+            FfiConverterInt.allocationSize(value.`playCount`)
+    )
+
+    override fun write(value: FfiHistory, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterString.write(value.`mediaId`, buf)
+            FfiConverterLong.write(value.`lastPlayedAtMillis`, buf)
+            FfiConverterLong.write(value.`positionMillis`, buf)
+            FfiConverterBoolean.write(value.`completed`, buf)
+            FfiConverterInt.write(value.`playCount`, buf)
     }
 }
 
@@ -2617,6 +2896,38 @@ public object FfiConverterTypeFfiPlaylistItem: FfiConverterRustBuffer<FfiPlaylis
             FfiConverterString.write(value.`uri`, buf)
             FfiConverterOptionalString.write(value.`title`, buf)
             FfiConverterOptionalInt.write(value.`durationSeconds`, buf)
+    }
+}
+
+
+
+data class FfiQueueState (
+    var `mediaIds`: List<kotlin.String>, 
+    var `currentIndex`: kotlin.Int
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiQueueState: FfiConverterRustBuffer<FfiQueueState> {
+    override fun read(buf: ByteBuffer): FfiQueueState {
+        return FfiQueueState(
+            FfiConverterSequenceString.read(buf),
+            FfiConverterInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiQueueState) = (
+            FfiConverterSequenceString.allocationSize(value.`mediaIds`) +
+            FfiConverterInt.allocationSize(value.`currentIndex`)
+    )
+
+    override fun write(value: FfiQueueState, buf: ByteBuffer) {
+            FfiConverterSequenceString.write(value.`mediaIds`, buf)
+            FfiConverterInt.write(value.`currentIndex`, buf)
     }
 }
 
@@ -3049,6 +3360,34 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeFfiBookmark: FfiConverterRustBuffer<List<FfiBookmark>> {
+    override fun read(buf: ByteBuffer): List<FfiBookmark> {
+        val len = buf.getInt()
+        return List<FfiBookmark>(len) {
+            FfiConverterTypeFfiBookmark.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiBookmark>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiBookmark.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiBookmark>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiBookmark.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeFfiChapterInfo: FfiConverterRustBuffer<List<FfiChapterInfo>> {
     override fun read(buf: ByteBuffer): List<FfiChapterInfo> {
         val len = buf.getInt()
@@ -3067,6 +3406,34 @@ public object FfiConverterSequenceTypeFfiChapterInfo: FfiConverterRustBuffer<Lis
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeFfiChapterInfo.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiHistory: FfiConverterRustBuffer<List<FfiHistory>> {
+    override fun read(buf: ByteBuffer): List<FfiHistory> {
+        val len = buf.getInt()
+        return List<FfiHistory>(len) {
+            FfiConverterTypeFfiHistory.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiHistory>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiHistory.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiHistory>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiHistory.write(it, buf)
         }
     }
 }

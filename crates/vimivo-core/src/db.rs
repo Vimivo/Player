@@ -529,6 +529,164 @@ impl VimivoDatabase {
             .optional()
     }
 
+    // -----------------------------------------------------------------------
+    // Bookmarks
+    // -----------------------------------------------------------------------
+
+    pub fn add_bookmark(&self, bookmark: &StoredBookmark) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO bookmarks (id, media_id, name, position_millis, created_at_millis)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(id) DO UPDATE SET name = excluded.name, position_millis = excluded.position_millis",
+            params![
+                bookmark.id,
+                bookmark.media_id,
+                bookmark.name,
+                bookmark.position_millis,
+                bookmark.created_at_millis
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_bookmarks(&self, media_id: &str) -> Result<Vec<StoredBookmark>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, media_id, name, position_millis, created_at_millis FROM bookmarks WHERE media_id = ?1 ORDER BY position_millis ASC",
+        )?;
+        let rows = stmt.query_map(params![media_id], |r| {
+            Ok(StoredBookmark {
+                id: r.get(0)?,
+                media_id: r.get(1)?,
+                name: r.get(2)?,
+                position_millis: r.get(3)?,
+                created_at_millis: r.get(4)?,
+            })
+        })?;
+        let mut list = Vec::new();
+        for r in rows {
+            list.push(r?);
+        }
+        Ok(list)
+    }
+
+    pub fn delete_bookmark(&self, id: &str) -> Result<()> {
+        self.conn.execute("DELETE FROM bookmarks WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Playback History & Resume State
+    // -----------------------------------------------------------------------
+
+    pub fn record_play_start(&self, media_id: &str, played_at_millis: i64) -> Result<()> {
+        let existing: Option<(String, i32)> = self
+            .conn
+            .query_row(
+                "SELECT id, play_count FROM playback_history WHERE media_id = ?1",
+                params![media_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+
+        if let Some((id, count)) = existing {
+            self.conn.execute(
+                "UPDATE playback_history SET last_played_at_millis = ?1, play_count = ?2 WHERE id = ?3",
+                params![played_at_millis, count + 1, id],
+            )?;
+        } else {
+            let id = format!("hist-{}", media_id);
+            self.conn.execute(
+                "INSERT INTO playback_history (id, media_id, last_played_at_millis, position_millis, completed, play_count) VALUES (?1, ?2, ?3, 0, 0, 1)",
+                params![id, media_id, played_at_millis],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn save_position(&self, media_id: &str, position_millis: i64, completed: bool, updated_at_millis: i64) -> Result<()> {
+        self.update_playback_position(media_id, position_millis, None)?;
+        let existing: Option<(String,)> = self
+            .conn
+            .query_row(
+                "SELECT id FROM playback_history WHERE media_id = ?1",
+                params![media_id],
+                |r| Ok((r.get(0)?,)),
+            )
+            .optional()?;
+
+        if let Some((id,)) = existing {
+            self.conn.execute(
+                "UPDATE playback_history SET position_millis = ?1, completed = ?2, last_played_at_millis = ?3 WHERE id = ?4",
+                params![position_millis, if completed { 1 } else { 0 }, updated_at_millis, id],
+            )?;
+        } else {
+            let id = format!("hist-{}", media_id);
+            self.conn.execute(
+                "INSERT INTO playback_history (id, media_id, last_played_at_millis, position_millis, completed, play_count) VALUES (?1, ?2, ?3, ?4, ?5, 0)",
+                params![id, media_id, updated_at_millis, position_millis, if completed { 1 } else { 0 }],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn get_history(&self) -> Result<Vec<StoredHistory>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, media_id, last_played_at_millis, position_millis, completed, play_count FROM playback_history ORDER BY last_played_at_millis DESC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            let completed_int: i32 = r.get(4)?;
+            Ok(StoredHistory {
+                id: r.get(0)?,
+                media_id: r.get(1)?,
+                last_played_at_millis: r.get(2)?,
+                position_millis: r.get(3)?,
+                completed: completed_int != 0,
+                play_count: r.get(5)?,
+            })
+        })?;
+        let mut list = Vec::new();
+        for r in rows {
+            list.push(r?);
+        }
+        Ok(list)
+    }
+
+    // -----------------------------------------------------------------------
+    // Settings & Queue Persistence
+    // -----------------------------------------------------------------------
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![key, value],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
+        self.conn
+            .query_row("SELECT value FROM settings WHERE key = ?1", params![key], |r| r.get(0))
+            .optional()
+    }
+
+    pub fn save_queue(&self, media_ids: &[String], current_index: i32) -> Result<()> {
+        self.set_setting("queue_ids", &media_ids.join("\n"))?;
+        self.set_setting("queue_index", &current_index.to_string())?;
+        Ok(())
+    }
+
+    pub fn load_queue(&self) -> Result<(Vec<String>, i32)> {
+        let ids_str = self.get_setting("queue_ids")?.unwrap_or_default();
+        let index_str = self.get_setting("queue_index")?.unwrap_or_else(|| "0".into());
+        let ids: Vec<String> = if ids_str.is_empty() {
+            Vec::new()
+        } else {
+            ids_str.lines().map(|s| s.to_string()).collect()
+        };
+        let index = index_str.parse::<i32>().unwrap_or(0);
+        Ok((ids, index))
+    }
+
     pub fn delete_media_item(&self, id: &str) -> Result<()> {
         self.conn.execute("DELETE FROM media_items WHERE id = ?1", params![id])?;
         self.conn.execute("DELETE FROM favorites WHERE media_id = ?1", params![id])?;
@@ -670,6 +828,25 @@ pub struct StoredPlaylist {
     pub created_at_millis: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredBookmark {
+    pub id: String,
+    pub media_id: String,
+    pub name: String,
+    pub position_millis: i64,
+    pub created_at_millis: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredHistory {
+    pub id: String,
+    pub media_id: String,
+    pub last_played_at_millis: i64,
+    pub position_millis: i64,
+    pub completed: bool,
+    pub play_count: i32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -712,5 +889,42 @@ mod tests {
         let items = db.get_playlist_items("pl-1").unwrap();
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].title, "Solaris");
+    }
+
+    #[test]
+    fn test_bookmarks_and_history_and_queue() {
+        let db = VimivoDatabase::open_in_memory().unwrap();
+
+        // Bookmarks
+        let bm = StoredBookmark {
+            id: "bm-1".into(),
+            media_id: "m-1".into(),
+            name: "Best Drop".into(),
+            position_millis: 45000,
+            created_at_millis: 100000,
+        };
+        db.add_bookmark(&bm).unwrap();
+        let bms = db.get_bookmarks("m-1").unwrap();
+        assert_eq!(bms.len(), 1);
+        assert_eq!(bms[0].name, "Best Drop");
+
+        db.delete_bookmark("bm-1").unwrap();
+        assert!(db.get_bookmarks("m-1").unwrap().is_empty());
+
+        // History
+        db.record_play_start("m-1", 1000).unwrap();
+        db.save_position("m-1", 30000, false, 1050).unwrap();
+        let hist = db.get_history().unwrap();
+        assert_eq!(hist.len(), 1);
+        assert_eq!(hist[0].media_id, "m-1");
+        assert_eq!(hist[0].position_millis, 30000);
+        assert_eq!(hist[0].play_count, 1);
+
+        // Queue
+        let ids = vec!["m-1".into(), "m-2".into()];
+        db.save_queue(&ids, 1).unwrap();
+        let (loaded_ids, loaded_idx) = db.load_queue().unwrap();
+        assert_eq!(loaded_ids, ids);
+        assert_eq!(loaded_idx, 1);
     }
 }

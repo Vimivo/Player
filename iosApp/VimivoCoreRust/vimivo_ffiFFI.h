@@ -272,6 +272,16 @@ void*_Nonnull uniffi_vimivo_ffi_fn_constructor_ffidatabase_open_in_memory(RustCa
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_ADD_BOOKMARK
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_ADD_BOOKMARK
+void uniffi_vimivo_ffi_fn_method_ffidatabase_add_bookmark(void*_Nonnull ptr, RustBuffer bookmark, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_DELETE_BOOKMARK
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_DELETE_BOOKMARK
+void uniffi_vimivo_ffi_fn_method_ffidatabase_delete_bookmark(void*_Nonnull ptr, RustBuffer id, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_DELETE_ITEM
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_DELETE_ITEM
 void uniffi_vimivo_ffi_fn_method_ffidatabase_delete_item(void*_Nonnull ptr, RustBuffer id, RustCallStatus *_Nonnull out_status
@@ -287,9 +297,19 @@ void uniffi_vimivo_ffi_fn_method_ffidatabase_delete_playlist(void*_Nonnull ptr, 
 RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_all_items(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_BOOKMARKS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_BOOKMARKS
+RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_bookmarks(void*_Nonnull ptr, RustBuffer media_id, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_FAVORITES
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_FAVORITES
 RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_favorites(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_HISTORY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_HISTORY
+RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_history(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_GET_ITEM
@@ -317,9 +337,19 @@ RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_get_playlists(void*_Nonnull p
 int8_t uniffi_vimivo_ffi_fn_method_ffidatabase_is_favorite(void*_Nonnull ptr, RustBuffer media_id, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_LOAD_QUEUE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_LOAD_QUEUE
+RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_load_queue(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_QUERY_ITEMS
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_QUERY_ITEMS
 RustBuffer uniffi_vimivo_ffi_fn_method_ffidatabase_query_items(void*_Nonnull ptr, RustBuffer search_text, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_RECORD_PLAY_START
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_RECORD_PLAY_START
+void uniffi_vimivo_ffi_fn_method_ffidatabase_record_play_start(void*_Nonnull ptr, RustBuffer media_id, int64_t played_at_millis, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_SAVE_LYRICS
@@ -330,6 +360,16 @@ void uniffi_vimivo_ffi_fn_method_ffidatabase_save_lyrics(void*_Nonnull ptr, Rust
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_SAVE_PLAYLIST
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_SAVE_PLAYLIST
 void uniffi_vimivo_ffi_fn_method_ffidatabase_save_playlist(void*_Nonnull ptr, RustBuffer playlist, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_SAVE_POSITION
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_SAVE_POSITION
+void uniffi_vimivo_ffi_fn_method_ffidatabase_save_position(void*_Nonnull ptr, RustBuffer media_id, int64_t position_millis, int8_t completed, int64_t updated_at_millis, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_SAVE_QUEUE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_SAVE_QUEUE
+void uniffi_vimivo_ffi_fn_method_ffidatabase_save_queue(void*_Nonnull ptr, RustBuffer media_ids, int32_t current_index, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_METHOD_FFIDATABASE_SET_FAVORITE
@@ -770,6 +810,18 @@ uint16_t uniffi_vimivo_ffi_checksum_func_validate_stream_url(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_ADD_BOOKMARK
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_ADD_BOOKMARK
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_add_bookmark(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_DELETE_BOOKMARK
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_DELETE_BOOKMARK
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_delete_bookmark(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_DELETE_ITEM
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_DELETE_ITEM
 uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_delete_item(void
@@ -788,9 +840,21 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_all_items(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_BOOKMARKS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_BOOKMARKS
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_bookmarks(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_FAVORITES
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_FAVORITES
 uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_favorites(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_HISTORY
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_GET_HISTORY
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_get_history(void
     
 );
 #endif
@@ -824,9 +888,21 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_is_favorite(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_LOAD_QUEUE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_LOAD_QUEUE
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_load_queue(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_QUERY_ITEMS
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_QUERY_ITEMS
 uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_query_items(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_RECORD_PLAY_START
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_RECORD_PLAY_START
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_record_play_start(void
     
 );
 #endif
@@ -839,6 +915,18 @@ uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_save_lyrics(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_SAVE_PLAYLIST
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_SAVE_PLAYLIST
 uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_save_playlist(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_SAVE_POSITION
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_SAVE_POSITION
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_save_position(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_SAVE_QUEUE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_METHOD_FFIDATABASE_SAVE_QUEUE
+uint16_t uniffi_vimivo_ffi_checksum_method_ffidatabase_save_queue(void
     
 );
 #endif

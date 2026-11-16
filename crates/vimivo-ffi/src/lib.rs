@@ -2,7 +2,7 @@
 
 use std::sync::Mutex;
 use vimivo_core::audio::{ReplayGain, ReplayGainMode as CoreReplayGainMode};
-use vimivo_core::db::VimivoDatabase;
+use vimivo_core::db::{StoredBookmark, VimivoDatabase};
 use vimivo_core::model::{ChapterInfo as CoreChapterInfo, LibraryQuery as CoreQuery, MediaItem as CoreMediaItem, MediaKind as CoreMediaKind, QueueRepeatMode as CoreRepeatMode};
 use vimivo_core::parser::{LrcLyricsParser, PlaylistFormats, TitleParser};
 use vimivo_core::queue::PlayQueue;
@@ -120,6 +120,31 @@ pub struct FfiPlaylist {
     pub name: String,
     pub media_ids: Vec<String>,
     pub created_at_millis: i64,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiBookmark {
+    pub id: String,
+    pub media_id: String,
+    pub name: String,
+    pub position_millis: i64,
+    pub created_at_millis: i64,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiHistory {
+    pub id: String,
+    pub media_id: String,
+    pub last_played_at_millis: i64,
+    pub position_millis: i64,
+    pub completed: bool,
+    pub play_count: i32,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiQueueState {
+    pub media_ids: Vec<String>,
+    pub current_index: i32,
 }
 
 impl From<CoreMediaItem> for FfiMediaItem {
@@ -314,6 +339,91 @@ impl FfiDatabase {
         let db = self.inner.lock().unwrap();
         db.get_playback_position(&media_id)
             .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn add_bookmark(&self, bookmark: FfiBookmark) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.add_bookmark(&StoredBookmark {
+            id: bookmark.id,
+            media_id: bookmark.media_id,
+            name: bookmark.name,
+            position_millis: bookmark.position_millis,
+            created_at_millis: bookmark.created_at_millis,
+        })
+        .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn get_bookmarks(&self, media_id: String) -> Result<Vec<FfiBookmark>, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        let list = db.get_bookmarks(&media_id)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })?;
+        Ok(list
+            .into_iter()
+            .map(|b| FfiBookmark {
+                id: b.id,
+                media_id: b.media_id,
+                name: b.name,
+                position_millis: b.position_millis,
+                created_at_millis: b.created_at_millis,
+            })
+            .collect())
+    }
+
+    pub fn delete_bookmark(&self, id: String) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.delete_bookmark(&id)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn record_play_start(&self, media_id: String, played_at_millis: i64) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.record_play_start(&media_id, played_at_millis)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn save_position(
+        &self,
+        media_id: String,
+        position_millis: i64,
+        completed: bool,
+        updated_at_millis: i64,
+    ) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.save_position(&media_id, position_millis, completed, updated_at_millis)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn get_history(&self) -> Result<Vec<FfiHistory>, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        let list = db.get_history()
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })?;
+        Ok(list
+            .into_iter()
+            .map(|h| FfiHistory {
+                id: h.id,
+                media_id: h.media_id,
+                last_played_at_millis: h.last_played_at_millis,
+                position_millis: h.position_millis,
+                completed: h.completed,
+                play_count: h.play_count,
+            })
+            .collect())
+    }
+
+    pub fn save_queue(&self, media_ids: Vec<String>, current_index: i32) -> Result<(), VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        db.save_queue(&media_ids, current_index)
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })
+    }
+
+    pub fn load_queue(&self) -> Result<FfiQueueState, VimivoFfiError> {
+        let db = self.inner.lock().unwrap();
+        let (media_ids, current_index) = db.load_queue()
+            .map_err(|e| VimivoFfiError::DatabaseError { reason: e.to_string() })?;
+        Ok(FfiQueueState {
+            media_ids,
+            current_index,
+        })
     }
 }
 

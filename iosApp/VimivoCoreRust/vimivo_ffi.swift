@@ -530,13 +530,21 @@ fileprivate struct FfiConverterString: FfiConverter {
 
 public protocol FfiDatabaseProtocol : AnyObject {
     
+    func addBookmark(bookmark: FfiBookmark) throws 
+    
+    func deleteBookmark(id: String) throws 
+    
     func deleteItem(id: String) throws 
     
     func deletePlaylist(id: String) throws 
     
     func getAllItems() throws  -> [FfiMediaItem]
     
+    func getBookmarks(mediaId: String) throws  -> [FfiBookmark]
+    
     func getFavorites() throws  -> [String]
+    
+    func getHistory() throws  -> [FfiHistory]
     
     func getItem(id: String) throws  -> FfiMediaItem?
     
@@ -548,11 +556,19 @@ public protocol FfiDatabaseProtocol : AnyObject {
     
     func isFavorite(mediaId: String) throws  -> Bool
     
+    func loadQueue() throws  -> FfiQueueState
+    
     func queryItems(searchText: String) throws  -> [FfiMediaItem]
+    
+    func recordPlayStart(mediaId: String, playedAtMillis: Int64) throws 
     
     func saveLyrics(mediaId: String, source: String, text: String) throws 
     
     func savePlaylist(playlist: FfiPlaylist) throws 
+    
+    func savePosition(mediaId: String, positionMillis: Int64, completed: Bool, updatedAtMillis: Int64) throws 
+    
+    func saveQueue(mediaIds: [String], currentIndex: Int32) throws 
     
     func setFavorite(mediaId: String, isFav: Bool) throws 
     
@@ -631,6 +647,20 @@ public static func openInMemory()throws  -> FfiDatabase {
     
 
     
+open func addBookmark(bookmark: FfiBookmark)throws  {try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffidatabase_add_bookmark(self.uniffiClonePointer(),
+        FfiConverterTypeFfiBookmark.lower(bookmark),$0
+    )
+}
+}
+    
+open func deleteBookmark(id: String)throws  {try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffidatabase_delete_bookmark(self.uniffiClonePointer(),
+        FfiConverterString.lower(id),$0
+    )
+}
+}
+    
 open func deleteItem(id: String)throws  {try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
     uniffi_vimivo_ffi_fn_method_ffidatabase_delete_item(self.uniffiClonePointer(),
         FfiConverterString.lower(id),$0
@@ -652,9 +682,24 @@ open func getAllItems()throws  -> [FfiMediaItem] {
 })
 }
     
+open func getBookmarks(mediaId: String)throws  -> [FfiBookmark] {
+    return try  FfiConverterSequenceTypeFfiBookmark.lift(try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffidatabase_get_bookmarks(self.uniffiClonePointer(),
+        FfiConverterString.lower(mediaId),$0
+    )
+})
+}
+    
 open func getFavorites()throws  -> [String] {
     return try  FfiConverterSequenceString.lift(try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
     uniffi_vimivo_ffi_fn_method_ffidatabase_get_favorites(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func getHistory()throws  -> [FfiHistory] {
+    return try  FfiConverterSequenceTypeFfiHistory.lift(try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffidatabase_get_history(self.uniffiClonePointer(),$0
     )
 })
 }
@@ -698,12 +743,27 @@ open func isFavorite(mediaId: String)throws  -> Bool {
 })
 }
     
+open func loadQueue()throws  -> FfiQueueState {
+    return try  FfiConverterTypeFfiQueueState.lift(try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffidatabase_load_queue(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
 open func queryItems(searchText: String)throws  -> [FfiMediaItem] {
     return try  FfiConverterSequenceTypeFfiMediaItem.lift(try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
     uniffi_vimivo_ffi_fn_method_ffidatabase_query_items(self.uniffiClonePointer(),
         FfiConverterString.lower(searchText),$0
     )
 })
+}
+    
+open func recordPlayStart(mediaId: String, playedAtMillis: Int64)throws  {try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffidatabase_record_play_start(self.uniffiClonePointer(),
+        FfiConverterString.lower(mediaId),
+        FfiConverterInt64.lower(playedAtMillis),$0
+    )
+}
 }
     
 open func saveLyrics(mediaId: String, source: String, text: String)throws  {try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
@@ -718,6 +778,24 @@ open func saveLyrics(mediaId: String, source: String, text: String)throws  {try 
 open func savePlaylist(playlist: FfiPlaylist)throws  {try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
     uniffi_vimivo_ffi_fn_method_ffidatabase_save_playlist(self.uniffiClonePointer(),
         FfiConverterTypeFfiPlaylist.lower(playlist),$0
+    )
+}
+}
+    
+open func savePosition(mediaId: String, positionMillis: Int64, completed: Bool, updatedAtMillis: Int64)throws  {try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffidatabase_save_position(self.uniffiClonePointer(),
+        FfiConverterString.lower(mediaId),
+        FfiConverterInt64.lower(positionMillis),
+        FfiConverterBool.lower(completed),
+        FfiConverterInt64.lower(updatedAtMillis),$0
+    )
+}
+}
+    
+open func saveQueue(mediaIds: [String], currentIndex: Int32)throws  {try rustCallWithError(FfiConverterTypeVimivoFfiError.lift) {
+    uniffi_vimivo_ffi_fn_method_ffidatabase_save_queue(self.uniffiClonePointer(),
+        FfiConverterSequenceString.lower(mediaIds),
+        FfiConverterInt32.lower(currentIndex),$0
     )
 }
 }
@@ -1010,6 +1088,96 @@ public func FfiConverterTypeFfiPlayQueue_lower(_ value: FfiPlayQueue) -> UnsafeM
 }
 
 
+public struct FfiBookmark {
+    public var id: String
+    public var mediaId: String
+    public var name: String
+    public var positionMillis: Int64
+    public var createdAtMillis: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, mediaId: String, name: String, positionMillis: Int64, createdAtMillis: Int64) {
+        self.id = id
+        self.mediaId = mediaId
+        self.name = name
+        self.positionMillis = positionMillis
+        self.createdAtMillis = createdAtMillis
+    }
+}
+
+
+
+extension FfiBookmark: Equatable, Hashable {
+    public static func ==(lhs: FfiBookmark, rhs: FfiBookmark) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.mediaId != rhs.mediaId {
+            return false
+        }
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.positionMillis != rhs.positionMillis {
+            return false
+        }
+        if lhs.createdAtMillis != rhs.createdAtMillis {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(mediaId)
+        hasher.combine(name)
+        hasher.combine(positionMillis)
+        hasher.combine(createdAtMillis)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiBookmark: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiBookmark {
+        return
+            try FfiBookmark(
+                id: FfiConverterString.read(from: &buf), 
+                mediaId: FfiConverterString.read(from: &buf), 
+                name: FfiConverterString.read(from: &buf), 
+                positionMillis: FfiConverterInt64.read(from: &buf), 
+                createdAtMillis: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiBookmark, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.mediaId, into: &buf)
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterInt64.write(value.positionMillis, into: &buf)
+        FfiConverterInt64.write(value.createdAtMillis, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiBookmark_lift(_ buf: RustBuffer) throws -> FfiBookmark {
+    return try FfiConverterTypeFfiBookmark.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiBookmark_lower(_ value: FfiBookmark) -> RustBuffer {
+    return FfiConverterTypeFfiBookmark.lower(value)
+}
+
+
 public struct FfiChapterInfo {
     public var index: Int32
     public var title: String
@@ -1171,6 +1339,104 @@ public func FfiConverterTypeFfiCleanTitle_lift(_ buf: RustBuffer) throws -> FfiC
 #endif
 public func FfiConverterTypeFfiCleanTitle_lower(_ value: FfiCleanTitle) -> RustBuffer {
     return FfiConverterTypeFfiCleanTitle.lower(value)
+}
+
+
+public struct FfiHistory {
+    public var id: String
+    public var mediaId: String
+    public var lastPlayedAtMillis: Int64
+    public var positionMillis: Int64
+    public var completed: Bool
+    public var playCount: Int32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, mediaId: String, lastPlayedAtMillis: Int64, positionMillis: Int64, completed: Bool, playCount: Int32) {
+        self.id = id
+        self.mediaId = mediaId
+        self.lastPlayedAtMillis = lastPlayedAtMillis
+        self.positionMillis = positionMillis
+        self.completed = completed
+        self.playCount = playCount
+    }
+}
+
+
+
+extension FfiHistory: Equatable, Hashable {
+    public static func ==(lhs: FfiHistory, rhs: FfiHistory) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.mediaId != rhs.mediaId {
+            return false
+        }
+        if lhs.lastPlayedAtMillis != rhs.lastPlayedAtMillis {
+            return false
+        }
+        if lhs.positionMillis != rhs.positionMillis {
+            return false
+        }
+        if lhs.completed != rhs.completed {
+            return false
+        }
+        if lhs.playCount != rhs.playCount {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(mediaId)
+        hasher.combine(lastPlayedAtMillis)
+        hasher.combine(positionMillis)
+        hasher.combine(completed)
+        hasher.combine(playCount)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiHistory: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiHistory {
+        return
+            try FfiHistory(
+                id: FfiConverterString.read(from: &buf), 
+                mediaId: FfiConverterString.read(from: &buf), 
+                lastPlayedAtMillis: FfiConverterInt64.read(from: &buf), 
+                positionMillis: FfiConverterInt64.read(from: &buf), 
+                completed: FfiConverterBool.read(from: &buf), 
+                playCount: FfiConverterInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiHistory, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.mediaId, into: &buf)
+        FfiConverterInt64.write(value.lastPlayedAtMillis, into: &buf)
+        FfiConverterInt64.write(value.positionMillis, into: &buf)
+        FfiConverterBool.write(value.completed, into: &buf)
+        FfiConverterInt32.write(value.playCount, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiHistory_lift(_ buf: RustBuffer) throws -> FfiHistory {
+    return try FfiConverterTypeFfiHistory.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiHistory_lower(_ value: FfiHistory) -> RustBuffer {
+    return FfiConverterTypeFfiHistory.lower(value)
 }
 
 
@@ -1674,6 +1940,72 @@ public func FfiConverterTypeFfiPlaylistItem_lower(_ value: FfiPlaylistItem) -> R
 }
 
 
+public struct FfiQueueState {
+    public var mediaIds: [String]
+    public var currentIndex: Int32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(mediaIds: [String], currentIndex: Int32) {
+        self.mediaIds = mediaIds
+        self.currentIndex = currentIndex
+    }
+}
+
+
+
+extension FfiQueueState: Equatable, Hashable {
+    public static func ==(lhs: FfiQueueState, rhs: FfiQueueState) -> Bool {
+        if lhs.mediaIds != rhs.mediaIds {
+            return false
+        }
+        if lhs.currentIndex != rhs.currentIndex {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(mediaIds)
+        hasher.combine(currentIndex)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiQueueState: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiQueueState {
+        return
+            try FfiQueueState(
+                mediaIds: FfiConverterSequenceString.read(from: &buf), 
+                currentIndex: FfiConverterInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiQueueState, into buf: inout [UInt8]) {
+        FfiConverterSequenceString.write(value.mediaIds, into: &buf)
+        FfiConverterInt32.write(value.currentIndex, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiQueueState_lift(_ buf: RustBuffer) throws -> FfiQueueState {
+    return try FfiConverterTypeFfiQueueState.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiQueueState_lower(_ value: FfiQueueState) -> RustBuffer {
+    return FfiConverterTypeFfiQueueState.lower(value)
+}
+
+
 public struct FfiStreamValidation {
     public var isValid: Bool
     public var isLive: Bool
@@ -2144,6 +2476,31 @@ fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeFfiBookmark: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiBookmark]
+
+    public static func write(_ value: [FfiBookmark], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiBookmark.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiBookmark] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiBookmark]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiBookmark.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeFfiChapterInfo: FfiConverterRustBuffer {
     typealias SwiftType = [FfiChapterInfo]
 
@@ -2161,6 +2518,31 @@ fileprivate struct FfiConverterSequenceTypeFfiChapterInfo: FfiConverterRustBuffe
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeFfiChapterInfo.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeFfiHistory: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiHistory]
+
+    public static func write(_ value: [FfiHistory], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiHistory.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiHistory] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiHistory]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiHistory.read(from: &buf))
         }
         return seq
     }
@@ -2357,6 +2739,12 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_func_validate_stream_url() != 39085) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_method_ffidatabase_add_bookmark() != 24039) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffidatabase_delete_bookmark() != 47919) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_delete_item() != 16145) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2366,7 +2754,13 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_get_all_items() != 21310) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_method_ffidatabase_get_bookmarks() != 30127) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_get_favorites() != 55661) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffidatabase_get_history() != 39195) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_get_item() != 32289) {
@@ -2384,13 +2778,25 @@ private var initializationResult: InitializationResult = {
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_is_favorite() != 53356) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_vimivo_ffi_checksum_method_ffidatabase_load_queue() != 39711) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_query_items() != 21310) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffidatabase_record_play_start() != 40355) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_save_lyrics() != 41281) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_save_playlist() != 59087) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffidatabase_save_position() != 131) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_vimivo_ffi_checksum_method_ffidatabase_save_queue() != 6622) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_vimivo_ffi_checksum_method_ffidatabase_set_favorite() != 27062) {
