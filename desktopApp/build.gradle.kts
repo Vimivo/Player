@@ -307,6 +307,7 @@ val bundleWindowsMpv by tasks.registering(Exec::class) {
     dependsOn(dumpBaseCdsArchive)
     onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
     dependsOn("createDistributable")
+    dependsOn(windowsMediaControlsBridge)
     val appPath = layout.buildDirectory.dir("compose/binaries/main/app/Vimivo")
     val nativeDir = providers.environmentVariable("VIMIVO_WINDOWS_MPV_DIR")
         .orElse(providers.environmentVariable("VIMIVO_MPV_PREFIX").map { "$it\\bin" })
@@ -317,17 +318,6 @@ val bundleWindowsMpv by tasks.registering(Exec::class) {
         appPath.get().asFile.absolutePath,
         nativeDir.get(),
     )
-}
-
-val isWindowsHost = org.gradle.internal.os.OperatingSystem.current().isWindows
-
-val bundleWindowsMediaControls by tasks.registering(Copy::class) {
-    val win = isWindowsHost
-    onlyIf { win }
-    dependsOn(windowsMediaControlsBridge)
-    mustRunAfter("createDistributable")
-    from(layout.buildDirectory.file("native/vimivo_media_controls.dll"))
-    into(layout.buildDirectory.dir("compose/binaries/main/app/Vimivo"))
 }
 
 val bundleLinuxMpv by tasks.registering(Exec::class) {
@@ -386,7 +376,7 @@ tasks.matching {
 tasks.matching { it.name == "createDistributable" }.configureEach {
     when {
         org.gradle.internal.os.OperatingSystem.current().isMacOsX -> finalizedBy(bundleMacosMpv)
-        org.gradle.internal.os.OperatingSystem.current().isWindows -> finalizedBy(bundleWindowsMpv, bundleWindowsMediaControls)
+        org.gradle.internal.os.OperatingSystem.current().isWindows -> finalizedBy(bundleWindowsMpv)
         org.gradle.internal.os.OperatingSystem.current().isLinux -> finalizedBy(bundleLinuxMpv)
     }
 }
@@ -414,7 +404,7 @@ tasks.matching {
         "packageReleaseDistributionForCurrentOS",
     )
 }.configureEach {
-    dependsOn(bundleWindowsMpv, bundleWindowsMediaControls)
+    dependsOn(bundleWindowsMpv)
 }
 
 tasks.matching {
