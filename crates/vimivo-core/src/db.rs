@@ -45,24 +45,6 @@ impl VimivoDatabase {
     pub fn migrate(&mut self) -> Result<()> {
         let from = self.version()?;
 
-        // Ensure baseline tables and columns always exist regardless of legacy version
-        self.conn.execute_batch(
-            r#"
-            CREATE TABLE IF NOT EXISTS bookmarks (
-                id TEXT PRIMARY KEY,
-                media_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                position_millis INTEGER NOT NULL,
-                created_at_millis INTEGER NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-            "#,
-        )?;
-        Self::ensure_media_columns(&self.conn)?;
-
         if from < 1 {
             let tx = self.conn.transaction()?;
             tx.execute_batch(
@@ -235,6 +217,50 @@ impl VimivoDatabase {
             tx.execute("PRAGMA user_version = 7", [])?;
             tx.commit()?;
         }
+
+        // Ensure baseline tables and columns always exist for any database
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                id TEXT PRIMARY KEY,
+                media_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                position_millis INTEGER NOT NULL,
+                created_at_millis INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS lyrics (
+                media_id TEXT PRIMARY KEY,
+                source TEXT NOT NULL,
+                text TEXT NOT NULL,
+                saved_at_millis INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS playback_positions (
+                media_id TEXT PRIMARY KEY,
+                position_ms INTEGER NOT NULL,
+                duration_ms INTEGER,
+                completed INTEGER NOT NULL DEFAULT 0,
+                updated_at_ms INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS user_metadata_overrides (
+                media_id TEXT PRIMARY KEY,
+                title TEXT,
+                artist TEXT,
+                album TEXT,
+                updated_at_ms INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS smart_playlists (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                rule_json TEXT NOT NULL,
+                created_at_ms INTEGER NOT NULL DEFAULT 0
+            );
+            "#,
+        )?;
+        Self::ensure_media_columns(&self.conn)?;
 
         Ok(())
     }
