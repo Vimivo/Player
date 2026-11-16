@@ -33,7 +33,7 @@ jobs:
       VIMIVO_HWDEC: "no"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
