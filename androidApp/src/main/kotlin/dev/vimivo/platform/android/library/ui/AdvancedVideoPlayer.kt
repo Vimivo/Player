@@ -264,7 +264,12 @@ fun AdvancedVideoPlayer(
     DisposableEffect(controller) {
         val active = controller
         fun update(size: androidx.media3.common.VideoSize) {
-            if (size.width > 0 && size.height > 0) videoAspect = size.width * size.pixelWidthHeightRatio / size.height
+            if (size.width > 0 && size.height > 0) {
+                videoAspect = size.width * size.pixelWidthHeightRatio / size.height
+                if (size.width >= size.height && !orientationLocked) {
+                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                }
+            }
         }
         val listener = object : Player.Listener {
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = update(videoSize)
@@ -305,7 +310,13 @@ fun AdvancedVideoPlayer(
     }
 
     LaunchedEffect(media?.id?.value) {
-        if (media != null) viewModel.setSpeed(settings.defaultVideoSpeed)
+        if (media != null) {
+            viewModel.setSpeed(settings.defaultVideoSpeed)
+            val isWidescreen = (media.width ?: 0) >= (media.height ?: 0)
+            if (isWidescreen && !orientationLocked) {
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            }
+        }
         viewModel.selectCrop(CropPreset.NONE)
         if (player.capabilities?.videoAdjustments == true) viewModel.setVideoColour(VideoAdjustments())
     }
@@ -686,14 +697,17 @@ fun AdvancedVideoPlayer(
                             controlsVisible = false
                         },
                         onOrientationLock = {
-                            orientationLocked = !orientationLocked
-                            activity?.requestedOrientation = if (orientationLocked) {
-                                if (orientation == Configuration.ORIENTATION_LANDSCAPE) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                                else ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                            } else settings.videoRotationBehavior.toRequestedOrientation()
+                            orientationLocked = true
+                            val newOrientation = if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                            } else {
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            }
+                            activity?.requestedOrientation = newOrientation
+                            val isLandscape = newOrientation == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                             showMessage(
-                                if (orientationLocked) Icons.Rounded.ScreenLockRotation else Icons.Rounded.ScreenRotation,
-                                if (orientationLocked) "Rotation locked" else "Auto-rotate",
+                                if (isLandscape) Icons.Rounded.ScreenRotation else Icons.Rounded.ScreenRotationAlt,
+                                if (isLandscape) "Landscape" else "Portrait",
                             )
                         },
                         videoRotation = videoRotation,
@@ -931,8 +945,8 @@ private fun VideoControls(
                     PlayerIconButton(Icons.Rounded.Lock, "Lock screen controls", onClick = onLock)
                     PlayerIconButton(Icons.Rounded.ChildCare, "Kids lock", onClick = onKidsLock)
                     PlayerIconButton(
-                        if (orientationLocked) Icons.Rounded.ScreenLockRotation else Icons.Rounded.ScreenRotation,
-                        if (orientationLocked) "Unlock orientation" else "Lock orientation",
+                        Icons.Rounded.ScreenRotation,
+                        "Rotate orientation",
                         onClick = onOrientationLock,
                     )
                     PlayerIconButton(

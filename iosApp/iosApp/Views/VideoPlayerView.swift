@@ -451,12 +451,12 @@ private struct VideoControls: View {
             HStack(spacing: 4) {
                 PlayerIconButton(systemName: "lock.fill", label: "Lock screen controls", size: 18, action: model.lockControls)
                 PlayerIconButton(
-                    systemName: model.rotationLocked ? "lock.rotation" : "rotate.right",
-                    label: model.rotationLocked ? "Unlock orientation" : "Lock orientation",
+                    systemName: "rotate.right",
+                    label: "Rotate orientation",
                     size: 18
                 ) {
                     model.touch()
-                    model.toggleRotationLock(scene: activeScene)
+                    model.toggleRotation(scene: activeScene)
                 }
                 PlayerIconButton(systemName: "crop.rotate", label: "Rotate video, now \(model.videoRotation.label)", size: 18) {
                     model.touch()

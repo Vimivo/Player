@@ -61,6 +61,20 @@ final class OrientationController {
 
     private(set) var supportedOrientations: UIInterfaceOrientationMask = .allButUpsideDown
 
+    /// Forces the screen orientation immediately (Landscape / Portrait) regardless of system lock.
+    func force(orientation: UIInterfaceOrientationMask, scene: UIWindowScene?) {
+        supportedOrientations = orientation
+        let targetScene = scene ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        var controller = targetScene?.keyWindow?.rootViewController
+        while let current = controller {
+            current.setNeedsUpdateOfSupportedInterfaceOrientations()
+            controller = current.presentedViewController
+        }
+        targetScene?.requestGeometryUpdate(.iOS(interfaceOrientations: orientation)) { error in
+            NSLog("Vimivo: orientation update rejected: %@", error.localizedDescription)
+        }
+    }
+
     /// Locks to the orientation the given scene currently shows, or unlocks when `scene` is nil.
     func lock(to scene: UIWindowScene?) {
         if let scene = scene {

@@ -179,6 +179,16 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let wifi_server_ref: Rc<Mutex<Option<WifiServerHandle>>> = Rc::new(Mutex::new(None));
 
+    struct DesktopPlaybackState {
+        position_millis: i64,
+        duration_millis: i64,
+    }
+
+    let playback_state_ref = Rc::new(Mutex::new(DesktopPlaybackState {
+        position_millis: 0,
+        duration_millis: 214_000,
+    }));
+
     // 3. Populate media list in UI
     let populate_list = {
         let db_ref = Rc::clone(&db_ref);
@@ -247,6 +257,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let window_weak = main_window.as_weak();
         let queue_ref = Rc::clone(&queue_ref);
         let db_ref = Rc::clone(&db_ref);
+        let state_ref = Rc::clone(&playback_state_ref);
 
         main_window.on_item_selected(move |selected_id| {
             if let Some(window) = window_weak.upgrade() {
@@ -254,6 +265,12 @@ fn main() -> Result<(), slint::PlatformError> {
                 if queue.jump_to_id(&selected_id) {
                     let db = db_ref.lock().unwrap();
                     if let Ok(Some(item)) = db.get_media_item(&selected_id) {
+                        let dur = item.duration_millis.unwrap_or(214_000);
+                        {
+                            let mut state = state_ref.lock().unwrap();
+                            state.position_millis = 0;
+                            state.duration_millis = dur;
+                        }
                         window.set_now_playing_title(item.title.into());
                         window.set_now_playing_artist(item.artist.unwrap_or_default().into());
                         window.set_total_time(format_duration(item.duration_millis).into());
@@ -270,6 +287,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let window_weak = main_window.as_weak();
         let queue_ref = Rc::clone(&queue_ref);
         let db_ref = Rc::clone(&db_ref);
+        let state_ref = Rc::clone(&playback_state_ref);
 
         main_window.on_next_clicked(move || {
             if let Some(window) = window_weak.upgrade() {
@@ -277,11 +295,18 @@ fn main() -> Result<(), slint::PlatformError> {
                 if let Some(next_id) = queue.next().map(|s| s.to_string()) {
                     let db = db_ref.lock().unwrap();
                     if let Ok(Some(item)) = db.get_media_item(&next_id) {
+                        let dur = item.duration_millis.unwrap_or(214_000);
+                        {
+                            let mut state = state_ref.lock().unwrap();
+                            state.position_millis = 0;
+                            state.duration_millis = dur;
+                        }
                         window.set_now_playing_title(item.title.into());
                         window.set_now_playing_artist(item.artist.unwrap_or_default().into());
                         window.set_total_time(format_duration(item.duration_millis).into());
                         window.set_is_playing(true);
                         window.set_progress(0.0);
+                        window.set_current_time("00:00".into());
                     }
                 }
             }
@@ -292,6 +317,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let window_weak = main_window.as_weak();
         let queue_ref = Rc::clone(&queue_ref);
         let db_ref = Rc::clone(&db_ref);
+        let state_ref = Rc::clone(&playback_state_ref);
 
         main_window.on_previous_clicked(move || {
             if let Some(window) = window_weak.upgrade() {
@@ -299,12 +325,38 @@ fn main() -> Result<(), slint::PlatformError> {
                 if let Some(prev_id) = queue.previous().map(|s| s.to_string()) {
                     let db = db_ref.lock().unwrap();
                     if let Ok(Some(item)) = db.get_media_item(&prev_id) {
+                        let dur = item.duration_millis.unwrap_or(214_000);
+                        {
+                            let mut state = state_ref.lock().unwrap();
+                            state.position_millis = 0;
+                            state.duration_millis = dur;
+                        }
                         window.set_now_playing_title(item.title.into());
                         window.set_now_playing_artist(item.artist.unwrap_or_default().into());
                         window.set_total_time(format_duration(item.duration_millis).into());
                         window.set_is_playing(true);
                         window.set_progress(0.0);
+                        window.set_current_time("00:00".into());
                     }
+                }
+            }
+        });
+    }
+
+    // Timeline Progress Seek Callback
+    {
+        let window_weak = main_window.as_weak();
+        let state_ref = Rc::clone(&playback_state_ref);
+
+        main_window.on_progress_seeked(move |fraction_percent| {
+            if let Some(window) = window_weak.upgrade() {
+                let mut state = state_ref.lock().unwrap();
+                let dur = state.duration_millis;
+                if dur > 0 {
+                    let new_pos = ((fraction_percent as f64 / 100.0) * dur as f64).round() as i64;
+                    let clamped = new_pos.clamp(0, dur);
+                    state.position_millis = clamped;
+                    window.set_current_time(format_duration(Some(clamped)).into());
                 }
             }
         });
@@ -483,10 +535,11 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
-    // Spectrum Visualizer Live Animation Timer (30 fps)
+    // Spectrum Visualizer & Timeline Live Animation Timer (30 fps)
     let _timer = {
         let window_weak = main_window.as_weak();
         let spectrum_ref = Rc::clone(&spectrum_ref);
+        let playback_state_timer_ref = Rc::clone(&playback_state_ref);
         let timer = slint::Timer::default();
         let mut phase = 0.0f32;
 
@@ -498,7 +551,23 @@ fn main() -> Result<(), slint::PlatformError> {
                     let mut visualizer = spectrum_ref.lock().unwrap();
                     if window.get_is_playing() {
                         phase += 0.15;
-                        // Synthesize audio frame data for active track visualizer HUD
+
+                        // 1. Smooth real-time timeline advancement
+                        {
+                            let mut state = playback_state_timer_ref.lock().unwrap();
+                            let dur = state.duration_millis;
+                            if dur > 0 {
+                                state.position_millis += 33;
+                                if state.position_millis > dur {
+                                    state.position_millis = dur;
+                                }
+                                let pct = (state.position_millis as f32 / dur as f32 * 100.0).clamp(0.0, 100.0);
+                                window.set_progress(pct);
+                                window.set_current_time(format_duration(Some(state.position_millis)).into());
+                            }
+                        }
+
+                        // 2. Synthesize audio frame data for active track visualizer HUD
                         let mut synthetic = Vec::with_capacity(512);
                         for i in 0..512 {
                             let t = i as f32 / 512.0;

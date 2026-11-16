@@ -365,13 +365,19 @@ final class VideoPlayerModel: ObservableObject {
         controlsVisible = true
     }
 
-    func toggleRotationLock(scene: UIWindowScene?) {
-        rotationLocked.toggle()
-        OrientationController.shared.lock(to: rotationLocked ? scene : nil)
+    func toggleRotation(scene: UIWindowScene?) {
+        let isLandscape = scene?.interfaceOrientation.isLandscape ?? false
+        let nextOrientation: UIInterfaceOrientationMask = isLandscape ? .portrait : .landscape
+        rotationLocked = true
+        OrientationController.shared.force(orientation: nextOrientation, scene: scene)
         showMessage(
-            icon: rotationLocked ? "lock.rotation" : "rotate.right",
-            text: rotationLocked ? "Rotation locked" : "Auto-rotate"
+            icon: isLandscape ? "iphone" : "iphone.landscape",
+            text: isLandscape ? "Portrait" : "Landscape"
         )
+    }
+
+    func toggleRotationLock(scene: UIWindowScene?) {
+        toggleRotation(scene: scene)
     }
 
     func togglePictureInPicture() {
@@ -415,6 +421,11 @@ final class VideoPlayerModel: ObservableObject {
                     self.externalTracks = companions
                 }
             }
+        }
+
+        // Auto-orient widescreen videos to landscape like VLC
+        if let w = engine.state.videoWidth, let h = engine.state.videoHeight, w > 0, h > 0, w >= h, !rotationLocked {
+            OrientationController.shared.force(orientation: .landscape, scene: nil)
         }
 
         guard let item = engine.player.currentItem else {
