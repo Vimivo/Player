@@ -10,3 +10,7 @@ pub mod streaming;
 pub mod smart_playlist;
 pub mod rename;
 pub mod engine;
+pub mod subtitle;
+pub mod vault;
+pub mod wifi_transfer;
+pub mod batch;
