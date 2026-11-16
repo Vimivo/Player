@@ -2,9 +2,13 @@
 
 use std::rc::Rc;
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
+use vimivo_core::audio::{BassBoost, SpectrumVisualizer, StereoVirtualizer, VoiceClarity};
 use vimivo_core::db::VimivoDatabase;
 use vimivo_core::model::{LibraryQuery, MediaItem, MediaKind, QueueRepeatMode};
 use vimivo_core::queue::PlayQueue;
+use vimivo_core::vault::{VaultConfig, VaultManager};
+use vimivo_core::wifi_transfer::{WifiServerHandle, WifiTransferServer};
 
 slint::include_modules!();
 
@@ -18,6 +22,13 @@ fn format_duration(millis: Option<i64>) -> String {
         }
         None => "--:--".to_string(),
     }
+}
+
+fn current_epoch_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 fn get_database_dir() -> Option<std::path::PathBuf> {
@@ -62,7 +73,7 @@ fn get_database_dir() -> Option<std::path::PathBuf> {
 fn main() -> Result<(), slint::PlatformError> {
     let main_window = AppWindow::new()?;
 
-    // 1. Initialize Vimivo Core Database (persistent under user data directory, with in-memory fallback)
+    // 1. Initialize Vimivo Core Database
     let db = {
         let opened_db = if let Some(dir) = get_database_dir() {
             let _ = std::fs::create_dir_all(&dir);
@@ -154,7 +165,21 @@ fn main() -> Result<(), slint::PlatformError> {
     let db_ref = Rc::new(Mutex::new(db));
     let queue_ref = Rc::new(Mutex::new(PlayQueue::new()));
 
-    // 2. Populate media list in UI
+    // 2. Initialize Core Subsystems
+    let spectrum_ref = Rc::new(Mutex::new(SpectrumVisualizer::new(16)));
+    let bass_boost_ref = Rc::new(Mutex::new(BassBoost::new(44100, 2)));
+    let virtualizer_ref = Rc::new(Mutex::new(StereoVirtualizer::new(1.0)));
+    let voice_clarity_ref = Rc::new(Mutex::new(VoiceClarity::new(44100, 2)));
+
+    let vault_manager = {
+        let mut vm = VaultManager::new(VaultConfig::default());
+        let _ = vm.setup_pin("1234"); // default demo PIN
+        Rc::new(Mutex::new(vm))
+    };
+
+    let wifi_server_ref: Rc<Mutex<Option<WifiServerHandle>>> = Rc::new(Mutex::new(None));
+
+    // 3. Populate media list in UI
     let populate_list = {
         let db_ref = Rc::clone(&db_ref);
         let queue_ref = Rc::clone(&queue_ref);
@@ -192,7 +217,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     populate_list("");
 
-    // 3. Setup Callbacks
+    // 4. Setup Callbacks
     {
         let window_weak = main_window.as_weak();
         let queue_ref = Rc::clone(&queue_ref);
@@ -329,7 +354,148 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+    // DSP Callbacks
+    {
+        let window_weak = main_window.as_weak();
+        main_window.on_toggle_dsp_panel(move || {
+            if let Some(window) = window_weak.upgrade() {
+                let current = window.get_show_dsp_panel();
+                window.set_show_dsp_panel(!current);
+            }
+        });
+    }
+
+    {
+        let bass_ref = Rc::clone(&bass_boost_ref);
+        main_window.on_bass_boost_changed(move |val| {
+            let mut bb = bass_ref.lock().unwrap();
+            bb.set_gain_db(val);
+        });
+    }
+
+    {
+        let virt_ref = Rc::clone(&virtualizer_ref);
+        main_window.on_virtualizer_changed(move |val| {
+            let mut sv = virt_ref.lock().unwrap();
+            sv.set_width(val);
+        });
+    }
+
+    {
+        let window_weak = main_window.as_weak();
+        let clarity_ref = Rc::clone(&voice_clarity_ref);
+        main_window.on_voice_clarity_toggled(move || {
+            if let Some(window) = window_weak.upgrade() {
+                let mut vc = clarity_ref.lock().unwrap();
+                let new_state = !vc.is_enabled();
+                vc.set_enabled(new_state);
+                window.set_voice_clarity_enabled(new_state);
+            }
+        });
+    }
+
+    // Vault Callbacks
+    {
+        let window_weak = main_window.as_weak();
+        main_window.on_open_vault_dialog(move || {
+            if let Some(window) = window_weak.upgrade() {
+                window.set_show_vault_dialog(true);
+                window.set_vault_pin_input("".into());
+                window.set_vault_status_msg("Enter 4-digit PIN to access Private Vault".into());
+            }
+        });
+    }
+
+    {
+        let window_weak = main_window.as_weak();
+        main_window.on_close_vault_dialog(move || {
+            if let Some(window) = window_weak.upgrade() {
+                window.set_show_vault_dialog(false);
+            }
+        });
+    }
+
+    {
+        let window_weak = main_window.as_weak();
+        let vault_ref = Rc::clone(&vault_manager);
+        main_window.on_submit_vault_pin(move |pin| {
+            if let Some(window) = window_weak.upgrade() {
+                let mut vm = vault_ref.lock().unwrap();
+                let now = current_epoch_seconds();
+                match vm.unlock(&pin, now) {
+                    Ok(_token) => {
+                        window.set_vault_unlocked(true);
+                        window.set_show_vault_dialog(false);
+                        window.set_vault_status_msg("Vault unlocked successfully!".into());
+                    }
+                    Err(e) => {
+                        window.set_vault_status_msg(e.to_string().into());
+                    }
+                }
+            }
+        });
+    }
+
+    // Wi-Fi Transfer Server Callback
+    {
+        let window_weak = main_window.as_weak();
+        let wifi_ref = Rc::clone(&wifi_server_ref);
+        main_window.on_toggle_wifi_server(move || {
+            if let Some(window) = window_weak.upgrade() {
+                let mut handle_opt = wifi_ref.lock().unwrap();
+                if let Some(handle) = handle_opt.take() {
+                    handle.stop();
+                    window.set_wifi_server_active(false);
+                    window.set_wifi_server_url("".into());
+                } else {
+                    let dir = get_database_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+                    if let Ok(server) = WifiTransferServer::start("0.0.0.0:8080", "Vimivo Desktop".into(), dir) {
+                        let url = format!("http://localhost:{}", server.port);
+                        window.set_wifi_server_active(true);
+                        window.set_wifi_server_url(url.into());
+                        *handle_opt = Some(server);
+                    }
+                }
+            }
+        });
+    }
+
+    // Spectrum Visualizer Live Animation Timer (30 fps)
+    let _timer = {
+        let window_weak = main_window.as_weak();
+        let spectrum_ref = Rc::clone(&spectrum_ref);
+        let timer = slint::Timer::default();
+        let mut phase = 0.0f32;
+
+        timer.start(
+            slint::TimerMode::Repeated,
+            std::time::Duration::from_millis(33),
+            move || {
+                if let Some(window) = window_weak.upgrade() {
+                    let mut visualizer = spectrum_ref.lock().unwrap();
+                    if window.get_is_playing() {
+                        phase += 0.15;
+                        // Synthesize audio frame data for active track visualizer HUD
+                        let mut synthetic = Vec::with_capacity(512);
+                        for i in 0..512 {
+                            let t = i as f32 / 512.0;
+                            let s = ((t * 8.0 + phase).sin() * 0.6 + (t * 22.0 - phase * 1.5).cos() * 0.4).abs();
+                            synthetic.push(s);
+                        }
+                        let bands = visualizer.process_samples(&synthetic);
+                        let model = std::rc::Rc::new(slint::VecModel::from(bands.to_vec()));
+                        window.set_spectrum_bars(model.into());
+                    } else {
+                        let bands = visualizer.process_samples(&[]);
+                        let model = std::rc::Rc::new(slint::VecModel::from(bands.to_vec()));
+                        window.set_spectrum_bars(model.into());
+                    }
+                }
+            },
+        );
+        timer
+    };
+
     println!("Starting Vimivo Desktop Player (Rust + Slint)...");
-    // In headless or CI environments, we can run or instantiate
     main_window.run()
 }
