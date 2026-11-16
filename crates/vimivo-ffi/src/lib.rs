@@ -19,6 +19,14 @@ use vimivo_core::subtitle::{
     DualSubtitleCoordinator, SubtitleCue, SubtitleEncodingDetector, SubtitleGestures,
     SubtitleParser, SubtitleTrack,
 };
+use vimivo_core::converter::{
+    AudioExtractBitrate as CoreBitrate, AudioExtractFormat as CoreFormat, VideoToAudioConverter,
+};
+use vimivo_core::decoder::{DecoderMode as CoreDecoderMode, DecoderPolicyManager};
+use vimivo_core::gesture::{PlayerGestureEngine, ScreenHalf};
+use vimivo_core::network_share::{
+    NetworkProtocol as CoreNetProtocol, NetworkShareConfig as CoreNetConfig, NetworkShareEngine,
+};
 use vimivo_core::vault::{VaultConfig, VaultManager};
 use vimivo_core::video::IntroSkip;
 use vimivo_core::wifi_transfer::{SharedFileInfo, WifiTransferEngine};
@@ -1036,4 +1044,228 @@ pub fn generate_batch_sequential_rename(
             new_name: r.new_name,
         })
         .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Hardware Decoder Switcher
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Enum)]
+pub enum FfiDecoderMode {
+    Hardware,
+    HardwarePlus,
+    Software,
+}
+
+impl From<CoreDecoderMode> for FfiDecoderMode {
+    fn from(c: CoreDecoderMode) -> Self {
+        match c {
+            CoreDecoderMode::Hardware => Self::Hardware,
+            CoreDecoderMode::HardwarePlus => Self::HardwarePlus,
+            CoreDecoderMode::Software => Self::Software,
+        }
+    }
+}
+
+impl From<FfiDecoderMode> for CoreDecoderMode {
+    fn from(f: FfiDecoderMode) -> Self {
+        match f {
+            FfiDecoderMode::Hardware => Self::Hardware,
+            FfiDecoderMode::HardwarePlus => Self::HardwarePlus,
+            FfiDecoderMode::Software => Self::Software,
+        }
+    }
+}
+
+#[uniffi::export]
+pub fn cycle_decoder_mode(current: FfiDecoderMode) -> FfiDecoderMode {
+    DecoderPolicyManager::cycle_next(current.into()).into()
+}
+
+#[uniffi::export]
+pub fn fallback_decoder_mode(current: FfiDecoderMode) -> Option<FfiDecoderMode> {
+    DecoderPolicyManager::fallback_on_error(current.into()).map(|m| m.into())
+}
+
+#[uniffi::export]
+pub fn get_mpv_hwdec_arg(mode: FfiDecoderMode, os: String) -> String {
+    let core: CoreDecoderMode = mode.into();
+    core.mpv_hwdec_value(&os).to_string()
+}
+
+// ---------------------------------------------------------------------------
+// Touch Gestures
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Record)]
+pub struct FfiSeekGestureResult {
+    pub target_position_ms: i64,
+    pub delta_seconds: i32,
+    pub formatted_delta: String,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiPinchZoomResult {
+    pub zoom_scale: f32,
+    pub pan_x: f32,
+    pub pan_y: f32,
+}
+
+#[uniffi::export]
+pub fn calculate_brightness_swipe(current: f32, delta_y: f32, screen_height: f32) -> f32 {
+    PlayerGestureEngine::calculate_brightness_swipe(current, delta_y, screen_height)
+}
+
+#[uniffi::export]
+pub fn calculate_volume_swipe(current: f32, delta_y: f32, screen_height: f32) -> f32 {
+    PlayerGestureEngine::calculate_volume_swipe(current, delta_y, screen_height)
+}
+
+#[uniffi::export]
+pub fn calculate_seek_swipe(
+    current_position_ms: i64,
+    total_duration_ms: i64,
+    delta_x: f32,
+    screen_width: f32,
+) -> FfiSeekGestureResult {
+    let res = PlayerGestureEngine::calculate_seek_swipe(current_position_ms, total_duration_ms, delta_x, screen_width);
+    FfiSeekGestureResult {
+        target_position_ms: res.target_position_ms,
+        delta_seconds: res.delta_seconds,
+        formatted_delta: res.formatted_delta,
+    }
+}
+
+#[uniffi::export]
+pub fn calculate_double_tap_seek(
+    current_position_ms: i64,
+    total_duration_ms: i64,
+    is_right_side: bool,
+) -> i64 {
+    let side = if is_right_side { ScreenHalf::Right } else { ScreenHalf::Left };
+    PlayerGestureEngine::calculate_double_tap_seek(current_position_ms, total_duration_ms, side)
+}
+
+#[uniffi::export]
+pub fn calculate_pinch_zoom(
+    base_scale: f32,
+    pinch_ratio: f32,
+    delta_pan_x: f32,
+    delta_pan_y: f32,
+) -> FfiPinchZoomResult {
+    let res = PlayerGestureEngine::calculate_pinch_zoom(base_scale, pinch_ratio, delta_pan_x, delta_pan_y);
+    FfiPinchZoomResult {
+        zoom_scale: res.zoom_scale,
+        pan_x: res.pan_x,
+        pan_y: res.pan_y,
+    }
+}
+
+#[uniffi::export]
+pub fn get_long_press_playback_speed(is_pressed: bool) -> f32 {
+    PlayerGestureEngine::get_long_press_speed(is_pressed)
+}
+
+// ---------------------------------------------------------------------------
+// Video-to-Audio Converter
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Enum)]
+pub enum FfiAudioExtractFormat {
+    Mp3,
+    Flac,
+    Aac,
+    Opus,
+    Wav,
+}
+
+#[derive(uniffi::Enum)]
+pub enum FfiAudioExtractBitrate {
+    Kbps128,
+    Kbps192,
+    Kbps256,
+    Kbps320,
+}
+
+impl From<FfiAudioExtractFormat> for CoreFormat {
+    fn from(f: FfiAudioExtractFormat) -> Self {
+        match f {
+            FfiAudioExtractFormat::Mp3 => Self::Mp3,
+            FfiAudioExtractFormat::Flac => Self::Flac,
+            FfiAudioExtractFormat::Aac => Self::Aac,
+            FfiAudioExtractFormat::Opus => Self::Opus,
+            FfiAudioExtractFormat::Wav => Self::Wav,
+        }
+    }
+}
+
+impl From<FfiAudioExtractBitrate> for CoreBitrate {
+    fn from(b: FfiAudioExtractBitrate) -> Self {
+        match b {
+            FfiAudioExtractBitrate::Kbps128 => Self::Kbps128,
+            FfiAudioExtractBitrate::Kbps192 => Self::Kbps192,
+            FfiAudioExtractBitrate::Kbps256 => Self::Kbps256,
+            FfiAudioExtractBitrate::Kbps320 => Self::Kbps320,
+        }
+    }
+}
+
+#[uniffi::export]
+pub fn generate_audio_extraction_ffmpeg_args(
+    video_path: String,
+    out_path: String,
+    format: FfiAudioExtractFormat,
+    bitrate: FfiAudioExtractBitrate,
+) -> Vec<String> {
+    VideoToAudioConverter::generate_ffmpeg_args(&video_path, &out_path, format.into(), bitrate.into())
+}
+
+#[uniffi::export]
+pub fn generate_audio_output_path(video_path: String, format: FfiAudioExtractFormat) -> String {
+    let p = std::path::Path::new(&video_path);
+    let out = VideoToAudioConverter::generate_output_path(p, format.into());
+    out.to_string_lossy().to_string()
+}
+
+// ---------------------------------------------------------------------------
+// Network Shares & NAS Protocols (SMB, SFTP, FTP, WebDAV, NFS)
+// ---------------------------------------------------------------------------
+
+#[derive(uniffi::Enum)]
+pub enum FfiNetworkProtocol {
+    Smb,
+    Sftp,
+    Ftp,
+    WebDav,
+    Nfs,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiNetworkShareConfig {
+    pub protocol: FfiNetworkProtocol,
+    pub host: String,
+    pub port: u16,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub share_path: String,
+}
+
+#[uniffi::export]
+pub fn build_network_stream_uri(config: FfiNetworkShareConfig, file_subpath: String) -> String {
+    let core_protocol = match config.protocol {
+        FfiNetworkProtocol::Smb => CoreNetProtocol::Smb,
+        FfiNetworkProtocol::Sftp => CoreNetProtocol::Sftp,
+        FfiNetworkProtocol::Ftp => CoreNetProtocol::Ftp,
+        FfiNetworkProtocol::WebDav => CoreNetProtocol::WebDav,
+        FfiNetworkProtocol::Nfs => CoreNetProtocol::Nfs,
+    };
+    let core_cfg = CoreNetConfig {
+        protocol: core_protocol,
+        host: config.host,
+        port: config.port,
+        username: config.username,
+        password: config.password,
+        share_path: config.share_path,
+    };
+    NetworkShareEngine::build_stream_uri(&core_cfg, &file_subpath)
 }

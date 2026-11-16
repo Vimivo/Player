@@ -898,6 +898,30 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -1085,25 +1109,49 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_method_ffivoiceclarity_set_enabled(`ptr`: Pointer,`enabled`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_vimivo_ffi_fn_func_build_network_stream_uri(`config`: RustBuffer.ByValue,`fileSubpath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_vimivo_ffi_fn_func_calculate_brightness_swipe(`current`: Float,`deltaY`: Float,`screenHeight`: Float,uniffi_out_err: UniffiRustCallStatus, 
+    ): Float
+    fun uniffi_vimivo_ffi_fn_func_calculate_double_tap_seek(`currentPositionMs`: Long,`totalDurationMs`: Long,`isRightSide`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
     fun uniffi_vimivo_ffi_fn_func_calculate_intro_skip_target(`positionMillis`: Long,`chapters`: RustBuffer.ByValue,`durationMillis`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
+    fun uniffi_vimivo_ffi_fn_func_calculate_pinch_zoom(`baseScale`: Float,`pinchRatio`: Float,`deltaPanX`: Float,`deltaPanY`: Float,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_func_calculate_replay_gain_linear(`gainDb`: RustBuffer.ByValue,`peak`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Float
+    fun uniffi_vimivo_ffi_fn_func_calculate_seek_swipe(`currentPositionMs`: Long,`totalDurationMs`: Long,`deltaX`: Float,`screenWidth`: Float,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_func_calculate_subtitle_drag_delay(`currentDelayMs`: Long,`deltaXPixels`: Float,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     fun uniffi_vimivo_ffi_fn_func_calculate_subtitle_drag_position(`currentPercent`: Float,`deltaYPixels`: Float,`screenHeightPixels`: Float,uniffi_out_err: UniffiRustCallStatus, 
     ): Float
     fun uniffi_vimivo_ffi_fn_func_calculate_subtitle_pinch_font_scale(`baseScale`: Float,`pinchFactor`: Float,uniffi_out_err: UniffiRustCallStatus, 
     ): Float
+    fun uniffi_vimivo_ffi_fn_func_calculate_volume_swipe(`current`: Float,`deltaY`: Float,`screenHeight`: Float,uniffi_out_err: UniffiRustCallStatus, 
+    ): Float
     fun uniffi_vimivo_ffi_fn_func_clean_media_title(`fileName`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_vimivo_ffi_fn_func_cycle_decoder_mode(`current`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_func_decode_subtitle_bytes(`bytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_func_detect_media_mime_type(`filename`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_vimivo_ffi_fn_func_fallback_decoder_mode(`current`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_func_format_rename_template(`template`: RustBuffer.ByValue,`item`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_vimivo_ffi_fn_func_generate_audio_extraction_ffmpeg_args(`videoPath`: RustBuffer.ByValue,`outPath`: RustBuffer.ByValue,`format`: RustBuffer.ByValue,`bitrate`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_vimivo_ffi_fn_func_generate_audio_output_path(`videoPath`: RustBuffer.ByValue,`format`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_func_generate_batch_sequential_rename(`items`: RustBuffer.ByValue,`prefix`: RustBuffer.ByValue,`startIndex`: Int,`padDigits`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_vimivo_ffi_fn_func_get_long_press_playback_speed(`isPressed`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): Float
+    fun uniffi_vimivo_ffi_fn_func_get_mpv_hwdec_arg(`mode`: RustBuffer.ByValue,`os`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_vimivo_ffi_fn_func_is_new_media_item(`addedAtSec`: Long,`lastPlayedMs`: RustBuffer.ByValue,`currentTimeSec`: Long,`thresholdDays`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
@@ -1233,9 +1281,19 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_vimivo_ffi_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_vimivo_ffi_checksum_func_build_network_stream_uri(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_func_calculate_brightness_swipe(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_func_calculate_double_tap_seek(
+    ): Short
     fun uniffi_vimivo_ffi_checksum_func_calculate_intro_skip_target(
     ): Short
+    fun uniffi_vimivo_ffi_checksum_func_calculate_pinch_zoom(
+    ): Short
     fun uniffi_vimivo_ffi_checksum_func_calculate_replay_gain_linear(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_func_calculate_seek_swipe(
     ): Short
     fun uniffi_vimivo_ffi_checksum_func_calculate_subtitle_drag_delay(
     ): Short
@@ -1243,15 +1301,29 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_vimivo_ffi_checksum_func_calculate_subtitle_pinch_font_scale(
     ): Short
+    fun uniffi_vimivo_ffi_checksum_func_calculate_volume_swipe(
+    ): Short
     fun uniffi_vimivo_ffi_checksum_func_clean_media_title(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_func_cycle_decoder_mode(
     ): Short
     fun uniffi_vimivo_ffi_checksum_func_decode_subtitle_bytes(
     ): Short
     fun uniffi_vimivo_ffi_checksum_func_detect_media_mime_type(
     ): Short
+    fun uniffi_vimivo_ffi_checksum_func_fallback_decoder_mode(
+    ): Short
     fun uniffi_vimivo_ffi_checksum_func_format_rename_template(
     ): Short
+    fun uniffi_vimivo_ffi_checksum_func_generate_audio_extraction_ffmpeg_args(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_func_generate_audio_output_path(
+    ): Short
     fun uniffi_vimivo_ffi_checksum_func_generate_batch_sequential_rename(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_func_get_long_press_playback_speed(
+    ): Short
+    fun uniffi_vimivo_ffi_checksum_func_get_mpv_hwdec_arg(
     ): Short
     fun uniffi_vimivo_ffi_checksum_func_is_new_media_item(
     ): Short
@@ -1418,10 +1490,25 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
 
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: UniffiLib) {
+    if (lib.uniffi_vimivo_ffi_checksum_func_build_network_stream_uri() != 49011.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_func_calculate_brightness_swipe() != 16389.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_func_calculate_double_tap_seek() != 41566.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_vimivo_ffi_checksum_func_calculate_intro_skip_target() != 34368.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_vimivo_ffi_checksum_func_calculate_pinch_zoom() != 892.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_vimivo_ffi_checksum_func_calculate_replay_gain_linear() != 3107.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_func_calculate_seek_swipe() != 4617.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_vimivo_ffi_checksum_func_calculate_subtitle_drag_delay() != 39566.toShort()) {
@@ -1433,7 +1520,13 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_vimivo_ffi_checksum_func_calculate_subtitle_pinch_font_scale() != 44123.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_vimivo_ffi_checksum_func_calculate_volume_swipe() != 13479.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_vimivo_ffi_checksum_func_clean_media_title() != 18973.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_func_cycle_decoder_mode() != 42830.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_vimivo_ffi_checksum_func_decode_subtitle_bytes() != 40105.toShort()) {
@@ -1442,10 +1535,25 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_vimivo_ffi_checksum_func_detect_media_mime_type() != 33546.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_vimivo_ffi_checksum_func_fallback_decoder_mode() != 26164.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_vimivo_ffi_checksum_func_format_rename_template() != 64066.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_vimivo_ffi_checksum_func_generate_audio_extraction_ffmpeg_args() != 60441.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_func_generate_audio_output_path() != 60625.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_vimivo_ffi_checksum_func_generate_batch_sequential_rename() != 37358.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_func_get_long_press_playback_speed() != 18344.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_vimivo_ffi_checksum_func_get_mpv_hwdec_arg() != 42760.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_vimivo_ffi_checksum_func_is_new_media_item() != 43230.toShort()) {
@@ -1716,6 +1824,29 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
  * @suppress
  * */
 object NoPointer
+
+/**
+ * @suppress
+ */
+public object FfiConverterUShort: FfiConverter<UShort, Short> {
+    override fun lift(value: Short): UShort {
+        return value.toUShort()
+    }
+
+    override fun read(buf: ByteBuffer): UShort {
+        return lift(buf.getShort())
+    }
+
+    override fun lower(value: UShort): Short {
+        return value.toShort()
+    }
+
+    override fun allocationSize(value: UShort) = 2UL
+
+    override fun write(value: UShort, buf: ByteBuffer) {
+        buf.putShort(value.toShort())
+    }
+}
 
 /**
  * @suppress
@@ -5328,6 +5459,54 @@ public object FfiConverterTypeFfiMediaItem: FfiConverterRustBuffer<FfiMediaItem>
 
 
 
+data class FfiNetworkShareConfig (
+    var `protocol`: FfiNetworkProtocol, 
+    var `host`: kotlin.String, 
+    var `port`: kotlin.UShort, 
+    var `username`: kotlin.String?, 
+    var `password`: kotlin.String?, 
+    var `sharePath`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiNetworkShareConfig: FfiConverterRustBuffer<FfiNetworkShareConfig> {
+    override fun read(buf: ByteBuffer): FfiNetworkShareConfig {
+        return FfiNetworkShareConfig(
+            FfiConverterTypeFfiNetworkProtocol.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterUShort.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiNetworkShareConfig) = (
+            FfiConverterTypeFfiNetworkProtocol.allocationSize(value.`protocol`) +
+            FfiConverterString.allocationSize(value.`host`) +
+            FfiConverterUShort.allocationSize(value.`port`) +
+            FfiConverterOptionalString.allocationSize(value.`username`) +
+            FfiConverterOptionalString.allocationSize(value.`password`) +
+            FfiConverterString.allocationSize(value.`sharePath`)
+    )
+
+    override fun write(value: FfiNetworkShareConfig, buf: ByteBuffer) {
+            FfiConverterTypeFfiNetworkProtocol.write(value.`protocol`, buf)
+            FfiConverterString.write(value.`host`, buf)
+            FfiConverterUShort.write(value.`port`, buf)
+            FfiConverterOptionalString.write(value.`username`, buf)
+            FfiConverterOptionalString.write(value.`password`, buf)
+            FfiConverterString.write(value.`sharePath`, buf)
+    }
+}
+
+
+
 data class FfiParsedPlaylist (
     var `name`: kotlin.String, 
     var `items`: List<FfiPlaylistItem>
@@ -5355,6 +5534,42 @@ public object FfiConverterTypeFfiParsedPlaylist: FfiConverterRustBuffer<FfiParse
     override fun write(value: FfiParsedPlaylist, buf: ByteBuffer) {
             FfiConverterString.write(value.`name`, buf)
             FfiConverterSequenceTypeFfiPlaylistItem.write(value.`items`, buf)
+    }
+}
+
+
+
+data class FfiPinchZoomResult (
+    var `zoomScale`: kotlin.Float, 
+    var `panX`: kotlin.Float, 
+    var `panY`: kotlin.Float
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiPinchZoomResult: FfiConverterRustBuffer<FfiPinchZoomResult> {
+    override fun read(buf: ByteBuffer): FfiPinchZoomResult {
+        return FfiPinchZoomResult(
+            FfiConverterFloat.read(buf),
+            FfiConverterFloat.read(buf),
+            FfiConverterFloat.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiPinchZoomResult) = (
+            FfiConverterFloat.allocationSize(value.`zoomScale`) +
+            FfiConverterFloat.allocationSize(value.`panX`) +
+            FfiConverterFloat.allocationSize(value.`panY`)
+    )
+
+    override fun write(value: FfiPinchZoomResult, buf: ByteBuffer) {
+            FfiConverterFloat.write(value.`zoomScale`, buf)
+            FfiConverterFloat.write(value.`panX`, buf)
+            FfiConverterFloat.write(value.`panY`, buf)
     }
 }
 
@@ -5463,6 +5678,42 @@ public object FfiConverterTypeFfiQueueState: FfiConverterRustBuffer<FfiQueueStat
     override fun write(value: FfiQueueState, buf: ByteBuffer) {
             FfiConverterSequenceString.write(value.`mediaIds`, buf)
             FfiConverterInt.write(value.`currentIndex`, buf)
+    }
+}
+
+
+
+data class FfiSeekGestureResult (
+    var `targetPositionMs`: kotlin.Long, 
+    var `deltaSeconds`: kotlin.Int, 
+    var `formattedDelta`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiSeekGestureResult: FfiConverterRustBuffer<FfiSeekGestureResult> {
+    override fun read(buf: ByteBuffer): FfiSeekGestureResult {
+        return FfiSeekGestureResult(
+            FfiConverterLong.read(buf),
+            FfiConverterInt.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiSeekGestureResult) = (
+            FfiConverterLong.allocationSize(value.`targetPositionMs`) +
+            FfiConverterInt.allocationSize(value.`deltaSeconds`) +
+            FfiConverterString.allocationSize(value.`formattedDelta`)
+    )
+
+    override fun write(value: FfiSeekGestureResult, buf: ByteBuffer) {
+            FfiConverterLong.write(value.`targetPositionMs`, buf)
+            FfiConverterInt.write(value.`deltaSeconds`, buf)
+            FfiConverterString.write(value.`formattedDelta`, buf)
     }
 }
 
@@ -5645,6 +5896,102 @@ public object FfiConverterTypeFfiSubtitleStyle: FfiConverterRustBuffer<FfiSubtit
 
 
 
+enum class FfiAudioExtractBitrate {
+    
+    KBPS128,
+    KBPS192,
+    KBPS256,
+    KBPS320;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiAudioExtractBitrate: FfiConverterRustBuffer<FfiAudioExtractBitrate> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiAudioExtractBitrate.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiAudioExtractBitrate) = 4UL
+
+    override fun write(value: FfiAudioExtractBitrate, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class FfiAudioExtractFormat {
+    
+    MP3,
+    FLAC,
+    AAC,
+    OPUS,
+    WAV;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiAudioExtractFormat: FfiConverterRustBuffer<FfiAudioExtractFormat> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiAudioExtractFormat.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiAudioExtractFormat) = 4UL
+
+    override fun write(value: FfiAudioExtractFormat, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class FfiDecoderMode {
+    
+    HARDWARE,
+    HARDWARE_PLUS,
+    SOFTWARE;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiDecoderMode: FfiConverterRustBuffer<FfiDecoderMode> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiDecoderMode.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiDecoderMode) = 4UL
+
+    override fun write(value: FfiDecoderMode, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
 enum class FfiMediaKind {
     
     AUDIO,
@@ -5667,6 +6014,39 @@ public object FfiConverterTypeFfiMediaKind: FfiConverterRustBuffer<FfiMediaKind>
     override fun allocationSize(value: FfiMediaKind) = 4UL
 
     override fun write(value: FfiMediaKind, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
+
+
+
+
+enum class FfiNetworkProtocol {
+    
+    SMB,
+    SFTP,
+    FTP,
+    WEB_DAV,
+    NFS;
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiNetworkProtocol: FfiConverterRustBuffer<FfiNetworkProtocol> {
+    override fun read(buf: ByteBuffer) = try {
+        FfiNetworkProtocol.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: FfiNetworkProtocol) = 4UL
+
+    override fun write(value: FfiNetworkProtocol, buf: ByteBuffer) {
         buf.putInt(value.ordinal + 1)
     }
 }
@@ -6035,6 +6415,38 @@ public object FfiConverterOptionalTypeFfiParsedPlaylist: FfiConverterRustBuffer<
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeFfiDecoderMode: FfiConverterRustBuffer<FfiDecoderMode?> {
+    override fun read(buf: ByteBuffer): FfiDecoderMode? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeFfiDecoderMode.read(buf)
+    }
+
+    override fun allocationSize(value: FfiDecoderMode?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeFfiDecoderMode.allocationSize(value)
+        }
+    }
+
+    override fun write(value: FfiDecoderMode?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeFfiDecoderMode.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceFloat: FfiConverterRustBuffer<List<kotlin.Float>> {
     override fun read(buf: ByteBuffer): List<kotlin.Float> {
         val len = buf.getInt()
@@ -6363,11 +6775,47 @@ public object FfiConverterSequenceTypeFfiSubtitleCue: FfiConverterRustBuffer<Lis
             FfiConverterTypeFfiSubtitleCue.write(it, buf)
         }
     }
-} fun `calculateIntroSkipTarget`(`positionMillis`: kotlin.Long, `chapters`: List<FfiChapterInfo>, `durationMillis`: kotlin.Long?): kotlin.Long {
+} fun `buildNetworkStreamUri`(`config`: FfiNetworkShareConfig, `fileSubpath`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_build_network_stream_uri(
+        FfiConverterTypeFfiNetworkShareConfig.lower(`config`),FfiConverterString.lower(`fileSubpath`),_status)
+}
+    )
+    }
+    
+ fun `calculateBrightnessSwipe`(`current`: kotlin.Float, `deltaY`: kotlin.Float, `screenHeight`: kotlin.Float): kotlin.Float {
+            return FfiConverterFloat.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_calculate_brightness_swipe(
+        FfiConverterFloat.lower(`current`),FfiConverterFloat.lower(`deltaY`),FfiConverterFloat.lower(`screenHeight`),_status)
+}
+    )
+    }
+    
+ fun `calculateDoubleTapSeek`(`currentPositionMs`: kotlin.Long, `totalDurationMs`: kotlin.Long, `isRightSide`: kotlin.Boolean): kotlin.Long {
+            return FfiConverterLong.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_calculate_double_tap_seek(
+        FfiConverterLong.lower(`currentPositionMs`),FfiConverterLong.lower(`totalDurationMs`),FfiConverterBoolean.lower(`isRightSide`),_status)
+}
+    )
+    }
+    
+ fun `calculateIntroSkipTarget`(`positionMillis`: kotlin.Long, `chapters`: List<FfiChapterInfo>, `durationMillis`: kotlin.Long?): kotlin.Long {
             return FfiConverterLong.lift(
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_calculate_intro_skip_target(
         FfiConverterLong.lower(`positionMillis`),FfiConverterSequenceTypeFfiChapterInfo.lower(`chapters`),FfiConverterOptionalLong.lower(`durationMillis`),_status)
+}
+    )
+    }
+    
+ fun `calculatePinchZoom`(`baseScale`: kotlin.Float, `pinchRatio`: kotlin.Float, `deltaPanX`: kotlin.Float, `deltaPanY`: kotlin.Float): FfiPinchZoomResult {
+            return FfiConverterTypeFfiPinchZoomResult.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_calculate_pinch_zoom(
+        FfiConverterFloat.lower(`baseScale`),FfiConverterFloat.lower(`pinchRatio`),FfiConverterFloat.lower(`deltaPanX`),FfiConverterFloat.lower(`deltaPanY`),_status)
 }
     )
     }
@@ -6377,6 +6825,15 @@ public object FfiConverterSequenceTypeFfiSubtitleCue: FfiConverterRustBuffer<Lis
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_calculate_replay_gain_linear(
         FfiConverterOptionalFloat.lower(`gainDb`),FfiConverterOptionalFloat.lower(`peak`),_status)
+}
+    )
+    }
+    
+ fun `calculateSeekSwipe`(`currentPositionMs`: kotlin.Long, `totalDurationMs`: kotlin.Long, `deltaX`: kotlin.Float, `screenWidth`: kotlin.Float): FfiSeekGestureResult {
+            return FfiConverterTypeFfiSeekGestureResult.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_calculate_seek_swipe(
+        FfiConverterLong.lower(`currentPositionMs`),FfiConverterLong.lower(`totalDurationMs`),FfiConverterFloat.lower(`deltaX`),FfiConverterFloat.lower(`screenWidth`),_status)
 }
     )
     }
@@ -6408,11 +6865,29 @@ public object FfiConverterSequenceTypeFfiSubtitleCue: FfiConverterRustBuffer<Lis
     )
     }
     
+ fun `calculateVolumeSwipe`(`current`: kotlin.Float, `deltaY`: kotlin.Float, `screenHeight`: kotlin.Float): kotlin.Float {
+            return FfiConverterFloat.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_calculate_volume_swipe(
+        FfiConverterFloat.lower(`current`),FfiConverterFloat.lower(`deltaY`),FfiConverterFloat.lower(`screenHeight`),_status)
+}
+    )
+    }
+    
  fun `cleanMediaTitle`(`fileName`: kotlin.String): FfiCleanTitle {
             return FfiConverterTypeFfiCleanTitle.lift(
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_clean_media_title(
         FfiConverterString.lower(`fileName`),_status)
+}
+    )
+    }
+    
+ fun `cycleDecoderMode`(`current`: FfiDecoderMode): FfiDecoderMode {
+            return FfiConverterTypeFfiDecoderMode.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_cycle_decoder_mode(
+        FfiConverterTypeFfiDecoderMode.lower(`current`),_status)
 }
     )
     }
@@ -6435,6 +6910,15 @@ public object FfiConverterSequenceTypeFfiSubtitleCue: FfiConverterRustBuffer<Lis
     )
     }
     
+ fun `fallbackDecoderMode`(`current`: FfiDecoderMode): FfiDecoderMode? {
+            return FfiConverterOptionalTypeFfiDecoderMode.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_fallback_decoder_mode(
+        FfiConverterTypeFfiDecoderMode.lower(`current`),_status)
+}
+    )
+    }
+    
  fun `formatRenameTemplate`(`template`: kotlin.String, `item`: FfiMediaItem): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
@@ -6444,11 +6928,47 @@ public object FfiConverterSequenceTypeFfiSubtitleCue: FfiConverterRustBuffer<Lis
     )
     }
     
+ fun `generateAudioExtractionFfmpegArgs`(`videoPath`: kotlin.String, `outPath`: kotlin.String, `format`: FfiAudioExtractFormat, `bitrate`: FfiAudioExtractBitrate): List<kotlin.String> {
+            return FfiConverterSequenceString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_generate_audio_extraction_ffmpeg_args(
+        FfiConverterString.lower(`videoPath`),FfiConverterString.lower(`outPath`),FfiConverterTypeFfiAudioExtractFormat.lower(`format`),FfiConverterTypeFfiAudioExtractBitrate.lower(`bitrate`),_status)
+}
+    )
+    }
+    
+ fun `generateAudioOutputPath`(`videoPath`: kotlin.String, `format`: FfiAudioExtractFormat): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_generate_audio_output_path(
+        FfiConverterString.lower(`videoPath`),FfiConverterTypeFfiAudioExtractFormat.lower(`format`),_status)
+}
+    )
+    }
+    
  fun `generateBatchSequentialRename`(`items`: List<FfiBatchRenameResult>, `prefix`: kotlin.String, `startIndex`: kotlin.UInt, `padDigits`: kotlin.UInt): List<FfiBatchRenameResult> {
             return FfiConverterSequenceTypeFfiBatchRenameResult.lift(
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_generate_batch_sequential_rename(
         FfiConverterSequenceTypeFfiBatchRenameResult.lower(`items`),FfiConverterString.lower(`prefix`),FfiConverterUInt.lower(`startIndex`),FfiConverterUInt.lower(`padDigits`),_status)
+}
+    )
+    }
+    
+ fun `getLongPressPlaybackSpeed`(`isPressed`: kotlin.Boolean): kotlin.Float {
+            return FfiConverterFloat.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_get_long_press_playback_speed(
+        FfiConverterBoolean.lower(`isPressed`),_status)
+}
+    )
+    }
+    
+ fun `getMpvHwdecArg`(`mode`: FfiDecoderMode, `os`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_vimivo_ffi_fn_func_get_mpv_hwdec_arg(
+        FfiConverterTypeFfiDecoderMode.lower(`mode`),FfiConverterString.lower(`os`),_status)
 }
     )
     }

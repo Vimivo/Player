@@ -675,14 +675,39 @@ RustBuffer uniffi_vimivo_ffi_fn_method_ffivoiceclarity_process(void*_Nonnull ptr
 void uniffi_vimivo_ffi_fn_method_ffivoiceclarity_set_enabled(void*_Nonnull ptr, int8_t enabled, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_BUILD_NETWORK_STREAM_URI
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_BUILD_NETWORK_STREAM_URI
+RustBuffer uniffi_vimivo_ffi_fn_func_build_network_stream_uri(RustBuffer config, RustBuffer file_subpath, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_BRIGHTNESS_SWIPE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_BRIGHTNESS_SWIPE
+float uniffi_vimivo_ffi_fn_func_calculate_brightness_swipe(float current, float delta_y, float screen_height, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_DOUBLE_TAP_SEEK
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_DOUBLE_TAP_SEEK
+int64_t uniffi_vimivo_ffi_fn_func_calculate_double_tap_seek(int64_t current_position_ms, int64_t total_duration_ms, int8_t is_right_side, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_INTRO_SKIP_TARGET
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_INTRO_SKIP_TARGET
 int64_t uniffi_vimivo_ffi_fn_func_calculate_intro_skip_target(int64_t position_millis, RustBuffer chapters, RustBuffer duration_millis, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_PINCH_ZOOM
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_PINCH_ZOOM
+RustBuffer uniffi_vimivo_ffi_fn_func_calculate_pinch_zoom(float base_scale, float pinch_ratio, float delta_pan_x, float delta_pan_y, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_REPLAY_GAIN_LINEAR
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_REPLAY_GAIN_LINEAR
 float uniffi_vimivo_ffi_fn_func_calculate_replay_gain_linear(RustBuffer gain_db, RustBuffer peak, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SEEK_SWIPE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SEEK_SWIPE
+RustBuffer uniffi_vimivo_ffi_fn_func_calculate_seek_swipe(int64_t current_position_ms, int64_t total_duration_ms, float delta_x, float screen_width, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_SUBTITLE_DRAG_DELAY
@@ -700,9 +725,19 @@ float uniffi_vimivo_ffi_fn_func_calculate_subtitle_drag_position(float current_p
 float uniffi_vimivo_ffi_fn_func_calculate_subtitle_pinch_font_scale(float base_scale, float pinch_factor, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_VOLUME_SWIPE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CALCULATE_VOLUME_SWIPE
+float uniffi_vimivo_ffi_fn_func_calculate_volume_swipe(float current, float delta_y, float screen_height, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CLEAN_MEDIA_TITLE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CLEAN_MEDIA_TITLE
 RustBuffer uniffi_vimivo_ffi_fn_func_clean_media_title(RustBuffer file_name, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CYCLE_DECODER_MODE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_CYCLE_DECODER_MODE
+RustBuffer uniffi_vimivo_ffi_fn_func_cycle_decoder_mode(RustBuffer current, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_DECODE_SUBTITLE_BYTES
@@ -715,14 +750,39 @@ RustBuffer uniffi_vimivo_ffi_fn_func_decode_subtitle_bytes(RustBuffer bytes, Rus
 RustBuffer uniffi_vimivo_ffi_fn_func_detect_media_mime_type(RustBuffer filename, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FALLBACK_DECODER_MODE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FALLBACK_DECODER_MODE
+RustBuffer uniffi_vimivo_ffi_fn_func_fallback_decoder_mode(RustBuffer current, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_RENAME_TEMPLATE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_FORMAT_RENAME_TEMPLATE
 RustBuffer uniffi_vimivo_ffi_fn_func_format_rename_template(RustBuffer template, RustBuffer item, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_AUDIO_EXTRACTION_FFMPEG_ARGS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_AUDIO_EXTRACTION_FFMPEG_ARGS
+RustBuffer uniffi_vimivo_ffi_fn_func_generate_audio_extraction_ffmpeg_args(RustBuffer video_path, RustBuffer out_path, RustBuffer format, RustBuffer bitrate, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_AUDIO_OUTPUT_PATH
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_AUDIO_OUTPUT_PATH
+RustBuffer uniffi_vimivo_ffi_fn_func_generate_audio_output_path(RustBuffer video_path, RustBuffer format, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_BATCH_SEQUENTIAL_RENAME
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GENERATE_BATCH_SEQUENTIAL_RENAME
 RustBuffer uniffi_vimivo_ffi_fn_func_generate_batch_sequential_rename(RustBuffer items, RustBuffer prefix, uint32_t start_index, uint32_t pad_digits, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_LONG_PRESS_PLAYBACK_SPEED
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_LONG_PRESS_PLAYBACK_SPEED
+float uniffi_vimivo_ffi_fn_func_get_long_press_playback_speed(int8_t is_pressed, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_MPV_HWDEC_ARG
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_GET_MPV_HWDEC_ARG
+RustBuffer uniffi_vimivo_ffi_fn_func_get_mpv_hwdec_arg(RustBuffer mode, RustBuffer os, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_FN_FUNC_IS_NEW_MEDIA_ITEM
@@ -1045,15 +1105,45 @@ void ffi_vimivo_ffi_rust_future_free_void(uint64_t handle
 void ffi_vimivo_ffi_rust_future_complete_void(uint64_t handle, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_BUILD_NETWORK_STREAM_URI
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_BUILD_NETWORK_STREAM_URI
+uint16_t uniffi_vimivo_ffi_checksum_func_build_network_stream_uri(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_BRIGHTNESS_SWIPE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_BRIGHTNESS_SWIPE
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_brightness_swipe(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_DOUBLE_TAP_SEEK
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_DOUBLE_TAP_SEEK
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_double_tap_seek(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_INTRO_SKIP_TARGET
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_INTRO_SKIP_TARGET
 uint16_t uniffi_vimivo_ffi_checksum_func_calculate_intro_skip_target(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_PINCH_ZOOM
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_PINCH_ZOOM
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_pinch_zoom(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_REPLAY_GAIN_LINEAR
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_REPLAY_GAIN_LINEAR
 uint16_t uniffi_vimivo_ffi_checksum_func_calculate_replay_gain_linear(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_SEEK_SWIPE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_SEEK_SWIPE
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_seek_swipe(void
     
 );
 #endif
@@ -1075,9 +1165,21 @@ uint16_t uniffi_vimivo_ffi_checksum_func_calculate_subtitle_pinch_font_scale(voi
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_VOLUME_SWIPE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CALCULATE_VOLUME_SWIPE
+uint16_t uniffi_vimivo_ffi_checksum_func_calculate_volume_swipe(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CLEAN_MEDIA_TITLE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CLEAN_MEDIA_TITLE
 uint16_t uniffi_vimivo_ffi_checksum_func_clean_media_title(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CYCLE_DECODER_MODE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_CYCLE_DECODER_MODE
+uint16_t uniffi_vimivo_ffi_checksum_func_cycle_decoder_mode(void
     
 );
 #endif
@@ -1093,15 +1195,45 @@ uint16_t uniffi_vimivo_ffi_checksum_func_detect_media_mime_type(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FALLBACK_DECODER_MODE
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FALLBACK_DECODER_MODE
+uint16_t uniffi_vimivo_ffi_checksum_func_fallback_decoder_mode(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_RENAME_TEMPLATE
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_FORMAT_RENAME_TEMPLATE
 uint16_t uniffi_vimivo_ffi_checksum_func_format_rename_template(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_AUDIO_EXTRACTION_FFMPEG_ARGS
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_AUDIO_EXTRACTION_FFMPEG_ARGS
+uint16_t uniffi_vimivo_ffi_checksum_func_generate_audio_extraction_ffmpeg_args(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_AUDIO_OUTPUT_PATH
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_AUDIO_OUTPUT_PATH
+uint16_t uniffi_vimivo_ffi_checksum_func_generate_audio_output_path(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_BATCH_SEQUENTIAL_RENAME
 #define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GENERATE_BATCH_SEQUENTIAL_RENAME
 uint16_t uniffi_vimivo_ffi_checksum_func_generate_batch_sequential_rename(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_LONG_PRESS_PLAYBACK_SPEED
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_LONG_PRESS_PLAYBACK_SPEED
+uint16_t uniffi_vimivo_ffi_checksum_func_get_long_press_playback_speed(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_MPV_HWDEC_ARG
+#define UNIFFI_FFIDEF_UNIFFI_VIMIVO_FFI_CHECKSUM_FUNC_GET_MPV_HWDEC_ARG
+uint16_t uniffi_vimivo_ffi_checksum_func_get_mpv_hwdec_arg(void
     
 );
 #endif
