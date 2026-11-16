@@ -9,17 +9,17 @@ export struct MediaRow {
 }
 
 export component AppWindow inherits Window {
-    title: "Vimivo — Every Sound. Every Frame.";
-    preferred-width: 1080px;
-    preferred-height: 720px;
-    min-width: 840px;
-    min-height: 540px;
-    background: #0f1117;
-    default-font-family: "Inter, system-ui, sans-serif";
+    title: "Vimivo — Cinema-Grade Universal Media Player";
+    preferred-width: 1120px;
+    preferred-height: 740px;
+    min-width: 880px;
+    min-height: 560px;
+    background: #08090d;
+    default-font-family: "Inter, system-ui, -apple-system, sans-serif";
 
     in-out property <string> search-text: "";
     in-out property <string> now-playing-title: "No Media Playing";
-    in-out property <string> now-playing-artist: "Select a song or video to begin";
+    in-out property <string> now-playing-artist: "Select a track or video to begin playback";
     in-out property <string> current-time: "00:00";
     in-out property <string> total-time: "00:00";
     in-out property <float> progress: 0.0;
@@ -27,7 +27,13 @@ export component AppWindow inherits Window {
     in-out property <bool> is-shuffled: false;
     in-out property <int> repeat-mode: 0; // 0: Off, 1: All, 2: One
     in-out property <[MediaRow]> media-list: [];
-    in-out property <[float]> spectrum-bars: [0.1, 0.2, 0.4, 0.7, 0.9, 0.8, 0.6, 0.4, 0.3, 0.5, 0.7, 0.8, 0.6, 0.4, 0.2, 0.1];
+    in-out property <[float]> spectrum-bars: [0.15, 0.28, 0.45, 0.72, 0.94, 0.82, 0.65, 0.48, 0.35, 0.52, 0.74, 0.88, 0.62, 0.44, 0.25, 0.12];
+
+    // Hardware Decoder Switcher
+    in-out property <string> decoder-mode: "HW+"; // "HW+", "HW", "SW"
+
+    // Volume & Soft-Knee Limiter Boost (0 - 200%)
+    in-out property <float> volume: 100.0;
 
     // DSP Properties
     in-out property <bool> show-dsp-panel: false;
@@ -53,6 +59,8 @@ export component AppWindow inherits Window {
     callback item-selected(string);
     callback search-changed(string);
     callback progress-seeked(float);
+    callback volume-changed(float);
+    callback decoder-mode-toggled();
 
     callback toggle-dsp-panel();
     callback bass-boost-changed(float);
@@ -70,38 +78,108 @@ export component AppWindow inherits Window {
         spacing: 0px;
 
         // Top App Bar / Header
-        HorizontalBox {
-            padding: 16px;
-            spacing: 12px;
+        Rectangle {
             height: 64px;
+            background: #0f1118;
+            border-width: 1px;
+            border-color: #1a1d2c;
 
-            Text {
-                text: "Vimivo";
-                font-size: 22px;
-                font-weight: 800;
-                color: #60a5fa;
-                vertical-alignment: center;
-            }
+            HorizontalBox {
+                padding-left: 20px;
+                padding-right: 20px;
+                spacing: 16px;
+                alignment: center;
 
-            Rectangle { width: 24px; }
-
-            search-input := LineEdit {
-                placeholder-text: "Search songs, artists, albums, or videos...";
-                text <=> root.search-text;
-                horizontal-stretch: 1;
-                edited(text) => { root.search-changed(text); }
-            }
-
-            if root.wifi-server-active : Rectangle {
-                background: #064e3b;
-                border-radius: 6px;
-                height: 36px;
+                // Brand Logo & Title
                 HorizontalBox {
-                    padding-left: 10px;
-                    padding-right: 10px;
-                    spacing: 6px;
+                    spacing: 8px;
                     alignment: center;
-                    Text { text: "🌐 " + root.wifi-server-url; font-size: 12px; font-weight: 600; color: #34d399; vertical-alignment: center; }
+
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        border-radius: 6px;
+                        background: #0284c7;
+
+                        Text {
+                            text: "V";
+                            font-size: 16px;
+                            font-weight: 900;
+                            color: #ffffff;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Text {
+                        text: "VIMIVO";
+                        font-size: 18px;
+                        font-weight: 800;
+                        color: #38bdf8;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Rectangle { width: 12px; }
+
+                // Search Bar
+                search-input := LineEdit {
+                    placeholder-text: "Search tracks, videos, artists, albums, or network sources...";
+                    text <=> root.search-text;
+                    horizontal-stretch: 1;
+                    edited(text) => { root.search-changed(text); }
+                }
+
+                // Wi-Fi File Sharing Status Pill
+                if root.wifi-server-active : Rectangle {
+                    background: #064e3b;
+                    border-radius: 6px;
+                    border-width: 1px;
+                    border-color: #059669;
+                    height: 34px;
+
+                    HorizontalBox {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        spacing: 6px;
+                        alignment: center;
+
+                        Text {
+                            text: "Wi-Fi: " + root.wifi-server-url;
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #34d399;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Vault Status Pill
+                Rectangle {
+                    background: root.vault-unlocked ? #064e3b : #1e293b;
+                    border-radius: 6px;
+                    border-width: 1px;
+                    border-color: root.vault-unlocked ? #059669 : #334155;
+                    height: 34px;
+
+                    TouchArea {
+                        clicked => { root.open-vault-dialog(); }
+                    }
+
+                    HorizontalBox {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        spacing: 6px;
+                        alignment: center;
+
+                        Text {
+                            text: root.vault-unlocked ? "Vault Unlocked" : "Private Vault";
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: root.vault-unlocked ? #34d399 : #94a3b8;
+                            vertical-alignment: center;
+                        }
+                    }
                 }
             }
         }
@@ -115,7 +193,9 @@ export component AppWindow inherits Window {
             // Sidebar
             Rectangle {
                 width: 220px;
-                background: #141722;
+                background: #0d0f17;
+                border-width: 1px;
+                border-color: #1a1d2c;
 
                 VerticalBox {
                     padding: 16px;
@@ -128,122 +208,171 @@ export component AppWindow inherits Window {
                         color: #64748b;
                     }
 
-                    Button { text: "🎵 Tracks"; }
-                    Button { text: "🎬 Videos"; }
-                    Button { text: "⭐ Favorites"; }
+                    Button { text: "Tracks & Songs"; }
+                    Button { text: "Video Library"; }
+                    Button { text: "Favorites"; }
 
                     Rectangle { height: 12px; }
 
                     Text {
-                        text: "SECURITY & SHARING";
+                        text: "FEATURES & TOOLS";
                         font-size: 11px;
                         font-weight: 700;
                         color: #64748b;
                     }
 
                     Button {
-                        text: root.vault-unlocked ? "🔓 Vault (Unlocked)" : "🔒 Private Vault";
+                        text: root.vault-unlocked ? "Vault (Unlocked)" : "Private Vault";
                         clicked => { root.open-vault-dialog(); }
                     }
 
                     Button {
-                        text: root.wifi-server-active ? "🛑 Stop Wi-Fi Share" : "🌐 Wi-Fi File Share";
+                        text: root.wifi-server-active ? "Stop Wi-Fi Share" : "Wi-Fi File Sharing";
                         clicked => { root.toggle-wifi-server(); }
                     }
 
                     Rectangle { height: 12px; }
 
                     Text {
-                        text: "AUDIO DSP";
+                        text: "AUDIO & DSP";
                         font-size: 11px;
                         font-weight: 700;
                         color: #64748b;
                     }
 
                     Button {
-                        text: "🎛️ Equalizer & DSP";
+                        text: root.show-dsp-panel ? "Close DSP Panel" : "Equalizer & DSP";
                         clicked => { root.toggle-dsp-panel(); }
                     }
 
                     Rectangle { vertical-stretch: 1; }
 
-                    Button { text: "⚙️ Settings"; }
+                    Text {
+                        text: "Zero ads · Zero telemetry";
+                        font-size: 10px;
+                        color: #475569;
+                        horizontal-alignment: center;
+                    }
                 }
             }
 
-            // Divider
-            Rectangle { width: 1px; background: #1e293b; }
-
             // Media List View
             Rectangle {
-                background: #0f1117;
+                background: #08090d;
                 horizontal-stretch: 1;
 
                 VerticalBox {
                     padding: 16px;
-                    spacing: 12px;
+                    spacing: 8px;
 
                     // Header row
                     HorizontalBox {
                         padding-left: 12px;
                         padding-right: 12px;
-                        height: 32px;
+                        height: 28px;
 
-                        Text { text: "TITLE"; font-size: 12px; font-weight: 600; color: #64748b; horizontal-stretch: 3; }
-                        Text { text: "ARTIST"; font-size: 12px; font-weight: 600; color: #64748b; horizontal-stretch: 2; }
-                        Text { text: "ALBUM"; font-size: 12px; font-weight: 600; color: #64748b; horizontal-stretch: 2; }
-                        Text { text: "DURATION"; font-size: 12px; font-weight: 600; color: #64748b; width: 80px; }
+                        Text { text: "TITLE"; font-size: 11px; font-weight: 700; color: #64748b; horizontal-stretch: 4; }
+                        Text { text: "ARTIST"; font-size: 11px; font-weight: 700; color: #64748b; horizontal-stretch: 3; }
+                        Text { text: "ALBUM"; font-size: 11px; font-weight: 700; color: #64748b; horizontal-stretch: 3; }
+                        Text { text: "DURATION"; font-size: 11px; font-weight: 700; color: #64748b; width: 70px; horizontal-alignment: right; }
                     }
 
-                    Rectangle { height: 1px; background: #1e293b; }
+                    Rectangle { height: 1px; background: #1a1d2c; }
 
                     ListView {
                         for item in root.media-list : Rectangle {
-                            height: 48px;
-                            background: touch.has-hover ? #1e293b : transparent;
+                            height: 44px;
+                            background: row-touch.has-hover ? #151824 : transparent;
                             border-radius: 6px;
 
-                            touch := TouchArea {
+                            row-touch := TouchArea {
                                 clicked => { root.item-selected(item.id); }
                             }
 
                             HorizontalBox {
                                 padding-left: 12px;
                                 padding-right: 12px;
+                                spacing: 8px;
+                                alignment: center;
 
-                                Text { text: item.title; color: #f8fafc; font-size: 14px; font-weight: 500; vertical-alignment: center; horizontal-stretch: 3; }
-                                Text { text: item.artist; color: #94a3b8; font-size: 13px; vertical-alignment: center; horizontal-stretch: 2; }
-                                Text { text: item.album; color: #94a3b8; font-size: 13px; vertical-alignment: center; horizontal-stretch: 2; }
-                                Text { text: item.duration; color: #64748b; font-size: 12px; vertical-alignment: center; width: 80px; }
+                                Text {
+                                    text: item.title;
+                                    color: #f8fafc;
+                                    font-size: 13px;
+                                    font-weight: 500;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 4;
+                                    overflow: elide;
+                                }
+
+                                Text {
+                                    text: item.artist;
+                                    color: #94a3b8;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 3;
+                                    overflow: elide;
+                                }
+
+                                Text {
+                                    text: item.album;
+                                    color: #64748b;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 3;
+                                    overflow: elide;
+                                }
+
+                                Text {
+                                    text: item.duration;
+                                    color: #94a3b8;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                    width: 70px;
+                                    horizontal-alignment: right;
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // DSP Side Panel (When visible)
+            // DSP Side Drawer
             if root.show-dsp-panel : Rectangle {
-                width: 280px;
-                background: #141722;
+                width: 290px;
+                background: #0f1118;
                 border-width: 1px;
-                border-color: #1e293b;
+                border-color: #1a1d2c;
 
                 VerticalBox {
-                    padding: 16px;
+                    padding: 18px;
                     spacing: 16px;
 
                     HorizontalBox {
-                        Text { text: "🎛️ Audio DSP Controls"; font-size: 14px; font-weight: 700; color: #60a5fa; vertical-alignment: center; }
+                        Text {
+                            text: "Audio DSP Controls";
+                            font-size: 15px;
+                            font-weight: 700;
+                            color: #38bdf8;
+                            vertical-alignment: center;
+                        }
                         Rectangle { horizontal-stretch: 1; }
-                        Button { text: "✕"; clicked => { root.toggle-dsp-panel(); } }
+                        Button {
+                            text: "✕";
+                            clicked => { root.toggle-dsp-panel(); }
+                        }
                     }
 
                     Rectangle { height: 1px; background: #1e293b; }
 
                     // Bass Boost
                     VerticalBox {
-                        spacing: 4px;
-                        Text { text: "Bass Boost: " + Math.round(root.bass-boost-db) + " dB"; font-size: 12px; font-weight: 600; color: #e2e8f0; }
+                        spacing: 6px;
+                        HorizontalBox {
+                            Text { text: "Bass Boost"; font-size: 12px; font-weight: 600; color: #f1f5f9; }
+                            Rectangle { horizontal-stretch: 1; }
+                            Text { text: Math.round(root.bass-boost-db) + " dB"; font-size: 12px; font-weight: 700; color: #38bdf8; }
+                        }
                         Slider {
                             minimum: 0.0;
                             maximum: 18.0;
@@ -254,8 +383,12 @@ export component AppWindow inherits Window {
 
                     // 3D Virtualizer
                     VerticalBox {
-                        spacing: 4px;
-                        Text { text: "3D Spatial Width: " + Math.round(root.virtualizer-width * 100) + "%"; font-size: 12px; font-weight: 600; color: #e2e8f0; }
+                        spacing: 6px;
+                        HorizontalBox {
+                            Text { text: "3D Spatial Width"; font-size: 12px; font-weight: 600; color: #f1f5f9; }
+                            Rectangle { horizontal-stretch: 1; }
+                            Text { text: Math.round(root.virtualizer-width * 100) + "%"; font-size: 12px; font-weight: 700; color: #818cf8; }
+                        }
                         Slider {
                             minimum: 0.0;
                             maximum: 2.0;
@@ -264,74 +397,107 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // Dialogue Clarity
+                    // Dialogue Voice Clarity
                     HorizontalBox {
-                        Text { text: "Dialogue / Voice Clarity"; font-size: 13px; font-weight: 600; color: #e2e8f0; vertical-alignment: center; }
+                        alignment: center;
+                        Text { text: "Dialogue / Voice Clarity"; font-size: 13px; font-weight: 600; color: #f1f5f9; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; }
                         Button {
-                            text: root.voice-clarity-enabled ? "ON" : "OFF";
+                            text: root.voice-clarity-enabled ? "ACTIVE" : "OFF";
                             clicked => { root.voice-clarity-toggled(); }
                         }
                     }
 
                     Rectangle { vertical-stretch: 1; }
+
+                    Text {
+                        text: "Processed via Pure Rust DSP";
+                        font-size: 11px;
+                        color: #64748b;
+                        horizontal-alignment: center;
+                    }
                 }
             }
         }
 
-        // Bottom Playback Transport Bar + Spectrum Visualizer
+        // Bottom Cinema Playback Transport Bar
         Rectangle {
-            height: 104px;
-            background: #141722;
+            height: 108px;
+            background: #0c0e15;
             border-width: 1px;
-            border-color: #1e293b;
+            border-color: #1a1d2c;
 
             VerticalBox {
                 padding: 10px;
                 spacing: 6px;
 
-                // Live Spectrum Visualizer HUD
+                // Live Glowing 16-Band Spectrum Visualizer HUD
                 HorizontalBox {
                     alignment: center;
                     spacing: 4px;
-                    height: 18px;
+                    height: 16px;
 
                     for val in root.spectrum-bars : Rectangle {
-                        width: 8px;
-                        height: Math.max(3px, val * 18px);
-                        background: root.is-playing ? #38bdf8 : #334155;
+                        width: 7px;
+                        height: Math.max(2px, val * 16px);
+                        background: root.is-playing ? #38bdf8 : #1e293b;
                         border-radius: 2px;
-                        y: 18px - self.height;
+                        y: 16px - self.height;
                     }
                 }
 
                 HorizontalBox {
-                    padding: 0px;
+                    padding-left: 12px;
+                    padding-right: 12px;
                     spacing: 16px;
+                    alignment: center;
 
                     // Track Info Left
-                    VerticalBox {
-                        width: 240px;
-                        spacing: 2px;
+                    HorizontalBox {
+                        width: 250px;
+                        spacing: 12px;
                         alignment: center;
 
-                        Text {
-                            text: root.now-playing-title;
-                            font-size: 14px;
-                            font-weight: 600;
-                            color: #f8fafc;
-                            overflow: elide;
+                        Rectangle {
+                            width: 44px;
+                            height: 44px;
+                            border-radius: 6px;
+                            background: #1e293b;
+                            border-width: 1px;
+                            border-color: #334155;
+
+                            Text {
+                                text: root.is-playing ? "▶" : "■";
+                                font-size: 16px;
+                                color: root.is-playing ? #38bdf8 : #64748b;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
                         }
 
-                        Text {
-                            text: root.now-playing-artist;
-                            font-size: 12px;
-                            color: #94a3b8;
-                            overflow: elide;
+                        VerticalBox {
+                            spacing: 2px;
+                            alignment: center;
+                            horizontal-stretch: 1;
+
+                            Text {
+                                text: root.now-playing-title;
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: #f8fafc;
+                                overflow: elide;
+                            }
+
+                            Text {
+                                text: root.now-playing-artist;
+                                font-size: 11px;
+                                color: #94a3b8;
+                                overflow: elide;
+                            }
                         }
                     }
 
-                    // Transport Controls Center
+                    // Transport Controls & Timeline Center
                     VerticalBox {
                         horizontal-stretch: 1;
                         spacing: 4px;
@@ -339,27 +505,27 @@ export component AppWindow inherits Window {
 
                         HorizontalBox {
                             alignment: center;
-                            spacing: 16px;
+                            spacing: 12px;
 
                             Button {
-                                text: root.is-shuffled ? "🔀 (On)" : "🔀";
+                                text: root.is-shuffled ? "⇄ (On)" : "⇄";
                                 clicked => { root.shuffle-toggled(); }
                             }
                             Button {
-                                text: "⏮️";
+                                text: "⏮";
                                 clicked => { root.previous-clicked(); }
                             }
                             Button {
-                                text: root.is-playing ? "⏸️ Pause" : "▶️ Play";
+                                text: root.is-playing ? "⏸ Pause" : "⏵ Play";
                                 primary: true;
                                 clicked => { root.play-pause-clicked(); }
                             }
                             Button {
-                                text: "⏭️";
+                                text: "⏭";
                                 clicked => { root.next-clicked(); }
                             }
                             Button {
-                                text: root.repeat-mode == 1 ? "🔁 All" : root.repeat-mode == 2 ? "🔂 One" : "🔁 Off";
+                                text: root.repeat-mode == 1 ? "↻ All" : root.repeat-mode == 2 ? "↻ 1" : "↻ Off";
                                 clicked => { root.repeat-toggled(); }
                             }
                         }
@@ -368,7 +534,7 @@ export component AppWindow inherits Window {
                             spacing: 8px;
                             alignment: center;
 
-                            Text { text: root.current-time; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                            Text { text: root.current-time; font-size: 11px; font-weight: 600; color: #64748b; vertical-alignment: center; }
                             Slider {
                                 value <=> root.progress;
                                 minimum: 0.0;
@@ -376,22 +542,72 @@ export component AppWindow inherits Window {
                                 horizontal-stretch: 1;
                                 changed(val) => { root.progress-seeked(val); }
                             }
-                            Text { text: root.total-time; font-size: 11px; color: #64748b; vertical-alignment: center; }
+                            Text { text: root.total-time; font-size: 11px; font-weight: 600; color: #64748b; vertical-alignment: center; }
                         }
                     }
 
-                    // Volume Slider Right
+                    // Right Side: Hardware Decoder Chip & Volume (up to 200%)
                     HorizontalBox {
-                        width: 180px;
-                        spacing: 8px;
+                        width: 260px;
+                        spacing: 12px;
                         alignment: center;
 
-                        Text { text: "🔊"; vertical-alignment: center; }
-                        Slider {
-                            value: 80.0;
-                            minimum: 0.0;
-                            maximum: 100.0;
+                        // Hardware Decoder Mode Switcher Chip
+                        Rectangle {
+                            background: root.decoder-mode == "HW+" ? #064e3b : root.decoder-mode == "HW" ? #0c4a6e : #1e293b;
+                            border-radius: 6px;
+                            border-width: 1px;
+                            border-color: root.decoder-mode == "HW+" ? #059669 : root.decoder-mode == "HW" ? #0284c7 : #475569;
+                            height: 30px;
+
+                            TouchArea {
+                                clicked => { root.decoder-mode-toggled(); }
+                            }
+
+                            HorizontalBox {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                alignment: center;
+
+                                Text {
+                                    text: root.decoder-mode == "HW+" ? "⚡ HW+" : root.decoder-mode == "HW" ? "⚡ HW" : "💻 SW";
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    color: root.decoder-mode == "HW+" ? #34d399 : root.decoder-mode == "HW" ? #38bdf8 : #94a3b8;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Volume Control with Soft-Knee Limiter Boost Badge (>100%)
+                        HorizontalBox {
+                            spacing: 6px;
+                            alignment: center;
                             horizontal-stretch: 1;
+
+                            Text {
+                                text: root.volume > 100.0 ? "⚡" : "🔊";
+                                font-size: 12px;
+                                color: root.volume > 100.0 ? #f59e0b : #94a3b8;
+                                vertical-alignment: center;
+                            }
+
+                            Slider {
+                                value <=> root.volume;
+                                minimum: 0.0;
+                                maximum: 200.0;
+                                horizontal-stretch: 1;
+                                changed(val) => { root.volume-changed(val); }
+                            }
+
+                            Text {
+                                text: root.volume > 100.0 ? Math.round(root.volume) + "% BOOST" : Math.round(root.volume) + "%";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: root.volume > 100.0 ? #f59e0b : #64748b;
+                                vertical-alignment: center;
+                                width: 55px;
+                            }
                         }
                     }
                 }
@@ -399,30 +615,30 @@ export component AppWindow inherits Window {
         }
     }
 
-    // Vault Unlock Modal Dialog Overlay
+    // Vault PIN Dialog Overlay
     if root.show-vault-dialog : Rectangle {
         width: 100%;
         height: 100%;
-        background: #000000cc;
+        background: #000000dd;
 
         Rectangle {
-            width: 380px;
-            height: 240px;
-            background: #1e293b;
+            width: 400px;
+            height: 250px;
+            background: #151824;
             border-radius: 12px;
             border-width: 1px;
-            border-color: #3b82f6;
+            border-color: #38bdf8;
 
             VerticalBox {
                 padding: 24px;
                 spacing: 12px;
                 alignment: center;
 
-                Text { text: "🔒 Private Video Vault"; font-size: 18px; font-weight: 700; color: #60a5fa; horizontal-alignment: center; }
+                Text { text: "Private Video Vault"; font-size: 18px; font-weight: 700; color: #38bdf8; horizontal-alignment: center; }
                 Text { text: root.vault-status-msg; font-size: 12px; color: #94a3b8; horizontal-alignment: center; }
 
                 pin-input := LineEdit {
-                    placeholder-text: "Enter PIN";
+                    placeholder-text: "Enter 4-digit PIN";
                     text <=> root.vault-pin-input;
                     accepted(text) => { root.submit-vault-pin(text); }
                 }
@@ -436,7 +652,7 @@ export component AppWindow inherits Window {
                         clicked => { root.close-vault-dialog(); }
                     }
                     Button {
-                        text: "Unlock";
+                        text: "Unlock Vault";
                         primary: true;
                         clicked => { root.submit-vault-pin(root.vault-pin-input); }
                     }

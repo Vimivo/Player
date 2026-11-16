@@ -359,12 +359,39 @@ private struct VideoControls: View {
             Button {
                 open(.decoder)
             } label: {
-                Text(model.decoderMode.chipLabel)
-                    .font(.caption2.weight(.bold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.accentColor.opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
-                    .foregroundColor(.white)
+                HStack(spacing: 3) {
+                    if model.decoderMode == .hwPlus || model.decoderMode == .hw {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 9, weight: .bold))
+                    } else {
+                        Image(systemName: "cpu")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    Text(model.decoderMode.chipLabel)
+                        .font(.caption2.weight(.bold))
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(
+                    model.decoderMode == .hwPlus ? Color(red: 0.02, green: 0.31, blue: 0.23) :
+                    model.decoderMode == .hw ? Color(red: 0.05, green: 0.29, blue: 0.43) :
+                    Color(red: 0.12, green: 0.16, blue: 0.23),
+                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(
+                            model.decoderMode == .hwPlus ? Color(red: 0.20, green: 0.83, blue: 0.60).opacity(0.6) :
+                            model.decoderMode == .hw ? Color(red: 0.22, green: 0.74, blue: 0.97).opacity(0.6) :
+                            Color(red: 0.58, green: 0.64, blue: 0.72).opacity(0.4),
+                            lineWidth: 1
+                        )
+                )
+                .foregroundColor(
+                    model.decoderMode == .hwPlus ? Color(red: 0.20, green: 0.83, blue: 0.60) :
+                    model.decoderMode == .hw ? Color(red: 0.22, green: 0.74, blue: 0.97) :
+                    Color(red: 0.58, green: 0.64, blue: 0.72)
+                )
             }
 
             if engine.queue.count > 1 {
@@ -635,7 +662,12 @@ private struct GestureFeedbackHud: View {
     var body: some View {
         content
             .foregroundColor(.white)
-            .background(Color.black.opacity(0.64), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.4), radius: 12)
             .accessibilityElement(children: .combine)
     }
 
@@ -643,41 +675,72 @@ private struct GestureFeedbackHud: View {
     private var content: some View {
         switch feedback {
         case let .seek(target, delta, duration):
-            VStack(spacing: 2) {
+            VStack(spacing: 6) {
                 Text(MediaFormatting.clock(millis: target))
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.system(size: 30, weight: .bold))
                     .monospacedDigit()
-                Text((delta >= 0 ? "+" : "−") + MediaFormatting.clock(millis: abs(delta)) + "  ·  " + MediaFormatting.clock(millis: duration))
-                    .font(.subheadline.weight(.medium))
-                    .monospacedDigit()
-                    .foregroundColor(.white.opacity(0.72))
+                HStack(spacing: 6) {
+                    Text((delta >= 0 ? "+" : "−") + MediaFormatting.clock(millis: abs(delta)))
+                        .font(.caption.weight(.bold))
+                        .monospacedDigit()
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            delta >= 0 ? Color(red: 0.02, green: 0.31, blue: 0.23) : Color(red: 0.27, green: 0.10, blue: 0.01),
+                            in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        )
+                        .foregroundColor(delta >= 0 ? Color(red: 0.20, green: 0.83, blue: 0.60) : Color(red: 0.96, green: 0.62, blue: 0.04))
+                    Text("·  " + MediaFormatting.clock(millis: duration))
+                        .font(.subheadline.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundColor(.white.opacity(0.65))
+                }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 16)
         case let .level(icon, label, fraction):
+            let isVolume = label.starts(with: "Volume")
+            let isBoost = isVolume && fraction > 0.5
+            let activeColor = isBoost ? Color(red: 0.96, green: 0.62, blue: 0.04) : Color(red: 0.22, green: 0.74, blue: 0.97)
             VStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 24, weight: .semibold))
+                Image(systemName: icon)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundColor(activeColor)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.24))
-                        Capsule().fill(Color.white).frame(width: geo.size.width * CGFloat(min(max(fraction, 0), 1)))
+                        Capsule().fill(Color.white.opacity(0.20))
+                        Capsule().fill(activeColor).frame(width: geo.size.width * CGFloat(min(max(fraction, 0), 1)))
                     }
                 }
-                .frame(height: 4)
-                Text(label).font(.subheadline.weight(.medium)).monospacedDigit()
+                .frame(height: 5)
+                HStack(spacing: 4) {
+                    Text(label)
+                        .font(.subheadline.weight(.semibold))
+                        .monospacedDigit()
+                    if isBoost {
+                        Text("BOOST")
+                            .font(.system(size: 9, weight: .bold))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color(red: 0.27, green: 0.10, blue: 0.01), in: RoundedRectangle(cornerRadius: 3))
+                            .foregroundColor(Color(red: 0.96, green: 0.62, blue: 0.04))
+                    }
+                }
             }
-            .frame(width: 160)
-            .padding(.horizontal, 22)
-            .padding(.vertical, 16)
+            .frame(width: 170)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 18)
         case let .message(icon, text):
             HStack(spacing: 8) {
                 if let icon = icon {
-                    Image(systemName: icon).font(.system(size: 16, weight: .semibold))
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color(red: 0.22, green: 0.74, blue: 0.97))
                 }
                 Text(text).font(.subheadline.weight(.semibold))
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
         }
     }
 }
@@ -688,21 +751,23 @@ private struct DoubleTapSeekIndicator: View {
 
     var body: some View {
         let forward = side > 0
+        let accentColor = forward ? Color(red: 0.22, green: 0.74, blue: 0.97) : Color(red: 0.96, green: 0.62, blue: 0.04)
         GeometryReader { geo in
             HStack(spacing: 0) {
                 if forward { Spacer(minLength: 0) }
                 VStack(spacing: 4) {
                     Image(systemName: forward ? "forward.fill" : "backward.fill")
-                        .font(.system(size: 30, weight: .semibold))
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundColor(accentColor)
                     Text("\(forward ? "+" : "−")\(seconds) s")
-                        .font(.headline)
+                        .font(.headline.weight(.bold))
                         .monospacedDigit()
+                        .foregroundColor(.white)
                 }
-                .foregroundColor(.white)
                 .frame(width: geo.size.width * 0.36, height: geo.size.height)
                 .background(
                     UnevenCapsule(leading: !forward)
-                        .fill(Color.white.opacity(0.10))
+                        .fill(accentColor.opacity(0.12))
                 )
                 if !forward { Spacer(minLength: 0) }
             }

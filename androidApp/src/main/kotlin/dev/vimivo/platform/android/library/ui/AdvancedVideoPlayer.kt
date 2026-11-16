@@ -843,15 +843,26 @@ private fun VideoControls(
                     }
                 }
                 val modeLabel = when (player.decoderMode) {
-                    dev.vimivo.playback.MobileDecoderMode.HW -> "HW"
-                    dev.vimivo.playback.MobileDecoderMode.HW_PLUS -> "HW+"
-                    dev.vimivo.playback.MobileDecoderMode.SW -> "SW"
+                    dev.vimivo.playback.MobileDecoderMode.HW -> "⚡ HW"
+                    dev.vimivo.playback.MobileDecoderMode.HW_PLUS -> "⚡ HW+"
+                    dev.vimivo.playback.MobileDecoderMode.SW -> "💻 SW"
+                }
+                val modeBgColor = when (player.decoderMode) {
+                    dev.vimivo.playback.MobileDecoderMode.HW_PLUS -> Color(0xFF064E3B)
+                    dev.vimivo.playback.MobileDecoderMode.HW -> Color(0xFF0C4A6E)
+                    dev.vimivo.playback.MobileDecoderMode.SW -> Color(0xFF1E293B)
+                }
+                val modeTextColor = when (player.decoderMode) {
+                    dev.vimivo.playback.MobileDecoderMode.HW_PLUS -> Color(0xFF34D399)
+                    dev.vimivo.playback.MobileDecoderMode.HW -> Color(0xFF38BDF8)
+                    dev.vimivo.playback.MobileDecoderMode.SW -> Color(0xFF94A3B8)
                 }
                 Surface(
                     onClick = { onPanel(PlayerPanel.DECODER) },
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color.White.copy(alpha = 0.16f),
-                    contentColor = Color.White,
+                    shape = RoundedCornerShape(8.dp),
+                    color = modeBgColor,
+                    contentColor = modeTextColor,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, modeTextColor.copy(alpha = 0.5f)),
                     modifier = Modifier.padding(end = 4.dp),
                 ) {
                     Text(
@@ -1031,43 +1042,90 @@ private fun PlayerPill(icon: ImageVector, label: String, description: String, on
 private fun GestureFeedbackHud(feedback: GestureFeedback, modifier: Modifier) {
     Surface(
         modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = Color.Black.copy(alpha = 0.64f),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xF008090D),
         contentColor = Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        shadowElevation = 12.dp,
     ) {
         when (feedback) {
-            is GestureFeedback.Seek -> Column(Modifier.padding(horizontal = 24.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            is GestureFeedback.Seek -> Column(Modifier.padding(horizontal = 28.dp, vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     formatVideoTime(feedback.targetMillis),
                     style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = TABULAR_FIGURES),
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    (if (feedback.deltaMillis >= 0) "+" else "−") + formatVideoTime(abs(feedback.deltaMillis)) +
-                        "  ·  " + formatVideoTime(feedback.durationMillis),
-                    style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
-                    color = Color.White.copy(alpha = 0.72f),
-                )
-            }
-            is GestureFeedback.Level -> Column(Modifier.padding(horizontal = 22.dp, vertical = 16.dp).width(160.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(feedback.icon, null, Modifier.size(28.dp))
-                Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(
-                    progress = { feedback.fraction },
-                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                    fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.24f),
-                    drawStopIndicator = {},
                 )
-                Spacer(Modifier.height(8.dp))
-                Text(feedback.label, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val isForward = feedback.deltaMillis >= 0
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isForward) Color(0xFF064E3B) else Color(0xFF451A03),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isForward) Color(0xFF059669) else Color(0xFFD97706)),
+                    ) {
+                        Text(
+                            (if (isForward) "+" else "−") + formatVideoTime(abs(feedback.deltaMillis)),
+                            style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = TABULAR_FIGURES),
+                            color = if (isForward) Color(0xFF34D399) else Color(0xFFF59E0B),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        formatVideoTime(feedback.durationMillis),
+                        style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = TABULAR_FIGURES),
+                        color = Color.White.copy(alpha = 0.65f),
+                    )
+                }
             }
-            is GestureFeedback.Message -> Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            is GestureFeedback.Level -> {
+                val isVolume = feedback.label.startsWith("Volume", ignoreCase = true)
+                val isBoost = isVolume && feedback.fraction > 0.5f
+                val activeColor = when {
+                    isBoost -> Color(0xFFF59E0B) // Amber for soft-knee volume boost (> 100%)
+                    isVolume -> Color(0xFF38BDF8) // Cinema Blue for standard volume
+                    else -> Color(0xFF38BDF8)    // Cinema Blue for brightness
+                }
+                Column(Modifier.padding(horizontal = 24.dp, vertical = 18.dp).width(170.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(feedback.icon, null, Modifier.size(28.dp), tint = activeColor)
+                    Spacer(Modifier.height(10.dp))
+                    LinearProgressIndicator(
+                        progress = { feedback.fraction },
+                        modifier = Modifier.fillMaxWidth().height(5.dp),
+                        color = activeColor,
+                        trackColor = Color.White.copy(alpha = 0.20f),
+                        drawStopIndicator = {},
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(feedback.label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                        if (isBoost) {
+                            Spacer(Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF451A03),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD97706)),
+                            ) {
+                                Text(
+                                    "BOOST",
+                                    color = Color(0xFFF59E0B),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            is GestureFeedback.Message -> Row(Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 feedback.icon?.let {
-                    Icon(it, null, Modifier.size(20.dp))
+                    Icon(it, null, Modifier.size(20.dp), tint = Color(0xFF38BDF8))
                     Spacer(Modifier.width(8.dp))
                 }
-                Text(feedback.text, style = MaterialTheme.typography.titleSmall)
+                Text(feedback.text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -1076,17 +1134,24 @@ private fun GestureFeedbackHud(feedback: GestureFeedback, modifier: Modifier) {
 @Composable
 private fun DoubleTapSeekIndicator(side: Int, seconds: Int) {
     val forward = side > 0
+    val accentColor = if (forward) Color(0xFF38BDF8) else Color(0xFFF59E0B)
     Box(Modifier.fillMaxSize(), contentAlignment = if (forward) Alignment.CenterEnd else Alignment.CenterStart) {
         Box(
             Modifier.fillMaxHeight().fillMaxWidth(0.36f).background(
-                Color.White.copy(alpha = 0.10f),
+                accentColor.copy(alpha = 0.12f),
                 if (forward) RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50) else RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50),
             ),
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(if (forward) Icons.Rounded.FastForward else Icons.Rounded.FastRewind, null, tint = Color.White, modifier = Modifier.size(36.dp))
-                Text("${if (forward) "+" else "−"}$seconds s", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                Icon(if (forward) Icons.Rounded.FastForward else Icons.Rounded.FastRewind, null, tint = accentColor, modifier = Modifier.size(38.dp))
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "${if (forward) "+" else "−"}$seconds s",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
     }

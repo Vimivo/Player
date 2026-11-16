@@ -144,6 +144,7 @@ room { schemaDirectory("$projectDir/schemas") }
 detekt {
     buildUponDefaultConfig = true
     config.setFrom(rootProject.files("config/detekt/detekt.yml"))
+    source.setFrom(files("src/main/kotlin", "src/test/kotlin"))
 }
 
 tasks.named("preBuild") { dependsOn(fetchAndroidMedia) }

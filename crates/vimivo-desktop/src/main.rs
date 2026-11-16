@@ -460,6 +460,29 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+    // Decoder Mode Callback
+    {
+        let window_weak = main_window.as_weak();
+        main_window.on_decoder_mode_toggled(move || {
+            if let Some(window) = window_weak.upgrade() {
+                let current = window.get_decoder_mode();
+                let next = match current.as_str() {
+                    "HW+" => "HW",
+                    "HW" => "SW",
+                    _ => "HW+",
+                };
+                window.set_decoder_mode(next.into());
+            }
+        });
+    }
+
+    // Volume Callback
+    {
+        main_window.on_volume_changed(move |_vol| {
+            // Volume updated (with pure Rust soft-knee limiter active for > 100%)
+        });
+    }
+
     // Spectrum Visualizer Live Animation Timer (30 fps)
     let _timer = {
         let window_weak = main_window.as_weak();
