@@ -59,7 +59,7 @@ jobs:
         run: |
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
-          call gradlew.bat :desktopApp:createDistributable :desktopApp:packageExe :desktopApp:packageMsi || exit /b 1
+          call gradlew.bat :desktopApp:createDistributable :desktopApp:packageExe :desktopApp:packageMsi --no-configuration-cache || exit /b 1
 
       - name: Verify bundled native libraries
         shell: pwsh

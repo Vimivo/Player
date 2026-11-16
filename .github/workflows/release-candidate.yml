@@ -163,8 +163,8 @@ jobs:
           VIMIVO_WINDOWS_MPV_DIR: "${{ github.workspace }}\\windows-mpv\\bin"
           VIMIVO_TEST_MPV_DIR: "${{ github.workspace }}\\windows-mpv\\bin"
         run: |
-          ./gradlew :desktopApp:createDistributable
-          ./gradlew :desktopApp:packageExe :desktopApp:packageMsi
+          ./gradlew :desktopApp:createDistributable --no-configuration-cache
+          ./gradlew :desktopApp:packageExe :desktopApp:packageMsi --no-configuration-cache
       - name: Stage Windows Artifacts
         shell: pwsh
         run: |

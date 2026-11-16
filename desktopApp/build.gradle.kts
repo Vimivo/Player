@@ -319,11 +319,11 @@ val bundleWindowsMpv by tasks.registering(Exec::class) {
     )
 }
 
+val isWindowsHost = org.gradle.internal.os.OperatingSystem.current().isWindows
+
 val bundleWindowsMediaControls by tasks.registering(Copy::class) {
-    onlyIf {
-        org.gradle.internal.os.OperatingSystem.current().isWindows &&
-            layout.buildDirectory.file("native/vimivo_media_controls.dll").get().asFile.exists()
-    }
+    val win = isWindowsHost
+    onlyIf { win }
     dependsOn(windowsMediaControlsBridge)
     mustRunAfter("createDistributable")
     from(layout.buildDirectory.file("native/vimivo_media_controls.dll"))

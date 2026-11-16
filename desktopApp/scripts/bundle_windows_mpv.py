@@ -67,6 +67,15 @@ def bundle(app_dir, source_dll_dir=None):
         print(f"Copied {len(copied)} native DLLs.")
         copy_media_notices(os.path.dirname(os.path.abspath(source_dll_dir)), app_dir)
 
+    # Ensure vimivo_media_controls.dll is bundled if built
+    build_dir = os.path.dirname(os.path.dirname(os.path.abspath(app_dir)))
+    native_controls_dll = os.path.join(build_dir, "native", "vimivo_media_controls.dll")
+    if os.path.isfile(native_controls_dll):
+        dest_dll = os.path.join(app_dir, "vimivo_media_controls.dll")
+        if not os.path.exists(dest_dll):
+            shutil.copy2(native_controls_dll, dest_dll)
+            print(f"Copied {native_controls_dll} to {app_dir}")
+
     # Verification
     candidate_names = ["mpv-2.dll", "libmpv-2.dll", "libmpv.dll", "mpv.dll"]
     found_mpv = None
