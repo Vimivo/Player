@@ -9,6 +9,8 @@ use vimivo_core::model::{LibraryQuery, MediaItem, MediaKind, QueueRepeatMode};
 use vimivo_core::queue::PlayQueue;
 use vimivo_core::vault::{VaultConfig, VaultManager};
 use vimivo_core::wifi_transfer::{WifiServerHandle, WifiTransferServer};
+use vimivo_core::ab_loop::AbLoop;
+use vimivo_core::diagnostics::MediaDiagnostics;
 
 slint::include_modules!();
 
@@ -188,6 +190,8 @@ fn main() -> Result<(), slint::PlatformError> {
         position_millis: 0,
         duration_millis: 214_000,
     }));
+
+    let ab_loop_ref = Rc::new(Mutex::new(AbLoop::new()));
 
     // 3. Populate media list in UI
     let populate_list = {
@@ -535,11 +539,52 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+    // A-B Loop Callback
+    {
+        let window_weak = main_window.as_weak();
+        let ab_ref = Rc::clone(&ab_loop_ref);
+        let state_ref = Rc::clone(&playback_state_ref);
+
+        main_window.on_ab_loop_clicked(move || {
+            if let Some(window) = window_weak.upgrade() {
+                let current_pos = {
+                    let state = state_ref.lock().unwrap();
+                    state.position_millis
+                };
+                let mut ab = ab_ref.lock().unwrap();
+                let _ = ab.step(current_pos);
+                window.set_ab_loop_label(ab.button_label().into());
+                window.set_ab_loop_active(ab.is_active());
+            }
+        });
+    }
+
+    // Stats for Nerds Callback
+    {
+        let window_weak = main_window.as_weak();
+
+        main_window.on_toggle_stats_dialog(move || {
+            if let Some(window) = window_weak.upgrade() {
+                let current = window.get_show_stats_dialog();
+                if !current {
+                    let diag = MediaDiagnostics::default();
+                    window.set_stats_video(diag.video_summary().into());
+                    window.set_stats_audio(diag.audio_summary().into());
+                    window.set_stats_bitrate(diag.bitrate_summary().into());
+                    window.set_stats_dropped(diag.dropped_frames_summary().into());
+                    window.set_stats_buffer(diag.buffer_summary().into());
+                }
+                window.set_show_stats_dialog(!current);
+            }
+        });
+    }
+
     // Spectrum Visualizer & Timeline Live Animation Timer (30 fps)
     let _timer = {
         let window_weak = main_window.as_weak();
         let spectrum_ref = Rc::clone(&spectrum_ref);
         let playback_state_timer_ref = Rc::clone(&playback_state_ref);
+        let ab_loop_timer_ref = Rc::clone(&ab_loop_ref);
         let timer = slint::Timer::default();
         let mut phase = 0.0f32;
 
@@ -552,12 +597,21 @@ fn main() -> Result<(), slint::PlatformError> {
                     if window.get_is_playing() {
                         phase += 0.15;
 
-                        // 1. Smooth real-time timeline advancement
+                        // 1. Smooth real-time timeline advancement with A-B loop check
                         {
                             let mut state = playback_state_timer_ref.lock().unwrap();
                             let dur = state.duration_millis;
                             if dur > 0 {
                                 state.position_millis += 33;
+
+                                // Check A-B loop boundary bounce
+                                {
+                                    let ab = ab_loop_timer_ref.lock().unwrap();
+                                    if let Some(target_a) = ab.check_loop(state.position_millis) {
+                                        state.position_millis = target_a;
+                                    }
+                                }
+
                                 if state.position_millis > dur {
                                     state.position_millis = dur;
                                 }

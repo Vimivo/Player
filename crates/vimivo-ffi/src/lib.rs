@@ -1269,3 +1269,140 @@ pub fn build_network_stream_uri(config: FfiNetworkShareConfig, file_subpath: Str
     };
     NetworkShareEngine::build_stream_uri(&core_cfg, &file_subpath)
 }
+
+// ---------------------------------------------------------------------------
+// A-B Loop Repeat Engine
+// ---------------------------------------------------------------------------
+
+use vimivo_core::ab_loop::{AbLoop, AbLoopState};
+
+#[derive(uniffi::Enum)]
+pub enum FfiAbLoopState {
+    None,
+    PointASet { a_ms: i64 },
+    Active { a_ms: i64, b_ms: i64 },
+}
+
+#[derive(uniffi::Object)]
+pub struct FfiAbLoop {
+    inner: std::sync::Mutex<AbLoop>,
+}
+
+#[uniffi::export]
+impl FfiAbLoop {
+    #[uniffi::constructor]
+    pub fn new() -> Self {
+        Self {
+            inner: std::sync::Mutex::new(AbLoop::new()),
+        }
+    }
+
+    pub fn step(&self, current_pos_ms: i64) -> FfiAbLoopState {
+        let mut loop_ctrl = self.inner.lock().unwrap();
+        match loop_ctrl.step(current_pos_ms) {
+            AbLoopState::None => FfiAbLoopState::None,
+            AbLoopState::PointASet(a) => FfiAbLoopState::PointASet { a_ms: a },
+            AbLoopState::Active { a, b } => FfiAbLoopState::Active { a_ms: a, b_ms: b },
+        }
+    }
+
+    pub fn check_loop(&self, current_pos_ms: i64) -> Option<i64> {
+        let loop_ctrl = self.inner.lock().unwrap();
+        loop_ctrl.check_loop(current_pos_ms)
+    }
+
+    pub fn clear(&self) {
+        let mut loop_ctrl = self.inner.lock().unwrap();
+        loop_ctrl.clear();
+    }
+
+    pub fn is_active(&self) -> bool {
+        let loop_ctrl = self.inner.lock().unwrap();
+        loop_ctrl.is_active()
+    }
+
+    pub fn button_label(&self) -> String {
+        let loop_ctrl = self.inner.lock().unwrap();
+        loop_ctrl.button_label()
+    }
+
+    pub fn set_range(&self, a_ms: i64, b_ms: i64) -> bool {
+        let mut loop_ctrl = self.inner.lock().unwrap();
+        loop_ctrl.set_range(a_ms, b_ms)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Stats for Nerds / Diagnostics
+// ---------------------------------------------------------------------------
+
+use vimivo_core::diagnostics::MediaDiagnostics;
+
+#[derive(uniffi::Record)]
+pub struct FfiMediaDiagnostics {
+    pub file_name: String,
+    pub resolution: String,
+    pub video_codec: String,
+    pub audio_codec: String,
+    pub audio_channels: u16,
+    pub sample_rate_hz: u32,
+    pub decoder_mode: String,
+    pub current_bitrate_kbps: u32,
+    pub dropped_frames: u64,
+    pub total_frames: u64,
+    pub buffer_health_sec: f32,
+}
+
+#[uniffi::export]
+pub fn format_diagnostics_video(diag: FfiMediaDiagnostics) -> String {
+    let core = MediaDiagnostics {
+        file_name: diag.file_name,
+        resolution: diag.resolution,
+        video_codec: diag.video_codec,
+        audio_codec: diag.audio_codec,
+        audio_channels: diag.audio_channels,
+        sample_rate_hz: diag.sample_rate_hz,
+        decoder_mode: diag.decoder_mode,
+        current_bitrate_kbps: diag.current_bitrate_kbps,
+        dropped_frames: diag.dropped_frames,
+        total_frames: diag.total_frames,
+        buffer_health_sec: diag.buffer_health_sec,
+    };
+    core.video_summary()
+}
+
+#[uniffi::export]
+pub fn format_diagnostics_audio(diag: FfiMediaDiagnostics) -> String {
+    let core = MediaDiagnostics {
+        file_name: diag.file_name,
+        resolution: diag.resolution,
+        video_codec: diag.video_codec,
+        audio_codec: diag.audio_codec,
+        audio_channels: diag.audio_channels,
+        sample_rate_hz: diag.sample_rate_hz,
+        decoder_mode: diag.decoder_mode,
+        current_bitrate_kbps: diag.current_bitrate_kbps,
+        dropped_frames: diag.dropped_frames,
+        total_frames: diag.total_frames,
+        buffer_health_sec: diag.buffer_health_sec,
+    };
+    core.audio_summary()
+}
+
+#[uniffi::export]
+pub fn format_diagnostics_dropped_frames(diag: FfiMediaDiagnostics) -> String {
+    let core = MediaDiagnostics {
+        file_name: diag.file_name,
+        resolution: diag.resolution,
+        video_codec: diag.video_codec,
+        audio_codec: diag.audio_codec,
+        audio_channels: diag.audio_channels,
+        sample_rate_hz: diag.sample_rate_hz,
+        decoder_mode: diag.decoder_mode,
+        current_bitrate_kbps: diag.current_bitrate_kbps,
+        dropped_frames: diag.dropped_frames,
+        total_frames: diag.total_frames,
+        buffer_health_sec: diag.buffer_health_sec,
+    };
+    core.dropped_frames_summary()
+}

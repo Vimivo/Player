@@ -51,11 +51,26 @@ export component AppWindow inherits Window {
     in-out property <bool> wifi-server-active: false;
     in-out property <string> wifi-server-url: "";
 
+    // A-B Loop Repeat
+    in-out property <string> ab-loop-label: "A-B Loop";
+    in-out property <bool> ab-loop-active: false;
+
+    // Stats for Nerds / Diagnostics Modal
+    in-out property <bool> show-stats-dialog: false;
+    in-out property <string> stats-video: "3840x2160 (4K UHD) · HEVC Main 10";
+    in-out property <string> stats-audio: "FLAC 24-bit · 5.1 Surround 48.0 kHz";
+    in-out property <string> stats-decoder: "⚡ Hardware (HW+)";
+    in-out property <string> stats-bitrate: "18.4 Mbps";
+    in-out property <string> stats-dropped: "0 / 14200 (0.00%)";
+    in-out property <string> stats-buffer: "5.2 s";
+
     callback play-pause-clicked();
     callback next-clicked();
     callback previous-clicked();
     callback shuffle-toggled();
     callback repeat-toggled();
+    callback ab-loop-clicked();
+    callback toggle-stats-dialog();
     callback item-selected(string);
     callback search-changed(string);
     callback progress-seeked(float);
@@ -229,6 +244,11 @@ export component AppWindow inherits Window {
                     Button {
                         text: root.wifi-server-active ? "Stop Wi-Fi Share" : "Wi-Fi File Sharing";
                         clicked => { root.toggle-wifi-server(); }
+                    }
+
+                    Button {
+                        text: "Stats for Nerds";
+                        clicked => { root.toggle-stats-dialog(); }
                     }
 
                     Rectangle { height: 12px; }
@@ -528,6 +548,11 @@ export component AppWindow inherits Window {
                                 text: root.repeat-mode == 1 ? "↻ All" : root.repeat-mode == 2 ? "↻ 1" : "↻ Off";
                                 clicked => { root.repeat-toggled(); }
                             }
+                            Button {
+                                text: root.ab-loop-label;
+                                primary: root.ab-loop-active;
+                                clicked => { root.ab-loop-clicked(); }
+                            }
                         }
 
                         HorizontalBox {
@@ -656,6 +681,68 @@ export component AppWindow inherits Window {
                         primary: true;
                         clicked => { root.submit-vault-pin(root.vault-pin-input); }
                     }
+                }
+            }
+        }
+    }
+
+    // Stats for Nerds Diagnostics Dialog Overlay
+    if root.show-stats-dialog : Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #000000dd;
+
+        Rectangle {
+            width: 480px;
+            height: 360px;
+            background: #10121a;
+            border-radius: 12px;
+            border-width: 1px;
+            border-color: #38bdf8;
+
+            VerticalBox {
+                padding: 24px;
+                spacing: 12px;
+
+                HorizontalBox {
+                    Text { text: "Playback Diagnostics (Stats for Nerds)"; font-size: 15px; font-weight: 700; color: #38bdf8; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Button { text: "✕"; clicked => { root.toggle-stats-dialog(); } }
+                }
+
+                Rectangle { height: 1px; background: #1e293b; }
+
+                HorizontalBox {
+                    Text { text: "Video Stream:"; font-size: 12px; font-weight: 600; color: #94a3b8; width: 110px; }
+                    Text { text: root.stats-video; font-size: 12px; font-weight: 600; color: #f8fafc; }
+                }
+                HorizontalBox {
+                    Text { text: "Audio Stream:"; font-size: 12px; font-weight: 600; color: #94a3b8; width: 110px; }
+                    Text { text: root.stats-audio; font-size: 12px; font-weight: 600; color: #f8fafc; }
+                }
+                HorizontalBox {
+                    Text { text: "Active Decoder:"; font-size: 12px; font-weight: 600; color: #94a3b8; width: 110px; }
+                    Text { text: root.stats-decoder; font-size: 12px; font-weight: 700; color: #34d399; }
+                }
+                HorizontalBox {
+                    Text { text: "Live Bitrate:"; font-size: 12px; font-weight: 600; color: #94a3b8; width: 110px; }
+                    Text { text: root.stats-bitrate; font-size: 12px; font-weight: 600; color: #f8fafc; }
+                }
+                HorizontalBox {
+                    Text { text: "Dropped Frames:"; font-size: 12px; font-weight: 600; color: #94a3b8; width: 110px; }
+                    Text { text: root.stats-dropped; font-size: 12px; font-weight: 600; color: #f8fafc; }
+                }
+                HorizontalBox {
+                    Text { text: "Buffer Health:"; font-size: 12px; font-weight: 600; color: #94a3b8; width: 110px; }
+                    Text { text: root.stats-buffer; font-size: 12px; font-weight: 600; color: #38bdf8; }
+                }
+
+                Rectangle { vertical-stretch: 1; }
+
+                Button {
+                    text: "Close Diagnostics";
+                    primary: true;
+                    clicked => { root.toggle-stats-dialog(); }
                 }
             }
         }

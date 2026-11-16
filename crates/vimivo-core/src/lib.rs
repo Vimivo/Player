@@ -18,3 +18,5 @@ pub mod decoder;
 pub mod gesture;
 pub mod converter;
 pub mod network_share;
+pub mod ab_loop;
+pub mod diagnostics;
