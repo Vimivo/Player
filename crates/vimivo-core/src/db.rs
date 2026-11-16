@@ -45,6 +45,24 @@ impl VimivoDatabase {
     pub fn migrate(&mut self) -> Result<()> {
         let from = self.version()?;
 
+        // Ensure baseline tables and columns always exist regardless of legacy version
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                id TEXT PRIMARY KEY,
+                media_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                position_millis INTEGER NOT NULL,
+                created_at_millis INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            "#,
+        )?;
+        Self::ensure_media_columns(&self.conn)?;
+
         if from < 1 {
             let tx = self.conn.transaction()?;
             tx.execute_batch(
