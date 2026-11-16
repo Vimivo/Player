@@ -278,6 +278,8 @@ public final class AVPlayerPlaybackEngine: NSObject, ObservableObject, AudioSess
         let skippedTitle = state.currentItem?.title ?? ""
         if consecutiveFailures >= Int(queueModel.size()) {
             stop()
+            state.status = .error
+            state.errorMessage = message
             return
         }
         guard let id = queueModel.next() else { return }

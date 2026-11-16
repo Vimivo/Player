@@ -13,27 +13,32 @@ public final class SleepTimerModel: ObservableObject {
 
     private weak var engine: AVPlayerPlaybackEngine?
     private var internalTimer: Timer?
+    private var fadeTimer: Timer?
     private var targetEpochMillis: Int64?
     private var initialVolume: Float?
+    private var isFading = false
+    private let clock: () -> Int64
 
-    public var isActive: Bool { remainingMillis != nil || stopsAfterTrack }
+    public var isActive: Bool { remainingMillis != nil || stopsAfterTrack || isFading }
 
-    init(clock: (() -> Int64)? = nil) {}
+    public init(clock: (() -> Int64)? = nil) {
+        self.clock = clock ?? { Int64(Date().timeIntervalSince1970 * 1000) }
+    }
 
-    func attach(_ engine: AVPlayerPlaybackEngine) {
+    public func attach(_ engine: AVPlayerPlaybackEngine) {
         self.engine = engine
     }
 
     public func start(minutes: Int) {
         cancel()
-        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        let now = clock()
         let durationMillis = Int64(minutes) * 60 * 1000
         targetEpochMillis = now + durationMillis
         remainingMillis = durationMillis
         stopsAfterTrack = false
         initialVolume = currentVolume()
 
-        internalTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        internalTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             self?.tick()
         }
     }
@@ -55,31 +60,59 @@ public final class SleepTimerModel: ObservableObject {
 
     private func tick() {
         guard let target = targetEpochMillis else { return }
-        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        let now = clock()
         let remaining = target - now
 
         if remaining <= 0 {
-            finishTimer()
+            internalTimer?.invalidate()
+            internalTimer = nil
+            targetEpochMillis = nil
+            remainingMillis = nil
+            startFadeOut(durationSeconds: fadeSeconds)
             return
         }
 
         remainingMillis = remaining
-        let fadeMillis = Int64(fadeSeconds * 1000)
-        if remaining <= fadeMillis {
-            let elapsedFade = fadeMillis - remaining
-            let fraction = calculateSleepFadeVolume(elapsedMillis: elapsedFade, fadeMillis: fadeMillis)
-            let base = initialVolume ?? 1.0
-            applyVolume(base * fraction)
-        }
     }
 
-    private func finishTimer() {
-        cancel()
-        engine?.pause()
-        if let base = initialVolume {
-            applyVolume(base)
+    private func startFadeOut(durationSeconds: Int) {
+        guard !isFading else { return }
+        isFading = true
+        let baseVolume = initialVolume ?? currentVolume()
+        initialVolume = baseVolume
+        let fadeDurationMillis = Int64(max(1, durationSeconds) * 1000)
+        let fadeStartEpochMillis = Date().timeIntervalSince1970 * 1000
+
+        fadeTimer?.invalidate()
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] timer in
+            guard let self = self else {
+                timer.invalidate()
+                return
+            }
+
+            // If user or system paused playback during the fade, end fade and restore volume
+            if self.engine?.state.status != .playing {
+                timer.invalidate()
+                self.fadeTimer = nil
+                self.isFading = false
+                self.applyVolume(baseVolume)
+                self.initialVolume = nil
+                return
+            }
+
+            let elapsedMillis = Int64(Date().timeIntervalSince1970 * 1000 - fadeStartEpochMillis)
+            if elapsedMillis >= fadeDurationMillis {
+                timer.invalidate()
+                self.fadeTimer = nil
+                self.isFading = false
+                self.engine?.pause()
+                self.applyVolume(baseVolume)
+                self.initialVolume = nil
+            } else {
+                let fraction = calculateSleepFadeVolume(elapsedMillis: elapsedMillis, fadeMillis: fadeDurationMillis)
+                self.applyVolume(baseVolume * fraction)
+            }
         }
-        initialVolume = nil
     }
 
     public func stopAfterCurrentTrack() {
@@ -91,6 +124,9 @@ public final class SleepTimerModel: ObservableObject {
     public func cancel() {
         internalTimer?.invalidate()
         internalTimer = nil
+        fadeTimer?.invalidate()
+        fadeTimer = nil
+        isFading = false
         targetEpochMillis = nil
         remainingMillis = nil
         stopsAfterTrack = false
@@ -111,6 +147,7 @@ public final class SleepTimerModel: ObservableObject {
 
     /// Runs the end of the countdown now: fade out, pause, put the volume back.
     func expireNow(fadeSeconds: Int) {
-        finishTimer()
+        cancel()
+        startFadeOut(durationSeconds: fadeSeconds)
     }
 }
