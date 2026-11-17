@@ -76,7 +76,7 @@ jobs:
       - name: Package macOS DMG
         run: |
           mkdir -p staging
-          hdiutil create -volname "Vimivo" -srcfolder "build-mac/iosApp.app" -ov -format UDZO "staging/Vimivo-1.0.0.dmg"
+          hdiutil create -volname "Vimivo" -srcfolder "build-mac/iosApp.app" -ov -format UDZO "staging/Vimivo-${{ github.event.inputs.candidate_version }}.dmg"
       - uses: actions/upload-artifact@v4
         with:
           name: rc-macos
@@ -131,9 +131,9 @@ EOF
             (cd /tmp && /tmp/appimagetool --appimage-extract)
             export PATH="/tmp/squashfs-root/usr/bin:${PATH}"
           fi
-          appimagetool AppDir staging/Vimivo-1.0.0-x86_64.AppImage || cp target/release/vimivo-desktop staging/Vimivo-1.0.0-x86_64.AppImage
-          cp staging/Vimivo-1.0.0-x86_64.AppImage staging/vimivo_1.0.0-1_amd64.deb 2>/dev/null || true
-          cp staging/Vimivo-1.0.0-x86_64.AppImage staging/vimivo-1.0.0-1.x86_64.rpm 2>/dev/null || true
+          appimagetool AppDir "staging/Vimivo-${{ github.event.inputs.candidate_version }}-x86_64.AppImage" || cp target/release/vimivo-desktop "staging/Vimivo-${{ github.event.inputs.candidate_version }}-x86_64.AppImage"
+          cp "staging/Vimivo-${{ github.event.inputs.candidate_version }}-x86_64.AppImage" "staging/vimivo_${{ github.event.inputs.candidate_version }}-1_amd64.deb" 2>/dev/null || true
+          cp "staging/Vimivo-${{ github.event.inputs.candidate_version }}-x86_64.AppImage" "staging/vimivo-${{ github.event.inputs.candidate_version }}-1.x86_64.rpm" 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         with:
           name: rc-linux
@@ -173,8 +173,8 @@ EOF
         run: |
           New-Item -ItemType Directory -Force -Path "staging"
           Copy-Item "target/release/vimivo-desktop.exe" -Destination "staging/Vimivo.exe"
-          Copy-Item "target/release/vimivo-desktop.exe" -Destination "staging/Vimivo-1.0.0.exe"
-          Copy-Item "target/release/vimivo-desktop.exe" -Destination "staging/Vimivo-1.0.0.msi"
+          Copy-Item "target/release/vimivo-desktop.exe" -Destination "staging/Vimivo-${{ github.event.inputs.candidate_version }}.exe"
+          Copy-Item "target/release/vimivo-desktop.exe" -Destination "staging/Vimivo-${{ github.event.inputs.candidate_version }}.msi"
           if (Test-Path "windows-mpv/bin/*.dll") {
             Copy-Item "windows-mpv/bin/*.dll" -Destination "staging"
           }
