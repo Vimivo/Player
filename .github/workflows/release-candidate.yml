@@ -108,22 +108,8 @@ jobs:
           cp target/release/vimivo-desktop AppDir/usr/bin/vimivo
           cp desktopApp/src/desktopMain/resources/icon.png AppDir/usr/share/icons/hicolor/512x512/apps/vimivo.png 2>/dev/null || true
           cp AppDir/usr/share/icons/hicolor/512x512/apps/vimivo.png AppDir/vimivo.png 2>/dev/null || touch AppDir/vimivo.png
-          cat << 'EOF' > AppDir/vimivo.desktop
-[Desktop Entry]
-Name=Vimivo
-Exec=vimivo %U
-Icon=vimivo
-Type=Application
-Categories=AudioVideo;Player;
-Comment=Privacy-first music and video player
-EOF
-          cat << 'EOF' > AppDir/AppRun
-#!/bin/sh
-SELF=$(readlink -f "$0")
-HERE=${SELF%/*}
-export PATH="${HERE}/usr/bin:${PATH}"
-exec "${HERE}/usr/bin/vimivo" "$@"
-EOF
+          printf '[Desktop Entry]\nName=Vimivo\nExec=vimivo %%U\nIcon=vimivo\nType=Application\nCategories=AudioVideo;Player;\nComment=Privacy-first music and video player\n' > AppDir/vimivo.desktop
+          printf '#!/bin/sh\nSELF=$(readlink -f "$0")\nHERE=${SELF%%/*}\nexport PATH="${HERE}/usr/bin:${PATH}"\nexec "${HERE}/usr/bin/vimivo" "$@"\n' > AppDir/AppRun
           chmod +x AppDir/AppRun
           if ! command -v appimagetool >/dev/null 2>&1; then
             wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool
